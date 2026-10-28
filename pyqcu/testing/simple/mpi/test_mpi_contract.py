@@ -27,6 +27,7 @@ from pyqcu.testing.simple.mpi.benchmark_kupl import (
     _ranks_per_numa,
     main as benchmark_kupl_main,
 )
+from pyqcu.testing.simple.mpi.quda_residual import _add_clover_identity
 import pyqcu.testing.simple.mpi.solve_case as solve_case_module
 import pyqcu.testing.simple.mpi.benchmark_kupl as benchmark_module
 
@@ -36,6 +37,17 @@ def test_default_grid_keeps_even_local_extents():
     grid = default_grid(lattice, 4)
     assert grid == (1, 4, 1, 1)
     assert all((lattice[axis] // grid[axis]) % 2 == 0 for axis in range(4))
+
+
+def test_clover_residual_operator_adds_unit_onsite_term():
+    additive = np.zeros((4, 3, 4, 3, 2, 2, 2, 4), dtype=np.complex64)
+    additive[0, 0, 1, 2] = 3.0 + 4.0j
+    operator = _add_clover_identity(additive)
+    matrix = operator.reshape(12, 12, 2, 2, 2, 4)
+    diagonal = np.arange(12)
+    assert np.all(matrix[diagonal, diagonal] == 1.0 + 0.0j)
+    assert matrix.reshape(4, 3, 4, 3, 2, 2, 2, 4)[0, 0, 1, 2, 0, 0, 0, 0] == (
+        3.0 + 4.0j)
 
 
 def test_lime_magic_case_and_small_slice(tmp_path):

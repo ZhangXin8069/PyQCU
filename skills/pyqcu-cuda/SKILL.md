@@ -209,7 +209,7 @@ finally:
 | 范围 | 技能 |
 |---|---|
 | `pyqcu/cuda/qcu/`（Cython 桥全貌，含 `qcu.pyi` 类型约定） | `skills/pyqcu-cpp-qcu/SKILL.md` |
-| C++↔Cython 边界两侧（`pyqcu.h` 37 个入口、`qcu_api.pxd`、`qcu.pyx`） | `skills/pyqcu-cpp-qcu-python/SKILL.md` |
+| C++↔Cython 边界两侧（`pyqcu.h` 40 个入口、`qcu_api.pxd`、`qcu.pyx`） | `skills/pyqcu-cpp-qcu-python/SKILL.md` |
 | QUDA 对照侧的 refer/quda 构建与 PyQUDA 调用契约 | `skills/pyqcu-testing-qcu/SKILL.md`（2026-10-15 自本文件移入） |
 
 两条只在此处出现、故予保留的约定：

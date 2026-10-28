@@ -72,8 +72,8 @@ def main() -> int:
     )
     missing = sorted(expected - exported)
     unexpected = sorted(exported - expected)
-    if len(expected) != 37:
-        print(f"expected header declares 37 QCU symbols, found {len(expected)}")
+    if len(expected) != 40:
+        print(f"expected header declares 40 QCU symbols, found {len(expected)}")
     if missing:
         print("missing exports:", ", ".join(missing))
     if unexpected:
@@ -86,7 +86,7 @@ def main() -> int:
         )
     for name in signature_mismatches:
         print(f"signature mismatch {name}: kupl={declared[name]} cuda={cuda_declared[name]}")
-    if (len(expected) != 37 or set(declared) != set(cuda_declared) or
+    if (len(expected) != 40 or set(declared) != set(cuda_declared) or
             signature_mismatches or missing or unexpected):
         return 1
     print(

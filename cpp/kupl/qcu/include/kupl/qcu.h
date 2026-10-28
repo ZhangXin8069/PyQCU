@@ -90,6 +90,22 @@ KUPL_QCU_API void applyMultigridCoarseDslashWideQcu(
     long long _fermion_out, long long _fermion_in, long long _sitting,
     long long _hop_nn, long long _hop_diag, long long _set_ptrs,
     long long _params);
+KUPL_QCU_API int applyMultigridLocalOrthogonalizeQcu(
+    long long _flat_in, long long _blocked_out, int E, int e, int Xf, int Yf,
+    int Zf, int Tf, int Xc, int Yc, int Zc, int Tc, int data_type);
+KUPL_QCU_API int applyMultigridBuildNullVectorsQcu(
+    long long _blocked_out, long long _gauge, long long _clover_even,
+    long long _clover_odd, long long _clover_even_inv,
+    long long _clover_odd_inv, long long _set_ptrs, long long _params, int E,
+    int e, int Xf, int Yf, int Zf, int Tf, int Xc, int Yc, int Zc, int Tc,
+    int nv_iters, unsigned long long seed, double nv_tol);
+KUPL_QCU_API int applyMultigridBuildStencilLocalQcu(
+    long long _sitting, long long _hop_nn, long long _hop_diag,
+    long long _null_vectors, long long _gauge, long long _clover_even,
+    long long _clover_odd, long long _clover_even_inv,
+    long long _clover_odd_inv, long long _set_ptrs, long long _params, int E,
+    int e, int Xf, int Yf, int Zf, int Tf, int Xc, int Yc, int Zc, int Tc,
+    int window, int batch_size);
 KUPL_QCU_API int applyMultigridStrictCoarseQcu(
     long long _fermion_out, long long _fermion_in, long long _links,
     long long _onsite_pair, long long _set_ptrs, long long _params,

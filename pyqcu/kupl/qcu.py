@@ -74,6 +74,10 @@ _SIGNATURES = {
     "applyMultigridProLongQcu": (_LL,) * 5,
     "applyMultigridCoarseDslashQcu": (_LL,) * 6,
     "applyMultigridCoarseDslashWideQcu": (_LL,) * 7,
+    "applyMultigridLocalOrthogonalizeQcu": (_LL,) * 2 + (_I,) * 11,
+    "applyMultigridBuildNullVectorsQcu": (
+        (_LL,) * 8 + (_I,) * 11 + (_ULL, _D)),
+    "applyMultigridBuildStencilLocalQcu": (_LL,) * 11 + (_I,) * 12,
     "applyCloverBistabCgQcu": (_LL,) * 9,
     "getCloverBistabCgIterationsQcu": (_LL, _LL),
     "applyCloverBistabCgDslashQcu": (_LL,) * 9,
@@ -100,6 +104,9 @@ _STATUS_FUNCTIONS = {
     "getCloverBistabCgIterationsQcu",
     "applyCloverBistabCgPrepareQcu",
     "applyCloverBistabCgReconstructQcu",
+    "applyMultigridLocalOrthogonalizeQcu",
+    "applyMultigridBuildNullVectorsQcu",
+    "applyMultigridBuildStencilLocalQcu",
     "applyMultigridStrictCoarseQcu",
     "applyMultigridStrictMatPCQcu",
     "applyMultigridStrictFineMatPCQcu",
@@ -332,6 +339,72 @@ def applyMultigridCoarseDslashWideQcu(out, src, sitting, hop_nn, hop_diag,
     _LIBRARY.applyMultigridCoarseDslashWideQcu(
         _pointer(out), _pointer(src), _pointer(sitting), _pointer(hop_nn),
         _pointer(hop_diag), _pointer(set_ptrs), _pointer(params))
+
+
+def applyMultigridLocalOrthogonalizeQcu(
+        flat_in, blocked_out, E: int, e: int, Xf: int, Yf: int, Zf: int,
+        Tf: int, Xc: int, Yc: int, Zc: int, Tc: int, data_type: int) -> int:
+    if tuple(flat_in.shape) != (E, e, Xf, Yf, Zf, Tf):
+        raise ValueError("flat null-vector shape does not match geometry")
+    flat_size = flat_in.numel() if hasattr(flat_in, "numel") else flat_in.size
+    blocked_size = (blocked_out.numel() if hasattr(blocked_out, "numel")
+                    else blocked_out.size)
+    if flat_size != blocked_size:
+        raise ValueError("flat input and blocked output sizes differ")
+    return int(_LIBRARY.applyMultigridLocalOrthogonalizeQcu(
+        _pointer(flat_in), _pointer(blocked_out), E, e, Xf, Yf, Zf, Tf,
+        Xc, Yc, Zc, Tc, data_type))
+
+
+def applyMultigridBuildNullVectorsQcu(
+        blocked_out, gauge, clover_even, clover_odd, clover_even_inv,
+        clover_odd_inv, set_ptrs, params, E: int, e: int, Xf: int, Yf: int,
+        Zf: int, Tf: int, Xc: int, Yc: int, Zc: int, Tc: int,
+        nv_iters: int = 1, seed: int = 42, nv_tol: float = 1.0e-2) -> int:
+    expected = (E, e, Xc, Xf // Xc, Yc, Yf // Yc, Zc, Zf // Zc, Tc,
+                Tf // Tc)
+    if tuple(blocked_out.shape) != expected:
+        raise ValueError("blocked null-vector shape does not match geometry")
+    if E <= 0 or e <= 0 or min(Xf, Yf, Zf, Tf, Xc, Yc, Zc, Tc) <= 0:
+        raise ValueError("null-vector dimensions must be positive")
+    if Xf % Xc or Yf % Yc or Zf % Zc or Tf % Tc:
+        raise ValueError("fine null-vector geometry must be block-divisible")
+    if nv_iters < 0 or nv_tol <= 0.0:
+        raise ValueError("null-vector iteration controls are invalid")
+    return int(_LIBRARY.applyMultigridBuildNullVectorsQcu(
+        _pointer(blocked_out), _pointer(gauge), _pointer(clover_even),
+        _pointer(clover_odd), _pointer(clover_even_inv),
+        _pointer(clover_odd_inv), _pointer(set_ptrs), _pointer(params), E, e,
+        Xf, Yf, Zf, Tf, Xc, Yc, Zc, Tc, nv_iters, seed, nv_tol))
+
+
+def applyMultigridBuildStencilLocalQcu(
+        sitting, hop_nn, hop_diag, null_vectors, gauge, clover_even,
+        clover_odd, clover_even_inv, clover_odd_inv, set_ptrs, params,
+        E: int, e: int, Xf: int, Yf: int, Zf: int, Tf: int, Xc: int,
+        Yc: int, Zc: int, Tc: int, window: int = 8,
+        batch_size: int = 8) -> int:
+    coarse_shape = (E, E, Xc, Yc, Zc, Tc)
+    if tuple(sitting.shape) != coarse_shape:
+        raise ValueError("sitting stencil shape does not match geometry")
+    if tuple(hop_nn.shape) != (2, 4, *coarse_shape):
+        raise ValueError("nearest stencil shape does not match geometry")
+    if tuple(hop_diag.shape) != (2, 2, 6, *coarse_shape):
+        raise ValueError("diagonal stencil shape does not match geometry")
+    expected_null = (
+        E, e, Xc, Xf // Xc, Yc, Yf // Yc, Zc, Zf // Zc, Tc, Tf // Tc)
+    if tuple(null_vectors.shape) != expected_null:
+        raise ValueError("null-vector stencil shape does not match geometry")
+    if not (Xf % Xc == Yf % Yc == Zf % Zc == Tf % Tc == 0):
+        raise ValueError("fine stencil geometry must be block-divisible")
+    if window <= 0 or batch_size <= 0:
+        raise ValueError("stencil window and batch size must be positive")
+    return int(_LIBRARY.applyMultigridBuildStencilLocalQcu(
+        _pointer(sitting), _pointer(hop_nn), _pointer(hop_diag),
+        _pointer(null_vectors), _pointer(gauge), _pointer(clover_even),
+        _pointer(clover_odd), _pointer(clover_even_inv),
+        _pointer(clover_odd_inv), _pointer(set_ptrs), _pointer(params), E, e,
+        Xf, Yf, Zf, Tf, Xc, Yc, Zc, Tc, window, batch_size))
 
 
 def applyCloverBistabCgQcu(out, src, gauge, ce, coo, cei, coi,

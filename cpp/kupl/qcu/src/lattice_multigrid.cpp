@@ -4,8 +4,11 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
+#include <cstdlib>
 #include <limits>
 #include <stdexcept>
+#include <utility>
 #include <vector>
 
 namespace kupl::qcu {
@@ -696,6 +699,418 @@ void LatticeSet<Real>::apply_multigrid_coarse_dslash_wide(
           out + static_cast<int64_t>(E_out) * volume + block;
       for (int site = 0; site < count; ++site) {
         destination[site] = sum[site];
+      }
+    }
+  }
+}
+
+template <typename Real>
+void LatticeSet<Real>::multigrid_build_stencil_local(
+    void *sitting, void *hop_nn, void *hop_diag, const void *null_vectors,
+    const void *gauge, const void *clover_even, const void *clover_odd,
+    const void *clover_even_inv, const void *clover_odd_inv, int E, int e,
+    int Xf, int Yf, int Zf, int Tf, int Xc, int Yc, int Zc, int Tc,
+    int window) {
+  using C = Complex<Real>;
+  if (sitting == nullptr || hop_nn == nullptr || hop_diag == nullptr ||
+      null_vectors == nullptr || gauge == nullptr || clover_even == nullptr ||
+      clover_odd == nullptr || clover_even_inv == nullptr ||
+      clover_odd_inv == nullptr) {
+    throw std::runtime_error("local stencil build received a null pointer");
+  }
+  if (geometry_.size != 1) {
+    throw std::runtime_error(
+        "local stencil setup currently requires a single-rank LatticeSet");
+  }
+  if (E <= 0 || e != kVectorSize || Xf <= 0 || Yf <= 0 || Zf <= 0 ||
+      Tf <= 0 || Xc <= 0 || Yc <= 0 || Zc <= 0 || Tc <= 0 ||
+      Xf != geometry_.local[0] || Yf != geometry_.local[1] ||
+      Zf != geometry_.local[2] || Tf != geometry_.local[3] / 2 ||
+      Xf % Xc || Yf % Yc || Zf % Zc || Tf % Tc) {
+    throw std::invalid_argument("invalid local stencil setup geometry");
+  }
+  const std::array<int, kDim> fine = {Xf, Yf, Zf, Tf};
+  const std::array<int, kDim> coarse = {Xc, Yc, Zc, Tc};
+  const std::array<int, kDim> block = {
+      Xf / Xc, Yf / Yc, Zf / Zc, Tf / Tc};
+  int required_window = 0;
+  for (int dim = 0; dim < kDim; ++dim) {
+    // Parity-compressed time normally leaves block[3] == 1.  The local
+    // window construction remains valid for any positive block extent.
+    if (block[dim] < 1) {
+      throw std::invalid_argument(
+          "local stencil setup requires positive block extents");
+    }
+    if (3 * block[dim] + 2 > fine[dim]) {
+      throw std::invalid_argument(
+          "local stencil window exceeds the periodic local lattice");
+    }
+    required_window = std::max(required_window, 3 * block[dim] + 2);
+  }
+  if (window < required_window) {
+    throw std::invalid_argument(
+        "local stencil window is too small: need at least " +
+        std::to_string(required_window));
+  }
+
+  require_wilson_mode();
+  ensure_gauge_halo(static_cast<const C *>(gauge));
+  const int parity = target_parity();
+  const int other = 1 - parity;
+  const int64_t half_sites = geometry_.half_sites;
+  const int64_t coarse_count = coarse_volume(coarse);
+  const int64_t fine_vectors = geometry_.parity_vectors;
+  const auto *lonv = static_cast<const C *>(null_vectors);
+  const auto *odd_term = static_cast<const C *>(clover_odd);
+  const std::array<const C *, 2> inverse = {
+      static_cast<const C *>(clover_even_inv),
+      static_cast<const C *>(clover_odd_inv)};
+  auto *sit = static_cast<C *>(sitting);
+  auto *hnn = static_cast<C *>(hop_nn);
+  auto *hdg = static_cast<C *>(hop_diag);
+  std::vector<C> source(static_cast<std::size_t>(fine_vectors));
+  std::vector<C> even(static_cast<std::size_t>(fine_vectors));
+  std::vector<C> schur(static_cast<std::size_t>(fine_vectors));
+
+  const auto multiply_onsite_site = [](const C *input, const C *matrix,
+                                       int64_t site, int64_t half_sites,
+                                       C result[kVector]) {
+    for (int row = 0; row < kVector; ++row) {
+      C sum(0);
+      for (int column = 0; column < kVector; ++column) {
+        sum += matrix[(static_cast<int64_t>(row) * kVector + column) *
+                          half_sites +
+                      site] *
+               input[static_cast<int64_t>(column) * half_sites + site];
+      }
+      result[row] = sum;
+    }
+  };
+  const auto apply_onsite_field_site = [&](const C *input, const C *matrix,
+                                           C *output, int64_t site) {
+    C result[kVector];
+    multiply_onsite_site(input, matrix, site, half_sites, result);
+    for (int component = 0; component < kVector; ++component) {
+      output[static_cast<int64_t>(component) * half_sites + site] =
+          result[component];
+    }
+  };
+  const auto apply_onsite_vector_site = [&](const C *input, const C *matrix,
+                                            int64_t site, C output[kVector]) {
+    multiply_onsite_site(input, matrix, site, half_sites, output);
+  };
+  const auto coarse_site = [](const std::array<int, kDim> &coord,
+                              const std::array<int, kDim> &dims) {
+    return ((static_cast<int64_t>(coord[0]) * dims[1] + coord[1]) * dims[2] +
+            coord[2]) *
+               dims[3] +
+           coord[3];
+  };
+  const auto unique_points =
+      [](std::vector<std::array<int, kDim>> points) {
+        std::vector<std::array<int, kDim>> unique;
+        for (const auto &point : points) {
+          if (std::find(unique.begin(), unique.end(), point) == unique.end()) {
+            unique.push_back(point);
+          }
+        }
+        return unique;
+      };
+  static constexpr int pair_first[6] = {0, 0, 0, 1, 1, 2};
+  static constexpr int pair_second[6] = {1, 2, 3, 2, 3, 3};
+  const auto progress_start = std::chrono::steady_clock::now();
+  const int64_t progress_step = std::max<int64_t>(1, coarse_count / 20);
+  int64_t next_progress = 0;
+  const bool progress =
+      std::getenv("PYQCU_MG_BUILD_PROGRESS") != nullptr;
+
+  for (int64_t c_linear = 0; c_linear < coarse_count; ++c_linear) {
+    if (progress && c_linear >= next_progress) {
+      const double elapsed = std::chrono::duration<double>(
+          std::chrono::steady_clock::now() - progress_start).count();
+      std::fprintf(
+          stderr,
+          "PYQCU::KUPL::MG_BUILD:\n stencil coarse=%lld/%lld elapsed=%.3fs "
+          "window=%d\n",
+          static_cast<long long>(c_linear),
+          static_cast<long long>(coarse_count), elapsed, window);
+      std::fflush(stderr);
+      next_progress = std::min(coarse_count, c_linear + progress_step);
+    }
+    std::array<int, kDim> center{};
+    decode_coarse_site(c_linear, coarse, center[0], center[1], center[2],
+                       center[3]);
+    std::vector<std::array<int, kDim>> points;
+    points.push_back(center);
+    for (int dim = 0; dim < kDim; ++dim) {
+      for (int sign : {1, -1}) {
+        auto point = center;
+        point[dim] = (point[dim] + sign + coarse[dim]) % coarse[dim];
+        points.push_back(point);
+      }
+    }
+    for (int pair = 0; pair < 6; ++pair) {
+      for (int sign0 : {1, -1}) {
+        for (int sign1 : {1, -1}) {
+          auto point = center;
+          point[pair_first[pair]] =
+              (point[pair_first[pair]] + sign0 + coarse[pair_first[pair]]) %
+              coarse[pair_first[pair]];
+          point[pair_second[pair]] =
+              (point[pair_second[pair]] + sign1 + coarse[pair_second[pair]]) %
+              coarse[pair_second[pair]];
+          points.push_back(point);
+        }
+      }
+    }
+    points = unique_points(std::move(points));
+    std::vector<std::vector<C>> coefficient(
+        points.size(), std::vector<C>(static_cast<std::size_t>(E) * E));
+
+    std::array<int, kDim> expanded_start{};
+    std::array<int, kDim> expanded_extent{};
+    for (int dim = 0; dim < kDim; ++dim) {
+      expanded_start[dim] =
+          (center[dim] * block[dim] - block[dim] - 1 + fine[dim]) % fine[dim];
+      expanded_extent[dim] = 3 * block[dim] + 2;
+    }
+
+    for (int probe = 0; probe < E; ++probe) {
+      for (int dx = 0; dx < block[0]; ++dx) {
+        for (int dy = 0; dy < block[1]; ++dy) {
+          for (int dz = 0; dz < block[2]; ++dz) {
+            for (int dt = 0; dt < block[3]; ++dt) {
+              const int x = center[0] * block[0] + dx;
+              const int y = center[1] * block[1] + dy;
+              const int z = center[2] * block[2] + dz;
+              const int t = center[3] * block[3] + dt;
+              const int64_t site = site_linear(x, y, z, t);
+              for (int component = 0; component < e; ++component) {
+                source[static_cast<int64_t>(component) * half_sites + site] =
+                    lonv[multigrid_null_index(
+                        probe, component, x, y, z, t, e, Xf, Yf, Zf, Tf, Xc,
+                        Yc, Zc, Tc)];
+              }
+            }
+          }
+        }
+      }
+
+      for (int ox = 0; ox < expanded_extent[0]; ++ox) {
+        for (int oy = 0; oy < expanded_extent[1]; ++oy) {
+          for (int oz = 0; oz < expanded_extent[2]; ++oz) {
+            for (int ot = 0; ot < expanded_extent[3]; ++ot) {
+              const int x = (expanded_start[0] + ox) % Xf;
+              const int y = (expanded_start[1] + oy) % Yf;
+              const int z = (expanded_start[2] + oz) % Zf;
+              const int t = (expanded_start[3] + ot) % Tf;
+              compute_dslash_site(source.data(), even.data(), x, y, z, t,
+                                  other);
+              const int64_t site = site_linear(x, y, z, t);
+              apply_onsite_field_site(
+                  even.data(), inverse[static_cast<std::size_t>(other)],
+                  even.data(), site);
+            }
+          }
+        }
+      }
+
+      for (const auto &point : points) {
+        for (int dx = 0; dx < block[0]; ++dx) {
+          for (int dy = 0; dy < block[1]; ++dy) {
+            for (int dz = 0; dz < block[2]; ++dz) {
+              for (int dt = 0; dt < block[3]; ++dt) {
+                const int x = point[0] * block[0] + dx;
+                const int y = point[1] * block[1] + dy;
+                const int z = point[2] * block[2] + dz;
+                const int t = point[3] * block[3] + dt;
+                const int64_t site = site_linear(x, y, z, t);
+                compute_dslash_site(even.data(), schur.data(), x, y, z, t,
+                                    parity);
+                C onsite[kVector];
+                apply_onsite_vector_site(source.data(), odd_term, site,
+                                         onsite);
+                const Real kappa2 = kappa() * kappa();
+#pragma omp simd
+                for (int component = 0; component < kVector; ++component) {
+                  schur[static_cast<int64_t>(component) * half_sites + site] =
+                      onsite[component] -
+                      kappa2 *
+                          schur[static_cast<int64_t>(component) * half_sites +
+                                site];
+                }
+              }
+            }
+          }
+        }
+      }
+
+      for (std::size_t pi = 0; pi < points.size(); ++pi) {
+        const auto &point = points[pi];
+        for (int out = 0; out < E; ++out) {
+          C sum(0);
+          for (int dx = 0; dx < block[0]; ++dx) {
+            for (int dy = 0; dy < block[1]; ++dy) {
+              for (int dz = 0; dz < block[2]; ++dz) {
+                for (int dt = 0; dt < block[3]; ++dt) {
+                  const int x = point[0] * block[0] + dx;
+                  const int y = point[1] * block[1] + dy;
+                  const int z = point[2] * block[2] + dz;
+                  const int t = point[3] * block[3] + dt;
+                  const int64_t site = site_linear(x, y, z, t);
+                  for (int component = 0; component < e; ++component) {
+                    const C projector = lonv[multigrid_null_index(
+                        out, component, x, y, z, t, e, Xf, Yf, Zf, Tf, Xc,
+                        Yc, Zc, Tc)];
+                    const C value =
+                        schur[static_cast<int64_t>(component) * half_sites +
+                              site];
+                    sum += C(projector.real() * value.real() +
+                                 projector.imag() * value.imag(),
+                             projector.real() * value.imag() -
+                                 projector.imag() * value.real());
+                  }
+                }
+              }
+            }
+          }
+          coefficient[pi][static_cast<std::size_t>(out) * E + probe] = sum;
+        }
+      }
+
+      const auto coefficient_for = [&](const std::array<int, kDim> &point) {
+        const auto iterator =
+            std::find(points.begin(), points.end(), point);
+        if (iterator == points.end()) {
+          throw std::runtime_error("local stencil lost a neighbor point");
+        }
+        return static_cast<std::size_t>(iterator - points.begin());
+      };
+      for (int out = 0; out < E; ++out) {
+        for (int in = 0; in < E; ++in) {
+          sit[(static_cast<int64_t>(out) * E + in) * coarse_count +
+              c_linear] =
+              coefficient[coefficient_for(center)]
+                         [static_cast<std::size_t>(out) * E + in];
+        }
+      }
+      for (int dim = 0; dim < kDim; ++dim) {
+        auto backward = center;
+        auto forward = center;
+        backward[dim] =
+            (backward[dim] - 1 + coarse[dim]) % coarse[dim];
+        forward[dim] = (forward[dim] + 1) % coarse[dim];
+        const bool degenerate = backward == forward;
+        for (int out = 0; out < E; ++out) {
+          for (int in = 0; in < E; ++in) {
+            const auto write = [&](int sign_index,
+                                   const std::array<int, kDim> &point,
+                                   Real scale) {
+              const int64_t site = coarse_site(point, coarse);
+              const int64_t index =
+                  (((static_cast<int64_t>(sign_index) * kDim + dim) * E + out) *
+                       E +
+                   in) *
+                      coarse_count +
+                  site;
+              hnn[index] =
+                  scale * coefficient[coefficient_for(point)]
+                                     [static_cast<std::size_t>(out) * E + in];
+            };
+            // Store at target=n and encode the opposite displacement, since
+            // the coarse kernel reads input[n + encoded_shift].
+            write(0, backward, 1);
+            write(1, forward, 1);
+            if (degenerate) {
+              const int64_t site = coarse_site(forward, coarse);
+              for (int sign_index = 0; sign_index < 2; ++sign_index) {
+                const int64_t index =
+                    (((static_cast<int64_t>(sign_index) * kDim + dim) * E +
+                      out) *
+                         E +
+                     in) *
+                        coarse_count +
+                    site;
+                hnn[index] =
+                    Real(0.5) *
+                    coefficient[coefficient_for(forward)]
+                               [static_cast<std::size_t>(out) * E + in];
+              }
+            }
+          }
+        }
+      }
+      for (int pair = 0; pair < 6; ++pair) {
+        for (int sign0_index = 0; sign0_index < 2; ++sign0_index) {
+          const int sign0 = sign0_index == 0 ? 1 : -1;
+          for (int sign1_index = 0; sign1_index < 2; ++sign1_index) {
+            const int sign1 = sign1_index == 0 ? 1 : -1;
+            auto point = center;
+            point[pair_first[pair]] =
+                (point[pair_first[pair]] - sign0 +
+                 coarse[pair_first[pair]]) %
+                coarse[pair_first[pair]];
+            point[pair_second[pair]] =
+                (point[pair_second[pair]] - sign1 +
+                 coarse[pair_second[pair]]) %
+                coarse[pair_second[pair]];
+            int combinations = 0;
+            for (int other0_index = 0; other0_index < 2; ++other0_index) {
+              const int other0 = other0_index == 0 ? 1 : -1;
+              for (int other1_index = 0; other1_index < 2; ++other1_index) {
+                const int other1 = other1_index == 0 ? 1 : -1;
+                auto other_point = center;
+                other_point[pair_first[pair]] =
+                    (other_point[pair_first[pair]] - other0 +
+                     coarse[pair_first[pair]]) %
+                    coarse[pair_first[pair]];
+                other_point[pair_second[pair]] =
+                    (other_point[pair_second[pair]] - other1 +
+                     coarse[pair_second[pair]]) %
+                    coarse[pair_second[pair]];
+                combinations += other_point == point ? 1 : 0;
+              }
+            }
+            const int64_t site = coarse_site(point, coarse);
+            for (int out = 0; out < E; ++out) {
+              for (int in = 0; in < E; ++in) {
+                const int64_t index =
+                    ((((static_cast<int64_t>(sign0_index) * 2 +
+                        sign1_index) *
+                           6 +
+                       pair) *
+                          E +
+                      out) *
+                         E +
+                     in) *
+                        coarse_count +
+                    site;
+                hdg[index] =
+                    coefficient[coefficient_for(point)]
+                               [static_cast<std::size_t>(out) * E + in] /
+                    static_cast<Real>(combinations);
+              }
+            }
+          }
+        }
+      }
+
+      for (int dx = 0; dx < block[0]; ++dx) {
+        for (int dy = 0; dy < block[1]; ++dy) {
+          for (int dz = 0; dz < block[2]; ++dz) {
+            for (int dt = 0; dt < block[3]; ++dt) {
+              const int x = center[0] * block[0] + dx;
+              const int y = center[1] * block[1] + dy;
+              const int z = center[2] * block[2] + dz;
+              const int t = center[3] * block[3] + dt;
+              const int64_t site = site_linear(x, y, z, t);
+              for (int component = 0; component < e; ++component) {
+                source[static_cast<int64_t>(component) * half_sites + site] =
+                    C(0);
+              }
+            }
+          }
+        }
       }
     }
   }

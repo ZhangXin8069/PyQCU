@@ -66,12 +66,13 @@ def main(argv=None) -> int:
     gauge = np.ascontiguousarray(gauge, dtype=dtype)
     kappa = 1.0 / (2.0 * float(args.mass) + 8.0)
     started = time.perf_counter()
+    setup_stats: dict[str, object] = {}
     assets = build_coarse_assets(
         gauge, lattice, args.mass, kappa, args.csw, dtype, 2,
         list(args.dof), list(args.mg_grid), args.nv_iters, args.seed,
         verbose=True, local_stencil=True,
         local_stencil_batch_size=args.batch_size,
-        device_name=args.build_device)
+        device_name=args.build_device, setup_stats=setup_stats)
     elapsed = time.perf_counter() - started
     output = resolve_path(args.output, Path(args.output).expanduser())
     write_coarse_assets(output, *(value[0] for value in assets))
@@ -88,6 +89,11 @@ def main(argv=None) -> int:
         "nv_iters": int(args.nv_iters),
         "seed": int(args.seed),
         "build_device": args.build_device,
+        "setup_method": "cxx-null-vector+local-33-stencil",
+        "setup_backend": (
+            "cuda-qcu-cxx" if args.build_device == "cuda"
+            else "kupl-qcu-cxx"),
+        "setup_validation": setup_stats,
         "local_stencil": True,
         "local_stencil_batch_size": int(args.batch_size),
         "setup_seconds": elapsed,

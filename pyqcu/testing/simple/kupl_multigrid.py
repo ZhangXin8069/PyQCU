@@ -23,6 +23,7 @@ try:
                           convergence_status, kupl_fermion_to_qcu,
                           qcu_fermion_to_kupl, qcu_gauge_to_kupl,
                           resolve_csw, resolve_path, write_h5, write_json)
+    from ._layouts import qcu_gauge_to_kupl as gauge_to_parity
     from .kupl_bistabcg import (NumpyTensor, PLAN_CLOVER, PLAN_SOLVER,
                                 PARITY, SET_PLAN, cpu_memory_snapshot,
                                 kupl_backend, load_gauge, load_source,
@@ -35,6 +36,7 @@ except ImportError:
                          convergence_status, kupl_fermion_to_qcu,
                          qcu_fermion_to_kupl, qcu_gauge_to_kupl,
                          resolve_csw, resolve_path, write_h5, write_json)
+    from _layouts import qcu_gauge_to_kupl as gauge_to_parity
     from kupl_bistabcg import (NumpyTensor, PLAN_CLOVER, PLAN_SOLVER,
                                PARITY, SET_PLAN, cpu_memory_snapshot,
                                kupl_backend, load_gauge, load_source,
@@ -98,95 +100,285 @@ def build_coarse_assets(gauge: np.ndarray, lattice: tuple[int, int, int, int],
                         mg_grid: list[int], nv_iters: int, seed: int,
                         verbose: bool = False, local_stencil: bool = False,
                         local_stencil_batch_size: int = 4,
-                        device_name: str = "cpu"):
-    try:
-        import torch
-        from pyqcu import tools
-        from pyqcu.torch import dslash, solver
-    except ImportError as exc:
-        raise RuntimeError(f"full-site Galerkin builder unavailable: {exc}") from exc
+                        device_name: str = "cpu",
+                        setup_stats: dict[str, Any] | None = None):
     if levels != 2:
         raise ValueError("the independent simple MG fixture supports two levels")
-    torch_dtype = torch.complex64 if dtype == np.dtype(np.complex64) else \
-        torch.complex128
-    real_dtype = torch.float32 if dtype == np.dtype(np.complex64) else \
-        torch.float64
-    device = torch.device(device_name)
-    gauge_tensor = torch.from_numpy(np.ascontiguousarray(gauge)).to(device)
-    kappa_tensor = torch.tensor([kappa], dtype=real_dtype, device=device)
-    u0 = torch.ones(1, dtype=real_dtype, device=device)
-    clover = dslash.make_clover(
-        gauge_tensor, kappa=kappa_tensor, u_0=u0, csw=csw)
-    fine_operator = dslash.operator(
-        U=gauge_tensor, clover_term=clover, kappa=kappa_tensor,
-        u_0=u0,
-        support_parity=False, verbose=False)
+    del kappa
+    gauge_parity = gauge_to_parity(np.ascontiguousarray(gauge))
+    fine_odd = (lattice[0], lattice[1], lattice[2], lattice[3] // 2)
+    coarse_lattice = tuple(
+        fine_odd[index] // mg_grid[index] for index in range(4))
+    block = tuple(
+        fine_odd[index] // coarse_lattice[index] for index in range(4))
+    E, e = int(dof[1]), 12
+    null_shape = (
+        E, e, coarse_lattice[0], block[0], coarse_lattice[1], block[1],
+        coarse_lattice[2], block[2], coarse_lattice[3], block[3])
+    onsite_shape = (4, 3, 4, 3, *fine_odd)
+    sit_shape = (E, E, *coarse_lattice)
+    hnn_shape = (2, 4, E, E, *coarse_lattice)
+    hdg_shape = (2, 2, 6, E, E, *coarse_lattice)
 
-    def matvec(vector):
-        return fine_operator.matvec(vector)
+    stage_started = time.perf_counter()
+    galerkin_error = 0.0
+    timings = {
+        "null_vector_seconds": 0.0,
+        "stencil_seconds": 0.0,
+        "galerkin_validation_seconds": 0.0,
+        "host_transfer_seconds": 0.0,
+    }
+    if device_name.startswith("cuda"):
+        try:
+            import torch
+            from pyqcu.cuda import define, qcu
+        except ImportError as exc:
+            raise RuntimeError(f"CUDA QCU setup unavailable: {exc}") from exc
+        if not torch.cuda.is_available():
+            raise RuntimeError("CUDA QCU setup requested without a visible DCU")
+        device = torch.device(device_name)
+        torch_dtype = torch.complex64 if dtype == np.dtype(np.complex64) else \
+            torch.complex128
+        gauge_device = torch.from_numpy(gauge_parity).to(
+            device=device, dtype=torch_dtype, non_blocking=False).contiguous()
+        clover_even = torch.empty(onsite_shape, dtype=torch_dtype, device=device)
+        clover_odd = torch.empty_like(clover_even)
+        clover_even_inv = torch.empty_like(clover_even)
+        clover_odd_inv = torch.empty_like(clover_even)
+        null_vectors = torch.empty(null_shape, dtype=torch_dtype, device=device)
+        sitting = torch.zeros(sit_shape, dtype=torch_dtype, device=device)
+        hop_nn = torch.zeros(hnn_shape, dtype=torch_dtype, device=device)
+        hop_diag = torch.zeros(hdg_shape, dtype=torch_dtype, device=device)
+        params = torch.zeros(define._PARAMS_SIZE_, dtype=torch.int32)
+        params[define._LAT_X_], params[define._LAT_Y_] = lattice[:2]
+        params[define._LAT_Z_], params[define._LAT_T_] = lattice[2:]
+        params[define._LAT_XYZT_] = int(np.prod(lattice))
+        params[define._GRID_X_], params[define._GRID_Y_] = 1, 1
+        params[define._GRID_Z_], params[define._GRID_T_] = 1, 1
+        params[define._NODE_RANK_], params[define._NODE_SIZE_] = 0, 1
+        params[define._MAX_ITER_] = 1000
+        params[define._DATA_TYPE_] = int(define.epytd(torch_dtype).item())
+        params[define._SET_INDEX_] = 0
+        params[define._SET_PLAN_] = define._SET_PLAN2_
+        params[define._MG_LEVEL1_E_] = E
+        params[define._MG_LEVEL1_X_] = coarse_lattice[0]
+        params[define._MG_LEVEL1_Y_] = coarse_lattice[1]
+        params[define._MG_LEVEL1_Z_] = coarse_lattice[2]
+        params[define._MG_LEVEL1_T_] = coarse_lattice[3]
+        params[define._SEED_] = int(seed)
+        argv = define.make_argv(float(mass), csw=float(csw), atol=1.0e-7)
+        set_ptrs = torch.zeros(define._SET_PTRS_SIZE_, dtype=torch.int64)
+        qcu.applyInitQcu(set_ptrs, params, argv)
+        try:
+            params[define._PARITY_] = 0
+            qcu.applyCloversQcu(
+                clover_even, clover_even_inv, gauge_device, set_ptrs, params)
+            params[define._PARITY_] = 1
+            qcu.applyCloversQcu(
+                clover_odd, clover_odd_inv, gauge_device, set_ptrs, params)
+            params[define._SET_PLAN_] = define._SET_PLAN1_
+            if verbose:
+                print(
+                    "PYQCU::CUDA::MG_SETUP:\n C++ null-space start",
+                    flush=True)
+            stage = time.perf_counter()
+            qcu.applyMultigridBuildNullVectorsQcu(
+                null_vectors, gauge_device, clover_even, clover_odd,
+                clover_even_inv, clover_odd_inv, set_ptrs, params, E, e,
+                *fine_odd, *coarse_lattice, max(1, nv_iters), seed, 1.0e-2)
+            timings["null_vector_seconds"] = time.perf_counter() - stage
+            if verbose:
+                print(
+                    "PYQCU::CUDA::MG_SETUP:\n C++ stencil start",
+                    flush=True)
+            stage = time.perf_counter()
+            qcu.applyMultigridBuildStencilLocalQcu(
+                sitting, hop_nn, hop_diag, null_vectors, gauge_device,
+                clover_even, clover_odd, clover_even_inv, clover_odd_inv,
+                set_ptrs, params, E, e, *fine_odd, *coarse_lattice, 8,
+                local_stencil_batch_size)
+            timings["stencil_seconds"] = time.perf_counter() - stage
+            stage = time.perf_counter()
+            generator = torch.Generator(device="cpu").manual_seed(941)
+            coarse_vector = torch.randn(
+                (E, *coarse_lattice), generator=generator,
+                dtype=torch_dtype).to(device)
+            prolonged = torch.empty(
+                (e, *fine_odd), dtype=torch_dtype, device=device)
+            schur_vector = torch.empty_like(prolonged)
+            restricted = torch.empty_like(coarse_vector)
+            stencil_vector = torch.empty_like(coarse_vector)
+            qcu.applyMultigridProLongQcu(
+                prolonged, coarse_vector, null_vectors, set_ptrs, params)
+            qcu.applyCloverBistabCgDslashQcu(
+                schur_vector, prolonged, gauge_device, clover_even,
+                clover_odd, clover_even_inv, clover_odd_inv, set_ptrs, params)
+            qcu.applyMultigridRestrictQcu(
+                restricted, schur_vector, null_vectors, set_ptrs, params)
+            qcu.applyMultigridCoarseDslashWideQcu(
+                stencil_vector, coarse_vector, sitting, hop_nn, hop_diag,
+                set_ptrs, params)
+            denominator = torch.linalg.vector_norm(restricted).clamp_min(1.0)
+            galerkin_error = float((
+                torch.linalg.vector_norm(stencil_vector - restricted) /
+                denominator).item())
+            if not np.isfinite(galerkin_error) or galerkin_error > 2.0e-5:
+                raise RuntimeError(
+                    f"CUDA C++ stencil Galerkin error {galerkin_error:.3e}")
+            timings["galerkin_validation_seconds"] = (
+                time.perf_counter() - stage)
+            del prolonged, schur_vector, restricted, stencil_vector
+        finally:
+            qcu.applyEndQcu(set_ptrs, params)
+        stage = time.perf_counter()
+        values = tuple(
+            tensor.detach().cpu().contiguous().numpy()
+            for tensor in (null_vectors, hop_nn, hop_diag, sitting))
+        timings["host_transfer_seconds"] = time.perf_counter() - stage
+    elif device_name == "cpu":
+        from pyqcu.kupl import qcu
+        try:
+            from pyqcu.kupl import define
+        except ImportError as exc:
+            raise RuntimeError(f"KUPL C++ setup unavailable: {exc}") from exc
+        clover_even = np.empty(onsite_shape, dtype=dtype)
+        clover_odd = np.empty(onsite_shape, dtype=dtype)
+        clover_even_inv = np.empty(onsite_shape, dtype=dtype)
+        clover_odd_inv = np.empty(onsite_shape, dtype=dtype)
+        null_vectors = np.empty(null_shape, dtype=dtype)
+        sitting = np.zeros(sit_shape, dtype=dtype)
+        hop_nn = np.zeros(hnn_shape, dtype=dtype)
+        hop_diag = np.zeros(hdg_shape, dtype=dtype)
+        params = np.zeros(58, dtype=np.int32)
+        params[0:4] = lattice
+        params[4] = int(np.prod(lattice))
+        params[5:9] = 1
+        params[10], params[11] = 0, 1
+        params[13] = 1000
+        params[DATA_TYPE] = define.LAT_C64 if dtype == np.dtype(np.complex64) else \
+            define.LAT_C128
+        params[15] = 0
+        params[SET_PLAN] = PLAN_CLOVER
+        params[19] = E
+        params[20:24] = coarse_lattice
+        params[52] = int(seed)
+        argv = np.zeros(8, dtype=np.float32 if dtype == np.dtype(np.complex64)
+                        else np.float64)
+        argv[0], argv[1], argv[2], argv[7] = mass, 1.0e-7, 0.1, csw
+        set_ptrs = np.zeros(100, dtype=np.int64)
+        gauge_arg = NumpyTensor(gauge_parity)
+        clover_even_arg = NumpyTensor(clover_even)
+        clover_odd_arg = NumpyTensor(clover_odd)
+        clover_even_inv_arg = NumpyTensor(clover_even_inv)
+        clover_odd_inv_arg = NumpyTensor(clover_odd_inv)
+        null_arg = NumpyTensor(null_vectors)
+        sitting_arg = NumpyTensor(sitting)
+        hop_nn_arg = NumpyTensor(hop_nn)
+        hop_diag_arg = NumpyTensor(hop_diag)
+        params_arg = NumpyTensor(params)
+        argv_arg = NumpyTensor(argv)
+        set_ptrs_arg = NumpyTensor(set_ptrs)
+        qcu.applyInitQcu(set_ptrs_arg, params_arg, argv_arg)
+        try:
+            params[PARITY] = 0
+            qcu.applyCloversQcu(
+                clover_even_arg, clover_even_inv_arg, gauge_arg,
+                set_ptrs_arg, params_arg)
+            params[PARITY] = 1
+            qcu.applyCloversQcu(
+                clover_odd_arg, clover_odd_inv_arg, gauge_arg,
+                set_ptrs_arg, params_arg)
+            params[SET_PLAN] = PLAN_SOLVER
+            stage = time.perf_counter()
+            status = qcu.applyMultigridBuildNullVectorsQcu(
+                null_arg, gauge_arg, clover_even_arg, clover_odd_arg,
+                clover_even_inv_arg, clover_odd_inv_arg, set_ptrs_arg,
+                params_arg, E, e,
+                *fine_odd, *coarse_lattice, max(1, nv_iters), seed, 1.0e-2)
+            if status != 0:
+                raise RuntimeError(f"KUPL null-vector setup failed: {status}")
+            timings["null_vector_seconds"] = time.perf_counter() - stage
+            stage = time.perf_counter()
+            status = qcu.applyMultigridBuildStencilLocalQcu(
+                sitting_arg, hop_nn_arg, hop_diag_arg, null_arg, gauge_arg,
+                clover_even_arg, clover_odd_arg, clover_even_inv_arg,
+                clover_odd_inv_arg, set_ptrs_arg, params_arg, E, e,
+                *fine_odd, *coarse_lattice, 8, local_stencil_batch_size)
+            if status != 0:
+                raise RuntimeError(f"KUPL stencil setup failed: {status}")
+            timings["stencil_seconds"] = time.perf_counter() - stage
+            stage = time.perf_counter()
+            rng = np.random.default_rng(941)
+            coarse_vector = (
+                rng.normal(size=(E, *coarse_lattice)) +
+                1j * rng.normal(size=(E, *coarse_lattice))).astype(dtype)
+            prolonged = np.empty((e, *fine_odd), dtype=dtype)
+            schur_vector = np.empty_like(prolonged)
+            restricted = np.empty_like(coarse_vector)
+            stencil_vector = np.empty_like(coarse_vector)
+            qcu.applyMultigridProLongQcu(
+                NumpyTensor(prolonged), NumpyTensor(coarse_vector), null_arg,
+                set_ptrs_arg, params_arg)
+            qcu.applyCloverBistabCgDslashQcu(
+                NumpyTensor(schur_vector), NumpyTensor(prolonged), gauge_arg,
+                clover_even_arg, clover_odd_arg, clover_even_inv_arg,
+                clover_odd_inv_arg, set_ptrs_arg, params_arg)
+            qcu.applyMultigridRestrictQcu(
+                NumpyTensor(restricted), NumpyTensor(schur_vector), null_arg,
+                set_ptrs_arg, params_arg)
+            qcu.applyMultigridCoarseDslashWideQcu(
+                NumpyTensor(stencil_vector), NumpyTensor(coarse_vector),
+                sitting_arg, hop_nn_arg, hop_diag_arg, set_ptrs_arg,
+                params_arg)
+            denominator = max(float(np.linalg.norm(restricted)), 1.0)
+            galerkin_error = float(
+                np.linalg.norm(stencil_vector - restricted) / denominator)
+            if not np.isfinite(galerkin_error) or galerkin_error > 2.0e-5:
+                raise RuntimeError(
+                    f"KUPL C++ stencil Galerkin error {galerkin_error:.3e}")
+            timings["galerkin_validation_seconds"] = (
+                time.perf_counter() - stage)
+        finally:
+            qcu.applyEndQcu(set_ptrs_arg, params_arg)
+        values = (null_vectors, hop_nn, hop_diag, sitting)
+    else:
+        raise ValueError(f"unsupported build device {device_name!r}")
 
-    if verbose:
-        print("KUPL::MG_BUILD: null-space start", flush=True)
-    torch.manual_seed(seed + 9001)
-    from pyqcu.torch.tools._multigrid import give_null_vecs_mt
-
-    null_vectors = give_null_vecs_mt(
-        None, dof[1], 12, list(lattice), torch_dtype, device,
-        nv_iters=max(1, nv_iters), nthreads=1, seed=seed + 9001,
-        verbose=False, nv_tol=1.0e-2,
-        batch_matvec=fine_operator.matvec_batch,
-        batch_chunk=int(os.environ.get("PYQCU_NULL_BATCH_CHUNK", "4")))
-    coarse_lattice = [
-        lattice[index] // mg_grid[index] for index in range(4)]
-    if verbose:
-        print("KUPL::MG_BUILD: orthogonalize start", flush=True)
-    null_vectors = tools.local_orthogonalize(
-        null_vectors, coarse_lat_size=coarse_lattice, verbose=False)
-    # Near-null vectors can be badly rank deficient after inverse iteration.
-    # cuSOLVER/LAPACK QR then occasionally returns a reduced basis that is not
-    # orthonormal enough for P^T P = I in complex64.  A second QR on the
-    # unblocked global layout makes the KUPL restrict/prolong contract explicit.
-    E, e, Xc, bx, Yc, by, Zc, bz, Tc, bt = null_vectors.shape
-    global_null = null_vectors.permute(
-        0, 1, 2, 3, 4, 5, 6, 7, 8, 9).reshape(
-            E, e, Xc * bx, Yc * by, Zc * bz, Tc * bt).contiguous()
-    null_vectors = tools.local_orthogonalize(
-        global_null, coarse_lat_size=coarse_lattice, verbose=False)
-    block = null_vectors[:, :, 0, :, 0, :, 0, :, 0, :].reshape(E, -1)
-    gram_error = torch.max(torch.abs(block @ block.conj().T -
-                                     torch.eye(E, dtype=block.dtype,
-                                               device=block.device))).item()
-    if gram_error > 1.0e-4:
-        raise RuntimeError(
-            f"KUPL MG null-vector block is not orthonormal: {gram_error:.3e}")
-    if device.type == "cuda":
-        # Orthogonalization leaves large short-lived work buffers in the
-        # caching allocator. Release them before the stencil phase so L32
-        # construction does not inherit a misleading free-memory baseline.
-        torch.cuda.empty_cache()
+    null_vectors, hop_nn, hop_diag, sitting = values
+    columns = null_vectors.reshape(
+        E, e, coarse_lattice[0], block[0], coarse_lattice[1], block[1],
+        coarse_lattice[2], block[2], coarse_lattice[3], block[3]).transpose(
+            2, 4, 6, 8, 0, 1, 3, 5, 7, 9).reshape(
+                int(np.prod(coarse_lattice)), E, e * int(np.prod(block)))
+    gram = columns.conj() @ np.swapaxes(columns, 1, 2)
+    gram_error = float(np.max(np.abs(
+        gram - np.eye(E, dtype=complex))))
+    if not np.isfinite(gram_error) or gram_error > 1.0e-4:
+        raise RuntimeError(f"MG null-vector Gram error {gram_error:.3e}")
     if verbose:
         print(
-            f"KUPL::MG_BUILD: stencil start coarse={coarse_lattice}", flush=True)
-    if local_stencil:
-        from pyqcu.torch.tools._multigrid import (
-            BatchedLocalWilsonClover, build_stencil_local,
-        )
-
-        local_operator = BatchedLocalWilsonClover(
-            fine_operator, *lattice, W=6)
-        hop_nn, hop_diag, sitting = build_stencil_local(
-            local_operator, null_vectors, dof[1], list(lattice),
-            coarse_lattice, torch_dtype, device, verbose=verbose,
-            batch_size=local_stencil_batch_size)
-    else:
-        hop_nn, hop_diag, sitting = tools.build_stencil(
-            matvec, null_vectors, dof[1], 12, list(lattice),
-            coarse_lattice, torch_dtype, device, verbose=verbose)
-    if verbose:
-        print("KUPL::MG_BUILD: stencil done", flush=True)
-    return tuple(
-        [tensor.detach().cpu().contiguous().numpy()]
-        for tensor in (null_vectors, hop_nn, hop_diag, sitting))
+            "PYQCU::CXX::MG_SETUP:\n "
+            f"device={device_name} method=CXX_NULL_STENCIL "
+            f"fine_odd={fine_odd} coarse={coarse_lattice} "
+            f"gram={gram_error:.3e} galerkin={galerkin_error:.3e} "
+            f"seconds={time.perf_counter()-stage_started:.3f}",
+            flush=True)
+    if setup_stats is not None:
+        setup_stats.update({
+            "method": "cxx-null-vector+local-33-stencil",
+            "backend": (
+                "cuda-qcu-cxx" if device_name.startswith("cuda")
+                else "kupl-qcu-cxx"),
+            "fine_odd": list(fine_odd),
+            "coarse": list(coarse_lattice),
+            "local_stencil_window": 8,
+            "local_stencil_batch_size": int(local_stencil_batch_size),
+            "gram_max_abs_error": gram_error,
+            "galerkin_relative_error": galerkin_error,
+            **timings,
+            "seconds": time.perf_counter() - stage_started,
+        })
+    return tuple([value] for value in values)
 
 
 def load_coarse_assets(path: Path, dtype: np.dtype,

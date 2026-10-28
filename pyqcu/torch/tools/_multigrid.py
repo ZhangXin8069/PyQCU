@@ -201,6 +201,22 @@ def local_orthogonalize(null_vecs: torch.Tensor,
     if E > local_dim:
         raise ValueError(f"PYQCU::TOOLS::MATRIX:\n E={E} exceeds local_dim={local_dim}. "
                          f"PYQCU::TOOLS::MATRIX:\n Cannot produce {E} orthonormal columns in a {local_dim}-dim space.")
+    if null_vecs.device.type == 'cuda':
+        from pyqcu.cuda import define, qcu
+        blocked = torch.empty_like(null_vecs)
+        data_type = int(define.epytd(null_vecs.dtype).item())
+        qcu.applyMultigridLocalOrthogonalizeQcu(
+            null_vecs, blocked, E, e, Xx, Yy, Zz, Tt,
+            X, Y, Z, T, data_type)
+        x, y, z, t = Xx // X, Yy // Y, Zz // Z, Tt // T
+        if verbose:
+            print(
+                "PYQCU::TOOLS::MATRIX:\n [local_orthogonalize] "
+                f"in={tuple(null_vecs.shape)},"
+                f"coarse_lat_size(X,Y,Z,T)={coarse_lat_size},"
+                f"(x,y,z,t)=({x},{y},{z},{t}),local_dim={local_dim},"
+                f"n_blocks={X * Y * Z * T},method=CUDA_CGS2")
+        return blocked.reshape(E, e, X, x, Y, y, Z, z, T, t)
     # Reshape to expose coarse/fine structure: [E,e,X,x,Y,y,Z,z,T,t]
     v = null_vecs.reshape(E, e, X, x, Y, y, Z, z, T, t).clone()
     # Move coarse coords to the front (as batch): [X,Y,Z,T,E,e,x,y,z,t]
@@ -210,20 +226,37 @@ def local_orthogonalize(null_vecs: torch.Tensor,
     v = v.view(n_blocks, E, local_dim)
     # Build A = [n_blocks,local_dim,E] (columns = E vectors at a coarse site)
     A = v.transpose(-2, -1)  # [n_blocks,local_dim,E]
-    # Batched QR on each block; Q has orthonormal columns in R^{local_dim}.
-    # QR already produces orthonormal Q; the extra normalization is a safety
-    # guard against QR precision loss for near-degenerate null vectors.
-    Q, _ = _torch.linalg_qr(A, mode='reduced')
-    if normalize:
-        # For well-conditioned blocks this is effectively a no-op (||col|| ≈ 1).
-        Q = Q / _torch.norm(Q, dim=-2, keepdim=True)
+    # A generic batched complex QR is extremely slow for thousands of tall,
+    # skinny blocks on gfx906.  E is small (typically 6--24), so two-pass MGS
+    # gives the same orthonormal column space with vectorized block matmuls.
+    Q = torch.zeros_like(A)
+    for column in range(E):
+        vector = A[..., column]
+        if column:
+            previous = Q[..., :column]
+            for _ in range(2):
+                coefficients = torch.matmul(
+                    previous.conj().transpose(-2, -1),
+                    vector.unsqueeze(-1)).squeeze(-1)
+                vector = vector - torch.matmul(
+                    previous, coefficients.unsqueeze(-1)).squeeze(-1)
+        column_norm = torch.linalg.vector_norm(
+            vector, dim=-1, keepdim=True)
+        real_dtype = vector.real.dtype
+        threshold = torch.finfo(real_dtype).eps * max(1, local_dim)
+        if bool((column_norm <= threshold).any()) or not bool(
+                torch.isfinite(column_norm).all()):
+            raise ValueError(
+                "PYQCU::TOOLS::MATRIX:\n local orthogonalization encountered "
+                "a linearly dependent or non-finite null-vector block")
+        Q[..., column] = vector / column_norm
     # Restore lattice structure: [X,Y,Z,T,e,x,y,z,t,E]
     Q = Q.view(X, Y, Z, T, e, x, y, z, t, E)
     # Permute back to [E,e,X,x,Y,y,Z,z,T,t]
     Q = Q.permute(9, 4, 0, 5, 1, 6, 2, 7, 3, 8).contiguous()
     if verbose:
         print(f"PYQCU::TOOLS::MATRIX:\n [local_orthogonalize] in={tuple(null_vecs.shape)},coarse_lat_size(X,Y,Z,T)={coarse_lat_size},"
-              f"PYQCU::TOOLS::MATRIX:\n (x,y,z,t)=({x},{y},{z},{t}),local_dim={local_dim},n_blocks={n_blocks}")
+              f"PYQCU::TOOLS::MATRIX:\n (x,y,z,t)=({x},{y},{z},{t}),local_dim={local_dim},n_blocks={n_blocks},method=CGS2")
     return Q
 
 

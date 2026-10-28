@@ -25,7 +25,7 @@ metadata:
 | `cpp/kupl/qcu/src/apply_*.cpp` | 与 CUDA QCU 对应的单入口族 C ABI 薄封装 |
 | `cpp/kupl/qcu/src/backend.cpp` | `LatticeSet<Real>` 门面、参数校验与 scratch 所有权 |
 | `cpp/kupl/qcu/src/lattice_*.cpp` | geometry、halo、Wilson/Clover、solver、Laplacian、Gauss、MG 分域实现 |
-| `cpp/kupl/qcu/qcu.map` | 仅导出 37 个 CUDA 兼容 `*Qcu` 符号 |
+| `cpp/kupl/qcu/qcu.map` | 仅导出 40 个 CUDA 兼容 `*Qcu` 符号 |
 | `cpp/kupl/qcu/tests/test_kupl.cpp` | c64/c128、1/2/4-rank、canonical layout 与真残差 |
 | `cpp/kupl/qcu/tests/test_new_abi.py` | 独立 NumPy/ctypes 差分，覆盖新增 Wilson/Laplacian 入口 |
 | `cpp/kupl/qcu/tests/test_multigrid.py` | 1/2-rank Gaussian、restrict/prolong、窄/宽 coarse halo 差分 |
@@ -39,8 +39,8 @@ metadata:
 | `pyqcu/testing/kupl/benchmark_runtime.py` | 分离 init、首次 Clover 与 RSS 的库级初始化 A/B |
 | `cpp/kupl/qcu/tests/test_failure_modes.py` | 非收敛与 fail-closed 入口的显式失败门 |
 | `cpp/kupl/qcu/tests/benchmark_kupl.cpp` | Wilson/Clover Dslash 吞吐与 rank affinity 证据 |
-| `pyqcu/testing/kupl/check_abi.py` | KUPL/CUDA C 声明与动态库 37 项导出符号一致性门 |
-| `pyqcu/kupl/qcu.py` | `ctypes.CDLL(..., RTLD_LOCAL)` Python 绑定；37 个 ABI 名称均有 Python 包装 |
+| `pyqcu/testing/kupl/check_abi.py` | KUPL/CUDA C 声明与动态库 40 项导出符号一致性门 |
+| `pyqcu/kupl/qcu.py` | `ctypes.CDLL(..., RTLD_LOCAL)` Python 绑定；40 个 ABI 名称均有 Python 包装 |
 | `pyqcu/kupl/linear_operator.py` | `KuplLinearOperator` — compact Wilson/Clover Schur apply 与 native whole-solve adapter |
 | `pyqcu/kupl/krylov.py` | `KuplBiCGStabDriver` / `KuplCGDriver` — 每次请求只调用一次 C++ solve |
 | `pyqcu/kupl/multigrid/` | 统一 KUPL multigrid 入口：`LegacyMultigrid` / `StrictMultigrid`，生命周期为 `setup/solve/close` |

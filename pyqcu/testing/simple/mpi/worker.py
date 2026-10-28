@@ -175,8 +175,14 @@ def _run_cuda(args, comm: MPI.Comm) -> int:
                 f"levels={args.levels} requires {args.levels - 1} coarse "
                 f"caches, got {len(cache_paths)}")
         runtime.params[define._MG_NUM_LEVEL_] = args.levels
-        coarse_local = list(local_lattice)
-        coarse_starts = list(starts)
+        # Runtime vectors are parity-compressed in time.  Slice caches in that
+        # same geometry instead of relying on h5py to clip a full-T request.
+        coarse_local = [
+            int(local_lattice[0]), int(local_lattice[1]),
+            int(local_lattice[2]), int(local_lattice[3]) // 2]
+        coarse_starts = [
+            int(starts[0]), int(starts[1]), int(starts[2]),
+            int(starts[3]) // 2]
         for level_index, cache_path in enumerate(
                 cache_paths[:args.levels - 1], start=1):
             if not cache_path:

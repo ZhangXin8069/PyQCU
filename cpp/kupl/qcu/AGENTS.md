@@ -44,7 +44,7 @@
   ctest --test-dir build --output-on-failure
   ```
 
-- `qcu.map` exposes only the 37 CUDA-compatible `*Qcu` symbols. Keep
+- `qcu.map` exposes only the 40 CUDA-compatible `*Qcu` symbols. Keep
   `pyqcu/testing/kupl/check_abi.py` in the CTest suite when changing ABI
   declarations; it compares both headers and the exported dynamic surface.
 - `KUPL_NUMA_BIND=1` owns CPU placement; launch MPI with binding disabled

@@ -24,11 +24,24 @@ def bind_library(path: Path) -> ctypes.CDLL:
         "applyMultigridProLongQcu": 5,
         "applyMultigridCoarseDslashQcu": 6,
         "applyMultigridCoarseDslashWideQcu": 7,
+        "applyCloversQcu": 5,
+        "applyCloverBistabCgDslashQcu": 9,
     }
     for name, count in signatures.items():
         function = getattr(library, name)
         function.argtypes = (LL,) * count
         function.restype = None
+    orthogonalize = library.applyMultigridLocalOrthogonalizeQcu
+    orthogonalize.argtypes = (LL, LL) + (ctypes.c_int,) * 11
+    orthogonalize.restype = ctypes.c_int
+    build_null = library.applyMultigridBuildNullVectorsQcu
+    build_null.argtypes = (
+        (LL,) * 8 + (ctypes.c_int,) * 11 +
+        (ctypes.c_ulonglong, ctypes.c_double))
+    build_null.restype = ctypes.c_int
+    build_stencil = library.applyMultigridBuildStencilLocalQcu
+    build_stencil.argtypes = (LL,) * 11 + (ctypes.c_int,) * 12
+    build_stencil.restype = ctypes.c_int
     return library
 
 
@@ -192,9 +205,9 @@ def run_gaussian_test(library: ctypes.CDLL, dtype: np.dtype,
 def run_transfer_test(library: ctypes.CDLL) -> tuple[float, float]:
     comm = MPI.COMM_WORLD
     grid = (comm.size, 1, 1, 1)
+    physical_dims = (4, 2, 2, 8)
     fine_dims = (4, 2, 2, 4)
-    coarse_dims = (fine_dims[0] // 2, fine_dims[1],
-                   fine_dims[2], fine_dims[3] // 2)
+    coarse_dims = (2, 2, 2, 2)
     E, e = 3, 12
     fine_volume = int(np.prod(fine_dims))
     coarse_volume = int(np.prod(coarse_dims))
@@ -210,8 +223,8 @@ def run_transfer_test(library: ctypes.CDLL) -> tuple[float, float]:
     prolonged = np.empty(e * fine_volume, dtype=np.complex64)
 
     params = np.zeros(58, dtype=np.int32)
-    params[0:4] = fine_dims
-    params[4] = fine_volume
+    params[0:4] = physical_dims
+    params[4] = int(np.prod(physical_dims))
     params[5:9] = grid
     params[10] = comm.rank
     params[11] = comm.size
@@ -415,11 +428,222 @@ def run_coarse_dslash_test(library: ctypes.CDLL) -> tuple[float, float]:
     return narrow_error, wide_error
 
 
+def run_orthogonalize_test(library: ctypes.CDLL) -> float:
+    E, e = 6, 12
+    fine = (4, 4, 4, 8)
+    coarse = (2, 2, 2, 4)
+    rng = np.random.default_rng(17 + MPI.COMM_WORLD.rank)
+    flat = (
+        rng.normal(size=(E, e, *fine)) +
+        1j * rng.normal(size=(E, e, *fine))).astype(np.complex64)
+    blocked = np.empty_like(flat)
+    status = library.applyMultigridLocalOrthogonalizeQcu(
+        pointer(flat), pointer(blocked), E, e, *fine, *coarse, 2)
+    if status != 0:
+        raise AssertionError(f"KUPL CGS2 failed with status {status}")
+    Xc, Yc, Zc, Tc = coarse
+    bx, by, bz, bt = (fine[index] // coarse[index] for index in range(4))
+    columns = blocked.reshape(
+        E, e, Xc, bx, Yc, by, Zc, bz, Tc, bt).transpose(
+            2, 4, 6, 8, 0, 1, 3, 5, 7, 9).reshape(
+                Xc * Yc * Zc * Tc, E, e * bx * by * bz * bt)
+    gram = columns.conj() @ columns.transpose(0, 2, 1)
+    worst = float(np.max(np.abs(
+        gram - np.eye(E, dtype=np.complex64))))
+    if worst >= 1.0e-4:
+        raise AssertionError(f"KUPL CGS2 Gram error {worst:.3e}")
+    return worst
+
+
+def run_null_vector_test(
+        library: ctypes.CDLL) -> tuple[float, float, float]:
+    comm = MPI.COMM_WORLD
+    grid = (comm.size, 1, 1, 1)
+    local_physical = (8, 8, 8, 16)
+    fine = (8, 8, 8, 8)
+    # Match production parity-compressed time while keeping the padded
+    # stencil window smaller than the periodic time extent.  Spatial coarse
+    # extents are greater than two so +1/-1 cannot collapse to the same site.
+    coarse = (4, 4, 4, 8)
+    E, e = 3, 12
+    parity_shape = fine
+    gauge = np.empty((2, 3, 3, 4, *parity_shape), dtype=np.complex64)
+    clover_even = np.empty((4, 3, 4, 3, *parity_shape), dtype=np.complex64)
+    clover_odd = np.empty_like(clover_even)
+    clover_even_inv = np.empty_like(clover_even)
+    clover_odd_inv = np.empty_like(clover_even)
+    blocked_shape = (
+        E, e, coarse[0], fine[0] // coarse[0],
+        coarse[1], fine[1] // coarse[1], coarse[2], fine[2] // coarse[2],
+        coarse[3], fine[3] // coarse[3])
+    blocked = np.empty(blocked_shape, dtype=np.complex64)
+    repeated = np.empty_like(blocked)
+    run_stencil = comm.size == 1
+    sitting = np.zeros((E, E, *coarse), dtype=np.complex64)
+    hop_nn = np.zeros((2, 4, E, E, *coarse), dtype=np.complex64)
+    hop_diag = np.zeros((2, 2, 6, E, E, *coarse), dtype=np.complex64)
+
+    params = np.zeros(58, dtype=np.int32)
+    params[0:4] = local_physical
+    params[4] = int(np.prod(local_physical))
+    params[5:9] = grid
+    params[10] = comm.rank
+    params[11] = comm.size
+    params[13] = 300
+    params[14] = 2
+    params[15] = 0
+    params[16] = -1
+    params[19] = E
+    params[20:24] = coarse
+    params[52] = 117
+    argv = np.zeros(8, dtype=np.float32)
+    argv[0], argv[1], argv[2], argv[7] = 0.17, 1.0e-7, 0.1, 0.8
+    set_ptrs = np.zeros(100, dtype=np.int64)
+
+    library.applyInitQcu(pointer(set_ptrs), pointer(params), pointer(argv))
+    try:
+        library.applyGaussGaugeQcu(pointer(gauge), pointer(set_ptrs),
+                                   pointer(params))
+    finally:
+        library.applyEndQcu(pointer(set_ptrs), pointer(params))
+
+    params[16] = 1
+    library.applyInitQcu(pointer(set_ptrs), pointer(params), pointer(argv))
+    try:
+        params[9] = 0
+        library.applyCloversQcu(
+            pointer(clover_even), pointer(clover_even_inv), pointer(gauge),
+            pointer(set_ptrs), pointer(params))
+        params[9] = 1
+        library.applyCloversQcu(
+            pointer(clover_odd), pointer(clover_odd_inv), pointer(gauge),
+            pointer(set_ptrs), pointer(params))
+        status = library.applyMultigridBuildNullVectorsQcu(
+            pointer(blocked), pointer(gauge), pointer(clover_even),
+            pointer(clover_odd), pointer(clover_even_inv),
+            pointer(clover_odd_inv), pointer(set_ptrs), pointer(params), E, e,
+            *fine, *coarse, 1, 42, 5.0e-2)
+        if status != 0:
+            raise AssertionError(
+                f"KUPL C++ null-vector builder failed with status {status}")
+        repeated_status = library.applyMultigridBuildNullVectorsQcu(
+            pointer(repeated), pointer(gauge), pointer(clover_even),
+            pointer(clover_odd), pointer(clover_even_inv),
+            pointer(clover_odd_inv), pointer(set_ptrs), pointer(params), E, e,
+            *fine, *coarse, 1, 42, 5.0e-2)
+        if repeated_status != 0:
+            raise AssertionError(
+                f"KUPL C++ null-vector repeat failed with status "
+                f"{repeated_status}")
+        if run_stencil:
+            stencil_status = library.applyMultigridBuildStencilLocalQcu(
+                pointer(sitting), pointer(hop_nn), pointer(hop_diag),
+                pointer(blocked), pointer(gauge), pointer(clover_even),
+                pointer(clover_odd), pointer(clover_even_inv),
+                pointer(clover_odd_inv), pointer(set_ptrs), pointer(params),
+                E, e, *fine, *coarse, 8, 8)
+            if stencil_status != 0:
+                raise AssertionError(
+                    f"KUPL C++ local stencil builder failed with status "
+                    f"{stencil_status}")
+            rng = np.random.default_rng(941)
+            coarse_vector = (
+                rng.normal(size=(E, *coarse)) +
+                1j * rng.normal(size=(E, *coarse))).astype(np.complex64)
+            prolonged = np.zeros((e, *fine), dtype=np.complex64)
+            schur_vector = np.zeros((e, *fine), dtype=np.complex64)
+            restricted = np.zeros((E, *coarse), dtype=np.complex64)
+            stencil_vector = np.zeros((E, *coarse), dtype=np.complex64)
+            library.applyMultigridProLongQcu(
+                pointer(prolonged), pointer(coarse_vector), pointer(blocked),
+                pointer(set_ptrs), pointer(params))
+            library.applyCloverBistabCgDslashQcu(
+                pointer(schur_vector), pointer(prolonged), pointer(gauge),
+                pointer(clover_even), pointer(clover_odd),
+                pointer(clover_even_inv), pointer(clover_odd_inv),
+                pointer(set_ptrs), pointer(params))
+            library.applyMultigridRestrictQcu(
+                pointer(restricted), pointer(schur_vector), pointer(blocked),
+                pointer(set_ptrs), pointer(params))
+            library.applyMultigridCoarseDslashWideQcu(
+                pointer(stencil_vector), pointer(coarse_vector),
+                pointer(sitting), pointer(hop_nn), pointer(hop_diag),
+                pointer(set_ptrs), pointer(params))
+            worst_basis = (0.0, None, -1)
+            basis_centers = (
+                (0, 0, 0, 0),
+                (1, 1, 1, 5),
+                (2, 1, 3, 3),
+                (3, 3, 3, 7),
+            )
+            for center in basis_centers:
+                for probe in range(E):
+                    coarse_vector.fill(0)
+                    coarse_vector[(probe, *center)] = 1
+                    library.applyMultigridProLongQcu(
+                        pointer(prolonged), pointer(coarse_vector),
+                        pointer(blocked), pointer(set_ptrs), pointer(params))
+                    library.applyCloverBistabCgDslashQcu(
+                        pointer(schur_vector), pointer(prolonged),
+                        pointer(gauge), pointer(clover_even),
+                        pointer(clover_odd), pointer(clover_even_inv),
+                        pointer(clover_odd_inv), pointer(set_ptrs),
+                        pointer(params))
+                    library.applyMultigridRestrictQcu(
+                        pointer(restricted), pointer(schur_vector),
+                        pointer(blocked), pointer(set_ptrs), pointer(params))
+                    library.applyMultigridCoarseDslashWideQcu(
+                        pointer(stencil_vector), pointer(coarse_vector),
+                        pointer(sitting), pointer(hop_nn), pointer(hop_diag),
+                        pointer(set_ptrs), pointer(params))
+                    basis_error = float(
+                        np.linalg.norm(stencil_vector - restricted) /
+                        max(np.linalg.norm(restricted), 1.0))
+                    if basis_error > worst_basis[0]:
+                        worst_basis = (basis_error, center, probe)
+            if worst_basis[0] >= 2.0e-5:
+                raise AssertionError(
+                    f"KUPL local stencil basis error {worst_basis[0]:.3e} "
+                    f"at center={worst_basis[1]} probe={worst_basis[2]}")
+    finally:
+        library.applyEndQcu(pointer(set_ptrs), pointer(params))
+
+    Xc, Yc, Zc, Tc = coarse
+    bx, by, bz, bt = (fine[index] // coarse[index] for index in range(4))
+    columns = blocked.reshape(
+        E, e, Xc, bx, Yc, by, Zc, bz, Tc, bt).transpose(
+            2, 4, 6, 8, 0, 1, 3, 5, 7, 9).reshape(
+                Xc * Yc * Zc * Tc, E, e * bx * by * bz * bt)
+    gram = columns.conj() @ columns.transpose(0, 2, 1)
+    gram_error = float(np.max(np.abs(
+        gram - np.eye(E, dtype=np.complex64))))
+    deterministic_error = float(
+        np.linalg.norm(blocked - repeated) /
+        max(np.linalg.norm(repeated), 1.0))
+    if not np.any(blocked):
+        raise AssertionError("KUPL C++ null-vector builder returned zeros")
+    if gram_error >= 1.0e-4:
+        raise AssertionError(f"KUPL null-vector Gram error {gram_error:.3e}")
+    if deterministic_error >= 1.0e-5:
+        raise AssertionError(
+            f"KUPL null-vector deterministic error {deterministic_error:.3e}")
+    if not run_stencil:
+        return gram_error, deterministic_error, 0.0
+    galerkin_error = float(
+        np.linalg.norm(stencil_vector - restricted) /
+        max(np.linalg.norm(restricted), 1.0))
+    if galerkin_error >= 2.0e-5:
+        raise AssertionError(
+            f"KUPL local stencil Galerkin error {galerkin_error:.3e}")
+    return gram_error, deterministic_error, galerkin_error
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--library", type=Path, required=True)
     parser.add_argument(
-        "--stage", choices=("all", "gaussian", "transfer", "coarse"),
+        "--stage", choices=("all", "gaussian", "transfer", "coarse",
+                            "orthogonalize", "null"),
         default="all")
     args = parser.parse_args()
     library = bind_library(args.library)
@@ -429,6 +653,9 @@ def main() -> int:
     gaussian_c64 = gaussian_c128 = 0.0
     restrict_error = prolong_error = 0.0
     narrow_error = wide_error = 0.0
+    orthogonalize_error = 0.0
+    null_gram_error = null_deterministic_error = 0.0
+    null_galerkin_error = 0.0
     if args.stage in ("all", "gaussian"):
         gaussian_c64 = run_gaussian_test(
             library, np.dtype(np.complex64), 2.0e-5)
@@ -438,6 +665,11 @@ def main() -> int:
         restrict_error, prolong_error = run_transfer_test(library)
     if args.stage in ("all", "coarse"):
         narrow_error, wide_error = run_coarse_dslash_test(library)
+    if args.stage in ("all", "orthogonalize"):
+        orthogonalize_error = run_orthogonalize_test(library)
+    if args.stage in ("all", "null"):
+        (null_gram_error, null_deterministic_error,
+         null_galerkin_error) = run_null_vector_test(library)
     if MPI.COMM_WORLD.rank == 0:
         print(
             f"status=PASS ranks={MPI.COMM_WORLD.size} "
@@ -445,7 +677,11 @@ def main() -> int:
             f"gaussian_c64={gaussian_c64:.3e} "
             f"gaussian_c128={gaussian_c128:.3e} "
             f"restrict={restrict_error:.3e} prolong={prolong_error:.3e} "
-            f"coarse={narrow_error:.3e} coarse_wide={wide_error:.3e}")
+            f"coarse={narrow_error:.3e} coarse_wide={wide_error:.3e} "
+            f"orthogonalize={orthogonalize_error:.3e} "
+            f"null_gram={null_gram_error:.3e} "
+            f"null_deterministic={null_deterministic_error:.3e} "
+            f"null_galerkin={null_galerkin_error:.3e}")
     return 0
 
 

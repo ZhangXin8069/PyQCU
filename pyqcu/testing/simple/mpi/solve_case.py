@@ -196,18 +196,69 @@ def _coarse_cache_path(args, case: dict[str, Any]) -> Path:
         f"_nvi{args.nv_iters}_s{args.seed}.h5")
 
 
-def _coarse_cache_valid(path: Path, expected_e: int) -> bool:
-    if not path.is_file():
+def _coarse_cache_shapes(args) -> dict[str, tuple[int, ...]]:
+    """Return the exact Legacy 33-tensor schema for the requested geometry."""
+    if args.levels < 2:
+        raise ValueError("coarse cache requires at least two levels")
+    fine_odd = (
+        int(args.lat[0]), int(args.lat[1]), int(args.lat[2]),
+        int(args.lat[3]) // 2)
+    block = tuple(int(value) for value in args.mg_grid)
+    if any(value <= 0 or fine_odd[axis] % value
+           for axis, value in enumerate(block)):
+        raise ValueError("coarse cache geometry is not divisible by mg-grid")
+    coarse = tuple(fine_odd[axis] // block[axis] for axis in range(4))
+    dof = int(args.dof[1])
+    local_dof = 12
+    return {
+        "lonv": (
+            dof, local_dof, coarse[0], block[0], coarse[1], block[1],
+            coarse[2], block[2], coarse[3], block[3]),
+        "hnn": (2, 4, dof, dof, *coarse),
+        "hdg": (2, 2, 6, dof, dof, *coarse),
+        "sit": (dof, dof, *coarse),
+    }
+
+
+def _coarse_cache_valid(
+        path: Path, expected_shapes: dict[str, tuple[int, ...]],
+        expected_metadata: dict[str, Any]) -> bool:
+    report_path = path.with_suffix(".json")
+    if not path.is_file() or not report_path.is_file():
         return False
     try:
         import h5py
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+        if report.get("status") != "PASS":
+            return False
+        if report.get("setup_method") != "cxx-null-vector+local-33-stencil":
+            return False
+        for key, expected in expected_metadata.items():
+            if report.get(key) != expected:
+                return False
 
         with h5py.File(path, "r") as handle:
-            required = {"lonv", "hnn", "hdg", "sit"}
-            return (required.issubset(handle.keys()) and
-                    int(handle["lonv"].shape[0]) == int(expected_e))
+            return all(
+                name in handle and
+                tuple(int(value) for value in handle[name].shape) == shape
+                for name, shape in expected_shapes.items())
     except (OSError, ValueError):
         return False
+
+
+def _coarse_cache_metadata(args, case: dict[str, Any]) -> dict[str, Any]:
+    dtype = "complex64" if args.dtype == "c64" else "complex128"
+    return {
+        "gauge_sha256": case["gauge"]["sha256"],
+        "lattice": [int(value) for value in args.lat],
+        "dtype": dtype,
+        "mass": float(case["mass"]),
+        "csw": float(case["csw"]),
+        "dof": [int(value) for value in args.dof[:args.levels]],
+        "mg_grid": [int(value) for value in args.mg_grid],
+        "nv_iters": int(args.nv_iters),
+        "seed": int(args.seed),
+    }
 
 
 def _build_coarse_cache(args, case: dict[str, Any], cache_path: Path) -> None:
@@ -224,6 +275,7 @@ def _build_coarse_cache(args, case: dict[str, Any], cache_path: Path) -> None:
         "--nv-iters", str(args.nv_iters),
         "--seed", str(args.seed),
         "--build-device", args.build_device,
+        "--batch-size", str(args.build_batch_size),
         "--output", str(cache_path),
         "--report", str(report),
     ]
@@ -384,6 +436,7 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument("--libqcu", choices=("auto", "sm60", "sm70", "default"),
                         default="auto")
     parser.add_argument("--build-device", choices=("cpu", "cuda"), default="cpu")
+    parser.add_argument("--build-batch-size", type=int, default=4)
     parser.add_argument("--work-dir", default=None)
     parser.add_argument("--coarse-cache", default=None)
     parser.add_argument("--coarse-cache-level", action="append", default=[])
@@ -408,6 +461,8 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
             "additional coarse transition")
     if args.levels < 1 or args.omp_threads < 1:
         parser.error("--levels and --omp-threads must be positive")
+    if args.build_batch_size < 1:
+        parser.error("--build-batch-size must be positive")
     if args.backend == "kupl" and args.kupl_numa_bind == "library" and \
             args.bind_to not in (None, "none"):
         parser.error("--kupl-numa-bind library requires --bind-to none")
@@ -547,11 +602,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     case = _materialize_case(args, dtype)
     cache_path: Path | None = None
     if args.levels > 1 and args.restart != 0:
+        expected_cache_shapes = _coarse_cache_shapes(args)
+        expected_cache_metadata = _coarse_cache_metadata(args, case)
         cache_path = (
             resolve_path(args.coarse_cache, Path(args.coarse_cache).expanduser())
             if args.coarse_cache else _coarse_cache_path(args, case))
         if args.rebuild_coarse_cache or not _coarse_cache_valid(
-                cache_path, args.dof[1]):
+                cache_path, expected_cache_shapes, expected_cache_metadata):
             _build_coarse_cache(args, case, cache_path)
 
     output = (
