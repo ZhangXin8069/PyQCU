@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 from types import SimpleNamespace
 
@@ -30,6 +31,14 @@ from pyqcu.testing.simple.mpi.benchmark_kupl import (
 from pyqcu.testing.simple.mpi.quda_residual import _add_clover_identity
 import pyqcu.testing.simple.mpi.solve_case as solve_case_module
 import pyqcu.testing.simple.mpi.benchmark_kupl as benchmark_module
+from pyqcu.tools._argparse import BooleanOptionalAction
+
+
+def test_boolean_optional_action_supports_positive_and_negative_forms():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--feature", action=BooleanOptionalAction, default=True)
+    assert parser.parse_args(["--feature"]).feature is True
+    assert parser.parse_args(["--no-feature"]).feature is False
 
 
 def test_default_grid_keeps_even_local_extents():
@@ -123,13 +132,37 @@ def test_kupl_hybrid_launch_command():
     assert command[8:10] == ["4", "python"]
 
 
-def test_mpi_cuda_explicit_library_variant():
+def test_mpi_cuda_explicit_library_variant(tmp_path, monkeypatch):
+    import pyqcu.testing.simple._runner as runner
+
+    variant_dir = tmp_path / "data" / "libqcu-sm70"
+    variant_dir.mkdir(parents=True)
+    (variant_dir / "libqcu.so").touch()
+    monkeypatch.setattr(runner, "REPO", tmp_path)
     args = SimpleNamespace(
         backend="cuda", omp_threads=1, libqcu="sm70")
     env = _launch_environment(args)
-    expected = REPO / "data" / "libqcu-sm70"
     assert env["QCU_LIBCU_VARIANT"] == "libqcu-sm70"
-    assert env["LD_LIBRARY_PATH"].split(":")[0] == str(expected)
+    assert env["LD_LIBRARY_PATH"].split(":")[0] == str(variant_dir)
+
+
+def test_torch_cpu_defaults_to_one_rank_per_core_and_fixed_threads():
+    args = _parse_args([
+        "--backend", "torch", "--torch-device", "cpu", "--ranks", "4",
+        "--omp-threads", "1", "--levels", "1", "--restart", "0",
+        "--warmup", "1", "--repeat", "3",
+    ])
+    assert args.bind_to == "core"
+    assert args.map_by == "slot:PE=1"
+    assert args.warmup == 1
+    assert args.repeat == 3
+    env = _launch_environment(args)
+    for name in (
+        "OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS",
+        "NUMEXPR_NUM_THREADS", "TORCH_NUM_THREADS",
+    ):
+        assert env[name] == "1"
+    assert env["OMP_DYNAMIC"] == "FALSE"
 
 
 def test_kupl_library_binding_environment():

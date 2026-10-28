@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import numpy as np
+import pytest
 import torch
 
 from pyqcu.testing.qcu import benchmark_qcu_lime_mpi as benchmark
@@ -144,6 +145,140 @@ def test_lifecycle_ends_before_advancing_and_recycles_slot() -> None:
     assert events[0][1] == 29 and events[-1][1] == 29
     assert int(params[define._SET_INDEX_]) == 0
     assert result["iterations"] == 3 and result["native_converged"]
+
+
+def test_reused_stage_initializes_once_and_recycles_slot() -> None:
+    events = []
+
+    class FakeQcu:
+        @staticmethod
+        def applyInitQcu(set_ptrs, params, argv):
+            index = int(params[15])
+            events.append(("init", index))
+            set_ptrs[index] = 31
+
+        @staticmethod
+        def applyEndQcu(set_ptrs, params):
+            index = int(params[15])
+            events.append(("end", index))
+            set_ptrs[index] = 0
+
+    define = SimpleNamespace(
+        _SET_PTRS_COARSE_BASE_=30, _SET_INDEX_=15, _SET_PLAN_=16,
+        _PARITY_=9)
+    dummy_torch = SimpleNamespace(
+        cuda=SimpleNamespace(synchronize=lambda device: None))
+    dummy_comm = SimpleNamespace(Barrier=lambda: events.append("barrier"))
+    params = np.zeros(58, dtype=np.int32)
+    params[define._SET_INDEX_] = 29
+    set_ptrs = np.zeros(100, dtype=np.int64)
+
+    result = benchmark._measure_reused_stage(
+        comm=dummy_comm, torch=dummy_torch, qcu=FakeQcu(), define=define,
+        params=params, argv=np.zeros(8), set_ptrs=set_ptrs, device=None,
+        plan=1, parity=0,
+        operation=lambda: events.append("operation"),
+        getter=lambda: 4, max_iter=10, warmups=1, repeats=3)
+
+    assert [event[0] if isinstance(event, tuple) else event
+            for event in events].count("init") == 1
+    assert [event[0] if isinstance(event, tuple) else event
+            for event in events].count("operation") == 5
+    assert [event[0] if isinstance(event, tuple) else event
+            for event in events].count("end") == 1
+    assert ("init", 29) in events
+    assert ("end", 29) in events
+    assert events.index(("init", 29)) < events.index(("end", 29))
+    assert int(params[define._SET_INDEX_]) == 0
+    assert result["reuse"]["reuse_count"] == 5
+    assert len(result["cold"]["samples"]) == 1
+    assert len(result["warmup"]["samples"]) == 1
+    assert len(result["steady"]["samples"]) == 3
+    assert result["reuse"]["amortized_lifecycle_seconds"] > 0.0
+
+
+def test_reused_stage_init_failure_cleans_slot_and_preserves_error() -> None:
+    events = []
+
+    class FakeQcu:
+        @staticmethod
+        def applyInitQcu(set_ptrs, params, argv):
+            index = int(params[15])
+            events.append(("init", index))
+            set_ptrs[index] = 41
+            params[15] = 0
+            raise RuntimeError("init failed")
+
+        @staticmethod
+        def applyEndQcu(set_ptrs, params):
+            index = int(params[15])
+            events.append(("end", index, int(set_ptrs[index])))
+            raise RuntimeError("cleanup failed")
+
+    define = SimpleNamespace(
+        _SET_PTRS_COARSE_BASE_=30, _SET_INDEX_=15, _SET_PLAN_=16,
+        _PARITY_=9)
+    dummy_torch = SimpleNamespace(
+        cuda=SimpleNamespace(synchronize=lambda device: None))
+    dummy_comm = SimpleNamespace(Barrier=lambda: None)
+    params = np.zeros(58, dtype=np.int32)
+    params[define._SET_INDEX_] = 29
+    set_ptrs = np.zeros(100, dtype=np.int64)
+
+    with pytest.raises(RuntimeError, match="init failed"):
+        benchmark._measure_reused_stage(
+            comm=dummy_comm, torch=dummy_torch, qcu=FakeQcu(),
+            define=define, params=params, argv=np.zeros(8),
+            set_ptrs=set_ptrs, device=None, plan=1, parity=0,
+            operation=lambda: None, getter=None, max_iter=10,
+            warmups=1, repeats=3)
+
+    assert events == [("init", 29), ("end", 29, 41)]
+    assert int(set_ptrs[29]) == 0
+    assert int(params[define._SET_INDEX_]) == 29
+
+
+def test_reused_stage_end_failure_still_cleans_and_advances_slot() -> None:
+    events = []
+
+    class FakeQcu:
+        @staticmethod
+        def applyInitQcu(set_ptrs, params, argv):
+            index = int(params[15])
+            events.append(("init", index))
+            set_ptrs[index] = 43
+
+        @staticmethod
+        def applyEndQcu(set_ptrs, params):
+            index = int(params[15])
+            events.append(("end", index, int(set_ptrs[index])))
+            raise RuntimeError("end failed")
+
+    define = SimpleNamespace(
+        _SET_PTRS_COARSE_BASE_=30, _SET_INDEX_=15, _SET_PLAN_=16,
+        _PARITY_=9)
+    dummy_torch = SimpleNamespace(
+        cuda=SimpleNamespace(synchronize=lambda device: None))
+    dummy_comm = SimpleNamespace(Barrier=lambda: None)
+    params = np.zeros(58, dtype=np.int32)
+    params[define._SET_INDEX_] = 29
+    set_ptrs = np.zeros(100, dtype=np.int64)
+
+    def operation() -> None:
+        events.append("operation")
+        params[define._SET_INDEX_] = 0
+
+    with pytest.raises(RuntimeError, match="end failed"):
+        benchmark._measure_reused_stage(
+            comm=dummy_comm, torch=dummy_torch, qcu=FakeQcu(),
+            define=define, params=params, argv=np.zeros(8),
+            set_ptrs=set_ptrs, device=None, plan=1, parity=0,
+            operation=operation, getter=None, max_iter=10,
+            warmups=0, repeats=0)
+
+    assert events == [("init", 29), "operation", ("end", 29, 43)]
+    assert int(set_ptrs[29]) == 0
+    assert int(params[define._SET_INDEX_]) == 0
 
 
 def test_device_record_uses_hip_uuid_when_torch_omits_it() -> None:

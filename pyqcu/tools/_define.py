@@ -125,6 +125,21 @@ def prime_factorization(n: int):
 
 def give_grid_size() -> List[int]:
     comm = MPI.COMM_WORLD
+    override = os.environ.get("PYQCU_PROCESS_GRID", "").strip()
+    if override:
+        try:
+            groups = [int(value) for value in override.split(",")]
+        except ValueError as exc:
+            raise ValueError(
+                f"invalid PYQCU_PROCESS_GRID={override!r}") from exc
+        if len(groups) != 4 or any(value <= 0 for value in groups):
+            raise ValueError(
+                "PYQCU_PROCESS_GRID must contain four positive integers")
+        if int(np.prod(groups)) != int(comm.Get_size()):
+            raise ValueError(
+                f"PYQCU_PROCESS_GRID={groups} does not match MPI size "
+                f"{comm.Get_size()}")
+        return groups
     factors = prime_factorization(comm.Get_size())
     groups = np.ones(4, dtype=int)
     for f in sorted(factors, reverse=True):

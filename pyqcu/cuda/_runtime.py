@@ -17,8 +17,10 @@ Every call crosses the backend boundary through three contiguous tensors:
 An ordinary direct-ABI transaction is ``applyInitQcu``, operation and any
 same-slot getters, ``applyEndQcu``, then selection of the next slot. The index
 must not advance before ``applyEndQcu`` because that call releases the slot at
-the current index. Strict multigrid is the exception: one fixed private slot
-remains initialized across its setup, solve, getters, and teardown calls.
+the current index. Repeated solves may instead use ``QcuRuntime.session()`` to
+keep one ordinary slot initialized across multiple calls. Strict multigrid is
+the exception: one fixed private slot remains initialized across its setup,
+solve, getters, and teardown calls.
 
 Parity-split ABI tensors use ``[X, Y, Z, T/2]`` as their final four axes. Their
 leading dimensions are parity/spin/color in ABI order: fermions are
@@ -46,6 +48,14 @@ import torch
 
 from pyqcu import tools
 from pyqcu.cuda import define
+
+
+_FORBIDDEN_TRANSACTION_OPERATIONS = frozenset({
+    "applyInitQcu",
+    "applyEndQcu",
+    "applyMultigridStrictInitQcu",
+    "applyMultigridStrictEndQcu",
+})
 
 
 @dataclass
@@ -270,6 +280,7 @@ class QcuRuntime:
         context exits are invalid. Strict-MG multiple-call lifecycles belong to
         their dedicated setup/solve/close wrapper, which keeps its slot fixed.
         """
+        _require_transaction_operation(name)
         try:
             acquired = self._operation_lock.acquire(blocking=False)
         except BaseException:
@@ -302,9 +313,24 @@ class QcuRuntime:
         finally:
             self._operation_lock.release()
 
+    def session(self, *, synchronize: bool = True) -> "QcuSession":
+        """Reuse one initialized ordinary slot across multiple backend calls.
+
+        Use this only while the copied C++ controls remain unchanged: lattice,
+        process grid, dtype, plan, parity, mass, CSW, tolerances, iteration
+        limits, and multigrid mode. The session snapshots those controls and
+        fails closed if they, the owner thread, or the active slot pointer
+        drift. A native operation or getter exception also poisons the session.
+        The session holds the runtime's non-reentrant lock and restores the
+        snapshot before releasing the slot through ``applyEndQcu`` in
+        ``__exit__``.
+        """
+        return QcuSession(self, synchronize=synchronize)
+
     def call(self, name: str, *args: torch.Tensor,
              synchronize: bool = True) -> Any:
         """Invoke one ``*Qcu`` operation with automatic init/end bookkeeping."""
+        _require_transaction_operation(name)
         with self.operation(name, synchronize=synchronize) as operation:
             return operation(*args)
 
@@ -359,6 +385,229 @@ class QcuOperation:
         return getter(*args, self.runtime.set_ptrs, self.runtime.params)
 
 
+class QcuSession:
+    """Persistent ordinary-slot context returned by :meth:`QcuRuntime.session`.
+
+    A session performs exactly one ``applyInitQcu`` and one ``applyEndQcu``.
+    Calls made through ``session(name, ...)`` reuse the same native scratch
+    allocation. QCU copies its controls during ``applyInitQcu``, so subsequent
+    Python-side control changes cannot affect the initialized backend object.
+    The session detects such changes and fails closed instead of treating them
+    as effective controls. Native operation/getter failures also poison the
+    session even when the caller catches the exception.
+    """
+
+    def __init__(self, runtime: QcuRuntime, *, synchronize: bool = True) -> None:
+        self.runtime = runtime
+        self.synchronize = bool(synchronize)
+        self._qcu: Any = None
+        self._index: int | None = None
+        self._device: torch.device | None = None
+        self._active = False
+        self._owner_thread: int | None = None
+        self._params: torch.Tensor | None = None
+        self._argv: torch.Tensor | None = None
+        self._set_ptrs: torch.Tensor | None = None
+        self._params_snapshot: torch.Tensor | None = None
+        self._argv_snapshot: torch.Tensor | None = None
+        self._slot_pointer: int | None = None
+        self._poison_reason: str | None = None
+
+    @property
+    def active(self) -> bool:
+        return self._active
+
+    @property
+    def set_index(self) -> int | None:
+        return self._index
+
+    @property
+    def poisoned(self) -> bool:
+        return self._poison_reason is not None
+
+    def __enter__(self) -> "QcuSession":
+        if self._active:
+            raise RuntimeError("QCU session is already active")
+        runtime = self.runtime
+        try:
+            acquired = runtime._operation_lock.acquire(blocking=False)
+        except BaseException:
+            acquired = False
+        if not acquired:
+            raise RuntimeError(
+                "QcuRuntime instances are not reentrant or thread-safe")
+        try:
+            if runtime.device.type == "cuda" and torch.cuda.is_available():
+                torch.cuda.set_device(runtime.device)
+            qcu = runtime._qcu()
+            index = runtime._allocate_slot()
+            params = runtime.params
+            argv = runtime.argv
+            set_ptrs = runtime.set_ptrs
+            try:
+                qcu.applyInitQcu(set_ptrs, params, argv)
+            except BaseException:
+                self._discard_initialization(qcu, index, set_ptrs, params)
+                raise
+            try:
+                params_snapshot = params.clone()
+                argv_snapshot = argv.clone()
+                slot_pointer = int(set_ptrs[index].item())
+            except BaseException:
+                self._discard_initialization(qcu, index, set_ptrs, params)
+                raise
+            self._qcu = qcu
+            self._index = index
+            self._device = runtime.device
+            self._owner_thread = threading.get_ident()
+            self._params = params
+            self._argv = argv
+            self._set_ptrs = set_ptrs
+            self._params_snapshot = params_snapshot
+            self._argv_snapshot = argv_snapshot
+            self._slot_pointer = slot_pointer
+            self._poison_reason = None
+            self._active = True
+            return self
+        except BaseException:
+            self._clear_state()
+            runtime._operation_lock.release()
+            raise
+
+    def __exit__(self, exc_type: Any, exc: Any, traceback: Any) -> bool:
+        if not self._active:
+            return False
+        runtime = self.runtime
+        index = int(self._index)  # type: ignore[arg-type]
+        params = self._params
+        argv = self._argv
+        set_ptrs = self._set_ptrs
+        params_snapshot = self._params_snapshot
+        argv_snapshot = self._argv_snapshot
+        slot_pointer = self._slot_pointer
+        try:
+            # ``applyEndQcu`` releases the original slot with the controls used
+            # by init. Restore object identities and values first so a drift
+            # detected during a call cannot redirect teardown.
+            runtime.params = params  # type: ignore[assignment]
+            runtime.argv = argv  # type: ignore[assignment]
+            runtime.set_ptrs = set_ptrs  # type: ignore[assignment]
+            if runtime.device.type == "cuda" and torch.cuda.is_available():
+                torch.cuda.set_device(runtime.device)
+            params.copy_(params_snapshot)  # type: ignore[union-attr]
+            argv.copy_(argv_snapshot)  # type: ignore[union-attr]
+            params[define._SET_INDEX_] = index  # type: ignore[index]
+            set_ptrs[index] = int(slot_pointer)  # type: ignore[index]
+            self._qcu.applyEndQcu(set_ptrs, params)
+        finally:
+            try:
+                set_ptrs[index] = 0  # type: ignore[index]
+            finally:
+                self._clear_state()
+                runtime._operation_lock.release()
+        return False
+
+    def __call__(self, name: str, *args: torch.Tensor) -> Any:
+        _require_transaction_operation(name)
+        self._require_ready()
+        runtime = self.runtime
+        if runtime.device.type == "cuda" and torch.cuda.is_available():
+            torch.cuda.set_device(runtime.device)
+        runtime._validate_operands(args)
+        try:
+            result = getattr(self._qcu, name)(
+                *args, runtime.set_ptrs, runtime.params)
+            if (self.synchronize and runtime.device.type == "cuda"
+                    and torch.cuda.is_available()):
+                torch.cuda.synchronize(runtime.device)
+            return result
+        except BaseException:
+            self._poison(f"native operation {name} raised")
+            raise
+
+    def read(self, name: str, *args: torch.Tensor) -> Any:
+        self._require_ready()
+        try:
+            return getattr(self._qcu, name)(
+                *args, self.runtime.set_ptrs, self.runtime.params)
+        except BaseException:
+            self._poison(f"native getter {name} raised")
+            raise
+
+    @staticmethod
+    def _discard_initialization(
+            qcu: Any, index: int, set_ptrs: torch.Tensor,
+            params: torch.Tensor) -> None:
+        try:
+            params[define._SET_INDEX_] = index
+            qcu.applyEndQcu(set_ptrs, params)
+        except BaseException:
+            pass
+        finally:
+            set_ptrs[index] = 0
+
+    def _require_ready(self) -> None:
+        if not self._active or self._index is None:
+            raise RuntimeError("QCU session is not active")
+        if self._poison_reason is not None:
+            raise RuntimeError(
+                f"QCU session is poisoned: {self._poison_reason}")
+        if threading.get_ident() != self._owner_thread:
+            self._fail_closed(
+                "used from a thread other than its owner thread")
+
+        runtime = self.runtime
+        if runtime.params is not self._params:
+            self._fail_closed("params tensor was replaced")
+        if runtime.argv is not self._argv:
+            self._fail_closed("argv tensor was replaced")
+        if runtime.set_ptrs is not self._set_ptrs:
+            self._fail_closed("set_ptrs tensor was replaced")
+        if runtime.device != self._device:
+            self._fail_closed("device changed")
+        try:
+            index_changed = int(runtime.params[define._SET_INDEX_]) != self._index
+            params_changed = not torch.equal(
+                runtime.params, self._params_snapshot)
+            argv_changed = not torch.equal(runtime.argv, self._argv_snapshot)
+            pointer_changed = (
+                int(runtime.set_ptrs[self._index]) != self._slot_pointer)
+        except BaseException as exc:
+            self._fail_closed("control snapshot check failed", exc)
+        if index_changed:
+            self._fail_closed("_SET_INDEX_ changed")
+        if params_changed:
+            self._fail_closed("params changed")
+        if argv_changed:
+            self._fail_closed("argv changed")
+        if pointer_changed:
+            self._fail_closed("active slot pointer changed")
+
+    def _poison(self, reason: str) -> None:
+        self._poison_reason = reason
+
+    def _fail_closed(self, reason: str, cause: BaseException | None = None) -> None:
+        self._poison(reason)
+        error = RuntimeError(f"QCU session poisoned: {reason}")
+        if cause is None:
+            raise error
+        raise error from cause
+
+    def _clear_state(self) -> None:
+        self._active = False
+        self._qcu = None
+        self._index = None
+        self._owner_thread = None
+        self._device = None
+        self._params = None
+        self._argv = None
+        self._set_ptrs = None
+        self._params_snapshot = None
+        self._argv_snapshot = None
+        self._slot_pointer = None
+        self._poison_reason = None
+
+
 def _argv_dtype_from_params(params: torch.Tensor) -> torch.dtype:
     data_type = int(params[define._DATA_TYPE_].item())
     if data_type == define._LAT_C64_:
@@ -366,6 +615,13 @@ def _argv_dtype_from_params(params: torch.Tensor) -> torch.dtype:
     if data_type == define._LAT_C128_:
         return torch.float64
     raise ValueError(f"unsupported QCU data type: {data_type}")
+
+
+def _require_transaction_operation(name: str) -> None:
+    if name in _FORBIDDEN_TRANSACTION_OPERATIONS:
+        raise ValueError(
+            f"{name} manages the QCU lifecycle and cannot be nested in a "
+            "QcuRuntime transaction or session")
 
 
 def _require_control_array(

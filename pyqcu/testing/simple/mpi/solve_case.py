@@ -291,6 +291,8 @@ def _worker_arguments(args, case: dict[str, Any], cache_path: Path | None,
     values = [
         sys.executable, "-m", "pyqcu.testing.simple.mpi.worker",
         "--backend", args.backend,
+        "--torch-device", args.torch_device,
+        "--kupl-legacy-layout", args.kupl_legacy_layout,
         "--gauge", case["gauge_path"],
         "--source", case["source_path"],
         "--lat", *(str(value) for value in args.lat),
@@ -299,8 +301,10 @@ def _worker_arguments(args, case: dict[str, Any], cache_path: Path | None,
         "--csw", str(case["csw"]),
         "--atol", str(args.atol),
         "--max-iter", str(args.max_iter),
+        "--omp-threads", str(args.omp_threads),
         "--dtype", args.dtype,
         "--levels", str(args.levels),
+        "--min-size", str(args.min_size),
         "--dof", *(str(value) for value in args.dof[:args.levels]),
         "--mg-grid", *(str(value) for value in args.mg_grid),
         "--restart", str(args.restart),
@@ -308,6 +312,8 @@ def _worker_arguments(args, case: dict[str, Any], cache_path: Path | None,
         "--coarse-tol-factor", str(args.coarse_tol_factor),
         "--nv-iters", str(args.nv_iters),
         "--seed", str(args.seed),
+        "--warmup", str(args.warmup),
+        "--repeat", str(args.repeat),
         "--output", str(output),
         "--report", str(report),
     ]
@@ -375,6 +381,19 @@ def _launch_environment(args) -> dict[str, str]:
             env["KUPL_HUGEPAGE"] = "1"
         if args.kupl_topology_report:
             env["KUPL_TOPOLOGY_REPORT"] = "1"
+    elif args.backend == "torch":
+        for name in (
+            "OMP_PROC_BIND", "OMP_PLACES", "GOMP_CPU_AFFINITY",
+            "KMP_AFFINITY", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS",
+            "NUMEXPR_NUM_THREADS", "TORCH_NUM_THREADS",
+        ):
+            env.pop(name, None)
+        threads = str(args.omp_threads)
+        env["OMP_DYNAMIC"] = "FALSE"
+        env["MKL_NUM_THREADS"] = threads
+        env["OPENBLAS_NUM_THREADS"] = threads
+        env["NUMEXPR_NUM_THREADS"] = threads
+        env["TORCH_NUM_THREADS"] = threads
     elif args.backend == "cuda":
         env = libqcu_environment(env, "cuda:0", args.libqcu)
     return env
@@ -383,7 +402,8 @@ def _launch_environment(args) -> dict[str, str]:
 def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--backend", choices=("kupl", "cuda"), default="kupl")
+    parser.add_argument("--backend", choices=("kupl", "cuda", "torch"),
+                        default="kupl")
     parser.add_argument("--lime", default=str(DEFAULT_LIME),
                         help="PyQUDA/QIO LIME gauge; default: ~/data/<reference>.lime")
     parser.add_argument("--gauge", default=None,
@@ -398,6 +418,7 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument("--max-iter", type=int, default=1000)
     parser.add_argument("--dtype", choices=("c64", "c128"), default="c64")
     parser.add_argument("--levels", type=int, choices=(1, 2, 3, 4), default=2)
+    parser.add_argument("--min-size", type=int, default=4)
     parser.add_argument("--dof", nargs="+", type=int, default=(12, 12))
     parser.add_argument("--mg-grid", nargs=4, type=int, default=(2, 2, 2, 2))
     parser.add_argument("--restart", type=int, default=5)
@@ -405,10 +426,13 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument("--coarse-tol-factor", type=float, default=1.0e4)
     parser.add_argument("--nv-iters", type=int, default=1)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--warmup", type=int, default=0)
+    parser.add_argument("--repeat", type=int, default=1)
     parser.add_argument("--ranks", type=int, default=4)
     parser.add_argument("--grid", nargs=4, type=int, default=None)
     parser.add_argument("--omp-threads", type=int, default=8)
-    parser.add_argument("--bind-to", choices=("numa", "none"), default=None)
+    parser.add_argument("--bind-to", choices=("core", "numa", "none"),
+                        default=None)
     parser.add_argument("--map-by", default=None)
     parser.add_argument("--kupl-numa-bind", choices=("scheduler", "library"),
                         default="scheduler")
@@ -418,6 +442,9 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
                         action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--kupl-disable-clover-cache",
                         action=argparse.BooleanOptionalAction, default=False)
+    parser.add_argument("--kupl-legacy-layout",
+                        choices=("auto", "odd-schur", "full-site"),
+                        default="auto")
     parser.add_argument("--kupl-allow-oversubscribe", action="store_true")
     parser.add_argument("--kupl-memory-policy",
                         choices=("preferred", "bind"), default=None)
@@ -434,6 +461,8 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
                         default=None)
     parser.add_argument("--mpirun", default="mpirun")
     parser.add_argument("--libqcu", choices=("auto", "sm60", "sm70", "default"),
+                        default="auto")
+    parser.add_argument("--torch-device", choices=("auto", "cpu", "cuda"),
                         default="auto")
     parser.add_argument("--build-device", choices=("cpu", "cuda"), default="cpu")
     parser.add_argument("--build-batch-size", type=int, default=4)
@@ -461,6 +490,8 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
             "additional coarse transition")
     if args.levels < 1 or args.omp_threads < 1:
         parser.error("--levels and --omp-threads must be positive")
+    if args.min_size < 2:
+        parser.error("--min-size must be at least 2")
     if args.build_batch_size < 1:
         parser.error("--build-batch-size must be positive")
     if args.backend == "kupl" and args.kupl_numa_bind == "library" and \
@@ -479,12 +510,19 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
             args.kupl_disable_clover_cache or args.kupl_allow_oversubscribe or
             args.kupl_hugepage or args.kupl_topology_report):
         parser.error("KUPL runtime options require --backend kupl")
+    if args.backend != "torch" and args.torch_device != "auto":
+        parser.error("--torch-device requires --backend torch")
+    if (args.backend != "kupl" and
+            args.kupl_legacy_layout != "auto"):
+        parser.error("--kupl-legacy-layout requires --backend kupl")
     try:
         args.ranks = validate_rank_count(args.ranks)
     except ValueError as exc:
         parser.error(str(exc))
     if args.restart < 0 or args.max_iter < 1 or args.nv_iters < 1:
         parser.error("--restart must be nonnegative and iteration counts positive")
+    if args.warmup < 0 or args.repeat < 1:
+        parser.error("--warmup must be nonnegative and --repeat must be positive")
     if not np.isfinite(args.atol) or args.atol <= 0.0:
         parser.error("--atol must be finite and positive")
     args.grid = list(resolve_grid(args.lat, args.ranks, args.grid))
@@ -504,6 +542,9 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
         elif args.backend == "kupl" and numa_count is not None and \
                 args.ranks <= numa_count:
             args.bind_to = "numa"
+        elif (args.backend == "torch" and args.torch_device == "cpu" and
+              args.omp_threads == 1):
+            args.bind_to = "core"
         else:
             args.bind_to = "none"
             args.binding_fallback = args.backend == "kupl"
@@ -512,8 +553,15 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
             args.map_by = "ppr:1:numa"
         elif args.backend == "kupl" and args.kupl_numa_bind == "library":
             args.map_by = "ppr:1:numa"
+        elif (args.backend == "torch" and args.torch_device == "cpu" and
+              args.bind_to == "core" and args.omp_threads == 1):
+            args.map_by = "slot:PE=1"
         else:
             args.map_by = None
+    if (args.backend == "torch" and args.torch_device == "cpu" and
+            args.bind_to == "core" and args.omp_threads != 1):
+        parser.error(
+            "--bind-to core currently requires --omp-threads 1 for Torch CPU")
     if (args.backend == "kupl" and args.bind_to == "numa" and
             args.map_by and "pe=" in args.map_by):
         parser.error(
@@ -575,8 +623,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             map_by=args.map_by, oversubscribe=args.oversubscribe,
             allow_run_as_root=args.allow_run_as_root,
             worker_arguments=worker)
-        launch_environment = _launch_environment(args) \
-            if args.backend == "kupl" else {}
+        launch_environment = _launch_environment(args)
         print(json.dumps({
             "status": "DRY-RUN", "backend": args.backend,
             "lime": str(input_path), "lattice": args.lat, "grid": args.grid,
@@ -594,8 +641,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "KUPL_TOPOLOGY_REPORT", "KUPL_CPU_NODE",
                     "KUPL_ALLOW_OVERSUBSCRIBE", "KUPL_FUSED_BICG_DOTS",
                     "KUPL_DISABLE_CLOVER_CACHE",
-                    "PYQCU_KUPL_PROFILE")
-            } if args.backend == "kupl" else {},
+                    "PYQCU_KUPL_PROFILE", "MKL_NUM_THREADS",
+                    "OPENBLAS_NUM_THREADS", "NUMEXPR_NUM_THREADS",
+                    "TORCH_NUM_THREADS")
+            },
         }, indent=2, ensure_ascii=False))
         return 0
 

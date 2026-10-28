@@ -3668,6 +3668,15 @@ class _MultigridHierarchy:
 
     def solve(self, b: Tensor, x0: Optional[Tensor] = None) -> Tensor:
         self.setup()
+        if not self._distributed_process_grid:
+            return self._solve_impl(b, x0=x0)
+        from pyqcu.torch.tools import _mpi_roll
+
+        with _mpi_roll.distributed_roll(
+                self.comm, self.process_grid, self.fine_shape):
+            return self._solve_impl(b, x0=x0)
+
+    def _solve_impl(self, b: Tensor, x0: Optional[Tensor] = None) -> Tensor:
         b_flat, shape_kind = self._to_flat(b, self._fine_full)
         guess = None
         if x0 is not None:

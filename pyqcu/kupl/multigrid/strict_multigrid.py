@@ -7,8 +7,7 @@ from typing import Any, Optional, Sequence
 
 import pyqcu.cann as _torch
 
-from pyqcu.kupl import qcu
-from pyqcu.cuda import define
+from pyqcu.kupl import define, qcu
 from pyqcu._multigrid_warnings import warn_excessive_multigrid_levels
 
 

@@ -1,6 +1,12 @@
 import torch
 from argparse import Namespace
 Namespace.__module__ = "pyqcu.cann"
+Tensor = torch.Tensor
+device = torch.device
+dtype = torch.dtype
+Size = torch.Size
+Generator = torch.Generator
+cuda = torch.cuda
 float32 = torch.float32
 float64 = torch.float64
 complex64 = torch.complex64
@@ -12,7 +18,31 @@ def as_tensor(data, dtype=None, device=None) -> torch.Tensor:
     return torch.as_tensor(data, dtype=dtype, device=device)
 
 
+def tensor(data, dtype=None, device=None) -> torch.Tensor:
+    return torch.tensor(data, dtype=dtype, device=device)
+
+
+def get_num_threads() -> int:
+    return int(torch.get_num_threads())
+
+
+def set_num_threads(threads: int) -> None:
+    torch.set_num_threads(int(threads))
+
+
+def isfinite(input: torch.Tensor) -> torch.Tensor:
+    if (input.device.type == 'npu' or force_use_npu) and torch.is_complex(input):
+        return torch.isfinite(input.real) & torch.isfinite(input.imag)
+    return torch.isfinite(input)
+
+
 force_use_npu = False
+
+
+def _normalize_device(value):
+    if isinstance(value, str):
+        return torch.device(value)
+    return value
 
 
 def abs(input: torch.Tensor) -> torch.Tensor:
@@ -152,6 +182,7 @@ def linalg_qr(input: torch.Tensor, mode='reduced') -> tuple:
 
 
 def eye(n: int, m=None, out=None, dtype: torch.dtype = torch.complex64, layout=torch.strided, device: torch.device = torch.device('cpu'), requires_grad=False) -> torch.Tensor:
+    device = _normalize_device(device)
     if device is not None and (device.type == 'npu' or force_use_npu) and dtype is not None and dtype.is_complex:
         real_dtype = dtype.to_real()
         if m is None:
@@ -169,6 +200,7 @@ def eye(n: int, m=None, out=None, dtype: torch.dtype = torch.complex64, layout=t
 
 
 def zeros(*args, size=None, out=None, dtype: torch.dtype, layout=torch.strided, device: torch.device, requires_grad=False) -> torch.Tensor:
+    device = _normalize_device(device)
     if size is not None:
         args = size
     if device is not None and (device.type == 'npu' or force_use_npu) and dtype is not None and dtype.is_complex:
@@ -193,6 +225,7 @@ def zeros_like(input: torch.Tensor) -> torch.Tensor:
 
 
 def randn(*args, size=None, out=None, dtype: torch.dtype, layout=torch.strided, device: torch.device, requires_grad=False) -> torch.Tensor:
+    device = _normalize_device(device)
     if size is not None:
         args = size
     if device is not None and (device.type == 'npu' or force_use_npu) and dtype is not None and dtype.is_complex:

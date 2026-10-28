@@ -52,6 +52,16 @@ int parseInteger(int argc, char **argv, const char *flag, int fallback) {
   return fallback;
 }
 
+const char *parseText(int argc, char **argv, const char *flag,
+                      const char *fallback) {
+  for (int index = 1; index + 1 < argc; ++index) {
+    if (std::strcmp(argv[index], flag) == 0) {
+      return argv[index + 1];
+    }
+  }
+  return fallback;
+}
+
 std::array<int, kDim> deriveGrid(int size) {
   std::array<int, kDim> grid{1, 1, 1, 1};
   int remaining = size;
@@ -64,7 +74,8 @@ std::array<int, kDim> deriveGrid(int size) {
 template <typename Real>
 void runBenchmark(const std::array<int, kDim> &local,
                   const std::array<int, kDim> &grid, int iterations,
-                  const char *precision) {
+                  const char *precision, bool run_wilson, bool run_clover,
+                  bool run_schur) {
   using C = Complex<Real>;
   if (local[0] <= 0 || local[1] <= 0 || local[2] <= 0 || local[3] <= 0 ||
       local[3] % 2 != 0) {
@@ -117,8 +128,10 @@ void runBenchmark(const std::array<int, kDim> &local,
   std::vector<C> input(
       static_cast<std::size_t>(2 * kVector * half_sites));
   std::vector<C> output(input.size());
-  const std::size_t clover_size =
-      static_cast<std::size_t>(kVector * kVector * half_sites);
+  const bool need_clover = run_clover || run_schur;
+  const std::size_t clover_size = need_clover
+      ? static_cast<std::size_t>(kVector * kVector * half_sites)
+      : 0;
   std::vector<C> clover_even(clover_size);
   std::vector<C> clover_odd(clover_size);
   std::vector<C> clover_even_inv(clover_size);
@@ -230,25 +243,27 @@ void runBenchmark(const std::array<int, kDim> &local,
           local[0], local[1], local[2], local[3], threads, seconds);
     }
   };
-  params[kupl::qcu::kSetPlan] = kupl::qcu::kSetPlanClover;
-  params[kupl::qcu::kParity] = 0;
-  measure_setup("clover_setup_even", [&] {
-    applyCloversQcu(
-        reinterpret_cast<long long>(clover_even.data()),
-        reinterpret_cast<long long>(clover_even_inv.data()),
-        reinterpret_cast<long long>(gauge.data()),
-        reinterpret_cast<long long>(set_ptrs.data()),
-        reinterpret_cast<long long>(params.data()));
-  });
-  params[kupl::qcu::kParity] = 1;
-  measure_setup("clover_setup_odd", [&] {
-    applyCloversQcu(
-        reinterpret_cast<long long>(clover_odd.data()),
-        reinterpret_cast<long long>(clover_odd_inv.data()),
-        reinterpret_cast<long long>(gauge.data()),
-        reinterpret_cast<long long>(set_ptrs.data()),
-        reinterpret_cast<long long>(params.data()));
-  });
+  if (need_clover) {
+    params[kupl::qcu::kSetPlan] = kupl::qcu::kSetPlanClover;
+    params[kupl::qcu::kParity] = 0;
+    measure_setup("clover_setup_even", [&] {
+      applyCloversQcu(
+          reinterpret_cast<long long>(clover_even.data()),
+          reinterpret_cast<long long>(clover_even_inv.data()),
+          reinterpret_cast<long long>(gauge.data()),
+          reinterpret_cast<long long>(set_ptrs.data()),
+          reinterpret_cast<long long>(params.data()));
+    });
+    params[kupl::qcu::kParity] = 1;
+    measure_setup("clover_setup_odd", [&] {
+      applyCloversQcu(
+          reinterpret_cast<long long>(clover_odd.data()),
+          reinterpret_cast<long long>(clover_odd_inv.data()),
+          reinterpret_cast<long long>(gauge.data()),
+          reinterpret_cast<long long>(set_ptrs.data()),
+          reinterpret_cast<long long>(params.data()));
+    });
+  }
 
   // The dslash entries write one parity half.  Report the equivalent work per
   // full lattice site: 8 directed SU(3) hops, plus an onsite product when the
@@ -261,44 +276,50 @@ void runBenchmark(const std::array<int, kDim> &local,
   const double schur_flops_per_site =
       2.0 * (wilson_half_site_flops + onsite_half_site_flops) * 0.5;
   params[kupl::qcu::kSetPlan] = kupl::qcu::kSetPlanWilson;
-  measure(
-      "wilson",
-      [&] {
-        applyWilsonDslashQcu(
-            reinterpret_cast<long long>(output.data()),
-            reinterpret_cast<long long>(input.data()),
-            reinterpret_cast<long long>(gauge.data()),
-            reinterpret_cast<long long>(set_ptrs.data()),
-            reinterpret_cast<long long>(params.data()));
-      },
-      wilson_flops_per_site);
-  measure(
-      "clover",
-      [&] {
-        applyCloverDslashQcu(
-            reinterpret_cast<long long>(output.data()),
-            reinterpret_cast<long long>(input.data()),
-            reinterpret_cast<long long>(gauge.data()),
-            reinterpret_cast<long long>(set_ptrs.data()),
-            reinterpret_cast<long long>(params.data()));
-      },
-      clover_flops_per_site);
-  params[kupl::qcu::kSetPlan] = kupl::qcu::kSetPlanSolver;
-  measure(
-      "clover_schur",
-      [&] {
-        applyCloverBistabCgDslashQcu(
-            reinterpret_cast<long long>(output.data()),
-            reinterpret_cast<long long>(input.data()),
-            reinterpret_cast<long long>(gauge.data()),
-            reinterpret_cast<long long>(clover_even.data()),
-            reinterpret_cast<long long>(clover_odd.data()),
-            reinterpret_cast<long long>(clover_even_inv.data()),
-            reinterpret_cast<long long>(clover_odd_inv.data()),
-            reinterpret_cast<long long>(set_ptrs.data()),
-            reinterpret_cast<long long>(params.data()));
-      },
-      schur_flops_per_site);
+  if (run_wilson) {
+    measure(
+        "wilson",
+        [&] {
+          applyWilsonDslashQcu(
+              reinterpret_cast<long long>(output.data()),
+              reinterpret_cast<long long>(input.data()),
+              reinterpret_cast<long long>(gauge.data()),
+              reinterpret_cast<long long>(set_ptrs.data()),
+              reinterpret_cast<long long>(params.data()));
+        },
+        wilson_flops_per_site);
+  }
+  if (run_clover) {
+    measure(
+        "clover",
+        [&] {
+          applyCloverDslashQcu(
+              reinterpret_cast<long long>(output.data()),
+              reinterpret_cast<long long>(input.data()),
+              reinterpret_cast<long long>(gauge.data()),
+              reinterpret_cast<long long>(set_ptrs.data()),
+              reinterpret_cast<long long>(params.data()));
+        },
+        clover_flops_per_site);
+  }
+  if (run_schur) {
+    params[kupl::qcu::kSetPlan] = kupl::qcu::kSetPlanSolver;
+    measure(
+        "clover_schur",
+        [&] {
+          applyCloverBistabCgDslashQcu(
+              reinterpret_cast<long long>(output.data()),
+              reinterpret_cast<long long>(input.data()),
+              reinterpret_cast<long long>(gauge.data()),
+              reinterpret_cast<long long>(clover_even.data()),
+              reinterpret_cast<long long>(clover_odd.data()),
+              reinterpret_cast<long long>(clover_even_inv.data()),
+              reinterpret_cast<long long>(clover_odd_inv.data()),
+              reinterpret_cast<long long>(set_ptrs.data()),
+              reinterpret_cast<long long>(params.data()));
+        },
+        schur_flops_per_site);
+  }
   applyEndQcu(reinterpret_cast<long long>(set_ptrs.data()),
               reinterpret_cast<long long>(params.data()));
 }
@@ -322,8 +343,36 @@ int main(int argc, char **argv) {
             }()));
     const int iterations =
         std::max(1, parseInteger(argc, argv, "--iterations", 20));
-    runBenchmark<float>(local, grid, iterations, "c64");
-    runBenchmark<double>(local, grid, iterations, "c128");
+    const char *precision = parseText(argc, argv, "--precision", "both");
+    const char *operator_name = parseText(argc, argv, "--operator", "all");
+    if (std::strcmp(precision, "c64") != 0 &&
+        std::strcmp(precision, "c128") != 0 &&
+        std::strcmp(precision, "both") != 0) {
+      throw std::runtime_error("--precision must be c64, c128, or both");
+    }
+    if (std::strcmp(operator_name, "wilson") != 0 &&
+        std::strcmp(operator_name, "clover") != 0 &&
+        std::strcmp(operator_name, "schur") != 0 &&
+        std::strcmp(operator_name, "all") != 0) {
+      throw std::runtime_error(
+          "--operator must be wilson, clover, schur, or all");
+    }
+    const bool run_c64 = std::strcmp(precision, "c128") != 0;
+    const bool run_c128 = std::strcmp(precision, "c64") != 0;
+    const bool run_wilson = std::strcmp(operator_name, "clover") != 0 &&
+                            std::strcmp(operator_name, "schur") != 0;
+    const bool run_clover = std::strcmp(operator_name, "wilson") != 0 &&
+                            std::strcmp(operator_name, "schur") != 0;
+    const bool run_schur = std::strcmp(operator_name, "wilson") != 0 &&
+                           std::strcmp(operator_name, "clover") != 0;
+    if (run_c64) {
+      runBenchmark<float>(local, grid, iterations, "c64", run_wilson,
+                          run_clover, run_schur);
+    }
+    if (run_c128) {
+      runBenchmark<double>(local, grid, iterations, "c128", run_wilson,
+                           run_clover, run_schur);
+    }
   } catch (const std::exception &error) {
     int rank = 0;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
