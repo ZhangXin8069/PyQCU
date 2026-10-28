@@ -780,3 +780,11 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: 以一句话归集 bug45 之后与项目执行直接相关的全部用户指令
 - 验证: path, size, required sections, conflict markers
 - 批次状态: in-progress
+## qcu_backend_sync_20261028 - general - 2026-10-29 04:02:39 +0800
+- 主任务: PyQCU CUDA/KUPL/Torch 三后端同步优化与 QUDA 性能对比
+- 日志文件: logs/v20261029040239.txt
+- 文件大小: 1970 bytes
+- 触发原因: 一般记录
+- 关键内容: 终止全部待运行对比作业和遗留扫描进程，暂停远程推送及打标
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
