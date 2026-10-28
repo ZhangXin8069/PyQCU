@@ -1,6 +1,9 @@
 from qcu_api cimport applyInitQcu as _c_applyInitQcu, applyEndQcu as _c_applyEndQcu, testWilsonDslashQcu as _c_testWilsonDslashQcu, applyWilsonDslashQcu as _c_applyWilsonDslashQcu, testCloverDslashQcu as _c_testCloverDslashQcu, applyCloverDslashQcu as _c_applyCloverDslashQcu, applyWilsonBistabCgQcu as _c_applyWilsonBistabCgQcu, applyWilsonBistabCgDslashQcu as _c_applyWilsonBistabCgDslashQcu, applyWilsonCgQcu as _c_applyWilsonCgQcu, applyWilsonCgDslashQcu as _c_applyWilsonCgDslashQcu, applyLaplacianQcu as _c_applyLaplacianQcu, applyCloverQcu as _c_applyCloverQcu, applyCloversQcu as _c_applyCloversQcu, applyDslashQcu as _c_applyDslashQcu, applyGaussGaugeQcu as _c_applyGaussGaugeQcu, applyCloverBistabCgQcu as _c_applyCloverBistabCgQcu, getCloverBistabCgIterationsQcu as _c_getCloverBistabCgIterationsQcu, applyCloverBistabCgDslashQcu as _c_applyCloverBistabCgDslashQcu, applyMultigridRestrictQcu as _c_applyMultigridRestrictQcu, applyMultigridProLongQcu as _c_applyMultigridProLongQcu, applyMultigridCoarseDslashQcu as _c_applyMultigridCoarseDslashQcu, applyMultigridCoarseDslashWideQcu as _c_applyMultigridCoarseDslashWideQcu, applyCloverMultigridQcu as _c_applyCloverMultigridQcu, verifyCloverMultigridQcu as _c_verifyCloverMultigridQcu
 from qcu_api cimport applyMultigridStrictCoarseQcu as _c_applyMultigridStrictCoarseQcu, applyMultigridStrictMatPCQcu as _c_applyMultigridStrictMatPCQcu, applyMultigridStrictFineMatPCQcu as _c_applyMultigridStrictFineMatPCQcu, applyMultigridStrictPrepareQcu as _c_applyMultigridStrictPrepareQcu, applyMultigridStrictReconstructQcu as _c_applyMultigridStrictReconstructQcu, applyMultigridStrictRestrictQcu as _c_applyMultigridStrictRestrictQcu, applyMultigridStrictProLongQcu as _c_applyMultigridStrictProLongQcu, applyMultigridStrictVCycleQcu as _c_applyMultigridStrictVCycleQcu, applyMultigridStrictInitQcu as _c_applyMultigridStrictInitQcu, applyMultigridStrictEndQcu as _c_applyMultigridStrictEndQcu, applyMultigridStrictFgmresQcu as _c_applyMultigridStrictFgmresQcu
 from qcu_api cimport applyCloverBistabCgPrepareQcu as _c_applyCloverBistabCgPrepareQcu, applyCloverBistabCgReconstructQcu as _c_applyCloverBistabCgReconstructQcu
+from qcu_api cimport applyMultigridLocalOrthogonalizeQcu as _c_applyMultigridLocalOrthogonalizeQcu
+from qcu_api cimport applyMultigridBuildNullVectorsQcu as _c_applyMultigridBuildNullVectorsQcu
+from qcu_api cimport applyMultigridBuildStencilLocalQcu as _c_applyMultigridBuildStencilLocalQcu
 import math
 import torch
 import pyqcu.cuda.define as define
@@ -336,6 +339,109 @@ def applyMultigridCoarseDslashWideQcu(_fermion_out, _fermion_in, _sitting, _hop_
     params = _contiguous_pointer(_params, "params")
     with nogil:
         _c_applyMultigridCoarseDslashWideQcu(fermion_out, fermion_in, sitting, hop_nn, hop_diag, set_ptrs, params)
+def applyMultigridLocalOrthogonalizeQcu(_flat_in, _blocked_out, int E, int e,
+                                        int Xf, int Yf, int Zf, int Tf,
+                                        int Xc, int Yc, int Zc, int Tc,
+                                        int data_type):
+    """Orthonormalize each coarse-site null-vector block with CGS2 on CUDA."""
+    cdef long long flat_in, blocked_out
+    cdef int status
+    if tuple(_flat_in.shape) != (E, e, Xf, Yf, Zf, Tf):
+        raise ValueError("flat null-vector shape does not match geometry")
+    if _flat_in.numel() != _blocked_out.numel():
+        raise ValueError("flat input and blocked output sizes differ")
+    if min(E, e, Xf, Yf, Zf, Tf, Xc, Yc, Zc, Tc) <= 0:
+        raise ValueError("null-vector orthogonalization dimensions must be positive")
+    flat_in = _contiguous_pointer(_flat_in, "flat_in")
+    blocked_out = _contiguous_pointer(_blocked_out, "blocked_out")
+    with nogil:
+        status = _c_applyMultigridLocalOrthogonalizeQcu(
+            flat_in, blocked_out, E, e, Xf, Yf, Zf, Tf,
+            Xc, Yc, Zc, Tc, data_type)
+    if status != 0:
+        raise RuntimeError(
+            f"applyMultigridLocalOrthogonalizeQcu failed with status {status}")
+
+
+def applyMultigridBuildNullVectorsQcu(
+        _blocked_out, _gauge, _clover_even, _clover_odd,
+        _clover_even_inv, _clover_odd_inv, _set_ptrs, _params, int E, int e,
+        int Xf, int Yf, int Zf, int Tf, int Xc, int Yc, int Zc, int Tc,
+        int nv_iters=1, unsigned long long seed=42, double nv_tol=1.0e-2):
+    """Build and locally orthonormalize near-null vectors in CUDA C++."""
+    cdef long long blocked_out, gauge, clover_even, clover_odd
+    cdef long long clover_even_inv, clover_odd_inv, set_ptrs, params
+    cdef int status
+    blocked_out = _contiguous_pointer(_blocked_out, "blocked_out")
+    gauge = _contiguous_pointer(_gauge, "gauge")
+    clover_even = _contiguous_pointer(_clover_even, "clover_even")
+    clover_odd = _contiguous_pointer(_clover_odd, "clover_odd")
+    clover_even_inv = _contiguous_pointer(_clover_even_inv, "clover_even_inv")
+    clover_odd_inv = _contiguous_pointer(_clover_odd_inv, "clover_odd_inv")
+    set_ptrs = _contiguous_pointer(_set_ptrs, "set_ptrs")
+    params = _contiguous_pointer(_params, "params")
+    if E <= 0 or e <= 0 or min(Xf, Yf, Zf, Tf, Xc, Yc, Zc, Tc) <= 0:
+        raise ValueError("null-vector dimensions must be positive")
+    if Xf % Xc or Yf % Yc or Zf % Zc or Tf % Tc:
+        raise ValueError("fine null-vector geometry must be block-divisible")
+    if nv_iters < 0 or nv_tol <= 0.0:
+        raise ValueError("null-vector iteration controls are invalid")
+    with nogil:
+        status = _c_applyMultigridBuildNullVectorsQcu(
+            blocked_out, gauge, clover_even, clover_odd, clover_even_inv,
+            clover_odd_inv, set_ptrs, params, E, e, Xf, Yf, Zf, Tf,
+            Xc, Yc, Zc, Tc, nv_iters, seed, nv_tol)
+    if status != 0:
+        raise RuntimeError(
+            f"applyMultigridBuildNullVectorsQcu failed with status {status}")
+    return status
+
+
+def applyMultigridBuildStencilLocalQcu(
+        _sitting, _hop_nn, _hop_diag, _null_vectors, _gauge,
+        _clover_even, _clover_odd, _clover_even_inv, _clover_odd_inv,
+        _set_ptrs, _params, int E, int e, int Xf, int Yf, int Zf, int Tf,
+        int Xc, int Yc, int Zc, int Tc, int window=8, int batch_size=8):
+    """Build the Legacy 33-tensor Galerkin stencil in CUDA C++."""
+    cdef long long sitting, hop_nn, hop_diag, null_vectors, gauge
+    cdef long long clover_even, clover_odd, clover_even_inv, clover_odd_inv
+    cdef long long set_ptrs, params
+    cdef int status
+    expected_sit = (E, E, Xc, Yc, Zc, Tc)
+    if tuple(_sitting.shape) != expected_sit:
+        raise ValueError("sitting stencil shape does not match geometry")
+    if tuple(_hop_nn.shape) != (2, 4, *expected_sit):
+        raise ValueError("nearest stencil shape does not match geometry")
+    if tuple(_hop_diag.shape) != (2, 2, 6, *expected_sit):
+        raise ValueError("diagonal stencil shape does not match geometry")
+    expected_null = (
+        E, e, Xc, Xf // Xc, Yc, Yf // Yc, Zc, Zf // Zc, Tc, Tf // Tc)
+    if tuple(_null_vectors.shape) != expected_null:
+        raise ValueError("null-vector stencil shape does not match geometry")
+    if min(E, e, Xf, Yf, Zf, Tf, Xc, Yc, Zc, Tc, window, batch_size) <= 0:
+        raise ValueError("stencil dimensions must be positive")
+    if Xf % Xc or Yf % Yc or Zf % Zc or Tf % Tc:
+        raise ValueError("fine stencil geometry must be block-divisible")
+    sitting = _contiguous_pointer(_sitting, "sitting")
+    hop_nn = _contiguous_pointer(_hop_nn, "hop_nn")
+    hop_diag = _contiguous_pointer(_hop_diag, "hop_diag")
+    null_vectors = _contiguous_pointer(_null_vectors, "null_vectors")
+    gauge = _contiguous_pointer(_gauge, "gauge")
+    clover_even = _contiguous_pointer(_clover_even, "clover_even")
+    clover_odd = _contiguous_pointer(_clover_odd, "clover_odd")
+    clover_even_inv = _contiguous_pointer(_clover_even_inv, "clover_even_inv")
+    clover_odd_inv = _contiguous_pointer(_clover_odd_inv, "clover_odd_inv")
+    set_ptrs = _contiguous_pointer(_set_ptrs, "set_ptrs")
+    params = _contiguous_pointer(_params, "params")
+    with nogil:
+        status = _c_applyMultigridBuildStencilLocalQcu(
+            sitting, hop_nn, hop_diag, null_vectors, gauge, clover_even,
+            clover_odd, clover_even_inv, clover_odd_inv, set_ptrs, params,
+            E, e, Xf, Yf, Zf, Tf, Xc, Yc, Zc, Tc, window, batch_size)
+    if status != 0:
+        raise RuntimeError(
+            f"applyMultigridBuildStencilLocalQcu failed with status {status}")
+    return status
 def applyMultigridStrictCoarseQcu(_fermion_out, _fermion_in, _links, _onsite_pair, _set_ptrs, _params, int onsite_index=-1):
     """Apply strict multigrid ``Y``/``Yhat`` links on a full coarse field."""
     cdef long long fermion_out, fermion_in, links, onsite_pair, set_ptrs, params

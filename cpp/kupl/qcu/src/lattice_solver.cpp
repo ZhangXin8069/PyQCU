@@ -2,16 +2,45 @@
 #include "kupl/lattice_linalg.h"
 
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <complex>
 #include <cstdio>
 #include <cstdlib>
+#include <cstdint>
 #include <limits>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 namespace kupl::qcu {
 namespace {
+
+uint64_t mix64(uint64_t value) {
+  value += 0x9e3779b97f4a7c15ULL;
+  value = (value ^ (value >> 30)) * 0xbf58476d1ce4e5b9ULL;
+  value = (value ^ (value >> 27)) * 0x94d049bb133111ebULL;
+  return value ^ (value >> 31);
+}
+
+template <typename Real>
+Real deterministic_uniform(uint64_t seed, uint64_t index, uint64_t channel) {
+  const uint64_t bits = mix64(seed ^ mix64(index + channel * 0x9e3779b9ULL));
+  return static_cast<Real>(bits >> 11) /
+         static_cast<Real>(uint64_t(1) << 53);
+}
+
+template <typename Real>
+Real deterministic_normal(uint64_t seed, uint64_t index, uint64_t channel) {
+  const Real tiny = std::numeric_limits<Real>::min();
+  const Real u1 = std::max(
+      deterministic_uniform<Real>(seed, index, channel), tiny);
+  const Real u2 = deterministic_uniform<Real>(seed, index, channel + 1);
+  constexpr Real two_pi =
+      static_cast<Real>(6.283185307179586476925286766559);
+  return std::sqrt(static_cast<Real>(-2) * std::log(u1)) *
+         std::cos(two_pi * u2);
+}
 
 template <typename Real>
 std::array<Complex<Real>, 2>
@@ -624,6 +653,142 @@ void LatticeSet<Real>::solve_clover(
         prof_dslash_halo_seconds_ + prof_dslash_interior_seconds_ +
             prof_dslash_wait_seconds_ + prof_dslash_boundary_seconds_,
         static_cast<long long>(prof_dslash_calls_));
+  }
+}
+
+template <typename Real>
+void LatticeSet<Real>::multigrid_build_null_vectors(
+    void *flat_out, const void *gauge, const void *clover_even,
+    const void *clover_odd, const void *clover_even_inv,
+    const void *clover_odd_inv, int E, int e, int Xf, int Yf, int Zf, int Tf,
+    int nv_iters, uint64_t seed, double nv_tol) {
+  using C = Complex<Real>;
+  if (flat_out == nullptr || gauge == nullptr || clover_even == nullptr ||
+      clover_odd == nullptr || clover_even_inv == nullptr ||
+      clover_odd_inv == nullptr) {
+    throw std::runtime_error("null-vector setup received a null pointer");
+  }
+  if (E <= 0 || e != kVectorSize || Xf <= 0 || Yf <= 0 || Zf <= 0 ||
+      Tf <= 0 || Xf != geometry_.local[0] || Yf != geometry_.local[1] ||
+      Zf != geometry_.local[2] || Tf != geometry_.local[3] / 2 ||
+      nv_iters < 0 || !(nv_tol > 0.0) || !std::isfinite(nv_tol)) {
+    throw std::invalid_argument(
+        "invalid null-vector setup: E=" + std::to_string(E) +
+        " e=" + std::to_string(e) + " requested=(" + std::to_string(Xf) +
+        "," + std::to_string(Yf) + "," + std::to_string(Zf) + "," +
+        std::to_string(Tf) + ") local=(" +
+        std::to_string(geometry_.local[0]) + "," +
+        std::to_string(geometry_.local[1]) + "," +
+        std::to_string(geometry_.local[2]) + "," +
+        std::to_string(geometry_.local[3] / 2) + ") nv_iters=" +
+        std::to_string(nv_iters) + " nv_tol=" + std::to_string(nv_tol));
+  }
+  validate_parity();
+  ensure_solver_scratch();
+  ensure_gauge_halo(static_cast<const C *>(gauge));
+  const int parity = target_parity();
+  const std::array<const C *, 2> clover = {
+      static_cast<const C *>(clover_even),
+      static_cast<const C *>(clover_odd)};
+  const std::array<const C *, 2> inverse = {
+      static_cast<const C *>(clover_even_inv),
+      static_cast<const C *>(clover_odd_inv)};
+  const int64_t count = geometry_.parity_vectors;
+  auto *output = static_cast<C *>(flat_out);
+  std::vector<C> vector(static_cast<std::size_t>(count));
+  std::vector<C> rhs(static_cast<std::size_t>(count));
+  std::vector<C> correction(static_cast<std::size_t>(count));
+  std::vector<C> scratch_a(static_cast<std::size_t>(count));
+  std::vector<C> scratch_b(static_cast<std::size_t>(count));
+  const auto application = [this, parity, &clover, &inverse, &scratch_a,
+                            &scratch_b](const C *input, C *out) {
+    apply_schur(input, out, parity, clover, inverse, scratch_a.data(),
+                scratch_b.data());
+  };
+  const bool progress =
+      std::getenv("PYQCU_MG_BUILD_PROGRESS") != nullptr;
+  const auto progress_start = std::chrono::steady_clock::now();
+
+  for (int column = 0; column < E; ++column) {
+    if (progress) {
+      const double elapsed = std::chrono::duration<double>(
+          std::chrono::steady_clock::now() - progress_start).count();
+      std::fprintf(
+          stderr,
+          "PYQCU::KUPL::NULL_VECTOR:\n column=%d/%d elapsed=%.3fs\n",
+          column + 1, E, elapsed);
+      std::fflush(stderr);
+    }
+    bool accepted = false;
+    std::string last_error;
+    for (int attempt = 0; attempt < 5 && !accepted; ++attempt) {
+      const uint64_t attempt_seed =
+          mix64(seed ^ (static_cast<uint64_t>(column) << 32) ^
+                static_cast<uint64_t>(attempt));
+      const int64_t chunk = omp_chunk<Real>(count);
+#pragma omp parallel for schedule(static, chunk)
+      for (int64_t local_index = 0; local_index < count; ++local_index) {
+        const int64_t component = local_index / geometry_.half_sites;
+        const int64_t site = local_index % geometry_.half_sites;
+        int x = 0;
+        int y = 0;
+        int z = 0;
+        int t2 = 0;
+        geometry_.decode_half(site, x, y, z, t2);
+        const int64_t global_x = geometry_.coord[0] * geometry_.local[0] + x;
+        const int64_t global_y = geometry_.coord[1] * geometry_.local[1] + y;
+        const int64_t global_z = geometry_.coord[2] * geometry_.local[2] + z;
+        const int global_t = geometry_.time_for_parity(x, y, z, t2, parity) +
+                             geometry_.coord[3] * geometry_.local[3];
+        const uint64_t site_key =
+            (((global_x * geometry_.grid[1] * geometry_.local[1] + global_y) *
+                   geometry_.grid[2] * geometry_.local[2] +
+               global_z) *
+                  geometry_.grid[3] * geometry_.local[3] +
+              global_t) *
+                 kVector +
+             component;
+        vector[static_cast<std::size_t>(local_index)] = C(
+            deterministic_normal<Real>(attempt_seed, site_key, 0),
+            deterministic_normal<Real>(attempt_seed, site_key, 2));
+      }
+      try {
+        for (int iteration = 0; iteration < nv_iters; ++iteration) {
+          application(vector.data(), rhs.data());
+          std::fill(correction.begin(), correction.end(), C(0));
+          solve_compact_bistabcg(
+              correction.data(), rhs.data(), count, application,
+              "NULL_VECTOR_INVERSE_ITERATION", static_cast<Real>(nv_tol));
+#pragma omp parallel for schedule(static)
+          for (int64_t index = 0; index < count; ++index) {
+            vector[static_cast<std::size_t>(index)] -=
+                correction[static_cast<std::size_t>(index)];
+          }
+        }
+        const Real norm2 = global_norm2(vector.data(), count);
+        const Real threshold = std::numeric_limits<Real>::min();
+        if (std::isfinite(norm2) && norm2 > threshold * threshold) {
+          const Real inverse_norm = Real(1) / std::sqrt(norm2);
+#pragma omp parallel for schedule(static)
+          for (int64_t index = 0; index < count; ++index) {
+            output[static_cast<int64_t>(column) * count + index] =
+                vector[static_cast<std::size_t>(index)] * inverse_norm;
+          }
+          accepted = true;
+        }
+      } catch (const std::runtime_error &error) {
+        // A random right-hand side can hit a Krylov breakdown.  Retry with a
+        // deterministic new sample; persistent failures remain fail-closed.
+        last_error = error.what();
+      }
+    }
+    if (!accepted) {
+      throw std::runtime_error(
+          "null-vector inverse iteration failed after five deterministic "
+          "retries: " + last_error);
+    }
+    log("NULL_VECTOR", "column=%d nv_iters=%d E=%d local_vectors=%lld",
+        column, nv_iters, E, static_cast<long long>(count));
   }
 }
 

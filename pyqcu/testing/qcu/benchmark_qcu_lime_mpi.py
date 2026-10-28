@@ -10,6 +10,8 @@ CUDA until the MPI local rank has been selected in
 from __future__ import annotations
 
 import argparse
+import ctypes
+import ctypes.util
 import hashlib
 import importlib.util
 import json
@@ -634,18 +636,63 @@ def _libqcu_path() -> Path | None:
     return None
 
 
+def _hip_device_uuid(device_index: int) -> str | None:
+    """Return a HIP device UUID when PyTorch omits it on DCU systems."""
+    candidates = []
+    for variable in ("ROCM_PATH", "HIP_PATH"):
+        root = os.environ.get(variable)
+        if root:
+            candidates.append(Path(root).expanduser() / "lib" / "libamdhip64.so")
+    library_name = ctypes.util.find_library("amdhip64")
+    if library_name:
+        candidates.append(Path(library_name))
+
+    class HipUuid(ctypes.Structure):
+        _fields_ = [("bytes", ctypes.c_char * 16)]
+
+    seen: set[str] = set()
+    for candidate in candidates:
+        load_name = str(candidate)
+        key = str(candidate.resolve()) if candidate.exists() else load_name
+        if key in seen:
+            continue
+        seen.add(key)
+        try:
+            runtime = ctypes.CDLL(load_name)
+            get_uuid = runtime.hipDeviceGetUuid
+        except (AttributeError, OSError):
+            continue
+        value = HipUuid()
+        if int(get_uuid(ctypes.byref(value), ctypes.c_int(device_index))) != 0:
+            continue
+        raw = bytes(value.bytes)
+        printable = raw.rstrip(b"\0")
+        if printable and all(32 <= byte < 127 for byte in printable):
+            return f"hip:{printable.decode('ascii')}"
+        if any(raw):
+            return f"hip:{raw.hex()}"
+    return None
+
+
 def _device_record(torch: Any, device: Any) -> dict[str, Any]:
     properties = torch.cuda.get_device_properties(device)
-    uuid = getattr(properties, "uuid", None)
-    if uuid is None or str(uuid).strip() in (
-            "", "00000000-0000-0000-0000-000000000000"):
+    torch_uuid = getattr(properties, "uuid", None)
+    uuid = None if torch_uuid is None else str(torch_uuid).strip()
+    if uuid in ("", "00000000-0000-0000-0000-000000000000"):
+        uuid = None
+    uuid_source = "torch"
+    if uuid is None:
+        uuid = _hip_device_uuid(int(device.index))
+        uuid_source = "hip"
+    if uuid is None:
         raise RuntimeError(
-            "PyTorch did not expose a CUDA device UUID; refusing to omit "
+            "neither PyTorch nor HIP exposed a device UUID; refusing to omit "
             "required GPU provenance")
     return {
         "index": int(device.index),
         "string": str(device),
-        "uuid": str(uuid),
+        "uuid": uuid,
+        "uuid_source": uuid_source,
         "name": str(properties.name),
         "total_memory_bytes": int(properties.total_memory),
         "compute_capability": [

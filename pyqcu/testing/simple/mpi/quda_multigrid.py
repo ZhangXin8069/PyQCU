@@ -26,6 +26,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--levels", type=int, default=2)
     parser.add_argument("--nvec", type=int, default=DEFAULT_NVEC)
     parser.add_argument("--block", nargs=4, type=int, default=DEFAULT_BLOCK)
+    parser.add_argument("--solution-output", default=None)
     parser.add_argument("--warmups", type=int, default=1)
     parser.add_argument("--repeats", type=int, default=3)
     parser.add_argument("--seed", type=int, default=42)
@@ -60,6 +61,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         forwarded.extend(("--mass", str(args.mass)))
     if args.csw is not None:
         forwarded.extend(("--csw", str(args.csw)))
+    if args.solution_output is not None:
+        forwarded.extend(("--solution-output", str(args.solution_output)))
     return run_delegated_mpi(
         "pyqcu.testing.quda.benchmark_quda_lime_mpi", args, forwarded)
 

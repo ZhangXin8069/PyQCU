@@ -28,6 +28,37 @@ def test_local_orthogonalize_uses_full_coarse_lattice() -> None:
     assert fine_vector.shape == (12, *lattice)
 
 
+def test_local_orthogonalize_cgs2_is_orthonormal_and_preserves_span() -> None:
+    lattice = (4, 4, 4, 4)
+    coarse = (2, 2, 2, 2)
+    E, e = 6, 12
+    generator = torch.Generator().manual_seed(17)
+    null_vectors = torch.randn(
+        (E, e, *lattice), dtype=torch.complex64, generator=generator)
+
+    localized = tools.local_orthogonalize(
+        null_vectors, coarse_lat_size=list(coarse), verbose=False)
+    X, Y, Z, T = coarse
+    x, y, z, t = (lattice[index] // coarse[index] for index in range(4))
+    columns = localized.reshape(
+        E, e, X, x, Y, y, Z, z, T, t).permute(
+            2, 4, 6, 8, 0, 1, 3, 5, 7, 9).reshape(
+                X * Y * Z * T, E, e * x * y * z * t).transpose(-2, -1)
+    gram = columns.conj().transpose(-2, -1) @ columns
+    identity = torch.eye(E, dtype=gram.dtype).expand_as(gram)
+    torch.testing.assert_close(gram, identity, rtol=2.0e-5, atol=2.0e-5)
+
+    original = null_vectors.reshape(
+        E, e, X, x, Y, y, Z, z, T, t).permute(
+            2, 4, 6, 8, 0, 1, 3, 5, 7, 9).reshape(
+                X * Y * Z * T, E, e * x * y * z * t).transpose(-2, -1)
+    reference, _ = torch.linalg.qr(original)
+    expected_projector = reference @ reference.conj().transpose(-2, -1)
+    actual_projector = columns @ columns.conj().transpose(-2, -1)
+    torch.testing.assert_close(
+        actual_projector, expected_projector, rtol=2.0e-4, atol=2.0e-4)
+
+
 def test_coarse_cache_loader_returns_one_sequence_per_level(tmp_path) -> None:
     arrays = tuple(
         torch.arange(24, dtype=torch.float32).reshape(2, 3, 4).numpy()

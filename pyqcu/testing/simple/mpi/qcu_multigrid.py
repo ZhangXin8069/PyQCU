@@ -44,6 +44,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--coarse-cache", default=None)
     parser.add_argument("--coarse-cache-level", action="append", default=[])
     parser.add_argument("--rebuild-coarse-cache", action="store_true")
+    parser.add_argument("--build-device", choices=("cpu", "cuda"), default="cuda")
+    parser.add_argument("--build-batch-size", type=int, default=4)
     parser.add_argument("--skip-independent-residual", action="store_true")
     parser.add_argument("--work-dir", default=None)
     parser.add_argument("--output", default=None)
@@ -96,6 +98,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                      else "--no-oversubscribe")
     if args.rebuild_coarse_cache:
         forwarded.append("--rebuild-coarse-cache")
+    forwarded.extend(("--build-device", str(args.build_device)))
+    forwarded.extend(("--build-batch-size", str(args.build_batch_size)))
     for level_cache in args.coarse_cache_level:
         forwarded.extend(("--coarse-cache-level", str(level_cache)))
     if args.skip_independent_residual:

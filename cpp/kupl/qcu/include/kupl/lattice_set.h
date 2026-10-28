@@ -66,6 +66,17 @@ public:
   virtual void multigrid_coarse_dslash_wide(
       void *out, const void *in, const void *sitting, const void *hop_nn,
       const void *hop_diag, int E, int X, int Y, int Z, int T) = 0;
+  virtual void multigrid_build_null_vectors(
+      void *flat_out, const void *gauge, const void *clover_even,
+      const void *clover_odd, const void *clover_even_inv,
+      const void *clover_odd_inv, int E, int e, int Xf, int Yf, int Zf,
+      int Tf, int nv_iters, uint64_t seed, double nv_tol) = 0;
+  virtual void multigrid_build_stencil_local(
+      void *sitting, void *hop_nn, void *hop_diag, const void *null_vectors,
+      const void *gauge, const void *clover_even, const void *clover_odd,
+      const void *clover_even_inv, const void *clover_odd_inv, int E, int e,
+      int Xf, int Yf, int Zf, int Tf, int Xc, int Yc, int Zc, int Tc,
+      int window) = 0;
   virtual void laplacian(void *out, const void *in, const void *gauge) = 0;
   virtual int strict_fine_matpc(
       void *out, const void *in, const void *gauge, const void *clover_even,
@@ -140,6 +151,17 @@ public:
   void multigrid_coarse_dslash_wide(
       void *out, const void *in, const void *sitting, const void *hop_nn,
       const void *hop_diag, int E, int X, int Y, int Z, int T) override;
+  void multigrid_build_null_vectors(
+      void *flat_out, const void *gauge, const void *clover_even,
+      const void *clover_odd, const void *clover_even_inv,
+      const void *clover_odd_inv, int E, int e, int Xf, int Yf, int Zf,
+      int Tf, int nv_iters, uint64_t seed, double nv_tol) override;
+  void multigrid_build_stencil_local(
+      void *sitting, void *hop_nn, void *hop_diag, const void *null_vectors,
+      const void *gauge, const void *clover_even, const void *clover_odd,
+      const void *clover_even_inv, const void *clover_odd_inv, int E, int e,
+      int Xf, int Yf, int Zf, int Tf, int Xc, int Yc, int Zc, int Tc,
+      int window) override;
   void laplacian(void *out, const void *in, const void *gauge) override;
   int strict_fine_matpc(
       void *out, const void *in, const void *gauge, const void *clover_even,

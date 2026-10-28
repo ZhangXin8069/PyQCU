@@ -1,7 +1,7 @@
-GPU_MODEL=$(nvidia-smi --query-gpu=gpu_name --format=csv,noheader 2>/dev/null | head -n 1)
+GPU_MODEL=$(nvidia-smi --query-gpu=gpu_name --format=csv,noheader 2>/dev/null | head -n 1 || true)
 GPU_MODEL=$(printf '%s\n' "$GPU_MODEL" | xargs)
 if [ -z "${sm_arch:-}" ]; then
-    sm_arch=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null | head -n 1 | tr -d '[:space:].')
+    sm_arch=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null | head -n 1 | tr -d '[:space:].' || true)
 fi
 if ! printf '%s\n' "${sm_arch:-}" | grep -Eq '^[0-9]+$'; then
     # Fallback model table for drivers whose nvidia-smi has no compute_cap

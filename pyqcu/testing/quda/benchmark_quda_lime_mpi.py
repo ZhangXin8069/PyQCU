@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
+import h5py
 import numpy as np
 
 
@@ -146,6 +147,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--report", default="quda_lime_mpi_report.json",
         help="JSON report path written by rank 0; use '-' for stdout only",
+    )
+    parser.add_argument(
+        "--solution-output", default=None,
+        help="optional canonical HDF5 solution output gathered by rank 0",
     )
     return parser
 
@@ -350,7 +355,7 @@ def _local_lattice(
 ) -> tuple[int, int, int, int]:
     return tuple(
         int(length) // int(processes)
-        for length, processes in zip(global_lattice, grid, strict=True)
+        for length, processes in zip(global_lattice, grid)
     )
 
 
@@ -360,7 +365,7 @@ def _local_bounds(
     local = _local_lattice(global_lattice, grid)
     return tuple(
         slice(int(c) * size, (int(c) + 1) * size)
-        for size, c in zip(local, coord, strict=True)
+        for size, c in zip(local, coord)
     )
 
 
@@ -373,7 +378,7 @@ def _validate_geometry(
         raise ValueError(
             f"MPI rank count {mpi_size} does not match --grid product {math.prod(grid)}"
         )
-    for axis, (length, processes) in enumerate(zip(global_lattice, grid, strict=True)):
+    for axis, (length, processes) in enumerate(zip(global_lattice, grid)):
         if length % processes:
             raise ValueError(
                 f"global axis {axis} length {length} is not divisible by grid {processes}"
@@ -548,6 +553,49 @@ def _canonical_fermion_to_qdp(local_rhs: np.ndarray) -> np.ndarray:
     )
 
 
+def _local_solution_canonical(solution: Any) -> np.ndarray:
+    full = solution.latt_info.lexico(solution.getHost(), False)
+    if full.ndim != 6 or full.shape[-2:] != (4, 3):
+        raise ValueError(f"unexpected lexicographic solution shape {full.shape}")
+    return np.ascontiguousarray(full.transpose(4, 5, 3, 2, 1, 0))
+
+
+def _write_canonical_solution(
+    path_value: str,
+    rank_solutions: Sequence[np.ndarray],
+    lattice: Sequence[int],
+    grid: Sequence[int],
+) -> dict[str, Any]:
+    path = Path(path_value).expanduser().resolve()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    full = np.zeros(
+        (4, 3, *(int(value) for value in lattice)), dtype=rank_solutions[0].dtype)
+    for rank, local_solution in enumerate(rank_solutions):
+        coord = _process_coord(rank, grid)
+        x_slice, y_slice, z_slice, t_slice = _local_bounds(lattice, grid, coord)
+        slices = (slice(None), slice(None), x_slice, y_slice, z_slice, t_slice)
+        if full[slices].shape != local_solution.shape:
+            raise ValueError(
+                f"rank {rank} solution shape {local_solution.shape} does not "
+                f"match assembled slice {full[slices].shape}")
+        full[slices] = local_solution
+    temporary = path.with_name(f".{path.name}.{os.getpid()}.partial")
+    with h5py.File(temporary, "w") as handle:
+        handle.create_dataset("data", data=full)
+        handle.attrs["format"] = "pyqcu.simple.v1"
+        handle.attrs["layout"] = "[spin,color,x,y,z,t]"
+        handle.attrs["lattice"] = list(int(value) for value in lattice)
+        handle.attrs["backend"] = "quda-cupy-hip"
+    os.replace(temporary, path)
+    return {
+        "path": str(path),
+        "shape": list(full.shape),
+        "dtype": str(full.dtype),
+        "sha256": _sha256_file(path),
+        "size_bytes": path.stat().st_size,
+    }
+
+
 def _broadcast_root_result(
     comm: Any,
     label: str,
@@ -642,15 +690,14 @@ def _distribute_global_rhs(
 def _configure_cuda_device(comm: Any) -> dict[str, Any]:
     """Set the rank-local CUDA device before the first ``import pyquda``."""
     from mpi4py import MPI
-    import cupy as cp
-    # PyQuda's pointer helper lazily imports torch while constructing host
-    # gauge pointers.  Loading torch after libquda can crash in the Torch
-    # protobuf initializers, so pin the shared-library order here.
-    import torch  # noqa: F401
+    array_backend = _load_array_backend()
 
     shared_comm = comm.Split_type(MPI.COMM_TYPE_SHARED)
     local_rank = int(shared_comm.Get_rank())
-    device_count = int(cp.cuda.runtime.getDeviceCount())
+    if _array_backend_name() == "torch":
+        device_count = int(array_backend.cuda.device_count())
+    else:
+        device_count = int(array_backend.cuda.runtime.getDeviceCount())
     if device_count <= 0:
         raise BenchmarkFailure("CUDA reports no visible devices")
     effective_device = local_rank
@@ -661,7 +708,10 @@ def _configure_cuda_device(comm: Any) -> dict[str, Any]:
             "strong-scaling runs require one visible GPU per rank"
         )
     # This must remain before ``import pyquda`` in _load_pyquda_modules().
-    cp.cuda.Device(effective_device).use()
+    if _array_backend_name() == "torch":
+        array_backend.cuda.set_device(effective_device)
+    else:
+        array_backend.cuda.Device(effective_device).use()
     return {
         "local_rank": local_rank,
         "device": effective_device,
@@ -671,8 +721,18 @@ def _configure_cuda_device(comm: Any) -> dict[str, Any]:
     }
 
 
-def _gpu_info(cp: Any, device: int) -> dict[str, Any]:
-    properties = cp.cuda.runtime.getDeviceProperties(int(device))
+def _gpu_info(array_backend: Any, device: int) -> dict[str, Any]:
+    if _array_backend_name() == "torch":
+        properties = array_backend.cuda.get_device_properties(int(device))
+        return {
+            "device": int(device),
+            "name": str(properties.name),
+            "compute_capability": f"{properties.major}.{properties.minor}",
+            "multiprocessor_count": int(properties.multi_processor_count),
+            "total_global_memory_bytes": int(properties.total_memory),
+            "uuid": getattr(properties, "uuid", None),
+        }
+    properties = array_backend.cuda.runtime.getDeviceProperties(int(device))
     name = properties.get("name", "")
     if isinstance(name, bytes):
         name = name.decode("utf-8", errors="replace")
@@ -689,10 +749,78 @@ def _gpu_info(cp: Any, device: int) -> dict[str, Any]:
     }
 
 
+def _array_backend_name() -> str:
+    value = os.environ.get("PYQCU_QUDA_ARRAY_BACKEND", "torch").strip().lower()
+    if value not in ("torch", "cupy"):
+        raise BenchmarkFailure(
+            "PYQCU_QUDA_ARRAY_BACKEND must be 'torch' or 'cupy'")
+    return value
+
+
+def _load_array_backend() -> Any:
+    if _array_backend_name() == "torch":
+        import torch
+        return torch
+    import cupy
+    return cupy
+
+
+def _array_backend_target(pyquda: Any) -> str:
+    define_module = getattr(pyquda, "quda_define", None)
+    target_getter = getattr(define_module, "target", None)
+    if not callable(target_getter):
+        raise BenchmarkFailure(
+            "PyQuda does not expose quda_define.target() for runtime backend selection")
+    target = str(target_getter()).strip().lower()
+    if target not in ("cuda", "hip"):
+        raise BenchmarkFailure(
+            f"unsupported PyQuda array backend target {target!r}")
+    return target
+
+
+def _quda_enable_p2p() -> int:
+    raw = os.environ.get("PYQCU_QUDA_ENABLE_P2P", "0")
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise BenchmarkFailure(
+            f"PYQCU_QUDA_ENABLE_P2P must be an integer, got {raw!r}") from exc
+    if value < -3 or value > 7:
+        raise BenchmarkFailure(
+            f"PYQCU_QUDA_ENABLE_P2P is outside QUDA's supported range: {value}")
+    return value
+
+
+def _install_legacy_torch_dtype_shim() -> None:
+    if _array_backend_name() != "torch":
+        return
+    import torch
+    import pyquda_comm.array as array_module
+
+    if getattr(array_module.arrayDType, "_pyqcu_dtype_shim", False):
+        return
+    original = array_module.arrayDType
+
+    def array_dtype(dtype: Any, backend: str) -> Any:
+        if backend != "torch":
+            return original(dtype, backend)
+        # The DTK PyTorch build predates uint16/uint32/uint64.  PyQUDA's
+        # eager dtype dictionary fails merely by accessing those attributes,
+        # even when the requested field dtype is complex64/complex128.
+        return torch.from_numpy(np.empty((), dtype=np.dtype(dtype))).dtype
+
+    array_dtype._pyqcu_dtype_shim = True
+    array_module.arrayDType = array_dtype
+    field_module = sys.modules.get("pyquda_comm.field")
+    if field_module is not None:
+        field_module.arrayDType = array_dtype
+
+
 def _load_pyquda_modules(
 ) -> tuple[Any, Any, Any, Any, Any, Any, Any, str]:
     # Device selection in _configure_cuda_device() has already happened.
     import pyquda
+    _install_legacy_torch_dtype_shim()
     try:
         import pyquda_utils.core as core
         api = "pyquda_utils"
@@ -750,12 +878,15 @@ def _activate_pyquda(
         if not hasattr(pyquda_mpi, "init"):
             raise BenchmarkFailure("PyQuda API mismatch: pyquda.init is unavailable")
         os.environ["LOCAL_RANK"] = str(int(expected_device))
+        backend_target = _array_backend_target(pyquda)
+        enable_p2p = _quda_enable_p2p()
         pyquda_mpi.init(
             grid_size=[int(item) for item in grid],
             latt_size=[int(item) for item in lattice],
-            backend="torch",
-            backend_target="cuda",
+            backend=_array_backend_name(),
+            backend_target=backend_target,
             enable_nvshmem=False,
+            enable_p2p=enable_p2p,
             enable_tuning=False,
             enable_device_memory_pool=False,
             enable_pinned_memory_pool=False,
@@ -765,10 +896,14 @@ def _activate_pyquda(
                 f"PyQuda grid {pyquda.getGridSize()} does not match requested "
                 f"{tuple(grid)}"
             )
-        import torch
-        if int(torch.cuda.current_device()) != int(expected_device):
+        array_backend = _load_array_backend()
+        if _array_backend_name() == "torch":
+            selected_device = int(array_backend.cuda.current_device())
+        else:
+            selected_device = int(array_backend.cuda.Device().id)
+        if selected_device != int(expected_device):
             raise BenchmarkFailure(
-                f"PyQuda selected device {torch.cuda.current_device()}, "
+                f"PyQuda selected device {selected_device}, "
                 f"expected {expected_device}"
             )
         return
@@ -860,14 +995,20 @@ def _build_fields(
     local_lattice = _local_lattice(metadata.lattice_xyzt, grid)
     qdp_rhs = _canonical_fermion_to_qdp(local_rhs)
     if hasattr(core, "LatticeInfo"):
-        import torch
+        array_backend = _load_array_backend()
         info = core.LatticeInfo(list(metadata.lattice_xyzt), 1, 1.0)
         parity_gauge = info.evenodd(global_qdp_gauge.astype(np.complex128), True)
         parity_rhs = info.evenodd(qdp_rhs.astype(np.complex128), False)
+        if _array_backend_name() == "torch":
+            device_gauge = array_backend.from_numpy(parity_gauge).to("cuda")
+            device_rhs = array_backend.from_numpy(parity_rhs).to("cuda")
+        else:
+            device_gauge = array_backend.asarray(parity_gauge)
+            device_rhs = array_backend.asarray(parity_rhs)
         gauge = LatticeGauge(
-            info, 4, torch.from_numpy(parity_gauge).to("cuda"))
+            info, 4, device_gauge)
         rhs = LatticeFermion(
-            info, torch.from_numpy(parity_rhs).to("cuda"))
+            info, device_rhs)
     else:
         parity_gauge = cb2(global_qdp_gauge, [1, 2, 3, 4])
         gauge = LatticeGauge(
@@ -929,7 +1070,11 @@ def _build_dirac(
             raise BenchmarkFailure("MG requires at least two levels")
         multigrid = [list(int(item) for item in mg_block)
                      for _ in range(levels - 1)]
-    quda_lattice = global_lattice if modern_api else local_lattice
+    # pyquda_utils.core.getDslash is a compatibility wrapper around the
+    # deprecated interface: it multiplies this argument by the process grid.
+    # Passing the global lattice therefore inflates a multi-rank geometry and
+    # makes the QUDA gauge field disagree with the rank-local input.
+    quda_lattice = local_lattice
     dirac = core.getDslash(
         list(int(item) for item in quda_lattice),
         float(mass),
@@ -1098,8 +1243,11 @@ def _build_dirac(
     return dirac, config
 
 
-def _synchronize_gpu(cp: Any) -> None:
-    cp.cuda.runtime.deviceSynchronize()
+def _synchronize_gpu(array_backend: Any) -> None:
+    if _array_backend_name() == "torch":
+        array_backend.cuda.synchronize()
+    else:
+        array_backend.cuda.runtime.deviceSynchronize()
 
 
 def _timed_gpu_operation(
@@ -1383,10 +1531,11 @@ def _run_benchmark(
             lattice, pyquda_api,
         ),
     )
-    import cupy as cp
+    array_backend = _load_array_backend()
 
     gpu = _collective_guard(
-        comm, "read_gpu_info", lambda: _gpu_info(cp, int(device_record["device"])),
+        comm, "read_gpu_info",
+        lambda: _gpu_info(array_backend, int(device_record["device"])),
     )
     libquda_identity = _collective_guard(
         comm, "fingerprint_libquda",
@@ -1453,13 +1602,16 @@ def _run_benchmark(
     _, setup_seconds = _collective_guard(
         comm,
         "gauge_load_setup",
-        lambda: _timed_gpu_operation(comm, cp, lambda: dirac.loadGauge(gauge)),
+        lambda: _timed_gpu_operation(
+            comm, array_backend, lambda: dirac.loadGauge(gauge)),
     )
 
+    last_solution: Any | None = None
     warmups: list[dict[str, Any]] = []
     for _ in range(int(args.warmups)):
         def warmup_once() -> dict[str, Any]:
-            solution, seconds = _timed_gpu_operation(comm, cp, lambda: dirac.invert(rhs))
+            solution, seconds = _timed_gpu_operation(
+                comm, array_backend, lambda: dirac.invert(rhs))
             del solution
             return _solve_record(
                 dirac.invert_param, seconds,
@@ -1470,13 +1622,32 @@ def _run_benchmark(
     steady: list[dict[str, Any]] = []
     for _ in range(int(args.repeats)):
         def steady_once() -> dict[str, Any]:
-            solution, seconds = _timed_gpu_operation(comm, cp, lambda: dirac.invert(rhs))
-            del solution
+            nonlocal last_solution
+            solution, seconds = _timed_gpu_operation(
+                comm, array_backend, lambda: dirac.invert(rhs))
+            last_solution = solution
             return _solve_record(
                 dirac.invert_param, seconds,
                 enum_quda["QudaMassNormalization"].QUDA_KAPPA_NORMALIZATION)
 
         steady.append(_collective_guard(comm, "steady_solve", steady_once))
+
+    solution_output: dict[str, Any] | None = None
+    if args.solution_output:
+        if last_solution is None:
+            raise BenchmarkFailure("steady solve did not produce a solution")
+        local_solution = _collective_guard(
+            comm, "lexicographic_solution",
+            lambda: _local_solution_canonical(last_solution),
+        )
+        rank_solutions = comm.gather(local_solution, root=0)
+        solution_output = _broadcast_root_result(
+            comm, "write_canonical_solution",
+            lambda: _write_canonical_solution(
+                args.solution_output, rank_solutions, lattice, grid),
+        )
+        del local_solution, rank_solutions
+    del last_solution
 
     local_record = {
         "rank": rank,
@@ -1485,11 +1656,17 @@ def _run_benchmark(
         "local_lattice_xyzt": list(_local_lattice(lattice, grid)),
         "host": platform.node(),
         "device_selection": device_record,
+        "array_backend": {
+            "name": _array_backend_name(),
+            "target": _array_backend_target(pyquda),
+            "enable_p2p": _quda_enable_p2p(),
+        },
         "gpu": gpu,
         "libquda": libquda,
         "layout": layout,
         "parameter_contract": parameter_contract,
         "gauge_load_setup_seconds": float(setup_seconds),
+        "solution_output": solution_output,
         "warmups": warmups,
         "steady": steady,
     }
@@ -1532,6 +1709,7 @@ def _run_benchmark(
                 "sha256": records[0]["libquda"]["sha256"],
                 "size_bytes": records[0]["libquda"]["size_bytes"],
             },
+            "solution": records[0].get("solution_output"),
             "mpi": {
                 "rank_count": mpi_size,
                 "process_grid_xyzt": list(grid),

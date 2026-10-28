@@ -99,6 +99,9 @@ template <typename U, typename SetT> struct CoarseHaloExchange
   int coord[4] = {0, 0, 0, 0};
   int peer[32] = {};
   int real_count[32] = {};
+  int compact_peer[2] = {-1, -1};
+  int compact_axis = -1;
+  int request_count = 0;
   size_t max_face = 0;
   size_t direction_stride = 0;
   size_t packed_elements = 0;
@@ -139,32 +142,77 @@ template <typename U, typename SetT> struct CoarseHaloExchange
     // The shift table is intentionally copied into a local array: passing a
     // pointer into the helper above would make the direction-to-rank mapping
     // depend on a temporary object's lifetime.
-    for (int d = 0; d < 32; ++d) {
-      int shift[4];
-      for (int k = 0; k < 4; ++k)
-        shift[k] = multigrid_coarse_shift_component_host(d, k);
-      peer[d] = multigrid_coarse_rank_shift(set_ptr, shift);
-      const size_t face = multigrid_coarse_face_sites_host(
-          d, X, Y, Z, Lt, grid);
-      if (face > max_face) max_face = face;
+    const int dims[4] = {X, Y, Z, Lt};
+    int distributed_axes = 0;
+    for (int d = 0; d < 4; ++d) {
+      if (grid[d] > 1) {
+        ++distributed_axes;
+        compact_axis = d;
+      }
     }
-    // Each direction owns a fixed [E, max_face] slot.  MPI is passed a
-    // contiguous real-scalar range, so a short face must include the per-E
-    // padding between channels; otherwise E>1 directions with face<max_face
-    // would transmit the next channel from the wrong offset.
-    for (int d = 0; d < 32; ++d) {
-      const size_t face = multigrid_coarse_face_sites_host(
-          d, X, Y, Z, Lt, grid);
-      const size_t count = face == 0
-                               ? 0
-                               : static_cast<size_t>(2) *
-                                     static_cast<size_t>(E) * max_face;
+    if (distributed_axes != 1) compact_axis = -1;
+    // With one distributed process-grid axis the wide 33-point stencil only
+    // ever reads the two remote axis faces.  Sending 32 direction-specific
+    // copies of those faces is redundant: for grid=(2,1,1,1) it moves 16x the
+    // necessary bytes and dominates both setup and coarse dslash.  Keep the
+    // compact two-face path for this common production topology and retain the
+    // generic direction exchange for multi-axis decompositions.
+    if (distributed_axes == 1) {
+      size_t plane_sites = 1;
+      for (int d = 0; d < 4; ++d)
+        if (d != compact_axis)
+          plane_sites *= static_cast<size_t>(dims[d]);
+      max_face = plane_sites;
+      direction_stride = static_cast<size_t>(E) * plane_sites;
+      packed_elements = 2 * direction_stride;
+      const size_t count = static_cast<size_t>(2) * direction_stride;
       if (count > static_cast<size_t>(std::numeric_limits<int>::max()))
         throw std::invalid_argument("coarse MPI halo message is too large");
-      real_count[d] = static_cast<int>(count);
+      real_count[0] = static_cast<int>(count);
+      real_count[1] = static_cast<int>(count);
+      auto peer_at_offset = [&](int offset) {
+        int shifted[4] = {coord[0], coord[1], coord[2], coord[3]};
+        shifted[compact_axis] += offset;
+        if (shifted[compact_axis] < 0)
+          shifted[compact_axis] += grid[compact_axis];
+        if (shifted[compact_axis] >= grid[compact_axis])
+          shifted[compact_axis] -= grid[compact_axis];
+        return ((shifted[0] * grid[1] + shifted[1]) * grid[2] + shifted[2]) *
+                   grid[3] +
+               shifted[3];
+      };
+      compact_peer[0] = peer_at_offset(-1);
+      compact_peer[1] = peer_at_offset(1);
+      request_count = 2;
+    } else {
+      for (int d = 0; d < 32; ++d) {
+        int shift[4];
+        for (int k = 0; k < 4; ++k)
+          shift[k] = multigrid_coarse_shift_component_host(d, k);
+        peer[d] = multigrid_coarse_rank_shift(set_ptr, shift);
+        const size_t face = multigrid_coarse_face_sites_host(
+            d, X, Y, Z, Lt, grid);
+        if (face > max_face) max_face = face;
+      }
+      // Each direction owns a fixed [E, max_face] slot.  MPI is passed a
+      // contiguous real-scalar range, so a short face must include the per-E
+      // padding between channels; otherwise E>1 directions with face<max_face
+      // would transmit the next channel from the wrong offset.
+      for (int d = 0; d < 32; ++d) {
+        const size_t face = multigrid_coarse_face_sites_host(
+            d, X, Y, Z, Lt, grid);
+        const size_t count = face == 0
+                                 ? 0
+                                 : static_cast<size_t>(2) *
+                                       static_cast<size_t>(E) * max_face;
+        if (count > static_cast<size_t>(std::numeric_limits<int>::max()))
+          throw std::invalid_argument("coarse MPI halo message is too large");
+        real_count[d] = static_cast<int>(count);
+      }
+      direction_stride = static_cast<size_t>(E) * max_face;
+      packed_elements = 32 * direction_stride;
+      request_count = 32;
     }
-    direction_stride = static_cast<size_t>(E) * max_face;
-    packed_elements = 32 * direction_stride;
     packed_bytes = packed_elements * sizeof(LatticeComplex<U>);
     const size_t hvol = static_cast<size_t>(X + 2) * static_cast<size_t>(Y + 2) *
                         static_cast<size_t>(Z + 2) * static_cast<size_t>(Lt + 2);
@@ -185,9 +233,11 @@ template <typename U, typename SetT> struct CoarseHaloExchange
 #if defined(QCU_HAVE_NVSHMEM)
     // NVSHMEM is a process-wide collective.  It is selected only when the
     // caller explicitly requests it and the MPI rank/PE mapping is identical.
-    use_nvshmem = qcu_nvshmem_init_for_mpi(
-        set_ptr->host_params[_NODE_SIZE_]);
-    if (use_nvshmem) device_recv = nvshmem_malloc(packed_bytes);
+    if (compact_axis < 0) {
+      use_nvshmem = qcu_nvshmem_init_for_mpi(
+          set_ptr->host_params[_NODE_SIZE_]);
+      if (use_nvshmem) device_recv = nvshmem_malloc(packed_bytes);
+    }
 #endif
     if (device_recv == nullptr)
       checkCudaErrors(cudaMalloc(&device_recv, packed_bytes));
@@ -219,8 +269,10 @@ template <typename U, typename SetT> struct CoarseHaloExchange
 
   void wait_requests() {
     if (!request_active) return;
-    checkMpiErrors(MPI_Waitall(32, recv_request, MPI_STATUSES_IGNORE));
-    checkMpiErrors(MPI_Waitall(32, send_request, MPI_STATUSES_IGNORE));
+    checkMpiErrors(MPI_Waitall(request_count, recv_request,
+                               MPI_STATUSES_IGNORE));
+    checkMpiErrors(MPI_Waitall(request_count, send_request,
+                               MPI_STATUSES_IGNORE));
     request_active = false;
   }
 
@@ -233,6 +285,42 @@ template <typename U, typename SetT> struct CoarseHaloExchange
     use_device_mpi = !use_nvshmem && qcu_mpi_can_use_buffer<U>(device_send);
     checkCudaErrors(cudaEventRecord(input_ready, compute_stream));
     checkCudaErrors(cudaStreamWaitEvent(exchange_stream, input_ready, 0));
+    if (compact_axis >= 0) {
+      const long long total = static_cast<long long>(packed_elements);
+      const int blocks = static_cast<int>((total + _BLOCK_SIZE_ - 1) /
+                                          static_cast<long long>(_BLOCK_SIZE_));
+      multigrid_coarse_pack_axis_halo<U>
+          <<<blocks, _BLOCK_SIZE_, 0, exchange_stream>>>(
+              device_send, device_in, E, X, Y, Z, Lt, compact_axis);
+      checkCudaErrors(cudaGetLastError());
+      if (!use_device_mpi) {
+        checkCudaErrors(cudaMemcpyAsync(host_send, device_send, packed_bytes,
+                                        cudaMemcpyDeviceToHost,
+                                        exchange_stream));
+      }
+      checkCudaErrors(cudaStreamSynchronize(exchange_stream));
+
+      // Slot 0 sends the low face to the previous rank and receives the
+      // previous rank's high face.  Slot 1 is the symmetric high/low exchange.
+      for (int side = 0; side < 2; ++side) {
+        void *buffer = use_device_mpi ? slot(device_recv, side)
+                                      : slot(host_recv, side);
+        const int tag = 800 + (side == 0 ? 1 : 0);
+        checkMpiErrors(_MPI_Irecv<U>(buffer, real_count[side],
+                                     compact_peer[side], tag,
+                                     MPI_COMM_WORLD, &recv_request[side]));
+      }
+      for (int side = 0; side < 2; ++side) {
+        const void *buffer = use_device_mpi ? slot_const(device_send, side)
+                                            : slot_const(host_send, side);
+        const int tag = 800 + side;
+        checkMpiErrors(_MPI_Isend<U>(buffer, real_count[side],
+                                     compact_peer[side], tag,
+                                     MPI_COMM_WORLD, &send_request[side]));
+      }
+      request_active = true;
+      return;
+    }
     const long long total = static_cast<long long>(packed_elements);
     const int blocks = static_cast<int>((total + _BLOCK_SIZE_ - 1) /
                                         static_cast<long long>(_BLOCK_SIZE_));
@@ -306,12 +394,18 @@ template <typename U, typename SetT> struct CoarseHaloExchange
     } else {
       wait_requests();
       if (!use_device_mpi) {
-        for (int h = 0; h < 32; ++h) {
-          if (peer[h] == rank) continue;
-          const size_t bytes = static_cast<size_t>(real_count[h]) * sizeof(U);
-          checkCudaErrors(cudaMemcpyAsync(
-              slot(device_recv, h), slot_const(host_recv, h), bytes,
-              cudaMemcpyHostToDevice, exchange_stream));
+        if (compact_axis >= 0) {
+          checkCudaErrors(cudaMemcpyAsync(device_recv, host_recv, packed_bytes,
+                                          cudaMemcpyHostToDevice,
+                                          exchange_stream));
+        } else {
+          for (int h = 0; h < 32; ++h) {
+            if (peer[h] == rank) continue;
+            const size_t bytes = static_cast<size_t>(real_count[h]) * sizeof(U);
+            checkCudaErrors(cudaMemcpyAsync(
+                slot(device_recv, h), slot_const(host_recv, h), bytes,
+                cudaMemcpyHostToDevice, exchange_stream));
+          }
         }
       }
     }
@@ -319,9 +413,16 @@ template <typename U, typename SetT> struct CoarseHaloExchange
     const long long total = static_cast<long long>(packed_elements);
     const int blocks = static_cast<int>((total + _BLOCK_SIZE_ - 1) /
                                         static_cast<long long>(_BLOCK_SIZE_));
-    multigrid_coarse_unpack_halo<U><<<blocks, _BLOCK_SIZE_, 0, exchange_stream>>>(
-        halo, device_recv, E, X, Y, Z, Lt, grid[0], grid[1], grid[2], grid[3],
-        static_cast<int>(max_face));
+    if (compact_axis >= 0) {
+      multigrid_coarse_unpack_axis_halo<U>
+          <<<blocks, _BLOCK_SIZE_, 0, exchange_stream>>>(
+              halo, device_recv, E, X, Y, Z, Lt, compact_axis);
+    } else {
+      multigrid_coarse_unpack_halo<U>
+          <<<blocks, _BLOCK_SIZE_, 0, exchange_stream>>>(
+              halo, device_recv, E, X, Y, Z, Lt, grid[0], grid[1], grid[2],
+              grid[3], static_cast<int>(max_face));
+    }
     checkCudaErrors(cudaGetLastError());
     checkCudaErrors(cudaEventRecord(halo_ready, exchange_stream));
     checkCudaErrors(cudaStreamWaitEvent(compute_stream, halo_ready, 0));

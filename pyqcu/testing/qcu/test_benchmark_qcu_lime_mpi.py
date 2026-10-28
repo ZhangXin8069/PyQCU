@@ -144,3 +144,19 @@ def test_lifecycle_ends_before_advancing_and_recycles_slot() -> None:
     assert events[0][1] == 29 and events[-1][1] == 29
     assert int(params[define._SET_INDEX_]) == 0
     assert result["iterations"] == 3 and result["native_converged"]
+
+
+def test_device_record_uses_hip_uuid_when_torch_omits_it() -> None:
+    properties = SimpleNamespace(
+        uuid=None, name="DCU", total_memory=32 << 30, major=9, minor=0)
+    fake_torch = SimpleNamespace(cuda=SimpleNamespace(
+        get_device_properties=lambda device: properties))
+    device = SimpleNamespace(index=0)
+
+    with patch.object(
+            benchmark, "_hip_device_uuid", return_value="hip:0123456789abcdef"):
+        record = benchmark._device_record(fake_torch, device)
+
+    assert record["uuid"] == "hip:0123456789abcdef"
+    assert record["uuid_source"] == "hip"
+    assert record["compute_capability"] == [9, 0]

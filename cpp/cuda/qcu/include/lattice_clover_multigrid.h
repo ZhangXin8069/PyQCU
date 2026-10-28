@@ -4738,6 +4738,9 @@ template <typename T> struct LatticeCloverMultigrid {
     int count_restart=0;
     int full_gate_checks=0;
     bool full_gate_passed=false;
+    bool final_residual_cached=false;
+    T cached_full_abs=std::numeric_limits<T>::infinity();
+    T cached_full_rel=std::numeric_limits<T>::infinity();
     bool near_tolerance=false;
     std::string stop_reason="iteration_limit";
     LatticeComplex<T> one(1,0);
@@ -4839,6 +4842,9 @@ template <typename T> struct LatticeCloverMultigrid {
         T full_abs=std::numeric_limits<T>::infinity();
         const T full_rel=compute_full_relative_residual(
             full_bnorm2,full_abs);
+        cached_full_abs=full_abs;
+        cached_full_rel=full_rel;
+        final_residual_cached=true;
         ++full_gate_checks;
         if(rank==0&&verbose){
           std::ostringstream gate;
@@ -4977,8 +4983,18 @@ template <typename T> struct LatticeCloverMultigrid {
     // recomputation also prevents a stale gate result from being reported as
     // convergence when the iteration budget was exhausted.
     T final_true_residual=std::numeric_limits<T>::infinity();
-    const T final_full_relative=compute_full_relative_residual(
-        full_bnorm2,final_true_residual);
+    T final_full_relative=std::numeric_limits<T>::infinity();
+    if (full_gate_passed && final_residual_cached) {
+      // The accepted full-residual gate is evaluated on the exact final x_o:
+      // a passing gate breaks the loop immediately, with no vector update in
+      // between.  Reuse that collective result instead of recomputing the
+      // same full Wilson-Clover residual and MPI halos a second time.
+      final_true_residual=cached_full_abs;
+      final_full_relative=cached_full_rel;
+    } else {
+      final_full_relative=compute_full_relative_residual(
+          full_bnorm2,final_true_residual);
+    }
     const bool converged=std::isfinite(final_full_relative) &&
                          final_full_relative<=atol;
     if(converged&&full_gate_passed) stop_reason="full_residual";

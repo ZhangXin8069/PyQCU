@@ -220,6 +220,43 @@ def applyMultigridCoarseDslashWideQcu(
     """
     ...
 
+def applyMultigridLocalOrthogonalizeQcu(
+    flat_in: torch.Tensor, blocked_out: torch.Tensor,
+    E: int, e: int, Xf: int, Yf: int, Zf: int, Tf: int,
+    Xc: int, Yc: int, Zc: int, Tc: int, data_type: int,
+) -> None:
+    """C++ CUDA block-local two-pass MGS null-vector orthogonalization.
+
+    ``flat_in`` uses ``[E,e,Xf,Yf,Zf,Tf]`` and ``blocked_out`` receives the
+    solver layout ``[E,e,Xc,bx,Yc,by,Zc,bz,Tc,bt]``.
+    """
+    ...
+
+
+def applyMultigridBuildNullVectorsQcu(
+    blocked_out: torch.Tensor, gauge: torch.Tensor,
+    clover_even: torch.Tensor, clover_odd: torch.Tensor,
+    clover_even_inv: torch.Tensor, clover_odd_inv: torch.Tensor,
+    set_ptrs: torch.Tensor, params: torch.Tensor, E: int, e: int,
+    Xf: int, Yf: int, Zf: int, Tf: int, Xc: int, Yc: int, Zc: int,
+    Tc: int, nv_iters: int = ..., seed: int = ..., nv_tol: float = ...,
+) -> int:
+    """C++ near-null inverse iteration plus local CGS2 on CUDA."""
+    ...
+
+
+def applyMultigridBuildStencilLocalQcu(
+    sitting: torch.Tensor, hop_nn: torch.Tensor, hop_diag: torch.Tensor,
+    null_vectors: torch.Tensor, gauge: torch.Tensor,
+    clover_even: torch.Tensor, clover_odd: torch.Tensor,
+    clover_even_inv: torch.Tensor, clover_odd_inv: torch.Tensor,
+    set_ptrs: torch.Tensor, params: torch.Tensor, E: int, e: int,
+    Xf: int, Yf: int, Zf: int, Tf: int, Xc: int, Yc: int, Zc: int,
+    Tc: int, window: int = ..., batch_size: int = ...,
+) -> int:
+    """C++ CUDA local 33-tensor Galerkin stencil construction."""
+    ...
+
 def applyMultigridStrictCoarseQcu(
     fermion_out: torch.Tensor, fermion_in: torch.Tensor,
     links: torch.Tensor, onsite_pair: torch.Tensor,

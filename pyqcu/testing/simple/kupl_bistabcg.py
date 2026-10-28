@@ -57,6 +57,10 @@ class NumpyTensor:
     def is_contiguous(self) -> bool:
         return bool(self.array.flags.c_contiguous)
 
+    @property
+    def shape(self) -> tuple[int, ...]:
+        return tuple(int(value) for value in self.array.shape)
+
     def data_ptr(self) -> int:
         return int(self.array.ctypes.data)
 

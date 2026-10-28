@@ -81,6 +81,25 @@ __global__ void multigrid_coarse_unpack_halo(
     int grid_x, int grid_y, int grid_z, int grid_t, int max_face);
 
 /**
+ * @brief Pack the low/high faces of a single distributed coarse-grid axis.
+ *
+ * The compact layout is [side, E, free-axis-site], where side 0 is the low
+ * face and side 1 is the high face.  A single-axis MPI decomposition only
+ * needs these two faces; diagonal stencil shifts wrap locally on the other
+ * axes.
+ */
+template <typename T>
+__global__ void multigrid_coarse_pack_axis_halo(
+    void *packed, const void *fermion_in, int E, int X, int Y, int Z, int Lt,
+    int axis);
+
+/** @brief Unpack the two compact axis faces into the padded coarse halo. */
+template <typename T>
+__global__ void multigrid_coarse_unpack_axis_halo(
+    void *halo, const void *packed, int E, int X, int Y, int Z, int Lt,
+    int axis);
+
+/**
  * @brief Apply the distributed wide stencil to either the interior or the
  *        boundary.  ``boundary_only=0`` computes sites whose complete stencil
  *        is local; ``boundary_only=1`` computes the complement.
