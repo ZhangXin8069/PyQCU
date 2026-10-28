@@ -732,3 +732,19 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: install.sh 全量构建成功，Cython 扩展可导入，新增 CUDA relaxed constexpr 编译选项
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
+## qcu-mg-callchain - final - 2026-10-28 20:27:06 +0800
+- 主任务: 简报各版本 qcu 调用 MG 的文件调用链
+- 日志文件: logs/v2026102820.txt
+- 文件大小: 12163 bytes
+- 触发原因: 任务完成
+- 关键内容: 静态梳理 TL/TS/CL/CS/KL/KS 六条 MG 调用链
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+## qcu_quick_20261028 - stage - 2026-10-28 20:48:33 +0800
+- 主任务: cuda版qcu快速性能实测（环境阻塞）
+- 日志文件: logs/v202610282048.txt
+- 文件大小: 8260 bytes
+- 触发原因: 阶段成果
+- 关键内容: V100/WSL2 上 cuDevicePrimaryCtxRetain 对三块 GPU 均返回 OUT_OF_MEMORY，CUDA 上下文无法创建，基准无法运行；已定位为驱动/WSL GPU-PV 层故障，非仓库代码或显存峰值问题。
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
