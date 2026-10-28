@@ -1,0 +1,58 @@
+[日志元数据]
+日志类型: stage
+生成时间: 2026-10-28 10:35:09 +0800
+批次: dcu-qcu-quda-20261027
+主任务: CUDA QCU vs QUDA multigrid 1/2/4-rank DCU comparison and MPI optimization
+触发原因: 阶段成果
+摘要: 24^3x64 cache and 1/2/4-rank runs pass internally; 2-rank QCU optimization improves 24.98%, while 1/4-rank regress; independent NumPy true-residual gate remains FAIL.
+Git 根目录: /public/home/sunpeng_1/PyQCU
+
+## 关键日志
+### S1 - 正式 MG setup 与多维并行运行
+- 目标: 在单节点 DCU 上完成真实 LIME 输入、24^3x64、E6 两级 multigrid 的 CUDA QCU 与 QUDA 对比。
+- 命令/操作: 通过 kshdnormal 提交 Slurm 作业；CUDA QCU 和 QUDA 分别执行 1/2/4 MPI rank。
+- 关键输出: QCU 1/2/4 rank 均 PASS，内部独立分布残差约 2.666e-07；QUDA 1/2/4 rank 均 PASS，4 iterations，native true residual 约 1.648e-07。
+- 退出码: 0。
+- 证据与判断: 功能路径已跑通；QUDA 1-rank 已有 1 warmup + 3 steady samples，2/4-rank 当前仍只有单次正式样本，不能作为最终统计结果。
+
+### S2 - CUDA QCU 多 MPI 专项优化
+- 目标: 降低 CUDA QCU multigrid 的多 rank 求解墙钟。
+- 命令/操作: 子代理实现单分布轴 compact coarse-halo 面交换，并在 full-residual gate 后复用最终残差；随后执行 baseline/optimized ABBA 对照。
+- 关键输出: 1 rank: 0.6828020411 s -> 0.9017117600 s，退化 32.06%；2 rank: 0.8110729316 s -> 0.6085067405 s，改善 24.98%；4 rank: 1.1780546820 s -> 1.2506449560 s，退化 6.16%。
+- 退出码: ABBA 作业 125992633 全组 rc=0。
+- 证据与判断: 仅 2-rank 有稳定收益，当前 optimized 构建不能无条件替换 baseline；1/4-rank 回归必须通过 rank-gated 方案或补丁拆分后重新 ABBA 验证。
+
+### S3 - 独立真残差审计
+- 目标: 排除求解器 native residual 自证，使用独立 NumPy Wilson-Clover 算子重建 r=b-Ax。
+- 命令/操作: 在 kshcnormal 提交纯 CPU residual 作业，分别验证 QUDA 和 QCU solution artifact；随后使用 C++ applyCloversQcu 导出的 Clover 场对照。
+- 关键输出: QUDA residual 1.3011123928，QCU residual 1.3011123961，两者 FAIL；改用 C++ Clover 场后 residual 降至 0.1834056638，仍 FAIL；full-site debug residual 1.2617944233。
+- 退出码: residual CLI 正常完成，但验收状态 FAIL。
+- 证据与判断: 两个后端解彼此高度一致，主因不在求解器解本身；NumPy 与 C++ 的 Clover block/sign、gamma direction 或 hop/color 约定仍有不一致。
+
+## 验证与证据
+- 测试/检查: scheduler 当前无活动作业；正式 report.json、ABBA TSV、独立 residual JSON 和 solution SHA 已核对。
+- 结果: 24^3x64 cache PASS；Gram error 5.960e-07；Galerkin error 4.103e-07；QUDA/QCU native solve 全部 PASS。
+- 未验证项: 独立 NumPy true residual 尚未 PASS；QUDA 2/4-rank 尚无 warmup + 3 repeats；最终跨后端统计和报告尚未发布。
+
+## 变更与产物
+- 文件: pyqcu/testing/quda/benchmark_quda_lime_mpi.py；pyqcu/testing/simple/mpi/quda_residual.py；pyqcu/testing/simple/mpi/summarize_qcu_quda_mg.py；pyqcu/testing/simple/numpy_clover.py；logs/dcu_qcu_quda_20261027/run_case.sh；run_rank_pair.sh；run_quda_residual_job.sh。
+- 产物: data/logs/dcu_qcu_quda_20261027/data/qcu-mg-c64-24x24x24x64/coarse_c64_lv2_E6_6_mg2x2x2x1_nvi1_s42.h5；data/logs/dcu_qcu_quda_20261027/qcu-mpi-opt-20261028/stable-abba.tsv；QUDA 1-rank solution.h5。
+- 未改动范围: 未提交、未打 tag、未 push；未使用 Torch-QCU 或 KUPL 性能结果代替 CUDA QCU/QUDA。
+
+## 风险、限制与下一步
+- 风险: 当前 optimized QCU 在 1/4-rank 退化，不能宣称多 MPI 已全面优化；独立 residual 约定错误可能造成假失败。
+- 阻塞: NumPy/C++ Wilson-Clover 小格逐元素约定尚未对齐。
+- 下一步: 在小格直接对照 hop、gamma、color 和 Clover block/sign，直到机器精度一致；再在 kshcnormal 重跑 QUDA/QCU solution residual；然后补 2/4-rank 三个正式样本，并生成配对中位数、MAD、强扩展效率和最终审计报告。
+
+## Agent 全文报告
+--- report begin ---
+身份：{物理+代码}。目标仍为 active，预算无上限。
+
+当前没有排队或运行中的 Slurm 作业。24^3x64 E6 multigrid cache、CUDA QCU 1/2/4-rank、QUDA 1/2/4-rank 的功能路径均已跑通，native residual 均 PASS。QUDA 1-rank 已有 3 个 steady 样本，中位数 0.3680961760 s、MAD 0.0036911831 s、4 iterations；2/4-rank 仍是单次样本，尚未满足最终正式统计要求。
+
+CUDA QCU 专项优化的稳定 ABBA 结果为：1 rank 0.6828020411 -> 0.9017117600 s（退化 32.06%）；2 rank 0.8110729316 -> 0.6085067405 s（改善 24.98%）；4 rank 1.1780546820 -> 1.2506449560 s（退化 6.16%）。因此当前只能确认 2-rank 优化有效，不能宣称 4-rank 已优化。
+
+最终阻塞是独立 NumPy 真残差：QUDA 与 QCU solution 分别得到 1.3011123928 和 1.3011123961，均 FAIL；两解彼此高度一致，说明主要问题在独立算子的物理/索引约定。改用 C++ applyCloversQcu Clover 场后残差降到 0.1834056638，确认 Clover 约定是主因之一，但仍未闭环。
+
+下一步聚焦小格 C++/NumPy 逐元素对照，修正 gamma direction、color row/column、hop 与 Clover block/sign 约定；PASS 后在 kshcnormal 重跑真残差，再补齐 QUDA 2/4-rank 正式样本并生成最终中位数、MAD、强扩展效率和审计报告。
+--- report end ---

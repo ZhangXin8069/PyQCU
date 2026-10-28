@@ -1,0 +1,76 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-27 20:49:38 +0800
+批次: dcu-qcu-quda-20261027
+主任务: PyQCU CUDA-QCU/QUDA MultiGrid comparison and C++ null-vector/stencil setup migration
+触发原因: 任务完成
+摘要: C++ CGS2 complete for CUDA/KUPL; CUDA MG 1/2/4 cache-hit PASS; null/stencil C++ migration and QUDA comparison remain blocked/partial
+Git 根目录: /public/home/sunpeng_1/PyQCU
+
+## 关键日志
+### S1 — 环境与资源门禁
+- 目标: 在单节点 DCU Slurm 环境验证 CUDA-QCU、QUDA 与资源映射。
+- 证据: `rocm-smi`、`rocminfo`、PyTorch 均报告本次分配可见 VRAM 约 15.98 GiB；节点为 Hygon Pre-Wukong DCU/gfx906。
+- 结果: CUDA-QCU 使用 DTK-23.10 可运行；QUDA 安装由 DTK-26.04 构建，与 DTK-23.10 的 PyTorch/PyQUDA ABI 不兼容。
+
+### S2 — 全尺寸 MG 与超时审计
+- 目标: 运行 24x24x24x64 c64、E=6、两级 Legacy MG。
+- 长任务规则: 300 秒检查进程/GPU/日志，601 秒终止。
+- 结果: 多个 cold setup 在 601 秒被终止；batch16 cache builder 自身 `setup_seconds=550.872 s`，但外层 builder+solve 总进程超过 600 秒，因此外层作业按规则终止。
+- cache: 19:52:54 完成 `1035145216` 字节 cache；cache-hit 全尺寸 solve 后续 PASS。
+
+### S3 — C++ CGS2 正交化
+- 根因: 原实现每 coarse block 调 batched complex64 QR；全尺寸有 27,648 blocks，单次 orthogonalize 超过 8 分钟。
+- CUDA 实现: `applyMultigridLocalOrthogonalizeQcu`，每 coarse site 一个 block，two-pass MGS。
+- KUPL 实现: 同名 C++/OpenMP ABI，每 coarse site 一个 OpenMP work item。
+- 性能: CUDA 全尺寸中位 `0.03358 s`；KUPL 全尺寸中位 `3.95 s`。
+
+## 验证与证据
+- CUDA 小格: Gram `8.34e-7`，与 CPU projector 差 `4.47e-8`。
+- CUDA 全尺寸: Gram `1.19e-6`，5 次中位 `0.033578 s`。
+- KUPL 小格: Gram `8.34e-7`，中位 `0.071079 s`。
+- KUPL 全尺寸: Gram `9.54e-7`，3 次中位 `3.953202 s`。
+- CUDA ABI: `pyqcu.h` / `qcu_api.pxd` / `qcu.pyx` 符号闭合 PASS。
+- CUDA single-function: PASS，Gram `1.1325e-6`。
+- KUPL CTest orthogonalize: PASS，Gram `6.557e-7`。
+- CUDA MG cache-hit full r1: 20 outer iterations，n_vcycles=1，coarse_iters=8，true residual `2.4087e-7`，solve wall `0.337292 s`。
+- CUDA MG cache-hit full r2: 20 outer iterations，true residual `2.68445e-7`，solve wall `1.210624 s`。
+- CUDA MG cache-hit full r4: 20 outer iterations，true residual `2.59190e-7`，solve wall `1.428847 s`。
+- `git diff --check` PASS；`python -m compileall` PASS；相关 shell `bash -n` PASS。
+- form audit: 未通过，唯一 finding 是既有 `logs/test27_strict_vs_current_legacy_cuda_20261027.md` 的路径命名，不是本轮文件。
+
+## 变更与产物
+- CUDA C++ ABI/kernel: `cpp/cuda/qcu/src/multigrid.cu`、`cpp/cuda/qcu/python/pyqcu.h`、Cython `qcu.pyx/.pxd/.pyi`。
+- KUPL C++ ABI/kernel/binding/test: `cpp/kupl/qcu/{include/kupl/qcu.h,src/apply_multigrid.cpp,tests/test_multigrid.py}`、`pyqcu/kupl/qcu.py`。
+- PyQCU setup 入口: C++ CGS2 接入 `pyqcu/torch/tools/_multigrid.py` 和 `pyqcu/testing/simple/kupl_multigrid.py`。
+- 迁移边界文档: `docs/multigrid_setup_cpp_migration.md`。
+- 运行证据: `logs/dcu_qcu_quda_20261027/`。
+- cache: `logs/dcu_qcu_quda_20261027/data/qcu-mg-c64-24x24x24x64/coarse_c64_lv2_E6_6_mg2x2x2x2_nvi1_s42.h5`。
+
+## 风险、限制与下一步
+- 未完成: near-null-vector 逆迭代和 stencil 探测仍走 legacy Python/Torch setup；尚未达到“全部 null-vector/stencil 构建迁入 C++”的最终要求。
+- 未完成: QUDA 尚无可用对比结果。当前 QUDA 安装 ABI 不匹配；PyQUDA CuPy backend 禁止 HIP；DTK-23.10 QUDA 离线重建仍在解决 CMake `hsa-runtime64` 依赖。
+- cold setup 必须拆成独立 cache-builder 作业和独立 solve 作业；不能把两者总墙钟混成单次 MG solve。
+- 下一步: 以现有 C++ CGS2 和 cache-hit 结果为基线，新增 C++ near-null BiCGStab 与 C++ local/Galerkin stencil builder，先 KUPL 后 CUDA，再用 Gram/Galerkin/true-residual/cold-time 四门验证。
+
+## 用户输入指令
+用户要求使用指定 DCU 资源、环境脚本、/public/home/sunpeng_1/data 输入及 simple/mpi 项目，完成 CUDA-QCU 与 QUDA 求解器单节点 1/2/4 MPI 对比；主对象为 MultiGrid；计算节点超过 5 分钟必须审查日志，超过 10 分钟必须终止；不得在 DCU 计算节点运行纯 CPU 程序；测试对象只能是 CUDA-QCU 与 QUDA，不得使用 Torch-QCU 或 KUPL-QCU 求解器；后续明确要求将 null-vector/stencil 构建迁入 C++，并覆盖 CUDA-QCU 与 KUPL-QCU；goal 预算改为无上限。
+
+## Agent 全文报告
+--- report begin ---
+状态：userinterlude / 部分完成。
+
+已完成：
+- 定位并修复 CGS2/QR 性能根因；CUDA 与 KUPL 两套 C++ 原生局部正交化 ABI 已落地并通过 ABI、Gram、子空间和性能测试。
+- CUDA C++ CGS2 全尺寸 `24x24x24x32 -> 12x12x12x16`、E=6 从超过 8 分钟降至 `0.03358 s`。
+- KUPL C++/OpenMP CGS2 全尺寸为 `3.95 s`。
+- 用已生成 cache 完成 CUDA MG c64 全尺寸 1/2/4-rank cache-hit 验证，独立真残差均约 `2.4e-7–2.7e-7`；r1/r2/r4 solve wall 分别 `0.337/1.211/1.429 s`。
+- cold cache builder 自身在 batch16 下 `setup_seconds=550.872 s`，低于 10 分钟；外层 builder+solve 总进程超过 10 分钟已终止，因此仅 stage 级可接受，联合进程不可接受。
+
+未完成：
+- null-vector 逆迭代与 stencil 探测仍由 legacy Python/Torch setup 执行；C++ 迁移只完成了正交化这一子阶段。
+- QUDA 对比受 ABI 阻塞：现安装由 DTK-26.04 构建，运行时只有 DTK-23.10 匹配 PyTorch；CuPy HIP backend 被 PyQUDA 拒绝；DTK-23.10 离线 QUDA 构建仍在解决 hsa-runtime CMake 依赖。
+
+建议下一步：
+- 按 `docs/multigrid_setup_cpp_migration.md` 的四个阶段继续，先实现 KUPL C++ null/stencil builder 并建立 Galerkin/true-residual gate，再移植 CUDA；同时单独修复 QUDA 23.10 离线构建。未完成这些门槛前，不应宣称全面 CUDA-vs-QUDA MG 对比或完整 C++ setup 迁移完成。
+--- report end ---

@@ -1,0 +1,31 @@
+[日志元数据]
+日志类型: general
+生成时间: 2026-10-28 06:58:52 +0800
+批次: 24x24x24x64 full MG cache build
+主任务: CUDA QCU vs QUDA multigrid 1/2/4-rank DCU comparison
+触发原因: 一般记录
+摘要: Job 125973519 failed closed on Galerkin error 2.423e-01; no cache/report published
+Git 根目录: /public/home/sunpeng_1/PyQCU
+
+## 关键日志
+### S1 — 24³×64 C++ MG cache 冷构建
+- 目标: 验证 CUDA C++ null-space 与局部 stencil 构建能否生成完整 Legacy-MG cache。
+- 命令/操作: `build_full_mg_cache.py --lat 24 24 24 64 --dof 12 6 --mg-grid 2 2 2 1 --build-device cuda --batch-size 4`，Slurm job `125973519`，节点 `b16r1n19`。
+- 关键输出: null column 6/6 约 0.290 s；stencil 55,296 项约 150 s；`lattice set whole time: 183.268984375 sec`；随后 `RuntimeError: CUDA C++ stencil Galerkin error 2.423e-01`。
+- 退出码: Slurm `FAILED 1:0`，作业总墙钟 `00:04:03`。
+- 证据与判断: 8³×16 smoke 的相对误差为 `3.3332799e-07`，但 24³×64 仍失败，说明当前局部窗口 stencil 在完整目标格点上不满足 Galerkin gate，而不是 null-space 阶段失败。校验 fail-closed，未发布 cache。
+
+## 验证与证据
+- 测试/检查: 作业 stdout/stderr、Slurm 终态、目标 cache/report 路径存在性。
+- 结果: 目标 `.h5` 与 `.json` 均不存在；`git diff --check` 通过。
+- 未验证项: 全尺寸 QUDA smoke、1/2/4 MPI 配对性能测试均未启动，因为前置 cache 不合格。
+
+## 变更与产物
+- 文件: 本阶段仅新增本日志；未修改求解器源码。
+- 产物: 无有效 MG cache/report。
+- 未改动范围: 未提交、未打标签、未推送。
+
+## 风险、限制与下一步
+- 风险: 若直接重复全尺寸构建或进入性能测试，会得到不可解释的结果并浪费 DCU 资源。
+- 阻塞: C++ stencil 构建在 24³×64 的 Galerkin 正确性门失败。
+- 下一步: 用同一 gauge/null vectors 和 `mg-grid=2,2,2,1` 对局部 stencil 与参考 Galerkin 做定点差分，定位局部窗口、边界 halo 或 coarse-link 编码问题；修复后先跑 8³×16 回归，再跑一次全尺寸 cache 构建。

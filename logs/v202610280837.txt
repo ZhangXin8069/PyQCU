@@ -1,0 +1,50 @@
+[日志元数据]
+日志类型: stage
+生成时间: 2026-10-28 08:37:31 +0800
+批次: QUDA distributed runtime and pairing
+主任务: CUDA QCU vs QUDA multigrid 1/2/4-rank DCU comparison
+触发原因: 阶段成果
+摘要: QUDA HIP runtime repaired; 2/4-rank full-lattice MG PASS; independent residual work continues
+Git 根目录: /public/home/sunpeng_1/PyQCU
+
+## 关键日志
+### S1 — QUDA HIP 运行时修复
+- 目标: 使 QUDA MG 在当前 DCU/DTK/PyQUDA 环境下完成 1/2/4 MPI。
+- 命令/操作: 修复 PyQUDA backend target 自动识别、旧 DTK PyTorch dtype 兼容、未定义同步对象；多进程改用 ROCm CuPy 12.3.0，显式关闭 P2P。
+- 关键输出: 8³×16 CuPy smoke `PASS`，`nvec_resolved=[6,6,6,6,6]`，3 iterations，true residual `3.994e-07`。
+- 退出码: job `125983039` `COMPLETED 0:0`。
+- 证据与判断: 日志明确 `cupy with hip`、`QUDA_ENABLE_P2P=0`、`Autotuning disabled`。
+
+### S2 — 多 rank 几何修复与验证
+- 目标: 修正 QUDA 2-rank gauge field 装载失败。
+- 命令/操作: 定位 `pyquda_utils.core.getDslash` 会把传入尺寸乘以 process grid；改为传 rank-local lattice，而非 global lattice。
+- 关键输出: 2-rank 使用 `[2,1,1,1]`、local `[12,24,24,64]`，4 iterations，true residual `1.6481467202102213e-07`，wall `0.3041452318429947 s`。
+- 退出码: job `125985364` `COMPLETED 0:0`。
+- 证据与判断: 4-rank 同样 PASS，grid `[2,2,1,1]`，local `[12,12,24,64]`，4 iterations，true residual `1.648453657407053e-07`，wall `0.35284521197900176 s`。
+
+### S3 — QCU 配对
+- 目标: 验证 CUDA QCU 在相同 cache 条件运行。
+- 命令/操作: 24³×64 真实 gauge，`mg-grid=2,2,2,1`，`dof=[12,6]`，cache-hit。
+- 关键输出: 1-rank 20 iterations，独立残差 `2.6657341283129425e-07`，wall `0.4662685500225052 s`；2-rank 20 iterations，独立残差 `2.6666202409663546e-07`，wall `0.7787588700884955 s`。
+- 退出码: 两个 QCU case 均 `PASS`。
+- 证据与判断: cache 无 stencil 重建，报告明确 `independent distributed NumPy Wilson-Clover reconstruction`。
+
+## 验证与证据
+- 测试/检查: Slurm 状态、QUDA smoke、24³ 2/4-rank QUDA、24³ 1/2-rank QCU、参数回读和残差门。
+- 结果: QUDA 1/2/4 均具备运行证据；QCU 1/2-rank PASS。
+- 未验证项: QCU 4-rank 的新 `mg-grid=2,2,2,1` 正式运行；QUDA 独立 NumPy full residual；重复样本中位数和最终汇总。
+
+## 变更与产物
+- 文件: `pyqcu/testing/quda/benchmark_quda_lime_mpi.py`、任务运行脚本、`pyqcu/testing/simple/numpy_clover.py`。
+- 产物: QUDA smoke/report、1/2/4-rank case reports、QCU 1/2-rank reports。
+- 未改动范围: 未提交、未打标签、未推送。
+
+## 风险、限制与下一步
+- 风险: QCU 与 QUDA 的 MG 内层算法不同；最终结论只能解释实际入口，不能外推为总体求解器优劣。
+- 阻塞: 当前无外部阻塞；独立残差 Clover 实现的 NumPy 轴检查正在修复。
+- 下一步: 完成小型 Clover 逐元素对照；运行 QCU 4-rank；执行重复样本并汇总独立 full residual。
+
+## Agent 全文报告
+--- report begin ---
+QUDA 在当前 DCU 环境下的阻塞已定位并修复：运行时需使用 HIP target、旧 PyTorch dtype shim，多进程使用 CuPy，并关闭 P2P。关键分布式根因是 `getDslash` 期望本地 lattice，却传入了 global lattice。修复后 QUDA 2-rank 和 4-rank 在 24³×64 真实 gauge 上均 PASS，分别为 4 iterations、残差约 `1.648e-07`。QCU 1-rank 与 2-rank 也已通过同条件 cache-hit 求解，独立残差约 `2.666e-07`。当前正在补齐 QUDA 的独立 NumPy full residual、QCU 4-rank 和重复样本汇总，尚不能宣称总目标完成。
+--- report end ---

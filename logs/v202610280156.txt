@@ -1,0 +1,59 @@
+[日志元数据]
+日志类型: stage
+生成时间: 2026-10-28 01:56:37 +0800
+批次: setup-migration
+主任务: CUDA QCU/QUDA multigrid comparison and C++ setup migration
+触发原因: 阶段成果
+摘要: C++ builder, bt=1/sign fixes and CPU verification complete; DCU smoke pending
+Git 根目录: /public/home/sunpeng_1/PyQCU
+
+## 关键日志
+### S1 — C++ null-vector/stencil 迁移
+- 目标: 将 Legacy MG 的 near-null inverse iteration、局部 CGS2 和 33-tensor Galerkin stencil 从 Torch/Python 构建路径迁入 CUDA-QCU 与 KUPL-QCU C++。
+- 命令/操作: 新增 `applyMultigridBuildNullVectorsQcu`、`applyMultigridBuildStencilLocalQcu`，并保留 `applyMultigridLocalOrthogonalizeQcu`。
+- 关键输出: CUDA 原生库与 Cython 扩展重编译成功；40 项 CUDA-compatible ABI 检查通过。
+- 退出码: 0
+- 证据与判断: `nm -D` 同时找到 CUDA/KUPL 三个新导出符号；Cython 签名含 `window` 与 `batch_size`。
+
+### S2 — 数值与生命周期修正
+- 目标: 修正全尺寸路径中的错误几何和 stencil 编码。
+- 命令/操作: 支持 parity 时间 `bt=1`；修正 CUDA 局部 time extent，避免再次除以 2；最近邻写回改用相反位移；对角项按 `[sign1,sign2,pair]` 写入；Clover setup 后切回 `_SET_PLAN_=1`。
+- 关键输出: KUPL 非退化 `4^3x8` 粗格、E=3、bt=1 回归通过。
+- 退出码: 0
+- 证据与判断: 1-rank CTest 11.25 s、2-rank CTest 2.61 s；CUDA 错误捕获与 buffer cleanup 已加入。
+
+### S3 — 分阶段计时和进度
+- 目标: 避免再次把长时间 builder 错误归因于单一阶段。
+- 命令/操作: 增加 `null_vector_seconds`、`stencil_seconds`、`galerkin_validation_seconds`、`host_transfer_seconds`，并在 `PYQCU_MG_BUILD_PROGRESS=1` 时输出 C++ 心跳。
+- 关键输出: KUPL `8^3x16` smoke 为 null 8.07 s、stencil 10.36 s、validation 0.385 s，总 19.27 s。
+- 退出码: 0
+- 证据与判断: 历史大格日志已在 `orthogonalize done 0.208 s` 后进入 stencil，601 s 总超时不能再描述为“停在正交化”。
+
+### S4 — 调度与环境
+- 目标: 尝试按用户要求提交 `kshcnormal` 并验证 QUDA 环境。
+- 命令/操作: `kshcnormal` 带 `gres=dcu:1` 提交被 Slurm 拒绝；CPU builder 检查成功运行在 `a01r1n16`。
+- 关键输出: `Requested node configuration is not available`；CPU 检查 20.9 s PASS；QUDA 使用 DTK 25.04.4 可加载 PyTorch/PyQUDA，无卡时必须停在 `CUDA reports no visible devices`。
+- 退出码: DCU 提交失败；CPU job 0；QUDA 无卡 smoke 按预期非 0。
+- 证据与判断: 预编译 QUDA 的 `hip_version=17.0.0` 与 DTK 25.04.4 匹配，原 DTK 23.10 混合库问题已排除。
+
+## 验证与证据
+- 测试/检查: CUDA build、Cython build、KUPL CTest、ABI、集成 builder、QUDA 环境 import。
+- 结果: 除待调度 DCU smoke 外均通过。
+- 未验证项: CUDA builder 的真实 DCU 数值 Gram/Galerkin；全尺寸 CUDA cache 冷构建；QCU/QUDA 1/2/4-rank 正式对照。
+
+## 变更与产物
+- 文件: `cpp/cuda/qcu/src/multigrid.cu`、`cpp/kupl/qcu/src/{apply_multigrid,lattice_multigrid,lattice_solver}.cpp`、PyCUDA/KUPL ABI、`pyqcu/testing/simple/kupl_multigrid.py`、迁移文档与回归测试。
+- 产物: 更新后的 `cpp/cuda/qcu/libqcu.so`、`pyqcu/cuda/qcu*.so`、KUPL `libqcu.so`、任务脚本与 smokes。
+- 未改动范围: 主性能矩阵尚未开始，未把 KUPL 或 Torch-QCU 计入 CUDA-vs-QUDA 性能比。
+
+## 风险、限制与下一步
+- 风险: `kshdnormal` DCU GRES 持续被高优先级作业占满；没有设备时不能宣称 CUDA 数值通过。
+- 阻塞: 当前 smoke job `125918261` 仍为 PENDING，原因 `Priority`。
+- 下一步: DCU smoke PASS 后执行 24^3x64 E6 C++ cache 冷构建；随后运行 QCU/QUDA 1/2/4-rank paired tests，每进程执行 5 分钟审查、10 分钟终止。
+
+## Agent 全文报告
+--- report begin ---
+已把 Legacy MG setup 的 null-vector、局部正交化和 33-tensor stencil 从 Python/Torch 构建路径迁入 CUDA-QCU 与 KUPL-QCU C++。期间修正了 bt=1 时间块、奇偶时间局部窗口、nearest/diagonal stencil 符号与布局、Clover 后 plan 切换和 2-rank 本地几何错误。CUDA 与 KUPL 均已完成构建；KUPL 的 bt=1、非退化 1/2-rank 回归和 CPU 集成均通过，并加入分阶段计时与 C++ 进度心跳。
+
+`kshcnormal` 没有 DCU GRES，带 DCU 请求被 Slurm 拒绝；该分区的 CPU builder/ABI 检查已成功完成。QUDA 已切换为与预编译库匹配的 DTK 25.04.4，导入链路通过。真正 DCU smoke `125918261` 仍在 `kshdnormal` 排队，故全尺寸 CUDA cache 构建及 QCU-vs-QUDA 1/2/4-rank 结果尚未完成，当前不得声称最终收敛。
+--- report end ---

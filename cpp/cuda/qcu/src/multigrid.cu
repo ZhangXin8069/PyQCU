@@ -1,5 +1,10 @@
 #include "../include/qcu.h"
+#include "../python/pyqcu.h"
+#include <chrono>
 #include <cooperative_groups.h>
+#include <cstdio>
+#include <cstdlib>
+#include <vector>
 #pragma optimize(5)
 namespace qcu {
 namespace cg = cooperative_groups;
@@ -8,6 +13,18 @@ template <typename T>
 __device__ inline bool multigrid_cg_bad(const LatticeComplex<T> &z) {
   return !((z.real() == z.real()) && (z.imag() == z.imag()) &&
            fabs(z.real()) != INFINITY && fabs(z.imag()) != INFINITY);
+}
+
+template <typename T>
+__global__ void multigrid_vector_subtract(void *destination,
+                                          const void *source,
+                                          const void *subtract, int count) {
+  const int index = blockIdx.x * blockDim.x + threadIdx.x;
+  if (index >= count) return;
+  auto *out = static_cast<LatticeComplex<T> *>(destination);
+  const auto *in = static_cast<const LatticeComplex<T> *>(source);
+  const auto *correction = static_cast<const LatticeComplex<T> *>(subtract);
+  out[index] = in[index] - correction[index];
 }
 
 // local_orthogonalize stores null vectors in the blocked layout
@@ -42,6 +59,508 @@ __device__ inline size_t multigrid_null_index(
   idx = idx * static_cast<size_t>(Tc) + static_cast<size_t>(it_c);
   idx = idx * static_cast<size_t>(bt) + static_cast<size_t>(dt);
   return idx;
+}
+
+template <typename T>
+__device__ inline LatticeComplex<T> multigrid_block_reduce_sum_complex(
+    T *real_scratch, T *imag_scratch, LatticeComplex<T> value) {
+  const int tid = threadIdx.x;
+  real_scratch[tid] = value.real();
+  imag_scratch[tid] = value.imag();
+  __syncthreads();
+  for (int stride = blockDim.x / 2; stride > 0; stride >>= 1) {
+    if (tid < stride) {
+      real_scratch[tid] += real_scratch[tid + stride];
+      imag_scratch[tid] += imag_scratch[tid + stride];
+    }
+    __syncthreads();
+  }
+  return LatticeComplex<T>(real_scratch[0], imag_scratch[0]);
+}
+
+template <typename T>
+__device__ inline T multigrid_block_reduce_sum_real(T *scratch, T value) {
+  const int tid = threadIdx.x;
+  scratch[tid] = value;
+  __syncthreads();
+  for (int stride = blockDim.x / 2; stride > 0; stride >>= 1) {
+    if (tid < stride) scratch[tid] += scratch[tid + stride];
+    __syncthreads();
+  }
+  return scratch[0];
+}
+
+template <typename T>
+__global__ void multigrid_local_orthogonalize_cgs2(
+    const void *flat_in, void *blocked_out, int E, int e, int Xf, int Yf,
+    int Zf, int Tf, int Xc, int Yc, int Zc, int Tc, int *status) {
+  extern __shared__ unsigned char dynamic_shared[];
+  __shared__ T dot_real_scratch[256];
+  __shared__ T dot_imag_scratch[256];
+  __shared__ T norm_scratch[256];
+  __shared__ int block_failure;
+
+  LatticeComplex<T> *work =
+      reinterpret_cast<LatticeComplex<T> *>(dynamic_shared);
+  const LatticeComplex<T> *input =
+      static_cast<const LatticeComplex<T> *>(flat_in);
+  LatticeComplex<T> *output = static_cast<LatticeComplex<T> *>(blocked_out);
+
+  const int tid = threadIdx.x;
+  int coarse_site = blockIdx.x;
+  const int it_c = coarse_site % Tc;
+  coarse_site /= Tc;
+  const int iz_c = coarse_site % Zc;
+  coarse_site /= Zc;
+  const int iy_c = coarse_site % Yc;
+  const int ix_c = coarse_site / Yc;
+
+  const int bx = Xf / Xc;
+  const int by = Yf / Yc;
+  const int bz = Zf / Zc;
+  const int bt = Tf / Tc;
+  const int local_dim = e * bx * by * bz * bt;
+  if (tid == 0) block_failure = 0;
+  __syncthreads();
+
+  for (int column = 0; column < E; ++column) {
+    for (int local = tid; local < local_dim; local += blockDim.x) {
+      int rem = local;
+      const int dt = rem % bt;
+      rem /= bt;
+      const int dz = rem % bz;
+      rem /= bz;
+      const int dy = rem % by;
+      rem /= by;
+      const int dx = rem % bx;
+      const int e_idx = rem / bx;
+      const int ix_f = ix_c * bx + dx;
+      const int iy_f = iy_c * by + dy;
+      const int iz_f = iz_c * bz + dz;
+      const int it_f = it_c * bt + dt;
+      size_t in_idx = static_cast<size_t>(column);
+      in_idx = in_idx * e + e_idx;
+      in_idx = in_idx * Xf + ix_f;
+      in_idx = in_idx * Yf + iy_f;
+      in_idx = in_idx * Zf + iz_f;
+      in_idx = in_idx * Tf + it_f;
+      work[local] = input[in_idx];
+    }
+    __syncthreads();
+
+    for (int pass = 0; pass < 2; ++pass) {
+      for (int previous_index = 0; previous_index < column;
+           ++previous_index) {
+        LatticeComplex<T> dot(0, 0);
+        for (int local = tid; local < local_dim; local += blockDim.x) {
+          int rem = local;
+          const int dt = rem % bt;
+          rem /= bt;
+          const int dz = rem % bz;
+          rem /= bz;
+          const int dy = rem % by;
+          rem /= by;
+          const int dx = rem % bx;
+          const int e_idx = rem / bx;
+          const int ix_f = ix_c * bx + dx;
+          const int iy_f = iy_c * by + dy;
+          const int iz_f = iz_c * bz + dz;
+          const int it_f = it_c * bt + dt;
+          const size_t out_idx = multigrid_null_index(
+              previous_index, e_idx, ix_f, iy_f, iz_f, it_f, e,
+              Xf, Yf, Zf, Tf, Xc, Yc, Zc, Tc);
+          dot += output[out_idx].conj() * work[local];
+        }
+        dot = multigrid_block_reduce_sum_complex(
+            dot_real_scratch, dot_imag_scratch, dot);
+        const LatticeComplex<T> coefficient = dot;
+        for (int local = tid; local < local_dim; local += blockDim.x) {
+          int rem = local;
+          const int dt = rem % bt;
+          rem /= bt;
+          const int dz = rem % bz;
+          rem /= bz;
+          const int dy = rem % by;
+          rem /= by;
+          const int dx = rem % bx;
+          const int e_idx = rem / bx;
+          const int ix_f = ix_c * bx + dx;
+          const int iy_f = iy_c * by + dy;
+          const int iz_f = iz_c * bz + dz;
+          const int it_f = it_c * bt + dt;
+          const size_t out_idx = multigrid_null_index(
+              previous_index, e_idx, ix_f, iy_f, iz_f, it_f, e,
+              Xf, Yf, Zf, Tf, Xc, Yc, Zc, Tc);
+          work[local] -= coefficient * output[out_idx];
+        }
+        __syncthreads();
+      }
+    }
+
+    T norm2 = 0;
+    for (int local = tid; local < local_dim; local += blockDim.x) {
+      const T real = work[local].real();
+      const T imag = work[local].imag();
+      norm2 += real * real + imag * imag;
+    }
+    norm2 = multigrid_block_reduce_sum_real(norm_scratch, norm2);
+    if (tid == 0) {
+      const T threshold = std::numeric_limits<T>::epsilon() *
+                          static_cast<T>(local_dim > E ? local_dim : E);
+      if (!isfinite(norm2) || norm2 <= threshold * threshold) {
+        block_failure = 1;
+        atomicExch(status, 1);
+        norm_scratch[0] = 0;
+      } else {
+        norm_scratch[0] = sqrt(norm2);
+      }
+    }
+    __syncthreads();
+    const T column_norm = norm_scratch[0];
+    for (int local = tid; local < local_dim; local += blockDim.x) {
+      int rem = local;
+      const int dt = rem % bt;
+      rem /= bt;
+      const int dz = rem % bz;
+      rem /= bz;
+      const int dy = rem % by;
+      rem /= by;
+      const int dx = rem % bx;
+      const int e_idx = rem / bx;
+      const int ix_f = ix_c * bx + dx;
+      const int iy_f = iy_c * by + dy;
+      const int iz_f = iz_c * bz + dz;
+      const int it_f = it_c * bt + dt;
+      const size_t out_idx = multigrid_null_index(
+          column, e_idx, ix_f, iy_f, iz_f, it_f, e,
+          Xf, Yf, Zf, Tf, Xc, Yc, Zc, Tc);
+      output[out_idx] = block_failure
+                            ? LatticeComplex<T>(0, 0)
+                            : work[local] / column_norm;
+    }
+    __syncthreads();
+  }
+}
+
+template <typename T>
+__global__ void multigrid_local_gather_gauge(
+    const void *global_gauge, void *local_gauge, const int *centers,
+    int batch, int Xf, int Yf, int Zf, int Tf, int Xc, int Yc, int Zc,
+    int Tc, int W0, int W1, int W2, int W3, int bx, int by, int bz,
+    int bt) {
+  const int64_t local_sites =
+      static_cast<int64_t>(W0) * W1 * W2 * W3;
+  const int64_t stride = 2 * 3 * 3 * 4 * local_sites;
+  const int64_t index =
+      static_cast<int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+  if (index >= static_cast<int64_t>(batch) * stride) return;
+  int64_t value = index;
+  const int site = value % local_sites;
+  value /= local_sites;
+  const int direction = value % 4;
+  value /= 4;
+  const int column = value % 3;
+  value /= 3;
+  const int row = value % 3;
+  value /= 3;
+  const int parity = value % 2;
+  const int example = value / 2;
+  const int t2 = site % W3;
+  int rest = site / W3;
+  const int z = rest % W2;
+  rest /= W2;
+  const int y = rest % W1;
+  const int x = rest / W1;
+  const int start[4] = {
+      centers[example * 4] * bx - bx - 2,
+      centers[example * 4 + 1] * by - by - 2,
+      centers[example * 4 + 2] * bz - bz - 2,
+      centers[example * 4 + 3] * bt - bt - 1};
+  const int gx = (start[0] + x + Xf) % Xf;
+  const int gy = (start[1] + y + Yf) % Yf;
+  const int gz = (start[2] + z + Zf) % Zf;
+  const int gt = (start[3] + t2 + Tf) % Tf;
+  int64_t source = parity;
+  source = source * 3 + row;
+  source = source * 3 + column;
+  source = source * 4 + direction;
+  source = source * Xf + gx;
+  source = source * Yf + gy;
+  source = source * Zf + gz;
+  source = source * Tf + gt;
+  static_cast<LatticeComplex<T> *>(local_gauge)[index] =
+      static_cast<const LatticeComplex<T> *>(global_gauge)[source];
+}
+
+template <typename T>
+__global__ void multigrid_local_fill_source(
+    void *local_source, const void *null_vectors, const int *centers,
+    int E, int e, int Xf, int Yf, int Zf, int Tf, int Xc, int Yc, int Zc,
+    int Tc, int W0, int W1, int W2, int W3, int bx, int by, int bz,
+    int bt, int parity, int probe, int batch) {
+  const int64_t local_sites =
+      static_cast<int64_t>(W0) * W1 * W2 * W3;
+  const int64_t block_sites =
+      static_cast<int64_t>(bx) * by * bz * bt;
+  const int64_t index =
+      static_cast<int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+  if (index >= static_cast<int64_t>(batch) * block_sites * e) return;
+  int64_t value = index;
+  const int component = value % e;
+  value /= e;
+  const int local = value % block_sites;
+  const int example = value / block_sites;
+  const int dt = local % bt;
+  int rem = local / bt;
+  const int dz = rem % bz;
+  rem /= bz;
+  const int dy = rem % by;
+  const int dx = rem / by;
+  const int x = centers[example * 4] * bx + dx;
+  const int y = centers[example * 4 + 1] * by + dy;
+  const int z = centers[example * 4 + 2] * bz + dz;
+  const int t = centers[example * 4 + 3] * bt + dt;
+  const int lx = (bx + 2 + dx) % W0;
+  const int ly = (by + 2 + dy) % W1;
+  const int lz = (bz + 2 + dz) % W2;
+  const int lt = (bt + 1 + dt) % W3;
+  const int64_t local_site = ((static_cast<int64_t>(lx) * W1 + ly) * W2 + lz) * W3 + lt;
+  const std::size_t null_index = multigrid_null_index(
+      probe, component, x, y, z, t, e, Xf, Yf, Zf, Tf, Xc, Yc, Zc, Tc);
+  const int64_t destination =
+      (static_cast<int64_t>(example) * 2 + parity) * e * local_sites +
+      static_cast<int64_t>(component) * local_sites + local_site;
+  static_cast<LatticeComplex<T> *>(local_source)[destination] =
+      static_cast<const LatticeComplex<T> *>(null_vectors)[null_index];
+}
+
+template <typename T>
+__global__ void multigrid_local_onsite_inverse(
+    const void *input, void *output, const void *inverse, const int *centers,
+    int parity, int Xf, int Yf, int Zf, int Tf, int W0, int W1, int W2,
+    int W3, int bx, int by, int bz, int bt, int batch) {
+  const int64_t local_sites =
+      static_cast<int64_t>(W0) * W1 * W2 * W3;
+  const int64_t global_sites =
+      static_cast<int64_t>(Xf) * Yf * Zf * Tf;
+  const int64_t index =
+      static_cast<int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+  if (index >= static_cast<int64_t>(batch) * local_sites * 12) return;
+  int64_t value = index;
+  const int row = value % 12;
+  value /= 12;
+  const int local_site = value % local_sites;
+  const int example = value / local_sites;
+  int rest = local_site;
+  const int lt = rest % W3;
+  rest /= W3;
+  const int lz = rest % W2;
+  rest /= W2;
+  const int ly = rest % W1;
+  const int lx = rest / W1;
+  const int start_x = centers[example * 4] * bx - bx - 2;
+  const int start_y = centers[example * 4 + 1] * by - by - 2;
+  const int start_z = centers[example * 4 + 2] * bz - bz - 2;
+  const int start_t = centers[example * 4 + 3] * bt - bt - 1;
+  const int gx = (start_x + lx + Xf) % Xf;
+  const int gy = (start_y + ly + Yf) % Yf;
+  const int gz = (start_z + lz + Zf) % Zf;
+  const int gt = (start_t + lt + Tf) % Tf;
+  const int64_t global_site = ((static_cast<int64_t>(gx) * Yf + gy) * Zf + gz) * Tf + gt;
+  LatticeComplex<T> sum(0, 0);
+  for (int column = 0; column < 12; ++column) {
+    const int64_t matrix_index =
+        (static_cast<int64_t>(row) * 12 + column) * global_sites + global_site;
+    const int64_t input_index =
+        (static_cast<int64_t>(example) * 2 + parity) * 12 * local_sites +
+        static_cast<int64_t>(column) * local_sites + local_site;
+    sum += static_cast<const LatticeComplex<T> *>(inverse)[matrix_index] *
+           static_cast<const LatticeComplex<T> *>(input)[input_index];
+  }
+  const int64_t output_index =
+      (static_cast<int64_t>(example) * 2 + parity) * 12 * local_sites +
+      static_cast<int64_t>(row) * local_sites + local_site;
+  static_cast<LatticeComplex<T> *>(output)[output_index] = sum;
+}
+
+template <typename T>
+__global__ void multigrid_local_onsite_subtract(
+    const void *source, const void *odd_term, void *schur, const int *centers,
+    int parity, T kappa2, int Xf, int Yf, int Zf, int Tf, int W0, int W1,
+    int W2, int W3, int bx, int by, int bz, int bt, int batch) {
+  const int64_t local_sites =
+      static_cast<int64_t>(W0) * W1 * W2 * W3;
+  const int64_t global_sites =
+      static_cast<int64_t>(Xf) * Yf * Zf * Tf;
+  const int64_t index =
+      static_cast<int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+  if (index >= static_cast<int64_t>(batch) * local_sites * 12) return;
+  int64_t value = index;
+  const int row = value % 12;
+  value /= 12;
+  const int local_site = value % local_sites;
+  const int example = value / local_sites;
+  int rest = local_site;
+  const int lt = rest % W3;
+  rest /= W3;
+  const int lz = rest % W2;
+  rest /= W2;
+  const int ly = rest % W1;
+  const int lx = rest / W1;
+  const int start_x = centers[example * 4] * bx - bx - 2;
+  const int start_y = centers[example * 4 + 1] * by - by - 2;
+  const int start_z = centers[example * 4 + 2] * bz - bz - 2;
+  const int start_t = centers[example * 4 + 3] * bt - bt - 1;
+  const int gx = (start_x + lx + Xf) % Xf;
+  const int gy = (start_y + ly + Yf) % Yf;
+  const int gz = (start_z + lz + Zf) % Zf;
+  const int gt = (start_t + lt + Tf) % Tf;
+  const int64_t global_site = ((static_cast<int64_t>(gx) * Yf + gy) * Zf + gz) * Tf + gt;
+  LatticeComplex<T> onsite(0, 0);
+  for (int column = 0; column < 12; ++column) {
+    const int64_t matrix_index =
+        (static_cast<int64_t>(row) * 12 + column) * global_sites + global_site;
+    const int64_t source_index =
+        (static_cast<int64_t>(example) * 2 + parity) * 12 * local_sites +
+        static_cast<int64_t>(column) * local_sites + local_site;
+    onsite += static_cast<const LatticeComplex<T> *>(odd_term)[matrix_index] *
+              static_cast<const LatticeComplex<T> *>(source)[source_index];
+  }
+  auto *output = static_cast<LatticeComplex<T> *>(schur);
+  const int64_t output_index =
+      (static_cast<int64_t>(example) * 2 + parity) * 12 * local_sites +
+      static_cast<int64_t>(row) * local_sites + local_site;
+  output[output_index] =
+      onsite - LatticeComplex<T>(kappa2, 0) * output[output_index];
+}
+
+__device__ __constant__ int multigrid_local_stencil_shifts[33][4] = {
+    {0, 0, 0, 0},
+    {1, 0, 0, 0}, {-1, 0, 0, 0}, {0, 1, 0, 0}, {0, -1, 0, 0},
+    {0, 0, 1, 0}, {0, 0, -1, 0}, {0, 0, 0, 1}, {0, 0, 0, -1},
+    {1, 1, 0, 0}, {-1, -1, 0, 0}, {1, -1, 0, 0}, {-1, 1, 0, 0},
+    {1, 0, 1, 0}, {-1, 0, -1, 0}, {1, 0, -1, 0}, {-1, 0, 1, 0},
+    {1, 0, 0, 1}, {-1, 0, 0, -1}, {1, 0, 0, -1}, {-1, 0, 0, 1},
+    {0, 1, 1, 0}, {0, -1, -1, 0}, {0, 1, -1, 0}, {0, -1, 1, 0},
+    {0, 1, 0, 1}, {0, -1, 0, -1}, {0, 1, 0, -1}, {0, -1, 0, 1},
+    {0, 0, 1, 1}, {0, 0, -1, -1}, {0, 0, 1, -1}, {0, 0, -1, 1}};
+
+template <typename T>
+__global__ void multigrid_local_restrict_stencil(
+    void *sitting, void *hop_nn, void *hop_diag, const void *schur,
+    const void *null_vectors, const int *centers, int E, int e, int Xf,
+    int Yf, int Zf, int Tf, int Xc, int Yc, int Zc, int Tc, int W0, int W1,
+    int W2, int W3, int bx, int by, int bz, int bt, int parity, int probe) {
+  const int example = blockIdx.x;
+  const int coarse_dims[4] = {Xc, Yc, Zc, Tc};
+  const int64_t coarse_volume =
+      static_cast<int64_t>(Xc) * Yc * Zc * Tc;
+  const int64_t local_sites =
+      static_cast<int64_t>(W0) * W1 * W2 * W3;
+  const int64_t block_sites =
+      static_cast<int64_t>(bx) * by * bz * bt;
+  for (int task = threadIdx.x; task < 33 * E; task += blockDim.x) {
+    const int slot = task / E;
+    const int out = task % E;
+    int target[4];
+    for (int dim = 0; dim < 4; ++dim) {
+      target[dim] = (centers[example * 4 + dim] +
+                     multigrid_local_stencil_shifts[slot][dim] +
+                     coarse_dims[dim]) % coarse_dims[dim];
+    }
+    int multiplicity = 0;
+    for (int other = 0; other < 33; ++other) {
+      int other_target[4];
+      bool same = true;
+      for (int dim = 0; dim < 4; ++dim) {
+        other_target[dim] =
+            (centers[example * 4 + dim] +
+             multigrid_local_stencil_shifts[other][dim] + coarse_dims[dim]) %
+            coarse_dims[dim];
+        same = same && other_target[dim] == target[dim];
+      }
+      multiplicity += same ? 1 : 0;
+    }
+    LatticeComplex<T> sum(0, 0);
+    for (int dt = 0; dt < bt; ++dt) {
+      for (int dz = 0; dz < bz; ++dz) {
+        for (int dy = 0; dy < by; ++dy) {
+          for (int dx = 0; dx < bx; ++dx) {
+            const int gx = target[0] * bx + dx;
+            const int gy = target[1] * by + dy;
+            const int gz = target[2] * bz + dz;
+            const int gt = target[3] * bt + dt;
+            const int lx = (target[0] * bx + dx -
+                            (centers[example * 4] * bx - bx - 2) + Xf) % Xf;
+            const int ly = (target[1] * by + dy -
+                            (centers[example * 4 + 1] * by - by - 2) + Yf) % Yf;
+            const int lz = (target[2] * bz + dz -
+                            (centers[example * 4 + 2] * bz - bz - 2) + Zf) % Zf;
+            const int lt = (target[3] * bt + dt -
+                            (centers[example * 4 + 3] * bt - bt - 1) + Tf) % Tf;
+            const int64_t local_site = ((static_cast<int64_t>(lx) * W1 + ly) * W2 + lz) * W3 + lt;
+            for (int component = 0; component < e; ++component) {
+              const std::size_t null_index = multigrid_null_index(
+                  out, component, gx, gy, gz, gt, e, Xf, Yf, Zf, Tf, Xc, Yc,
+                  Zc, Tc);
+              const int64_t field_index =
+                  (static_cast<int64_t>(example) * 2 + parity) * e *
+                      local_sites +
+                  static_cast<int64_t>(component) * local_sites + local_site;
+              sum += static_cast<const LatticeComplex<T> *>(null_vectors)
+                         [null_index].conj() *
+                     static_cast<const LatticeComplex<T> *>(schur)[field_index];
+            }
+          }
+        }
+      }
+    }
+    sum = sum / static_cast<T>(multiplicity);
+    const int64_t coarse_site =
+        ((static_cast<int64_t>(target[0]) * Yc + target[1]) * Zc + target[2]) *
+            Tc +
+        target[3];
+    if (slot == 0) {
+      static_cast<LatticeComplex<T> *>(sitting)
+          [(static_cast<int64_t>(out) * E + probe) * coarse_volume +
+           coarse_site] = sum;
+    } else if (slot <= 8) {
+      // The coefficient at target=n is consumed by the coarse kernel as
+      // input[n + encoded_shift].  Store n=center+shift under the opposite
+      // encoded sign so that it reads input[center].
+      const int raw = slot - 1;
+      const int dim = raw / 2;
+      const int shift_is_negative = raw % 2;
+      const int direction = (1 - shift_is_negative) * 4 + dim;
+      static_cast<LatticeComplex<T> *>(hop_nn)
+          [((static_cast<int64_t>(direction) * E + out) * E + probe) *
+               coarse_volume +
+           coarse_site] = sum;
+    } else {
+      // hop_diag is [sign1,sign2,pair].  The shift table is pair-major, so
+      // decode the target shift, invert both signs, then flatten in the
+      // kernel's sign-major layout.
+      const int raw = slot - 9;
+      const int pair = raw / 4;
+      const int shift_encoding = raw % 4;
+      // The table order is (++), (--), (+-), (-+).  Flipping both
+      // signs therefore swaps 0<->1 and 2<->3; a numeric 3-x map
+      // would leave (++/--) unchanged and would only swap mixed signs.
+      const int opposite_encoding = shift_encoding ^ 1;
+      // Table order is (++), (--), (+-), (-+), while the kernel's
+      // combination order is (++), (+-), (-+), (--).  The two orders are
+      // not the same two-bit encoding.
+      const int kernel_combination =
+          opposite_encoding == 0 ? 0 :
+          opposite_encoding == 1 ? 3 :
+          opposite_encoding == 2 ? 1 : 2;
+      const int direction = kernel_combination * 6 + pair;
+      static_cast<LatticeComplex<T> *>(hop_diag)
+          [((static_cast<int64_t>(direction) * E + out) * E + probe) *
+               coarse_volume +
+           coarse_site] = sum;
+    }
+  }
 }
 
 template <typename T>
@@ -481,6 +1000,73 @@ __global__ void multigrid_coarse_unpack_halo(
   LatticeComplex<T> *out = static_cast<LatticeComplex<T> *>(halo);
   out[(long long)e * hvol + hsite] =
       in[(long long)direction * direction_stride + (long long)e * max_face + k];
+}
+
+template <typename T>
+__global__ void multigrid_coarse_pack_axis_halo(
+    void *packed, const void *fermion_in, int E, int X, int Y, int Z, int Lt,
+    int axis) {
+  const int dims[4] = {X, Y, Z, Lt};
+  if (E <= 0 || axis < 0 || axis >= 4) return;
+  int plane_sites = 1;
+  for (int d = 0; d < 4; ++d)
+    if (d != axis) plane_sites *= dims[d];
+  const long long stride = static_cast<long long>(E) * plane_sites;
+  const long long total = 2 * stride;
+  const long long global_idx =
+      static_cast<long long>(blockIdx.x) * blockDim.x + threadIdx.x;
+  if (global_idx >= total || plane_sites <= 0) return;
+
+  const int side = static_cast<int>(global_idx / stride);
+  const long long local = global_idx - side * stride;
+  const int e = static_cast<int>(local / plane_sites);
+  int q = static_cast<int>(local - static_cast<long long>(e) * plane_sites);
+  int coordinate[4] = {0, 0, 0, 0};
+  for (int d = 3; d >= 0; --d) {
+    if (d == axis) continue;
+    coordinate[d] = q % dims[d];
+    q /= dims[d];
+  }
+  coordinate[axis] = side == 0 ? 0 : dims[axis] - 1;
+  const int vol = X * Y * Z * Lt;
+  const int site = ((coordinate[0] * Y + coordinate[1]) * Z +
+                    coordinate[2]) * Lt + coordinate[3];
+  static_cast<LatticeComplex<T> *>(packed)[global_idx] =
+      static_cast<const LatticeComplex<T> *>(fermion_in)[e * vol + site];
+}
+
+template <typename T>
+__global__ void multigrid_coarse_unpack_axis_halo(
+    void *halo, const void *packed, int E, int X, int Y, int Z, int Lt,
+    int axis) {
+  const int dims[4] = {X, Y, Z, Lt};
+  if (E <= 0 || axis < 0 || axis >= 4) return;
+  int plane_sites = 1;
+  for (int d = 0; d < 4; ++d)
+    if (d != axis) plane_sites *= dims[d];
+  const long long stride = static_cast<long long>(E) * plane_sites;
+  const long long total = 2 * stride;
+  const long long global_idx =
+      static_cast<long long>(blockIdx.x) * blockDim.x + threadIdx.x;
+  if (global_idx >= total || plane_sites <= 0) return;
+
+  const int side = static_cast<int>(global_idx / stride);
+  const long long local = global_idx - side * stride;
+  const int e = static_cast<int>(local / plane_sites);
+  int q = static_cast<int>(local - static_cast<long long>(e) * plane_sites);
+  int coordinate[4] = {1, 1, 1, 1};
+  for (int d = 3; d >= 0; --d) {
+    if (d == axis) continue;
+    coordinate[d] = q % dims[d] + 1;
+    q /= dims[d];
+  }
+  coordinate[axis] = side == 0 ? 0 : dims[axis] + 1;
+  const long long hvol = static_cast<long long>(X + 2) * (Y + 2) *
+                         (Z + 2) * (Lt + 2);
+  const int hsite = ((coordinate[0] * (Y + 2) + coordinate[1]) * (Z + 2) +
+                     coordinate[2]) * (Lt + 2) + coordinate[3];
+  static_cast<LatticeComplex<T> *>(halo)[e * hvol + hsite] =
+      static_cast<const LatticeComplex<T> *>(packed)[global_idx];
 }
 
 template <typename T>
@@ -1750,6 +2336,14 @@ template __global__ void multigrid_coarse_unpack_halo<float>(
     void*, const void*, int, int, int, int, int, int, int, int, int, int);
 template __global__ void multigrid_coarse_unpack_halo<double>(
     void*, const void*, int, int, int, int, int, int, int, int, int, int);
+template __global__ void multigrid_coarse_pack_axis_halo<float>(
+    void*, const void*, int, int, int, int, int, int);
+template __global__ void multigrid_coarse_pack_axis_halo<double>(
+    void*, const void*, int, int, int, int, int, int);
+template __global__ void multigrid_coarse_unpack_axis_halo<float>(
+    void*, const void*, int, int, int, int, int, int);
+template __global__ void multigrid_coarse_unpack_axis_halo<double>(
+    void*, const void*, int, int, int, int, int, int);
 template __global__ void multigrid_coarse_dslash_wide_halo_region<float>(
     void*, void*, void*, void*, void*, void*, int, int, int, int, int, int,
     int, int, int, int);
@@ -1760,6 +2354,10 @@ template __global__ void multigrid_fill_test_vector<float>(
     void*, int, unsigned long);
 template __global__ void multigrid_fill_test_vector<double>(
     void*, int, unsigned long);
+template __global__ void multigrid_vector_subtract<float>(
+    void*, const void*, const void*, int);
+template __global__ void multigrid_vector_subtract<double>(
+    void*, const void*, const void*, int);
 template __global__ void multigrid_difference<float>(
     void*, const void*, const void*, int);
 template __global__ void multigrid_difference<double>(
@@ -1794,4 +2392,514 @@ template __global__ void multigrid_nvshmem_put_halo<double>(
     void*, const void*, int, int, int, int, int, int, int, int, int, int, int,
     int, int, int, int, int);
 #endif
+
+template <typename T>
+int launch_multigrid_local_orthogonalize_cgs2(
+    void *flat_in, void *blocked_out, int E, int e, int Xf, int Yf, int Zf,
+    int Tf, int Xc, int Yc, int Zc, int Tc) {
+  if (flat_in == nullptr || blocked_out == nullptr || E <= 0 || e <= 0 ||
+      Xf <= 0 || Yf <= 0 || Zf <= 0 || Tf <= 0 || Xc <= 0 || Yc <= 0 ||
+      Zc <= 0 || Tc <= 0 || Xf % Xc || Yf % Yc || Zf % Zc || Tf % Tc) {
+    return 1;
+  }
+  const int bx = Xf / Xc;
+  const int by = Yf / Yc;
+  const int bz = Zf / Zc;
+  const int bt = Tf / Tc;
+  const int local_dim = e * bx * by * bz * bt;
+  if (E > local_dim) return 3;
+  const size_t shared_bytes =
+      static_cast<size_t>(local_dim) * sizeof(LatticeComplex<T>);
+  int device = 0;
+  cudaGetDevice(&device);
+  cudaDeviceProp properties{};
+  cudaGetDeviceProperties(&properties, device);
+  if (shared_bytes > properties.sharedMemPerBlock) return 4;
+  int threads = 32;
+  while (threads < local_dim && threads < 256) threads <<= 1;
+
+  int *device_status = nullptr;
+  if (cudaMalloc(&device_status, sizeof(int)) != cudaSuccess) return 2;
+  if (cudaMemset(device_status, 0, sizeof(int)) != cudaSuccess) {
+    cudaFree(device_status);
+    return 2;
+  }
+  const int coarse_volume = Xc * Yc * Zc * Tc;
+  multigrid_local_orthogonalize_cgs2<T>
+      <<<coarse_volume, threads, shared_bytes>>>(
+          flat_in, blocked_out, E, e, Xf, Yf, Zf, Tf, Xc, Yc, Zc, Tc,
+          device_status);
+  if (cudaGetLastError() != cudaSuccess ||
+      cudaDeviceSynchronize() != cudaSuccess) {
+    cudaFree(device_status);
+    return 2;
+  }
+  int status = 0;
+  if (cudaMemcpy(&status, device_status, sizeof(int), cudaMemcpyDeviceToHost) !=
+      cudaSuccess) {
+    status = 2;
+  }
+  cudaFree(device_status);
+  return status;
+}
+
+template <typename T>
+int launch_multigrid_build_null_vectors(
+    void *blocked_out, long long gauge_ptr, long long clover_even_ptr,
+    long long clover_odd_ptr, long long clover_even_inv_ptr,
+    long long clover_odd_inv_ptr, long long set_ptrs_ptr,
+    long long params_ptr, int E, int e, int Xf, int Yf, int Zf, int Tf,
+    int Xc, int Yc, int Zc, int Tc, int nv_iters, unsigned long long seed,
+    double nv_tol) {
+  if (blocked_out == nullptr || gauge_ptr == 0 || clover_even_ptr == 0 ||
+      clover_odd_ptr == 0 || clover_even_inv_ptr == 0 ||
+      clover_odd_inv_ptr == 0 || set_ptrs_ptr == 0 || params_ptr == 0 ||
+      E <= 0 || e != _LAT_SC_ || Xf <= 0 || Yf <= 0 || Zf <= 0 || Tf <= 0 ||
+      Xc <= 0 || Yc <= 0 || Zc <= 0 || Tc <= 0 || Xf % Xc || Yf % Yc ||
+      Zf % Zc || Tf % Tc || nv_iters < 0 || !(nv_tol > 0.0) ||
+      !std::isfinite(nv_tol)) {
+    return 1;
+  }
+  auto *params = reinterpret_cast<int *>(params_ptr);
+  auto *set_ptrs = reinterpret_cast<long long *>(set_ptrs_ptr);
+  auto *set = reinterpret_cast<LatticeSet<T> *>(set_ptrs[params[_SET_INDEX_]]);
+  if (set == nullptr || set->host_params[_LAT_X_] != Xf ||
+      set->host_params[_LAT_Y_] != Yf || set->host_params[_LAT_Z_] != Zf ||
+      set->host_params[_LAT_T_] != Tf) {
+    return 1;
+  }
+  const int count = set->lat_4dim_SC;
+  const size_t bytes = static_cast<size_t>(count) * sizeof(LatticeComplex<T>);
+  const size_t full_bytes = 2 * bytes;
+  const bool progress = std::getenv("PYQCU_MG_BUILD_PROGRESS") != nullptr;
+  const auto progress_start = std::chrono::steady_clock::now();
+  void *flat = nullptr;
+  void *vector = nullptr;
+  void *schur = nullptr;
+  void *full_rhs = nullptr;
+  void *full_solution = nullptr;
+  const T saved_atol = set->host_argv[_ATOL_];
+  const int saved_guess = set->host_params[_MG_USE_INIT_GUESS_];
+  const auto restore_solver_controls = [&]() {
+    set->host_argv[_ATOL_] = saved_atol;
+    set->host_params[_MG_USE_INIT_GUESS_] = saved_guess;
+  };
+  const auto release_buffers = [&]() noexcept {
+    if (full_solution != nullptr) cudaFreeAsync(full_solution, set->stream);
+    if (full_rhs != nullptr) cudaFreeAsync(full_rhs, set->stream);
+    if (schur != nullptr) cudaFreeAsync(schur, set->stream);
+    if (vector != nullptr) cudaFreeAsync(vector, set->stream);
+    if (flat != nullptr) cudaFreeAsync(flat, set->stream);
+  };
+  int status = 2;
+  try {
+    checkCudaErrors(cudaMallocAsync(&flat, static_cast<size_t>(E) * bytes,
+                                    set->stream));
+    checkCudaErrors(cudaMallocAsync(&vector, bytes, set->stream));
+    checkCudaErrors(cudaMallocAsync(&schur, bytes, set->stream));
+    checkCudaErrors(cudaMallocAsync(&full_rhs, full_bytes, set->stream));
+    checkCudaErrors(cudaMallocAsync(&full_solution, full_bytes, set->stream));
+    set->host_argv[_ATOL_] = static_cast<T>(nv_tol);
+    set->host_params[_MG_USE_INIT_GUESS_] = 0;
+    LatticeComplex<T> scalar;
+    status = 0;
+    for (int column = 0; column < E && status == 0; ++column) {
+      if (progress) {
+        const double elapsed = std::chrono::duration<double>(
+            std::chrono::steady_clock::now() - progress_start).count();
+        std::fprintf(stderr,
+                     "PYQCU::CUDA::MG_SETUP: null column=%d/%d elapsed=%.3fs\n",
+                     column + 1, E, elapsed);
+        std::fflush(stderr);
+      }
+      give_random_vals<T><<<set->gridDim, set->blockDim, 0, set->stream>>>(
+          vector, static_cast<unsigned long>(seed + 10007ULL * column));
+      for (int iteration = 0; iteration < nv_iters; ++iteration) {
+        applyCloverBistabCgDslashQcu(
+            reinterpret_cast<long long>(schur),
+            reinterpret_cast<long long>(vector), gauge_ptr, clover_even_ptr,
+            clover_odd_ptr, clover_even_inv_ptr, clover_odd_inv_ptr,
+            set_ptrs_ptr, params_ptr);
+        checkCudaErrors(cudaMemsetAsync(full_rhs, 0, full_bytes, set->stream));
+        checkCudaErrors(cudaMemcpyAsync(
+            static_cast<unsigned char *>(full_rhs) + bytes, schur, bytes,
+            cudaMemcpyDeviceToDevice, set->stream));
+        applyCloverBistabCgQcu(
+            reinterpret_cast<long long>(full_solution),
+            reinterpret_cast<long long>(full_rhs), gauge_ptr, clover_even_ptr,
+            clover_odd_ptr, clover_even_inv_ptr, clover_odd_inv_ptr,
+            set_ptrs_ptr, params_ptr);
+        const int blocks = (count + set->blockDim.x - 1) / set->blockDim.x;
+        multigrid_vector_subtract<T><<<blocks, set->blockDim, 0, set->stream>>>(
+            vector, vector,
+            static_cast<unsigned char *>(full_solution) + bytes, count);
+        checkCudaErrors(cudaGetLastError());
+      }
+      auto *device_scalar = static_cast<LatticeComplex<T> *>(set->device_vals) +
+                            _send_tmp_;
+      CUBLAS_CHECK(_cublasDot<T>(set->cublasH, count, vector, 1, vector, 1,
+                                 device_scalar));
+      checkCudaErrors(cudaMemcpyAsync(&scalar, device_scalar,
+                                      sizeof(LatticeComplex<T>),
+                                      cudaMemcpyDeviceToHost, set->stream));
+      checkCudaErrors(cudaStreamSynchronize(set->stream));
+      T norm2 = scalar.real();
+      MPI_Allreduce(MPI_IN_PLACE, &norm2, 1, mpi_real_type<T>(), MPI_SUM,
+                    MPI_COMM_WORLD);
+      if (!std::isfinite(norm2) || norm2 <= std::numeric_limits<T>::min()) {
+        status = 3;
+        break;
+      }
+      const LatticeComplex<T> inverse_norm(
+          static_cast<T>(1) / std::sqrt(norm2), 0);
+      CUBLAS_CHECK(_cublasScal<T>(set->cublasH, count, &inverse_norm, vector,
+                                 1));
+      checkCudaErrors(cudaMemcpyAsync(
+          static_cast<unsigned char *>(flat) +
+              static_cast<size_t>(column) * bytes,
+          vector, bytes, cudaMemcpyDeviceToDevice, set->stream));
+    }
+    if (status == 0) {
+      checkCudaErrors(cudaStreamSynchronize(set->stream));
+      status = launch_multigrid_local_orthogonalize_cgs2<T>(
+          flat, blocked_out, E, e, Xf, Yf, Zf, Tf, Xc, Yc, Zc, Tc);
+    }
+  } catch (...) {
+    status = 2;
+  }
+  restore_solver_controls();
+  release_buffers();
+  return status;
+}
+
+template <typename T>
+int launch_multigrid_build_stencil_local(
+    void *sitting, void *hop_nn, void *hop_diag, long long null_vectors_ptr,
+    long long gauge_ptr, long long clover_even_ptr,
+    long long clover_odd_ptr, long long clover_even_inv_ptr,
+    long long clover_odd_inv_ptr, long long set_ptrs_ptr,
+    long long params_ptr, int E, int e, int Xf, int Yf, int Zf, int Tf,
+    int Xc, int Yc, int Zc, int Tc, int window, int batch_size) {
+  if (sitting == nullptr || hop_nn == nullptr || hop_diag == nullptr ||
+      null_vectors_ptr == 0 || gauge_ptr == 0 || clover_even_ptr == 0 ||
+      clover_odd_ptr == 0 || clover_even_inv_ptr == 0 ||
+      clover_odd_inv_ptr == 0 || set_ptrs_ptr == 0 || params_ptr == 0 ||
+      E <= 0 || e != _LAT_SC_ || Xf <= 0 || Yf <= 0 || Zf <= 0 || Tf <= 0 ||
+      Xc <= 0 || Yc <= 0 || Zc <= 0 || Tc <= 0 || Xf % Xc || Yf % Yc ||
+      Zf % Zc || Tf % Tc || batch_size <= 0 || batch_size > 64) {
+    return 1;
+  }
+  const int bx = Xf / Xc;
+  const int by = Yf / Yc;
+  const int bz = Zf / Zc;
+  const int bt = Tf / Tc;
+  // Legacy MG uses parity-compressed time, so a valid production hierarchy
+  // commonly has bt == 1 while the spatial block extents are still two.
+  if (bx < 1 || by < 1 || bz < 1 || bt < 1) return 1;
+  const int required_window = std::max(
+      std::max(3 * bx + 2, 3 * by + 2),
+      std::max(3 * bz + 2, 3 * bt + 2));
+  if (window < required_window) return 1;
+  if (3 * bx + 2 > Xf || 3 * by + 2 > Yf || 3 * bz + 2 > Zf ||
+      3 * bt + 2 > Tf) {
+    return 1;
+  }
+  const int W0 = std::min(Xf, 3 * bx + 3);
+  const int W1 = std::min(Yf, 3 * by + 3);
+  const int W2 = std::min(Zf, 3 * bz + 3);
+  const int W3 = Tf;
+  const int64_t local_sites =
+      static_cast<int64_t>(W0) * W1 * W2 * W3;
+  const int64_t field_stride = 2 * e * local_sites;
+  const int64_t gauge_stride = 2 * 3 * 3 * 4 * local_sites;
+  const int64_t coarse_count = static_cast<int64_t>(Xc) * Yc * Zc * Tc;
+  const bool progress = std::getenv("PYQCU_MG_BUILD_PROGRESS") != nullptr;
+  const auto progress_start = std::chrono::steady_clock::now();
+  auto last_progress = progress_start;
+  auto *params = reinterpret_cast<int *>(params_ptr);
+  auto *set_ptrs = reinterpret_cast<long long *>(set_ptrs_ptr);
+  auto *set = reinterpret_cast<LatticeSet<T> *>(set_ptrs[params[_SET_INDEX_]]);
+  if (set == nullptr || set->host_params[_NODE_SIZE_] != 1 ||
+      set->host_params[_GRID_X_] != 1 || set->host_params[_GRID_Y_] != 1 ||
+      set->host_params[_GRID_Z_] != 1 || set->host_params[_GRID_T_] != 1 ||
+      set->host_params[_LAT_X_] != Xf || set->host_params[_LAT_Y_] != Yf ||
+      set->host_params[_LAT_Z_] != Zf || set->host_params[_LAT_T_] != Tf) {
+    return 6;
+  }
+
+  int local_params[_PARAMS_SIZE_];
+  std::copy(set->host_params, set->host_params + _PARAMS_SIZE_, local_params);
+  local_params[_LAT_X_] = W0;
+  local_params[_LAT_Y_] = W1;
+  local_params[_LAT_Z_] = W2;
+  // wilson_dslash consumes the already parity-compressed time extent in
+  // LatticeSet::host_params; the local window W3 is that extent, not a full
+  // physical time dimension that should be halved again.
+  local_params[_LAT_T_] = W3;
+  local_params[_LAT_XYZT_] = W0 * W1 * W2 * W3;
+  local_params[_GRID_X_] = local_params[_GRID_Y_] = 1;
+  local_params[_GRID_Z_] = local_params[_GRID_T_] = 1;
+  local_params[_NODE_RANK_] = 0;
+  local_params[_NODE_SIZE_] = 1;
+  local_params[_DAGGER_] = _NO_USE_;
+  constexpr int source_parity = _EVEN_;
+  constexpr int target_parity = _ODD_;
+  const int64_t parity_field = static_cast<int64_t>(e) * local_sites;
+  int parity_params[_PARAMS_SIZE_];
+  std::copy(local_params, local_params + _PARAMS_SIZE_, parity_params);
+  // LatticeCloverBistabCg::dslash performs the first compact hop with the
+  // even (0) Wilson parameters and the second with odd (1) parameters.
+  parity_params[_PARITY_] = source_parity;
+  local_params[_PARITY_] = target_parity;
+  local_params[_PARITY_] = target_parity;
+
+  void *local_gauge = nullptr;
+  void *source = nullptr;
+  void *even_dslash = nullptr;
+  void *even_inverse = nullptr;
+  void *schur = nullptr;
+  void *device_centers = nullptr;
+  int *device_params_other = nullptr;
+  int *device_params_target = nullptr;
+  const int max_batch = batch_size;
+  checkCudaErrors(cudaMallocAsync(
+      &local_gauge, static_cast<size_t>(max_batch) * gauge_stride *
+                         sizeof(LatticeComplex<T>), set->stream));
+  checkCudaErrors(cudaMallocAsync(
+      &source, static_cast<size_t>(max_batch) * field_stride *
+                   sizeof(LatticeComplex<T>), set->stream));
+  checkCudaErrors(cudaMallocAsync(
+      &even_dslash, static_cast<size_t>(max_batch) * field_stride *
+                        sizeof(LatticeComplex<T>), set->stream));
+  checkCudaErrors(cudaMallocAsync(
+      &even_inverse, static_cast<size_t>(max_batch) * field_stride *
+                         sizeof(LatticeComplex<T>), set->stream));
+  checkCudaErrors(cudaMallocAsync(
+      &schur, static_cast<size_t>(max_batch) * field_stride *
+                  sizeof(LatticeComplex<T>), set->stream));
+  checkCudaErrors(cudaMallocAsync(
+      &device_centers, max_batch * 4 * sizeof(int), set->stream));
+  checkCudaErrors(cudaMallocAsync(
+      &device_params_other, _PARAMS_SIZE_ * sizeof(int), set->stream));
+  checkCudaErrors(cudaMallocAsync(
+      &device_params_target, _PARAMS_SIZE_ * sizeof(int), set->stream));
+  checkCudaErrors(cudaMemcpyAsync(device_params_other, parity_params,
+                                  _PARAMS_SIZE_ * sizeof(int),
+                                  cudaMemcpyHostToDevice, set->stream));
+  checkCudaErrors(cudaMemcpyAsync(device_params_target, local_params,
+                                  _PARAMS_SIZE_ * sizeof(int),
+                                  cudaMemcpyHostToDevice, set->stream));
+
+  const int threads = set->blockDim.x;
+  const int dslash_blocks =
+      static_cast<int>((local_sites + threads - 1) / threads);
+  const int64_t block_sites =
+      static_cast<int64_t>(bx) * by * bz * bt;
+  const T kappa2 = set->kappa() * set->kappa();
+  for (int64_t base = 0; base < coarse_count; base += max_batch) {
+    if (progress) {
+      const auto now = std::chrono::steady_clock::now();
+      if (base == 0 || now - last_progress >= std::chrono::seconds(30)) {
+        const double elapsed = std::chrono::duration<double>(
+            now - progress_start).count();
+        std::fprintf(
+            stderr,
+            "PYQCU::CUDA::MG_SETUP: stencil coarse=%lld/%lld elapsed=%.3fs "
+            "batch=%d\n",
+            static_cast<long long>(base), static_cast<long long>(coarse_count),
+            elapsed, batch_size);
+        std::fflush(stderr);
+        last_progress = now;
+      }
+    }
+    const int batch = static_cast<int>(std::min<int64_t>(
+        max_batch, coarse_count - base));
+    std::vector<int> host_centers(static_cast<size_t>(batch) * 4);
+    for (int example = 0; example < batch; ++example) {
+      int64_t value = base + example;
+      host_centers[example * 4 + 3] = value % Tc;
+      value /= Tc;
+      host_centers[example * 4 + 2] = value % Zc;
+      value /= Zc;
+      host_centers[example * 4 + 1] = value % Yc;
+      host_centers[example * 4] = value / Yc;
+    }
+    checkCudaErrors(cudaMemcpyAsync(
+        device_centers, host_centers.data(), host_centers.size() * sizeof(int),
+        cudaMemcpyHostToDevice, set->stream));
+    const int64_t gauge_values = static_cast<int64_t>(batch) * gauge_stride;
+    multigrid_local_gather_gauge<T>
+        <<<(gauge_values + threads - 1) / threads, threads, 0,
+            set->stream>>>(
+            reinterpret_cast<void *>(gauge_ptr), local_gauge,
+            static_cast<int *>(device_centers), batch, Xf, Yf, Zf, Tf, Xc, Yc,
+            Zc, Tc, W0, W1, W2, W3, bx, by, bz, bt);
+    for (int probe = 0; probe < E; ++probe) {
+      checkCudaErrors(cudaMemsetAsync(
+          source, 0,
+          static_cast<size_t>(batch) * field_stride *
+              sizeof(LatticeComplex<T>),
+          set->stream));
+      const int64_t source_values =
+          static_cast<int64_t>(batch) * block_sites * e;
+      multigrid_local_fill_source<T>
+          <<<(source_values + threads - 1) / threads, threads, 0,
+              set->stream>>>(
+              source, reinterpret_cast<void *>(null_vectors_ptr),
+              static_cast<int *>(device_centers), E, e, Xf, Yf, Zf, Tf, Xc,
+              Yc, Zc, Tc, W0, W1, W2, W3, bx, by, bz, bt,
+              source_parity, probe, batch);
+      for (int example = 0; example < batch; ++example) {
+        const int64_t field_offset = static_cast<int64_t>(example) * field_stride;
+        const int64_t gauge_offset = static_cast<int64_t>(example) * gauge_stride;
+        // The Clover inverse is a global parity field.  Do not index it with
+        // window-local coordinates: a unit-gauge smoke cannot expose that
+        // aliasing because its Clover term is site independent.  Apply the
+        // mapped global Clover inverse explicitly after the Wilson hop.
+        wilson_dslash<T, false><<<dslash_blocks, threads, 0, set->stream>>>(
+            static_cast<LatticeComplex<T> *>(local_gauge) + gauge_offset,
+            static_cast<LatticeComplex<T> *>(source) + field_offset +
+                source_parity * parity_field,
+            static_cast<LatticeComplex<T> *>(even_dslash) + field_offset +
+                source_parity * parity_field,
+            device_params_other, nullptr, false);
+      }
+      const int64_t onsite_values =
+          static_cast<int64_t>(batch) * local_sites * 12;
+      multigrid_local_onsite_inverse<T>
+          <<<(onsite_values + threads - 1) / threads, threads, 0,
+              set->stream>>>(
+              even_dslash, even_inverse,
+              reinterpret_cast<void *>(clover_even_inv_ptr),
+              static_cast<int *>(device_centers),
+              source_parity, Xf, Yf, Zf, Tf, W0, W1, W2,
+              W3, bx, by, bz, bt, batch);
+      for (int example = 0; example < batch; ++example) {
+        const int64_t field_offset = static_cast<int64_t>(example) * field_stride;
+        const int64_t gauge_offset = static_cast<int64_t>(example) * gauge_stride;
+        wilson_dslash<T, false><<<dslash_blocks, threads, 0, set->stream>>>(
+            static_cast<LatticeComplex<T> *>(local_gauge) + gauge_offset,
+            static_cast<LatticeComplex<T> *>(even_inverse) + field_offset +
+                source_parity * parity_field,
+            static_cast<LatticeComplex<T> *>(schur) + field_offset +
+                source_parity * parity_field,
+            device_params_target, nullptr, false);
+      }
+      multigrid_local_onsite_subtract<T>
+          <<<(onsite_values + threads - 1) / threads, threads, 0,
+              set->stream>>>(
+              source, reinterpret_cast<void *>(clover_odd_ptr), schur,
+              static_cast<int *>(device_centers), source_parity,
+              kappa2, Xf, Yf, Zf, Tf, W0, W1, W2, W3, bx, by, bz, bt, batch);
+      multigrid_local_restrict_stencil<T>
+          <<<batch, threads, 0, set->stream>>>(
+              sitting, hop_nn, hop_diag, schur,
+              reinterpret_cast<void *>(null_vectors_ptr),
+              static_cast<int *>(device_centers), E, e, Xf, Yf, Zf, Tf, Xc,
+              Yc, Zc, Tc, W0, W1, W2, W3, bx, by, bz, bt,
+              source_parity, probe);
+      checkCudaErrors(cudaGetLastError());
+    }
+  }
+  checkCudaErrors(cudaStreamSynchronize(set->stream));
+  checkCudaErrors(cudaFreeAsync(device_params_target, set->stream));
+  checkCudaErrors(cudaFreeAsync(device_params_other, set->stream));
+  checkCudaErrors(cudaFreeAsync(device_centers, set->stream));
+  checkCudaErrors(cudaFreeAsync(schur, set->stream));
+  checkCudaErrors(cudaFreeAsync(even_inverse, set->stream));
+  checkCudaErrors(cudaFreeAsync(even_dslash, set->stream));
+  checkCudaErrors(cudaFreeAsync(source, set->stream));
+  checkCudaErrors(cudaFreeAsync(local_gauge, set->stream));
+  return 0;
+}
 } // namespace qcu
+
+extern "C" int applyMultigridLocalOrthogonalizeQcu(
+    long long _flat_in, long long _blocked_out, int E, int e, int Xf, int Yf,
+    int Zf, int Tf, int Xc, int Yc, int Zc, int Tc, int data_type) {
+  try {
+    cudaDeviceSynchronize();
+    int status = 5;
+    if (data_type == _LAT_C64_) {
+      status = qcu::launch_multigrid_local_orthogonalize_cgs2<float>(
+          reinterpret_cast<void *>(_flat_in),
+          reinterpret_cast<void *>(_blocked_out), E, e, Xf, Yf, Zf, Tf,
+          Xc, Yc, Zc, Tc);
+    } else if (data_type == _LAT_C128_) {
+      status = qcu::launch_multigrid_local_orthogonalize_cgs2<double>(
+          reinterpret_cast<void *>(_flat_in),
+          reinterpret_cast<void *>(_blocked_out), E, e, Xf, Yf, Zf, Tf,
+          Xc, Yc, Zc, Tc);
+    }
+    cudaDeviceSynchronize();
+    return status;
+  } catch (...) {
+    cudaDeviceSynchronize();
+    return 2;
+  }
+}
+
+extern "C" int applyMultigridBuildNullVectorsQcu(
+    long long _blocked_out, long long _gauge, long long _clover_even,
+    long long _clover_odd, long long _clover_even_inv,
+    long long _clover_odd_inv, long long _set_ptrs, long long _params, int E,
+    int e, int Xf, int Yf, int Zf, int Tf, int Xc, int Yc, int Zc, int Tc,
+    int nv_iters, unsigned long long seed, double nv_tol) {
+  try {
+    cudaDeviceSynchronize();
+    const int *params = reinterpret_cast<const int *>(_params);
+    if (params == nullptr) return 1;
+    int status = 5;
+    if (params[_DATA_TYPE_] == _LAT_C64_) {
+      status = qcu::launch_multigrid_build_null_vectors<float>(
+          reinterpret_cast<void *>(_blocked_out), _gauge, _clover_even,
+          _clover_odd, _clover_even_inv, _clover_odd_inv, _set_ptrs, _params,
+          E, e, Xf, Yf, Zf, Tf, Xc, Yc, Zc, Tc, nv_iters, seed, nv_tol);
+    } else if (params[_DATA_TYPE_] == _LAT_C128_) {
+      status = qcu::launch_multigrid_build_null_vectors<double>(
+          reinterpret_cast<void *>(_blocked_out), _gauge, _clover_even,
+          _clover_odd, _clover_even_inv, _clover_odd_inv, _set_ptrs, _params,
+          E, e, Xf, Yf, Zf, Tf, Xc, Yc, Zc, Tc, nv_iters, seed, nv_tol);
+    }
+    cudaDeviceSynchronize();
+    return status;
+  } catch (...) {
+    cudaDeviceSynchronize();
+    return 2;
+  }
+}
+
+extern "C" int applyMultigridBuildStencilLocalQcu(
+    long long _sitting, long long _hop_nn, long long _hop_diag,
+    long long _null_vectors, long long _gauge, long long _clover_even,
+    long long _clover_odd, long long _clover_even_inv,
+    long long _clover_odd_inv, long long _set_ptrs, long long _params, int E,
+    int e, int Xf, int Yf, int Zf, int Tf, int Xc, int Yc, int Zc, int Tc,
+    int window, int batch_size) {
+  try {
+    cudaDeviceSynchronize();
+    const int *params = reinterpret_cast<const int *>(_params);
+    if (params == nullptr) return 1;
+    int status = 5;
+    if (params[_DATA_TYPE_] == _LAT_C64_) {
+      status = qcu::launch_multigrid_build_stencil_local<float>(
+          reinterpret_cast<void *>(_sitting), reinterpret_cast<void *>(_hop_nn),
+          reinterpret_cast<void *>(_hop_diag), _null_vectors, _gauge,
+          _clover_even, _clover_odd, _clover_even_inv, _clover_odd_inv,
+          _set_ptrs, _params, E, e, Xf, Yf, Zf, Tf, Xc, Yc, Zc, Tc, window,
+          batch_size);
+    } else if (params[_DATA_TYPE_] == _LAT_C128_) {
+      status = qcu::launch_multigrid_build_stencil_local<double>(
+          reinterpret_cast<void *>(_sitting), reinterpret_cast<void *>(_hop_nn),
+          reinterpret_cast<void *>(_hop_diag), _null_vectors, _gauge,
+          _clover_even, _clover_odd, _clover_even_inv, _clover_odd_inv,
+          _set_ptrs, _params, E, e, Xf, Yf, Zf, Tf, Xc, Yc, Zc, Tc, window,
+          batch_size);
+    }
+    cudaDeviceSynchronize();
+    return status;
+  } catch (...) {
+    cudaDeviceSynchronize();
+    return 2;
+  }
+}

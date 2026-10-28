@@ -60,7 +60,7 @@ Wilson/Clover Dirac 算子、BiStabCG 与多重网格求解器、stout smearing�
 | 路径 | 内容 |
 |---|---|
 | `pyqcu/` | 公共门面与后端：`api/`（后端无关的配置、结果、能力、资产清单与 Protocol）、`torch/`（Torch/CANN 的 dslash、solver、smear、张量专用 tools）、`lattice/`（公共 gamma/Gell-Mann、SU(3)、源场定义）、`tools/`（公共 MPI/HDF5/env/budget/绘图）、`solver/multigrid/`（三后端统一 MG 选择器）、`solver/krylov/`（Torch 迭代与 CUDA/KUPL 原生整次 solve 的统一 Krylov 选择器）、`cuda/`（Cython CUDA 后端与多卡测试驱动）、`kupl/`（独立 CPU 后端）、`testing/`（集成测试）、`cann/dtk/maca`（Tensor 兼容层与占位）。顶层 `dslash/`、`smear/`、`solver/`、`tools/` 保留旧导入兼容。 |
-| `cpp/cuda/qcu/` | C++ CUDA 后端：`src/`（32 个 .cu 内核）、`include/`（24 个模板头）、`python/pyqcu.h`（C API 37 个入口，须与 `qcu_api.pxd` 同步） |
+| `cpp/cuda/qcu/` | C++ CUDA 后端：`src/`（32 个 .cu 内核）、`include/`（24 个模板头）、`python/pyqcu.h`（C API 40 个入口，须与 `qcu_api.pxd` 同步） |
 | `cpp/kupl/qcu/` | 独立 C++17 MPI+OpenMP CPU 后端：4D rank halo、NUMA/OpenMP 绑定、canonical c64/c128 Wilson/Clover dslash、Wilson/Clover 求解器、3D Laplacian、正确性与吞吐测试 |
 | `cpp/{cann,dtk,maca}/qcu/` | 占位 PASS，无实现 |
 | `pyqcu/testing/` | 统一测试入口：`python/`（纯 Python 主套件）、`qcu/`（C++ CUDA 后端）、`kupl/`（CPU 后端 Python ABI/参考差分）、`quda/`、`pyquda/`、`cpu/npu/dcu/gpu/profiler/benchmark/`、`regression/session-2026-08-24/`、`data/`（参考 HDF5）；TileLang 无独立测试目录，按需调用 `pyqcu.testing.test_matmul()` |

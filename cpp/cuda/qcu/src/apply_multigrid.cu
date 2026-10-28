@@ -18,7 +18,9 @@ void applyMultigridRestrictQcu(long long _coarse_out, long long _fine_in,
   int Xf = params[_LAT_X_];
   int Yf = params[_LAT_Y_];
   int Zf = params[_LAT_Z_];
-  int Tf = params[_LAT_T_]; // NOTE: caller must set _LAT_T_ to full-site T
+  // The public params tensor stores full physical T, while null vectors and
+  // fine parity fields use the compressed half-time extent.
+  int Tf = params[_LAT_T_] / 2;
   int Xc = params[_MG_LEVEL1_X_];
   int Yc = params[_MG_LEVEL1_Y_];
   int Zc = params[_MG_LEVEL1_Z_];
@@ -60,7 +62,7 @@ void applyMultigridProLongQcu(long long _fine_out, long long _coarse_in,
   int Xf = params[_LAT_X_];
   int Yf = params[_LAT_Y_];
   int Zf = params[_LAT_Z_];
-  int Tf = params[_LAT_T_];
+  int Tf = params[_LAT_T_] / 2;
   int Xc = params[_MG_LEVEL1_X_];
   int Yc = params[_MG_LEVEL1_Y_];
   int Zc = params[_MG_LEVEL1_Z_];

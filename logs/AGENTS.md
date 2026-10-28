@@ -437,7 +437,6 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: 新增粗层算子表示正式文档，更新索引与算法总览交叉引用，并完成 Markdown 与仓库检查
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
-
 ## analysis - final - 2026-10-22 17:17:41 +0800
 - 主任务: 核查 C++ QCU 与 Torch/PyQCU 当前默认 MG 路径
 - 日志文件: logs/v2026102217-4.txt
@@ -446,7 +445,6 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: 确认 C++ 与 Torch 均并存 Legacy/Strict，但现有 MG 驱动和构造默认均为 Legacy/非 Strict，Strict 需显式选择
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
-
 ## analysis - final - 2026-10-22 17:24:42 +0800
 - 主任务: 解释 C++ QCU 默认 Legacy MG 而非 Strict-MG 的原因
 - 日志文件: logs/v2026102217-5.txt
@@ -668,5 +666,61 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 文件大小: 6063 bytes
 - 触发原因: 任务完成
 - 关键内容: 恢复 build.sh 入口，兼容 DTK nvcc 包装器，完成 native/Cython 构建与扩展导入验证
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+## dcu-qcu-quda-20261027 - final - 2026-10-27 20:49:38 +0800
+- 主任务: PyQCU CUDA-QCU/QUDA MultiGrid comparison and C++ null-vector/stencil setup migration
+- 日志文件: logs/v2026102720.txt
+- 文件大小: 6148 bytes
+- 触发原因: 任务完成
+- 关键内容: C++ CGS2 complete for CUDA/KUPL; CUDA MG 1/2/4 cache-hit PASS; null/stencil C++ migration and QUDA comparison remain blocked/partial
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+## setup-migration - stage - 2026-10-28 01:56:37 +0800
+- 主任务: CUDA QCU/QUDA multigrid comparison and C++ setup migration
+- 日志文件: logs/v202610280156.txt
+- 文件大小: 4726 bytes
+- 触发原因: 阶段成果
+- 关键内容: C++ builder, bt=1/sign fixes and CPU verification complete; DCU smoke pending
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## 24x24x24x64 full MG cache build - general - 2026-10-28 06:58:52 +0800
+- 主任务: CUDA QCU vs QUDA multigrid 1/2/4-rank DCU comparison
+- 日志文件: logs/v20261028065852.txt
+- 文件大小: 2157 bytes
+- 触发原因: 一般记录
+- 关键内容: Job 125973519 failed closed on Galerkin error 2.423e-01; no cache/report published
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## 24x24x24x64 cache gate - stage - 2026-10-28 07:15:59 +0800
+- 主任务: CUDA QCU vs QUDA multigrid 1/2/4-rank DCU comparison
+- 日志文件: logs/v202610280715.txt
+- 文件大小: 3439 bytes
+- 触发原因: 阶段成果
+- 关键内容: Real-gauge CUDA C++ MG cache passed Gram and Galerkin gates; QUDA smoke is next
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## QUDA distributed runtime and pairing - stage - 2026-10-28 08:37:31 +0800
+- 主任务: CUDA QCU vs QUDA multigrid 1/2/4-rank DCU comparison
+- 日志文件: logs/v202610280837.txt
+- 文件大小: 3734 bytes
+- 触发原因: 阶段成果
+- 关键内容: QUDA HIP runtime repaired; 2/4-rank full-lattice MG PASS; independent residual work continues
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## dcu-qcu-quda-20261027 - stage - 2026-10-28 10:35:09 +0800
+- 主任务: CUDA QCU vs QUDA multigrid 1/2/4-rank DCU comparison and MPI optimization
+- 日志文件: logs/v202610281035.txt
+- 文件大小: 5499 bytes
+- 触发原因: 阶段成果
+- 关键内容: 24^3x64 cache and 1/2/4-rank runs pass internally; 2-rank QCU optimization improves 24.98%, while 1/4-rank regress; independent NumPy true-residual gate remains FAIL.
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## dcu-qcu-quda-20261027 - final - 2026-10-28 12:07:00 +0800
+- 主任务: CUDA QCU vs QUDA multigrid 1/2/4-rank single-node DCU comparison
+- 日志文件: logs/v2026102812.txt
+- 文件大小: 10884 bytes
+- 触发原因: 任务完成
+- 关键内容: Completed audited 1/2/4-rank comparison with external residuals, solution cross-check, MPI optimization ABBA, guarded long-run audits, final JSON and Markdown report.
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete

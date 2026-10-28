@@ -1,0 +1,43 @@
+[日志元数据]
+日志类型: stage
+生成时间: 2026-10-28 07:15:59 +0800
+批次: 24x24x24x64 cache gate
+主任务: CUDA QCU vs QUDA multigrid 1/2/4-rank DCU comparison
+触发原因: 阶段成果
+摘要: Real-gauge CUDA C++ MG cache passed Gram and Galerkin gates; QUDA smoke is next
+Git 根目录: /public/home/sunpeng_1/PyQCU
+
+## 关键日志
+### S1 — 真实规范场全尺寸 cache gate
+- 目标: 修复并验证 24³×64 E6 CUDA Legacy-MG cache 构建。
+- 命令/操作: Slurm job `125975018`，`build-device=cuda`、`mass=-0.277`、`csw=1.160920226`、`dof=12,6`、`mg-grid=2,2,2,1`、`nv-iters=1`、`batch=4`。
+- 关键输出: `status=PASS`；`gram_max_abs_error=5.960464477539062e-07`；`galerkin_relative_error=4.103469848359964e-07`；总 setup `277.126 s`，其中 stencil `237.107 s`。
+- 退出码: Slurm `COMPLETED 0:0`，总墙钟 `00:04:53`，未触发 5 分钟异常审查。
+- 证据与判断: 真实 gauge 证明 C++ 局部 stencil 在周期窗口和粗网格边界上满足 33-tensor Galerkin gate。
+
+### S2 — 根因修复
+- 目标: 消除 unit-gauge smoke 无法暴露的 Clover 索引错误。
+- 命令/操作: c64 路径不再把窗口局部索引直接用于全局 `clover_even_inv`；统一执行 Wilson hop、全局周期坐标映射、Clover inverse、第二段 hop。同步修复 generic inverse 的三维全局坐标取模。
+- 关键输出: 8³×16 回归 `galerkin=3.3332798921037465e-07`；24³×64 真实 gauge 回归 `galerkin=4.103469848359964e-07`。
+- 退出码: 两个 Slurm 作业均为 0。
+- 证据与判断: 旧融合路径只在单位规范场 smoke 中碰巧等价；真实非平凡 gauge 下曾报 `2.423e-01`，修复后降至 `4.103e-07`。
+
+## 验证与证据
+- 测试/检查: CUDA 库重建、8³×16 smoke、24³×64 真实 gauge cache、H5 shape、JSON provenance、`git diff --check`。
+- 结果: `lonv=(6,12,12,2,12,2,12,2,32,1)`；`hnn=(2,4,6,6,12,12,12,32)`；`hdg=(2,2,6,6,6,12,12,12,32)`；`sit=(6,6,12,12,12,32)`，均为 complex64。
+- 未验证项: QUDA MG smoke、CUDA QCU/QUDA 的 1/2/4-rank solver true residual 与性能矩阵。
+
+## 变更与产物
+- 文件: `cpp/cuda/qcu/src/multigrid.cu`。
+- 产物: `data/logs/dcu_qcu_quda_20261027/data/qcu-mg-c64-24x24x24x64/coarse_c64_lv2_E6_6_mg2x2x2x1_nvi1_s42.h5`，`780341248` bytes，SHA256 `c93970e006cbaa4c9215a955ed40f4cdf20e6be4a03e041e9c61090792c86148`。
+- 未改动范围: 未提交、未打标签、未推送；KUPL 与 Torch-QCU 不进入性能比。
+
+## 风险、限制与下一步
+- 风险: generic inverse 使全尺寸 stencil 从约 150 s 增至 237 s，但换取了真实 gauge 正确性；后续可独立优化，不得回退到错误裸索引。
+- 阻塞: 当前无。
+- 下一步: 运行 QUDA 8³×16 MG smoke，核对 `nvec_resolved`、参数回读和 tuning 状态，再进入 1/2/4-rank 配对求解。
+
+## Agent 全文报告
+--- report begin ---
+24³×64 真实 gauge 的 CUDA C++ MG cache 已通过数值 gate。根因是 c64 融合路径把本地窗口坐标直接用于全局 Clover inverse，单位规范场 smoke 因 Clover 项逐点相同而未暴露。改为周期全局坐标映射后，Galerkin 相对误差从 `2.423e-01` 降到 `4.103e-07`，Gram 误差为 `5.960e-07`。H5 四个资产的 shapes、complex64 dtype、gauge SHA、质量、csw、dof 和 `mg-grid=2,2,2,1` 均已核对。整体任务尚未完成，下一步是 QUDA smoke 和 1/2/4-rank 正式配对。
+--- report end ---

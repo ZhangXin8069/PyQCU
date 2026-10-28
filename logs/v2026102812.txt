@@ -1,0 +1,179 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-28 12:07:00 +0800
+批次: dcu-qcu-quda-20261027
+主任务: CUDA QCU vs QUDA multigrid 1/2/4-rank single-node DCU comparison
+触发原因: 任务完成
+摘要: Completed audited 1/2/4-rank comparison with external residuals, solution cross-check, MPI optimization ABBA, guarded long-run audits, final JSON and Markdown report.
+Git 根目录: /public/home/sunpeng_1/PyQCU
+
+## 关键日志
+### S1 - 输入、C++ MG setup 与缓存
+- 使用真实 LIME gauge，24^3x64、c64、mass=-0.277、csw=1.160920226。
+- null-vector 与 33-tensor stencil 走 cpp/cuda/qcu 的 C++ CUDA 路径。
+- Cache setup 274.877 s；Gram 5.960464477539062e-07；Galerkin 4.103469848359964e-07；SHA c93970e006cbaa4c9215a955ed40f4cdf20e6be4a03e041e9c61090792c86148。
+
+### S2 - CUDA QCU / QUDA 1/2/4-rank 正式运行
+- 对象仅为 CUDA QCU Legacy-MultiGrid 与 QUDA GCR-MG；未使用 Torch-QCU 或 KUPL 性能数据。
+- QCU 使用 1/2/4 rank；QUDA 使用 1 warmup + 3 repeats。
+- 快速样本中 QCU median: 0.4767829271 / 0.6085067405 / 1.2506449560 s。
+- QUDA median: 0.3680961760 / 0.2538473820 / 0.2891439260 s。
+
+### S3 - MPI 优化
+- 单分布轴 coarse halo 改为两轴面交换；通过 full residual gate 后复用最终 residual。
+- Stable ABBA: 1-rank -32.06%, 2-rank +24.98%, 4-rank -6.16%。
+- 仅 2-rank 有稳定收益；未宣称 1/4-rank 已优化。
+
+### S4 - 独立真残差修复
+- 修复外部 residual 缺失 I+T 的 Clover onsite 项。
+- 修复多-rank 在 rank-local gauge 上错误构造 Clover 的问题，改为全局 gauge 构造后切片。
+- QCU 1/2/4-rank external residual: 2.689e-07 / 2.690e-07 / 2.690e-07，PASS。
+- QUDA 1/2/4-rank external residual: 1.853e-07 / 1.857e-07 / 1.860e-07，PASS。
+- QCU/QUDA solution relative L2 difference: 7.179e-07 / 7.184e-07 / 7.181e-07。
+
+### S5 - 长任务审查与异常排除
+- 所有正式子进程小于 300 s，无 10 分钟超时。
+- 外层串行 wrapper 超过 300 s 时执行 CPU/RSS、DCU 利用率和日志推进审查。
+- 多-rank 慢节点 attempt a64/a65/a66 的 fine iteration 约慢 40x；均审计后排除，原因写入 final_summary.json。
+- 一次错误 cache 路径作业在约 4 分钟人工停止，未进入正式性能样本。
+
+## 验证与证据
+- final_summary.json status=PASS，errors=[]。
+- 1/2/4-rank 两侧独立 residual 全 PASS。
+- solution_crosscheck.json status=PASS。
+- python py_compile、bash -n、git diff --check、large-files gate 通过。
+- pytest 未运行：当前 Python 环境没有 pytest；已用 MPI 数值回归、PASS/FAIL 扰动回归及 summary gate 替代。
+- form audit 仅剩一个与本次任务无关且未修改的既有 finding：logs/test27_strict_vs_current_legacy_cuda_20261027.md TAG_NAME_IN_PATH。
+
+## 变更与产物
+- pyqcu/testing/simple/mpi/quda_residual.py：Clover I+T 与全局构造切片修复。
+- pyqcu/testing/simple/mpi/summarize_qcu_quda_mg.py：按 rank 汇总、独立 residual、ABBA、解交叉校验、异常审计。
+- pyqcu/testing/simple/mpi/test_mpi_contract.py：新增 I+T 回归测试。
+- logs/dcu_qcu_quda_20261027/final_report.md：正式中文报告。
+- logs/dcu_qcu_quda_20261027/final_summary.json：机器可读汇总。
+- logs/dcu_qcu_quda_20261027/final_summary.md：表格汇总。
+- logs/dcu_qcu_quda_20261027/solution_crosscheck.json：解交叉校验。
+
+## 风险、限制与下一步
+- QCU Legacy-MG 与 QUDA GCR-MG 内部算法不同，耗时不构成普适算法排名。
+- 快速 QCU 与 QUDA 样本并非始终同节点；host 已逐样本保留。
+- QCU 4-rank strong scaling 仅 9.5%，多分布轴 coarse halo 仍需后续优化。
+- 未提交、未打 tag、未 push。
+
+## 用户输入指令
+使用指定 DCU 资源申请与环境脚本、/public/home/sunpeng_1/data 下输入数据及 PyQCU/pyqcu/testing/simple/mpi 测试项目，在单节点完成 CUDA QCU 与 QUDA 求解器的 1/2/4 MPI 全面对比；严格执行进程 >5 分钟日志审查、>10 分钟终止与审查，并形成可复现、可审计的结果报告与日志归档。
+测试主要对象为 multigrid。禁止使用 Torch 版 QCU 与 KUPL 版 QCU 作为性能对象，但允许 PyQCU 后端。不要在 DCU 节点运行纯 CPU 程序；CPU residual 使用 kshcnormal。明确将 null-vector/stencil 构建迁入 C++ CUDA 路径。DCU 设备内存不得误写为 16 GiB。Galerkin error 需解释为 QCU coarse operator 构造与 stencil 正确性门。CUDA QCU 多 MPI 效率过低，需进行针对性优化。
+
+## Agent 全文报告
+--- report begin ---
+# CUDA QCU 与 QUDA MultiGrid 单节点对比报告
+
+日期：2026-10-28
+
+## 1. 结论
+
+本任务已在单节点 DCU 上完成 24^3x64、c64、两级 MultiGrid 的 1/2/4 MPI rank 对比。测试对象仅为 CUDA QCU 和 QUDA；未使用 Torch-QCU 或 KUPL 的性能数据。独立 CPU 真残差在 `kshcnormal` 完成，未在 DCU 节点运行纯 CPU residual。
+
+主要结论：
+
+| ranks | CUDA QCU median | QUDA median | QUDA/QCU | QCU strong scaling | QUDA strong scaling |
+|---:|---:|---:|---:|---:|---:|
+| 1 | 0.476782927 s | 0.368096176 s | 0.7720x | 100.0% | 100.0% |
+| 2 | 0.608506740 s | 0.253847382 s | 0.4172x | 39.2% | 72.5% |
+| 4 | 1.250644956 s | 0.289143926 s | 0.2312x | 9.5% | 31.8% |
+
+`QUDA/QCU < 1` 表示 QUDA 更快。按该口径，QUDA 相对 CUDA QCU 在 1/2/4 rank 分别快约 1.30x、2.40x、3.45x。
+
+该比较是两个实际公开入口的性能比较，不是通用求解器排名：QCU 使用 Legacy-MultiGrid，QUDA 使用 GCR-MG，两边的内部 cycle、smoother 和 stopping path 不完全相同。
+
+## 2. 输入与参数
+
+- LIME gauge：`/public/home/sunpeng_1/data/beta6.20_mu-0.2770_ms-0.2310_L24x64_cfg_9950.lime`
+- LIME SHA256：`a49773fa3742d310f4ea162a932cf559253aeab708bac08a8dd1f6847df4294b`
+- lattice：`24 x 24 x 24 x 64`
+- precision：c64
+- mass：`-0.277`
+- csw：`1.160920226`
+- kappa：`0.13430029546065003`
+- tolerance：`1e-6`
+- levels：2
+- CUDA QCU：dof `[12, 6]`，MG grid `[2,2,2,1]`，restart `5`，coarse max iterations `200`
+- QUDA：nvec `6`，MG block `[2,2,2,2]`，GCR，`1 warmup + 3 repeats`
+- MPI grids：1-rank `[1,1,1,1]`；2-rank `[2,1,1,1]`；4-rank `[2,2,1,1]`
+
+null-vector 与 33-tensor stencil 构建走 `cpp/cuda/qcu` 的 C++ CUDA 接口；缓存 manifest 记录 `setup_method=cxx-null-vector+local-33-stencil`。24^3x64 E6 全尺寸 setup 为 `274.877 s`，低于 5 分钟审查阈值，不再出现此前 601 秒仍停在正交化的问题。
+
+缓存资产：
+
+- path：`data/logs/dcu_qcu_quda_20261027/data/qcu-mg-c64-24x24x24x64/coarse_c64_lv2_E6_6_mg2x2x2x1_nvi1_s42.h5`
+- size：`780,341,248 bytes`
+- SHA256：`c93970e006cbaa4c9215a955ed40f4cdf20e6be4a03e041e9c61090792c86148`
+- setup：`277.12604253797326 s`
+- Gram max abs error：`5.960464477539062e-07`
+- Galerkin relative error：`4.103469848359964e-07`
+
+`Galerkin error` 是 null-space 投影后的 fine Dirac operator 与 C++ 显式 coarse 33-tensor operator 之间的相对差，属于 `build_full_mg_cache.py` 的粗算子构造与 stencil 正确性门，不是 Krylov 迭代残差。本任务验收阈值为 `2e-5`，实测 `4.103e-7` PASS。
+
+## 3. 实现与物理口径
+
+Clover onsite operator 使用 `A = I + T`。此前外部 residual 少加单位项，导致独立检查出现约 `1.3011` 的假失败；修正后同一 solution 的 residual 降至约 `2.69e-7`。
+
+多 rank Clover 必须先在全周期 gauge 上构造，再切分 rank-local block。若在 rank-local gauge 上重算 Clover，会把子域边界当作局部周期边界，产生约 `0.05-0.07` 的假 residual。
+
+最终 residual 使用独立的周期 NumPy Wilson-Clover 算子及 MPI halo exchange；该检查在 `kshcnormal` 运行。1/2/4 rank 的 QCU residual 分别为 `2.6893866573e-07`、`2.6902073646e-07`、`2.6898058495e-07`；QUDA residual 分别为 `1.8529635426e-07`、`1.8566121509e-07`、`1.8596480592e-07`，全部 PASS。
+
+QCU 与 QUDA solution 的相对 L2 差：
+
+| ranks | relative L2 difference |
+|---:|---:|
+| 1 | 7.1790244281e-07 |
+| 2 | 7.1840010212e-07 |
+| 4 | 7.1814609768e-07 |
+
+两边独立 residual PASS 且解在 c64 精度内一致，排除了仅由求解器 native residual 自证的情况。
+
+## 4. CUDA QCU MPI 优化
+
+优化内容：
+
+- 单一分布轴时，将 33-point coarse halo 从 32 个方向消息压缩为两个轴面交换。
+- full-residual gate 通过后复用最终 collective residual，避免恢复 even solution 后重复计算同一 Wilson-Clover residual。
+- 多分布轴继续使用通用 32 方向路径，未把单轴协议错误外推到 `[2,2,1,1]`。
+
+稳定 ABBA 结果：
+
+| ranks | baseline median | optimized median | improvement |
+|---:|---:|---:|---:|
+| 1 | 0.6828020411 s | 0.9017117600 s | -32.06% |
+| 2 | 0.8110729316 s | 0.6085067405 s | +24.98% |
+| 4 | 1.1780546820 s | 1.2506449560 s | -6.16% |
+
+结论必须保持限定：只有 2-rank 有稳定改善；1/4-rank 没有改善。不能宣称 CUDA QCU 的多 MPI 已全面优化。当前 4-rank 强扩展效率仅 9.5%，仍是后续优化重点。
+
+## 5. 运行时审计
+
+所有纳入统计的子进程均小于 300 秒，没有触发 10 分钟终止。外层长作业在超过 5 分钟时执行了 CPU/RSS、DCU 利用率和日志心跳审查。
+
+多 rank 复测出现明显的运行环境异常：若干节点上的 fine iteration 从约 `0.2 s` 恶化到 `8-18 s`，但 native/independent residual 和阶段心跳均正常。相关慢样本已审计并从性能中位数中排除，具体 attempt 和原因见 `final_summary.json` 的 `excluded_runs`。另有一次因测试脚本 cache 路径写错而启动的 cache 重建作业，在约 4 分钟时人工终止，未进入正式性能样本。
+
+DCU API 报告的单卡设备内存为 `17,163,091,968 bytes`；未将 `rocm-smi` 的 `16,368 MiB` 展示值误写为物理容量。
+
+## 6. 复现入口
+
+- DCU QUDA formal：`logs/dcu_qcu_quda_20261027/run_quda_formal_pairs.sh`
+- DCU QCU formal：`logs/dcu_qcu_quda_20261027/run_qcu_formal_repeats.sh`
+- CPU independent residual：`logs/dcu_qcu_quda_20261027/run_cpu_residual_guarded.sh`
+- residual CLI：`pyqcu/testing/simple/mpi/quda_residual.py`
+- summary CLI：`pyqcu/testing/simple/mpi/summarize_qcu_quda_mg.py`
+
+机器可读汇总：`logs/dcu_qcu_quda_20261027/final_summary.json`
+
+表格汇总：`logs/dcu_qcu_quda_20261027/final_summary.md`
+
+## 7. 限制
+
+- QCU 与 QUDA 的 MG 内部算法不同，耗时不构成普适算法优劣结论。
+- 快速 QCU 与 QUDA 样本并非始终来自同一物理节点；报告保留每个样本的 host，并用解交叉校验和统一输入 SHA 控制正确性。
+- QCU 2/4-rank 保留两个稳定快速样本；多个异常慢 attempt 已记录而不混入中位数。
+- 当前数据不能证明 QCU 4-rank 已高效；该结论需要后续 coarse multi-axis halo 优化和新的同节点重复实验。
+--- report end ---

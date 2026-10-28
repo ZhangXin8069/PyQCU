@@ -14,7 +14,8 @@ print("HOME:", HOME)
 
 class CMakeBuild(build_ext):
     def run(self):
-        subprocess.check_call(["bash", f"{HOME}/build.sh"])
+        if os.environ.get("PYQCU_SKIP_NATIVE_BUILD") != "1":
+            subprocess.check_call(["bash", f"{HOME}/build.sh"])
         super().run()
 
 
