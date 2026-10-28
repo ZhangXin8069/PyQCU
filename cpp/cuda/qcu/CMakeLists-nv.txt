@@ -55,7 +55,7 @@ endif()
 
 set(QCU_CUDA_ARCHITECTURES "${_QCU_CUDA_ARCHITECTURES}")
 set(CMAKE_CUDA_ARCHITECTURES "${_QCU_CUDA_ARCHITECTURES}")
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -O3")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -O3 --expt-relaxed-constexpr")
 message(STATUS "QCU CUDA architectures: ${QCU_CUDA_ARCHITECTURES}")
 set(MPI_INCLUDE_PATH $ENV{mpi_home}/include)
 set(MPI_CXX_LIBRARIES $ENV{mpi_home}/lib/libmpi.so)
