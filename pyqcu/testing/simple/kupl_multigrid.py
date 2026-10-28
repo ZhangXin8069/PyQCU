@@ -56,6 +56,8 @@ MG_LEVEL_DATA_TYPE = 6
 MG_LEVEL_NUM_RESTART = 7
 MG_USE_DEFLATE = 55
 SET_PTRS_COARSE_BASE = 30
+SET_PTRS_LEGACY_LAYOUT = 99
+LEGACY_LAYOUT_ODD_SCHUR = 1
 ARGV_MG_LEVEL_BASE = 3
 DATA_TYPE = 14
 
@@ -64,6 +66,71 @@ def _environment_enabled(name: str) -> bool:
     value = os.environ.get(name)
     return value is not None and value != "" and value.lower() not in {
         "0", "false", "no", "off"}
+
+
+def resolve_legacy_layout(requested: str, use_coarse_assets: bool,
+                          null_vectors: tuple[np.ndarray, ...],
+                          local_lattice: tuple[int, int, int, int]) -> int:
+    """Resolve the KUPL Legacy fine layout from the loaded cache geometry."""
+    if not use_coarse_assets or not null_vectors:
+        if requested == "odd-schur":
+            raise ValueError(
+                "odd-schur layout requires a compatible coarse cache")
+        return 0
+    shape = null_vectors[0].shape
+    cached_time = int(shape[-2]) * int(shape[-1])
+    inferred = "full-site" if cached_time == int(local_lattice[3]) else (
+        "odd-schur" if cached_time == int(local_lattice[3]) // 2 else None)
+    if inferred is None:
+        raise ValueError(
+            f"coarse cache time span {cached_time} matches neither full-site "
+            f"{local_lattice[3]} nor odd-Schur {local_lattice[3] // 2}")
+    if requested != "auto" and requested != inferred:
+        raise ValueError(
+            f"coarse cache layout is {inferred}, but --legacy-layout="
+            f"{requested}")
+    return LEGACY_LAYOUT_ODD_SCHUR if inferred == "odd-schur" else 0
+
+
+def inspect_cache_layout(path: Path, lattice: tuple[int, int, int, int],
+                         mg_grid: list[int], process_grid: list[int],
+                         local_starts: tuple[int, int, int, int],
+                         requested: str) -> tuple[str, tuple[int, int, int, int],
+                                                   tuple[int, int, int, int]]:
+    """Return inferred cache layout and its rank-local coarse slab geometry."""
+    import h5py
+
+    with h5py.File(path, "r") as handle:
+        if "lonv" not in handle or handle["lonv"].ndim != 10:
+            raise ValueError(f"coarse cache {path} has no valid lonv dataset")
+        shape = tuple(int(value) for value in handle["lonv"].shape)
+    global_time = shape[-2] * shape[-1]
+    inferred = (
+        "full-site" if global_time == lattice[3] else
+        "odd-schur" if global_time == lattice[3] // 2 else None)
+    if inferred is None:
+        raise ValueError(
+            f"coarse cache time span {global_time} matches neither full-site "
+            f"{lattice[3]} nor odd-Schur {lattice[3] // 2}")
+    if requested != "auto" and requested != inferred:
+        raise ValueError(
+            f"coarse cache layout is {inferred}, but --legacy-layout={requested}")
+    global_coarse_time = global_time // int(mg_grid[3])
+    if global_coarse_time % int(process_grid[3]):
+        raise ValueError("coarse cache time extent is not divisible by grid_t")
+    local_coarse = (
+        lattice[0] // process_grid[0] // mg_grid[0],
+        lattice[1] // process_grid[1] // mg_grid[1],
+        lattice[2] // process_grid[2] // mg_grid[2],
+        global_coarse_time // process_grid[3],
+    )
+    coarse_starts = (
+        local_starts[0] // mg_grid[0],
+        local_starts[1] // mg_grid[1],
+        local_starts[2] // mg_grid[2],
+        (local_starts[3] // (2 if inferred == "odd-schur" else 1)) // mg_grid[3],
+    )
+    return inferred, local_coarse, coarse_starts
 
 
 def configure_mg(params: np.ndarray, argv: np.ndarray, set_ptrs: np.ndarray,
@@ -166,7 +233,9 @@ def build_coarse_assets(gauge: np.ndarray, lattice: tuple[int, int, int, int],
         params[define._MG_LEVEL1_Z_] = coarse_lattice[2]
         params[define._MG_LEVEL1_T_] = coarse_lattice[3]
         params[define._SEED_] = int(seed)
-        argv = define.make_argv(float(mass), csw=float(csw), atol=1.0e-7)
+        argv = define.make_argv(
+            float(mass), csw=float(csw), atol=1.0e-7,
+            data_type=int(params[DATA_TYPE]), array_module="numpy")
         set_ptrs = torch.zeros(define._SET_PTRS_SIZE_, dtype=torch.int64)
         qcu.applyInitQcu(set_ptrs, params, argv)
         try:
@@ -486,6 +555,10 @@ def main(argv=None) -> int:
     parser.add_argument("--verbose-build", action="store_true")
     parser.add_argument("--local-stencil", action="store_true")
     parser.add_argument("--local-stencil-batch", type=int, default=4)
+    parser.add_argument(
+        "--legacy-layout", choices=("auto", "odd-schur", "full-site"),
+        default="auto",
+        help="canonical input layout used by the KUPL Legacy MG ABI")
     parser.add_argument("--gauge", default=None)
     parser.add_argument("--source", default=None)
     parser.add_argument("--seed", type=int, default=42)
@@ -569,6 +642,7 @@ def main(argv=None) -> int:
     null_vectors, hop_nn, hop_diag, sitting = ((), (), (), ())
     builder_seconds = 0.0
     coarse_source = "built" if use_coarse_assets else "unused: restart=0"
+    cache_layout = args.legacy_layout
     coarse_starts = tuple(
         local_starts[axis] // args.mg_grid[axis] for axis in range(4))
     coarse_local = tuple(
@@ -580,6 +654,9 @@ def main(argv=None) -> int:
                 args.coarse_cache, Path(args.coarse_cache).expanduser())
             if not cache_path.is_file():
                 raise FileNotFoundError(cache_path)
+            cache_layout, coarse_local, coarse_starts = inspect_cache_layout(
+                cache_path, lattice, list(args.mg_grid), list(grid),
+                local_starts, args.legacy_layout)
             null_vectors, hop_nn, hop_diag, sitting = load_coarse_assets(
                 cache_path, dtype,
                 starts=coarse_starts if size > 1 else None,
@@ -610,6 +687,9 @@ def main(argv=None) -> int:
             write_coarse_assets(
                 cache_output, null_vectors[0], hop_nn[0], hop_diag[0],
                 sitting[0])
+
+    set_ptrs[SET_PTRS_LEGACY_LAYOUT] = resolve_legacy_layout(
+        cache_layout, use_coarse_assets, tuple(null_vectors), local_lattice)
 
     verify_status = None
     qcu.applyInitQcu(wrapped["set_ptrs"], wrapped["params"], wrapped["argv"])

@@ -567,6 +567,116 @@ def _measure_stage(
     return _stage(cold, warmup_samples, steady_samples)
 
 
+def _measure_reused_stage(
+    *,
+    comm: Any,
+    torch: Any,
+    qcu: Any,
+    define: Any,
+    params: Any,
+    argv: Any,
+    set_ptrs: Any,
+    device: Any,
+    plan: int,
+    parity: int,
+    operation: Callable[[], Any],
+    getter: Callable[[], Any] | None,
+    max_iter: int,
+    warmups: int,
+    repeats: int,
+) -> dict[str, Any]:
+    """Measure repeated solves sharing one initialized ordinary QCU slot."""
+    slot_limit = int(define._SET_PTRS_COARSE_BASE_)
+    index = int(params[define._SET_INDEX_].item())
+    if not 0 <= index < slot_limit:
+        raise RuntimeError(
+            f"QCU ordinary slot {index} is outside [0,{slot_limit})")
+    if int(set_ptrs[index].item()) != 0:
+        raise RuntimeError(f"QCU slot {index} is already occupied")
+
+    params[define._SET_PLAN_] = int(plan)
+    params[define._PARITY_] = int(parity)
+    torch.cuda.synchronize(device)
+    comm.Barrier()
+    setup_started = time.perf_counter()
+    try:
+        qcu.applyInitQcu(set_ptrs, params, argv)
+    except BaseException:
+        # Initialization may have allocated part of the slot before failing.
+        # Attempt native teardown, but preserve the original init exception.
+        try:
+            params[define._SET_INDEX_] = index
+            try:
+                qcu.applyEndQcu(set_ptrs, params)
+            except BaseException:
+                pass
+        finally:
+            try:
+                set_ptrs[index] = 0
+            finally:
+                params[define._SET_INDEX_] = index
+        raise
+    comm.Barrier()
+    setup_seconds = time.perf_counter() - setup_started
+
+    samples: list[dict[str, Any]] = []
+    try:
+        for _ in range(1 + int(warmups) + int(repeats)):
+            torch.cuda.synchronize(device)
+            comm.Barrier()
+            operation_started = time.perf_counter()
+            operation()
+            torch.cuda.synchronize(device)
+            operation_seconds = time.perf_counter() - operation_started
+            raw_iterations = getter() if getter is not None else None
+            iterations = (
+                None if raw_iterations is None else int(raw_iterations))
+            samples.append({
+                "operation_seconds": float(operation_seconds),
+                "lifecycle_seconds": float(operation_seconds),
+                "iterations": iterations,
+                "native_converged": (
+                    None if iterations is None
+                    else bool(0 < iterations < int(max_iter))),
+                "native_convergence_criterion": (
+                    None if iterations is None
+                    else "iterations < max_iter under native rnorm2 < atol^2"),
+            })
+    finally:
+        close_started = time.perf_counter()
+        try:
+            # End must release the slot selected for init even if an operation
+            # changed the control array.
+            params[define._SET_INDEX_] = index
+            qcu.applyEndQcu(set_ptrs, params)
+        finally:
+            try:
+                set_ptrs[index] = 0
+            finally:
+                params[define._SET_INDEX_] = (index + 1) % slot_limit
+                close_seconds = time.perf_counter() - close_started
+
+    cold = samples[0]
+    warmup_samples = samples[1:1 + int(warmups)]
+    steady_samples = samples[1 + int(warmups):]
+    result = _stage(cold, warmup_samples, steady_samples)
+    operation_total = sum(
+        float(sample["operation_seconds"]) for sample in samples)
+    reuse_count = len(samples)
+    result["reuse"] = {
+        "setup_seconds": float(setup_seconds),
+        "close_seconds": float(close_seconds),
+        "operation_seconds_total": float(operation_total),
+        "reuse_count": int(reuse_count),
+        "amortized_lifecycle_seconds": float(
+            (setup_seconds + operation_total + close_seconds) / reuse_count),
+        "scope": (
+            "one applyInitQcu/applyEndQcu lifecycle shared by cold, warmup, "
+            "and steady solves; per-call lifecycle equals operation time"),
+    }
+    return result
+
+
 def _build_params(
     torch: Any, define: Any, local_shape: Sequence[int],
     grid: Sequence[int], rank: int, size: int, data_type: int,
@@ -736,6 +846,9 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument("--max-iter", type=int, default=DEFAULT_MAX_ITER)
     parser.add_argument("--warmups", type=int, default=DEFAULT_WARMUPS)
     parser.add_argument("--repeats", type=int, default=DEFAULT_REPEATS)
+    parser.add_argument(
+        "--reuse-runtime", action="store_true",
+        help="also measure one persistent LatticeSet across repeated solves")
     parser.add_argument("--source", default=None,
                         help="optional global canonical/QDP-compressed source")
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED,
@@ -908,6 +1021,19 @@ def main(argv: Sequence[str] | None = None) -> int:
             out, rhs, g, ce, co, cei, coi, set_ptrs, params),
         getter=lambda: qcu.getCloverBistabCgIterationsQcu(set_ptrs, params),
         max_iter=args.max_iter, warmups=args.warmups, repeats=args.repeats)
+    if args.reuse_runtime:
+        print(json.dumps({"rank": rank, "stage": "clover_bistabcg_reused"}),
+              flush=True)
+        timings["clover_schur_bistabcg_solve_reused"] = _measure_reused_stage(
+            comm=comm, torch=torch, qcu=qcu, define=define, params=params,
+            argv=argv, set_ptrs=set_ptrs, device=device,
+            plan=define._SET_PLAN1_, parity=0,
+            operation=lambda: qcu.applyCloverBistabCgQcu(
+                out, rhs, g, ce, co, cei, coi, set_ptrs, params),
+            getter=lambda: qcu.getCloverBistabCgIterationsQcu(
+                set_ptrs, params),
+            max_iter=args.max_iter, warmups=args.warmups,
+            repeats=args.repeats)
 
     torch.cuda.synchronize(device)
     print(json.dumps({"rank": rank, "stage": "true_residual_start"}),
@@ -923,8 +1049,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         math.isfinite(true_residual) and true_residual <= residual_floor)
     solver_native = _solver_native_summary(
         timings["clover_schur_bistabcg_solve"])
+    solver_native_reused = (
+        _solver_native_summary(
+            timings["clover_schur_bistabcg_solve_reused"])
+        if args.reuse_runtime else None)
     native_pass = bool(solver_native["all_samples_converged"])
-    rank_pass = bool(native_pass and independent_pass)
+    reused_pass = (
+        bool(solver_native_reused["all_samples_converged"])
+        if solver_native_reused is not None else True)
+    rank_pass = bool(native_pass and reused_pass and independent_pass)
     rank_payload = {
         "rank": rank,
         "local_rank": local_rank,
@@ -945,6 +1078,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         },
         "timings": timings,
         "solver_native": solver_native,
+        "solver_native_reused": solver_native_reused,
         "independent_true_residual": {
             "verified": True,
             "value": float(true_residual),
@@ -990,6 +1124,39 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "operation_seconds"]["median"] is not None
         ]
         solver_wall = max(solver_medians) if solver_medians else None
+        reused_operation_medians = [
+            item["timings"]["clover_schur_bistabcg_solve_reused"]["steady"][
+                "operation_seconds"]["median"]
+            for item in rank_payloads
+            if args.reuse_runtime and item["timings"][
+                "clover_schur_bistabcg_solve_reused"]["steady"][
+                    "operation_seconds"]["median"] is not None
+        ]
+        reused_amortized_values = [
+            item["timings"]["clover_schur_bistabcg_solve_reused"]["reuse"][
+                "amortized_lifecycle_seconds"]
+            for item in rank_payloads if args.reuse_runtime
+        ]
+        reused_setup_values = [
+            item["timings"]["clover_schur_bistabcg_solve_reused"]["reuse"][
+                "setup_seconds"]
+            for item in rank_payloads if args.reuse_runtime
+        ]
+        reused_close_values = [
+            item["timings"]["clover_schur_bistabcg_solve_reused"]["reuse"][
+                "close_seconds"]
+            for item in rank_payloads if args.reuse_runtime
+        ]
+        reused_operation_wall = (
+            max(reused_operation_medians)
+            if reused_operation_medians else None)
+        reused_amortized_wall = (
+            max(reused_amortized_values)
+            if reused_amortized_values else None)
+        reused_setup_wall = (
+            max(reused_setup_values) if reused_setup_values else None)
+        reused_close_wall = (
+            max(reused_close_values) if reused_close_values else None)
         iteration_values = [
             int(value) for item in rank_payloads
             for value in item["solver_native"]["iterations"]]
@@ -1050,12 +1217,26 @@ def main(argv: Sequence[str] | None = None) -> int:
             "strong_scaling": {
                 "global_sites": int(np.prod(lattice, dtype=np.int64)),
                 "solver_steady_operation_seconds_max_rank": solver_wall,
+                "solver_reused_steady_operation_seconds_max_rank": (
+                    reused_operation_wall),
+                "solver_reused_amortized_lifecycle_seconds_max_rank": (
+                    reused_amortized_wall),
                 "solver_iterations_median": representative_iterations,
                 "estimated_gflops": gflops,
                 "baseline": None,
                 "note": (
                     "Compare separate --grid/MPI-size runs with identical gauge, "
                     "RHS seed, mass, csw, dtype and solver controls"),
+            },
+            "reuse_runtime": {
+                "enabled": bool(args.reuse_runtime),
+                "setup_seconds_max_rank": reused_setup_wall,
+                "close_seconds_max_rank": reused_close_wall,
+                "steady_operation_seconds_max_rank": reused_operation_wall,
+                "amortized_lifecycle_seconds_max_rank": reused_amortized_wall,
+                "amortization_scope": (
+                    "setup + cold + warmups + steady operations + close, "
+                    "divided by all solves in the persistent session"),
             },
             "ranks": rank_payloads,
             "warnings": warnings,
@@ -1075,6 +1256,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             "report": str(report_path),
             "mpi_size": size,
             "solver_steady_operation_seconds_max_rank": solver_wall,
+            "solver_reused_steady_operation_seconds_max_rank": (
+                reused_operation_wall),
+            "solver_reused_amortized_lifecycle_seconds_max_rank": (
+                reused_amortized_wall),
             "estimated_gflops": None if gflops is None else gflops["estimated_gflops"],
             "independent_true_residual_verified": all(
                 item["independent_true_residual"]["verified"]

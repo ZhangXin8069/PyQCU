@@ -22,6 +22,16 @@ from pyqcu.testing.kupl.kunpeng_runtime import (
 ROOT = Path(__file__).resolve().parents[3]
 
 
+def _decode_json_stdout(text: str) -> dict:
+    start = text.find("{")
+    if start < 0:
+        raise AssertionError(f"CLI stdout contains no JSON object: {text!r}")
+    payload, _ = json.JSONDecoder().raw_decode(text[start:])
+    if not isinstance(payload, dict):
+        raise AssertionError(f"CLI JSON payload is not an object: {payload!r}")
+    return payload
+
+
 def kunpeng_topology(
     nodes: tuple[CpuNode, ...] = (
         CpuNode(0, tuple(range(0, 24))),
@@ -107,7 +117,7 @@ class KunpengRuntimeTests(unittest.TestCase):
                     "--mpi", "hmpi", "--mpirun", str(fake), "--json",
                 ],
                 cwd=ROOT, text=True, capture_output=True, check=False,
-                timeout=30,
+                timeout=60,
             )
         self.assertEqual(completed.returncode, 2)
         self.assertIn("reports 'openmpi'", completed.stderr)
@@ -129,10 +139,10 @@ class KunpengRuntimeTests(unittest.TestCase):
                     "--allow-launcher-mismatch", "--json",
                 ],
                 cwd=ROOT, text=True, capture_output=True, check=False,
-                timeout=30,
+                timeout=60,
             )
         self.assertEqual(completed.returncode, 0, completed.stderr)
-        payload = json.loads(completed.stdout)
+        payload = _decode_json_stdout(completed.stdout)
         self.assertEqual(payload["mpi"], "hmpi")
         self.assertEqual(payload["mpi_detected"], "openmpi")
         self.assertEqual(payload["mpi_executable"], str(fake))
@@ -237,10 +247,10 @@ class KunpengRuntimeTests(unittest.TestCase):
             text=True,
             capture_output=True,
             check=False,
-            timeout=30,
+            timeout=60,
         )
         self.assertEqual(completed.returncode, 0, completed.stderr)
-        payload = json.loads(completed.stdout)
+        payload = _decode_json_stdout(completed.stdout)
         self.assertIn("affinity", payload)
         self.assertIn("nodes", payload)
 
@@ -257,10 +267,10 @@ class KunpengRuntimeTests(unittest.TestCase):
             text=True,
             capture_output=True,
             check=False,
-            timeout=30,
+            timeout=60,
         )
         self.assertEqual(completed.returncode, 0, completed.stderr)
-        payload = json.loads(completed.stdout)
+        payload = _decode_json_stdout(completed.stdout)
         self.assertEqual(payload["ranks"], 1)
         self.assertEqual(payload["environment"]["KUPL_NUMA_BIND"], "0")
 

@@ -17,10 +17,10 @@ from hashlib import sha256
 from json import dumps
 from math import prod
 from numbers import Integral
-from typing import Any, TypeVar
+from typing import Any, Tuple, TypeVar
 
 
-Shape4 = tuple[int, int, int, int]
+Shape4 = Tuple[int, int, int, int]
 STRICT_MPI_CACHE_SCHEMA = "pyqcu.strict-mpi-cache-shard"
 STRICT_MPI_CACHE_SCHEMA_VERSION = 1
 

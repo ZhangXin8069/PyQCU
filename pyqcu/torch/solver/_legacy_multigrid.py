@@ -1,34 +1,67 @@
+from __future__ import annotations
+
 from pathlib import Path
+from math import prod
 from types import SimpleNamespace
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Union
 
-import torch
+import pyqcu.cann as _torch
 from pyqcu import tools
 from pyqcu.torch import dslash
 from pyqcu.torch.tools._multigrid import load_legacy_mg_assets
-import pyqcu.cann as _torch
+from pyqcu.torch.tools import _mpi_roll
 import mpi4py.MPI as MPI
 from time import perf_counter
-from pyqcu.cuda import qcu, define
 from pyqcu._multigrid_warnings import warn_excessive_multigrid_levels
+
+
+torch = _torch.torch
+
+
+class _LazyCudaBinding:
+    """Load a CUDA binding only when the accelerated path is first used."""
+
+    def __init__(self, name: str):
+        self._name = name
+        self._module = None
+
+    def _load(self):
+        if self._module is None:
+            from pyqcu.cuda import define, qcu
+
+            self._module = qcu if self._name == "qcu" else define
+        return self._module
+
+    def __getattr__(self, name: str):
+        return getattr(self._load(), name)
+
+
+qcu = _LazyCudaBinding("qcu")
+define = _LazyCudaBinding("define")
 
 
 class _CachedLegacyCoarseOperator:
     """Torch action of a cached 33-tensor Legacy coarse operator."""
 
     def __init__(self, hop_nn: torch.Tensor, hop_diag: torch.Tensor,
-                 sitting: torch.Tensor):
+                 sitting: torch.Tensor, *, comm, process_grid: Sequence[int],
+                 local_extents: Sequence[int]):
         self.hop_nn = hop_nn
         self.hop_diag = hop_diag
         self.sitting = SimpleNamespace(M=sitting)
+        self.comm = comm
+        self.process_grid = tuple(int(value) for value in process_grid)
+        self.local_extents = tuple(int(value) for value in local_extents)
         self.hopping = SimpleNamespace(
             M_plus_list=[hop_nn[0, direction] for direction in range(4)],
             M_minus_list=[hop_nn[1, direction] for direction in range(4)],
         )
 
     def matvec(self, src: torch.Tensor) -> torch.Tensor:
-        return tools.apply_stencil(
-            self.hop_nn, self.hop_diag, self.sitting.M, src)
+        with _mpi_roll.distributed_roll(
+                self.comm, self.process_grid, self.local_extents):
+            return tools.apply_stencil(
+                self.hop_nn, self.hop_diag, self.sitting.M, src)
 
 
 class LegacyMultigrid:
@@ -36,7 +69,7 @@ class LegacyMultigrid:
 
     variant = "legacy"
 
-    def __init__(self, dtype_list: List[torch.dtype], device_list: List[torch.device],  U: torch.Tensor, clover_term: torch.Tensor, kappa: Optional[torch.Tensor] = torch.Tensor([0.1]), u_0: Optional[torch.Tensor] = torch.Tensor([1.0]), clover_ee_inv: Optional[torch.Tensor] = None, clover_oo_inv: Optional[torch.Tensor] = None, min_size: int = 4, max_level: int = 4, mg_grid_size: List[int] = [2, 2, 2, 2], num_convergence_sample: int = 50, dof_list: List[int] = [12, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24], tol: float = 1e-6, max_iter: int = 1000, num_restart: int = 5, root: int = 0, support_parity: bool = False, verbose: bool = True, seed: Optional[int] = None, coarse_assets: Optional[Sequence[Union[str, Path, Mapping[str, Any]]]] = None, coarse_tol: float = 1e-4, coarse_max_iter: int = 200, deflate: bool = False, adaptive_correction: bool = True, correction_calibration: int = 30, correction_window: int = 12):
+    def __init__(self, dtype_list: List[torch.dtype], device_list: List[torch.device],  U: torch.Tensor, clover_term: torch.Tensor, kappa: Optional[torch.Tensor] = torch.Tensor([0.1]), u_0: Optional[torch.Tensor] = torch.Tensor([1.0]), clover_ee_inv: Optional[torch.Tensor] = None, clover_oo_inv: Optional[torch.Tensor] = None, min_size: int = 4, max_level: int = 4, mg_grid_size: List[int] = [2, 2, 2, 2], num_convergence_sample: int = 50, dof_list: List[int] = [12, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24], tol: float = 1e-6, max_iter: int = 1000, num_restart: int = 5, root: int = 0, support_parity: bool = False, verbose: bool = True, seed: Optional[int] = None, coarse_assets: Optional[Sequence[Union[str, Path, Mapping[str, Any]]]] = None, coarse_tol: float = 1e-4, coarse_max_iter: int = 200, deflate: bool = False, adaptive_correction: bool = True, correction_calibration: int = 30, correction_window: int = 12, process_grid: Optional[Sequence[int]] = None):
         """自适应多重网格 V-cycle 求解器。
 
         seed: 可选确定性种子 —— 给定时初始 b/x0 用独立本地 Generator 生成
@@ -47,6 +80,17 @@ class LegacyMultigrid:
         """
         self.comm = MPI.COMM_WORLD
         self.rank = self.comm.Get_rank()
+        self.process_grid = tuple(
+            int(value) for value in (
+                tools.give_grid_size() if process_grid is None else process_grid))
+        if len(self.process_grid) != 4 or any(
+                value <= 0 for value in self.process_grid):
+            raise ValueError("process_grid must contain four positive integers")
+        if int(prod(self.process_grid)) != int(
+                self.comm.Get_size()):
+            raise ValueError(
+                f"process_grid {self.process_grid} does not match MPI size "
+                f"{self.comm.Get_size()}")
         self.lat_size = list(U.shape[-4:])  # xyzt
         self.min_size = min_size
         self.max_level = max_level
@@ -79,6 +123,11 @@ class LegacyMultigrid:
             _lat_size = [_lat_size[d] // self.mg_grid_size[d]
                          for d in range(4)]
         self.num_level = len(self.lat_size_list)
+        if self.num_level == 0:
+            raise ValueError(
+                f"local lattice {tuple(self.lat_size)} has no Legacy levels "
+                f"at min_size={self.min_size}; lower min_size to at most "
+                f"{min(self.lat_size)}")
         self.multigrid_depth_warning = warn_excessive_multigrid_levels(
             self.num_level, variant="legacy", backend="torch",
             context="Torch LegacyMultigrid", lattice=self.lat_size,
@@ -355,7 +404,9 @@ class LegacyMultigrid:
                     size=[asset["lonv"].shape[0], *expected_shape],
                     dtype=self.dtype_list[i], device=self.device_list[i]))
                 self.op_list.append(_CachedLegacyCoarseOperator(
-                    asset["hnn"], asset["hdg"], asset["sit"]))
+                    asset["hnn"], asset["hdg"], asset["sit"],
+                    comm=self.comm, process_grid=self.process_grid,
+                    local_extents=expected_shape))
                 self.asset_identities.append({
                     key: asset[key]
                     for key in ("path", "file_sha256", "dataset_sha256",

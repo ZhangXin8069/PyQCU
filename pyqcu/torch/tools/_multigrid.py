@@ -8,6 +8,7 @@ import numpy as np
 import torch
 from pyqcu import tools
 import pyqcu.cann as _torch
+from . import _mpi_roll
 force_use_npu = False
 
 
@@ -99,15 +100,15 @@ def load_legacy_mg_assets(
             f"Legacy MG lonv must be 10-D blocked layout, got {tuple(lonv.shape)}")
     dof, local_dof = int(lonv.shape[0]), int(lonv.shape[1])
     coarse_shape = tuple(int(lonv.shape[index]) for index in (2, 4, 6, 8))
-    if hnn.shape != (2, 4, dof, local_dof, *coarse_shape):
+    if hnn.shape != (2, 4, dof, dof, *coarse_shape):
         raise ValueError(
             f"Legacy MG hnn shape {tuple(hnn.shape)} is inconsistent with "
             f"lonv {tuple(lonv.shape)}")
-    if hdg.shape != (2, 2, 6, dof, local_dof, *coarse_shape):
+    if hdg.shape != (2, 2, 6, dof, dof, *coarse_shape):
         raise ValueError(
             f"Legacy MG hdg shape {tuple(hdg.shape)} is inconsistent with "
             f"lonv {tuple(lonv.shape)}")
-    if sit.shape != (dof, local_dof, *coarse_shape):
+    if sit.shape != (dof, dof, *coarse_shape):
         raise ValueError(
             f"Legacy MG sit shape {tuple(sit.shape)} is inconsistent with "
             f"lonv {tuple(lonv.shape)}")
@@ -759,7 +760,7 @@ def _schur_matvec_batch(op, x_b):
         wd = _lattice.wards[_lattice.ward_keys[ward]]
         for pm, M in ((-1, op.hopping.M_e_plus_list[ward]),
                       (1, op.hopping.M_e_minus_list[ward])):
-            src = torch.roll(x_b, shifts=pm, dims=wd)
+            src = _mpi_roll.roll(x_b, shifts=pm, dims=wd)
             if ward == 3:
                 # give_wilson_plus(parity=1)→even_mask；give_wilson_minus(parity=1)→odd_mask
                 mask = (tools.give_eo_mask(oootzy_t_p=x_b[0], eo=0) if pm == -1
@@ -773,7 +774,7 @@ def _schur_matvec_batch(op, x_b):
         wd = _lattice.wards[_lattice.ward_keys[ward]]
         for pm, M in ((-1, op.hopping.M_o_plus_list[ward]),
                       (1, op.hopping.M_o_minus_list[ward])):
-            src = torch.roll(xe_inv, shifts=pm, dims=wd)
+            src = _mpi_roll.roll(xe_inv, shifts=pm, dims=wd)
             if ward == 3:
                 # give_wilson_plus(parity=0)→odd_mask；give_wilson_minus(parity=0)→even_mask
                 mask = (tools.give_eo_mask(oootzy_t_p=x_b[0], eo=1) if pm == -1
@@ -795,15 +796,16 @@ def _stencil_matvec_batch(stencil, x_b):
     B = x_b.shape[0]
     out = _torch.einsum("EeXYZT,BeXYZT->BEXYZT", sit, x_b)
     for d in range(4):
-        fwd = _torch.roll(x_b, shifts=-1, dims=d + 2)
-        bwd = _torch.roll(x_b, shifts=1, dims=d + 2)
+        fwd = _mpi_roll.roll(x_b, shifts=-1, dims=d + 2)
+        bwd = _mpi_roll.roll(x_b, shifts=1, dims=d + 2)
         out += _torch.einsum("EeXYZT,BeXYZT->BEXYZT", hop_nn[0, d], fwd)
         out += _torch.einsum("EeXYZT,BeXYZT->BEXYZT", hop_nn[1, d], bwd)
     for pi, (d1, d2) in enumerate(PAIRS):
         for s1i, s1 in enumerate(SIGN):
             for s2i, s2 in enumerate(SIGN):
                 shift = [0, 0, 0, 0]; shift[d1] = -s1; shift[d2] = -s2
-                v_shift = _torch.roll(x_b, shifts=tuple(shift), dims=(2, 3, 4, 5))
+                v_shift = _mpi_roll.roll(
+                    x_b, shifts=tuple(shift), dims=(2, 3, 4, 5))
                 out += _torch.einsum("EeXYZT,BeXYZT->BEXYZT",
                                      hop_diag[s1i, s2i, pi], v_shift)
     return out
@@ -1035,19 +1037,18 @@ def build_stencil_mt(matvec_ops, lonv, E, e, lat_fine_odd, lat_coarse_odd,
 
 def apply_stencil(hop_nn, hop_diag, sit, v_c):
     """应用 33-tensor 粗网格算子 A_c = P^T S P（Python 参考实现）。"""
-    E = v_c.shape[0]
-    Xc, Yc, Zc, Tc = v_c.shape[1:]
     out = _torch.einsum("EeXYZT,eXYZT->EXYZT", sit, v_c).clone()
     for d in range(4):
-        fwd = _torch.roll(v_c, shifts=-1, dims=d+1)
-        bwd = _torch.roll(v_c, shifts=1, dims=d+1)
+        fwd = _mpi_roll.roll(v_c, shifts=-1, dims=d+1)
+        bwd = _mpi_roll.roll(v_c, shifts=1, dims=d+1)
         out += _torch.einsum("EeXYZT,eXYZT->EXYZT", hop_nn[0, d], fwd)
         out += _torch.einsum("EeXYZT,eXYZT->EXYZT", hop_nn[1, d], bwd)
     for pi, (d1, d2) in enumerate(PAIRS):
         for s1i, s1 in enumerate(SIGN):
             for s2i, s2 in enumerate(SIGN):
                 shift = [0, 0, 0, 0]; shift[d1] = -s1; shift[d2] = -s2
-                v_shift = _torch.roll(v_c, shifts=tuple(shift), dims=(1, 2, 3, 4))
+                v_shift = _mpi_roll.roll(
+                    v_c, shifts=tuple(shift), dims=(1, 2, 3, 4))
                 out += _torch.einsum("EeXYZT,eXYZT->EXYZT", hop_diag[s1i, s2i, pi], v_shift)
     return out
 
@@ -1152,7 +1153,7 @@ class BatchedLocalSchur:
         def accumulate_hopping(source, plus_list, minus_list, dest,
                                plus_mask, minus_mask):
             for d in range(4):
-                src = torch.roll(source, shifts=-1, dims=d + 3)
+                src = _mpi_roll.roll(source, shifts=-1, dims=d + 3)
                 if d == 3:
                     src = torch.where(plus_mask, source, src)
                 mat = self._slicem(plus_list[d], idx, starts, flat_idx)
@@ -1161,7 +1162,7 @@ class BatchedLocalSchur:
                 ))
                 del mat, src
 
-                src = torch.roll(source, shifts=1, dims=d + 3)
+                src = _mpi_roll.roll(source, shifts=1, dims=d + 3)
                 if d == 3:
                     src = torch.where(minus_mask, source, src)
                 mat = self._slicem(minus_list[d], idx, starts, flat_idx)
@@ -1214,13 +1215,15 @@ class BatchedLocalWilsonClover(BatchedLocalSchur):
             "kEexyzt,kBexyzt->kBExyzt", onsite, x_local)
         del onsite
         for dimension in range(4):
-            shifted = torch.roll(x_local, shifts=-1, dims=dimension + 3)
+            shifted = _mpi_roll.roll(
+                x_local, shifts=-1, dims=dimension + 3)
             matrix = self._slicem(
                 self.Mep[dimension], idx, starts, flat_idx)
             out.add_(torch.einsum(
                 "kEexyzt,kBexyzt->kBExyzt", matrix, shifted))
             del matrix, shifted
-            shifted = torch.roll(x_local, shifts=1, dims=dimension + 3)
+            shifted = _mpi_roll.roll(
+                x_local, shifts=1, dims=dimension + 3)
             matrix = self._slicem(
                 self.Mem[dimension], idx, starts, flat_idx)
             out.add_(torch.einsum(

@@ -43,6 +43,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--coarse-cache-level", action="append", default=[])
     parser.add_argument("--rebuild-coarse-cache", action="store_true")
     parser.add_argument("--skip-independent-residual", action="store_true")
+    parser.add_argument("--legacy-layout",
+                        choices=("auto", "odd-schur", "full-site"),
+                        default="auto")
     parser.add_argument("--work-dir", default=None)
     parser.add_argument("--output", default=None)
     parser.add_argument("--report", default=None)
@@ -69,6 +72,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--ranks", str(args.ranks),
         "--omp-threads", str(args.omp_threads),
         "--mpirun", str(args.mpirun),
+        "--kupl-legacy-layout", args.legacy_layout,
     ]
     if args.mass is not None:
         forwarded.extend(("--mass", str(args.mass)))

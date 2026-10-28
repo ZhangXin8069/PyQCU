@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
+import subprocess
+import sys
 
 import pyqcu.dslash as compatibility_dslash
 import pyqcu.lattice as common_lattice
@@ -21,7 +24,11 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 def _is_under(path: str, relative: str) -> bool:
-    return Path(path).resolve().is_relative_to(REPO_ROOT / relative)
+    try:
+        Path(path).resolve().relative_to(REPO_ROOT / relative)
+    except ValueError:
+        return False
+    return True
 
 
 def test_torch_implementation_packages_live_under_pyqcu_torch():
@@ -45,3 +52,34 @@ def test_compatibility_facades_export_the_torch_implementations():
     assert compatibility_solver.StrictMultigrid is torch_solver.StrictMultigrid
     assert compatibility_tools.norm is torch_tools.norm
     assert compatibility_tools.vdot is torch_tools.vdot
+
+
+def test_torch_solver_import_does_not_require_cuda_binding():
+    code = """
+import importlib.abc
+import sys
+
+class BlockCuda(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname == 'pyqcu.cuda' or fullname.startswith('pyqcu.cuda.'):
+            raise RuntimeError(f'blocked eager import: {fullname}')
+        return None
+
+sys.meta_path.insert(0, BlockCuda())
+import pyqcu.torch.solver._legacy_multigrid as legacy
+assert legacy.qcu._module is None
+assert legacy.define._module is None
+assert 'pyqcu.cuda.qcu' not in sys.modules
+"""
+    environment = dict(os.environ)
+    environment["PYTHONDONTWRITEBYTECODE"] = "1"
+    completed = subprocess.run(
+        [sys.executable, "-B", "-c", code],
+        cwd=REPO_ROOT,
+        env=environment,
+        text=True,
+        capture_output=True,
+        timeout=180,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stderr

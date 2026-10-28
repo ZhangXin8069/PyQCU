@@ -24,6 +24,7 @@ from typing import Any, Iterable, Mapping, Sequence
 from pyqcu.testing.simple._common import REPO, resolve_path, write_json
 from pyqcu.testing.simple.mpi._common import resolve_grid
 from pyqcu.testing.simple.mpi.mpi_ranks_power_of_two import validate_rank_count
+from pyqcu.tools._argparse import BooleanOptionalAction
 
 
 TRACE_ENV_VARS = (
@@ -379,9 +380,9 @@ def add_mpi_job_options(
     parser.add_argument("--mpirun", default="mpirun")
     parser.add_argument("--bind-to", choices=("none", "numa"), default="none")
     parser.add_argument("--map-by", default=None)
-    parser.add_argument("--oversubscribe", action=argparse.BooleanOptionalAction,
+    parser.add_argument("--oversubscribe", action=BooleanOptionalAction,
                         default=True)
-    parser.add_argument("--allow-run-as-root", action=argparse.BooleanOptionalAction,
+    parser.add_argument("--allow-run-as-root", action=BooleanOptionalAction,
                         default=None)
     parser.add_argument("--timeout", type=float, default=None)
     parser.add_argument("--report", default=report)

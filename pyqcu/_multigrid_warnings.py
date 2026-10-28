@@ -30,7 +30,9 @@ def warn_excessive_multigrid_levels(
     iteration reduction at three levels, with correctness failures in
     distributed three-level and single-rank four-level tests. Strict-
     MultiGrid is the explicit comparison path and supports three levels;
-    deeper Strict hierarchies remain experimental.
+    deeper Strict hierarchies remain experimental. ``block`` is the actual
+    execution block: parity-compressed in time for Legacy and full-lattice
+    for Strict.
     """
 
     depth = int(levels)
@@ -69,8 +71,11 @@ def warn_excessive_multigrid_levels(
                 fine = tuple(max(1, fine[axis] // grid[axis]) for axis in range(4))
             else:
                 fine = tuple(fine[axis] // grid[axis] for axis in range(4))
-        # QCU stores the parity-compressed time axis before coarsening.
-        shape = [fine[0], fine[1], fine[2], fine[3] // 2]
+        # Legacy coarsens the parity-compressed axis; Strict starts from the
+        # full temporal extent and applies its full-lattice block directly.
+        shape = list(fine)
+        if variant_name == "legacy":
+            shape[3] //= 2
         divisible = True
         for widths in width_sets:
             if any(shape[axis] % widths[axis] for axis in range(4)):
