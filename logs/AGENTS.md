@@ -748,3 +748,35 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: V100/WSL2 上 cuDevicePrimaryCtxRetain 对三块 GPU 均返回 OUT_OF_MEMORY，CUDA 上下文无法创建，基准无法运行；已定位为驱动/WSL GPU-PV 层故障，非仓库代码或显存峰值问题。
 - 验证: path, size, required sections, conflict markers
 - 批次状态: in-progress
+## qcu_backend_sync_20261028 - general - 2026-10-28 23:39:03 +0800
+- 主任务: PyQCU CUDA/KUPL/Torch 三后端同步优化与 QUDA 性能对比
+- 日志文件: logs/v20261028233903.txt
+- 文件大小: 5651 bytes
+- 触发原因: 一般记录
+- 关键内容: 归集本任务全部用户指令、资源约束、MultiGrid 路线和参数调优要求
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## qcu_backend_sync_20261028 - stage - 2026-10-29 02:52:54 +0800
+- 主任务: PyQCU CUDA/KUPL/Torch 三后端同步优化与 QUDA 性能对比
+- 日志文件: logs/v202610290252.txt
+- 文件大小: 5225 bytes
+- 触发原因: 阶段成果
+- 关键内容: CUDA A/B 构建、矩阵公平门、Torch MPI 死锁及 KUPL 鲲鹏潜力审计阶段完成；DCU 作业待调度
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## qcu_backend_sync_20261028 - general - 2026-10-29 03:47:33 +0800
+- 主任务: PyQCU CUDA/KUPL/Torch 三后端同步优化与 QUDA 性能对比
+- 日志文件: logs/v20261029034734.txt
+- 文件大小: 947 bytes
+- 触发原因: 一般记录
+- 关键内容: 一句话归集本任务全部用户可见指令与最新优先级
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## qcu_backend_sync_20261028 - general - 2026-10-29 03:52:53 +0800
+- 主任务: PyQCU 上个 tag 至当前用户输入指令归集
+- 日志文件: logs/v20261029035254.txt
+- 文件大小: 1175 bytes
+- 触发原因: 一般记录
+- 关键内容: 以一句话归集 bug45 之后与项目执行直接相关的全部用户指令
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
