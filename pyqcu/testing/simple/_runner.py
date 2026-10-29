@@ -60,7 +60,7 @@ QUDA_INSTALL_DIRS = {
     "7.0": REPO / "data" / "quda-sm70-install",
 }
 KUPL_LIBRARIES = {
-    "default": REPO / "cpp" / "kupl" / "qcu" / "build" / "libqcu.so",
+    "default": REPO / "cpp" / "kupl" / "qcu" / "libqcu.so",
     "lto": REPO / "cpp" / "kupl" / "qcu" / "build-lto" / "libqcu.so",
 }
 
@@ -142,14 +142,18 @@ def libqcu_environment(env: dict, device: str,
 def kupl_environment(env: dict, variant: str = "default") -> dict:
     """Select the KUPL ``libqcu.so`` through ``PYQCU_KUPL_LIB``.
 
-    ``default`` keeps the caller's environment (so ``PYQCU_KUPL_LIB`` set by
-    the user still wins).  ``lto`` selects the link-time-optimized build in
-    ``cpp/kupl/qcu/build-lto``.  An explicit path is accepted as well.  The
-    child process passes the variable to every MPI rank.
+    ``default`` honors ``PYQCU_KUPL_LIB`` and otherwise selects the stable
+    ``cpp/kupl/qcu/libqcu.so`` entry. ``lto`` selects the link-time-optimized
+    build in ``cpp/kupl/qcu/build-lto``. An explicit path is accepted as well.
+    The child process passes the variable to every MPI rank.
     """
     if variant in (None, "", "default"):
-        return env
-    if "/" in variant or variant.endswith(".so"):
+        requested = env.get("PYQCU_KUPL_LIB")
+        path = (Path(requested).expanduser() if requested else
+                KUPL_LIBRARIES["default"])
+        if not path.is_absolute():
+            path = REPO / path
+    elif "/" in variant or variant.endswith(".so"):
         path = Path(variant).expanduser()
     else:
         path = KUPL_LIBRARIES.get(variant)
@@ -160,7 +164,9 @@ def kupl_environment(env: dict, variant: str = "default") -> dict:
             f"KUPL library {path} not found; build cpp/kupl/qcu"
             + (" (LTO: build-lto)" if variant == "lto" else ""))
     env["PYQCU_KUPL_LIB"] = str(path)
-    env["QCU_KUPL_VARIANT"] = variant if variant in KUPL_LIBRARIES else str(path)
+    env["QCU_KUPL_VARIANT"] = (
+        "default" if variant in (None, "", "default") else
+        variant if variant in KUPL_LIBRARIES else str(path))
     return env
 
 

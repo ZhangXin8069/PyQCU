@@ -15,7 +15,7 @@ PyQCU 参考文档。
 |---|---|
 | `ORGANIZATION.md` | `docs/`、`data/`、`logs/`、`pyqcu/testing/` 的统一分类规则、垃圾清理与构建树例外 |
 | `dims.md` | 维度命名方案（`s`=spin、`c`=color、`d`=direction、`p`=parity、`x/y/z/t`=时空）。`ccdxyzt`、`scxyzt`、`psctzyx` 等约定 |
-| `env.md` | Python 环境设置；`env.sh` 始终设置 `LD_LIBRARY_PATH`/`PYTHONPATH`，仅在仓库内 QUDA 库存在时设置 `QUDA_PATH`，显式 `QUDA_INSTALL` 可覆盖安装树 |
+| `env.md` | Python 环境设置；`env.sh` 导出当前仓库优先的 `PYTHONPATH`、CUDA/DCU/KUPL 库路径与保守 KUPL 默认值，并配置可用 QUDA 安装树 |
 | `install.md` | 安装指南 — CUDA/DCU/KUPL 后端选择和 install.sh 工作流 |
 | `dcu_build_backend.md` | DCU/DTK 构建选路、ROCm/HIP 验证、测试、生产限制和故障排查 |
 | `kupl_only_deployment.md` | 纯 KUPL 无 CUDA 安装、旧版 PyTorch 兼容、环境检测、生产 BiStabCG/真实 Legacy-MG、HBM、升级和故障排查手册 |

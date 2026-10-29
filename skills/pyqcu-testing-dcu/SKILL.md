@@ -10,6 +10,9 @@ DCU build selection is `PYQCU_BUILD_BACKEND=dcu` or `bash install.sh dcu`. Nativ
 build uses `cpp/cuda/qcu/make-dcu.sh` + `CMakeLists-dcu.txt`; `cpp/dtk` and
 `pyqcu/dtk` remain placeholders. Probe the compiler without a DCU device:
 
+`source ./env.sh` exports `PYQCU_DCU_LIB=${QCU_DCU_BUILD_DIR}/libqcu.so`; the DCU
+build also copies that library to `cpp/cuda/qcu/libqcu.so` for the Cython bridge.
+
 ```bash
 QCU_DCU_CUDA_COMPILER=/path/to/dtk/nvcc \
   bash cpp/cuda/qcu/make-dcu.sh --check

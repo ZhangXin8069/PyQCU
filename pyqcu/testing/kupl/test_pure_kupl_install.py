@@ -96,6 +96,7 @@ class PureKuplInstallTests(unittest.TestCase):
         output = completed.stdout + completed.stderr
         self.assertEqual(completed.returncode, 0, output)
         self.assertIn("PYQCU KUPL backend: ready", output)
+        self.assertIn("cpp/kupl/qcu/libqcu.so", output)
         self.assertIn("native=OFF lto=OFF tests=ON", output)
 
     def test_topology_cli_json_does_not_initialize_mpi(self) -> None:

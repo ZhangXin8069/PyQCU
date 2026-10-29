@@ -52,8 +52,11 @@ source ./env.sh
 
 `env.sh` 主要设置：
 
-- `PYTHONPATH`，使 `pyqcu` 与 `pyqcu.testing.simple` 可导入。
+- `PYQCU_ROOT`，并把当前仓库放在 `PYTHONPATH` 首位，避免旧安装树抢先导入。
 - `LD_LIBRARY_PATH`，使 `libqcu.so` 可加载。
+- `PYQCU_CUDA_LIB`、`PYQCU_DCU_LIB`、`PYQCU_KUPL_LIB` 的当前仓库默认路径。
+- KUPL 的安全默认值：`OMP_DYNAMIC=FALSE`、`KUPL_NUMA_BIND=0`、
+  `KUPL_FUSED_BICG_DOTS=1`、`KUPL_DISABLE_CLOVER_CACHE=0`。
 - OpenMPI root 运行确认变量。
 
 它不会自动为所有脚本选择正确的 GPU 架构库。`solve_case.py`、
@@ -110,9 +113,13 @@ export PYQCU_REFERENCE_LIME=/absolute/path/to/reference.lime
 
 | 变量 | 作用 |
 |---|---|
+| `PYQCU_ROOT` | 当前仓库绝对根目录 |
+| `PYQCU_CUDA_LIB` | NVIDIA CUDA native `libqcu.so` 默认路径 |
+| `PYQCU_DCU_LIB` | DCU/DTK native `libqcu.so` 默认路径 |
 | `PYQCU_DATA_DIR` | 共享 helper 的默认 data 目录 |
 | `PYQCU_REFERENCE_LIME` | `_common.DEFAULT_LIME` 默认参考组态 |
-| `PYQCU_KUPL_LIB` | KUPL `.so` 绝对路径，优先于 build 默认 |
+| `PYQCU_KUPL_BUILD_DIR` | KUPL 构建目录，决定稳定软链接构建后指向的实际库 |
+| `PYQCU_KUPL_LIB` | KUPL `.so` 绝对路径；`source env.sh` 后默认指向当前仓库 |
 | `KUPL_OMP_THREADS` | KUPL 库内 OpenMP 精确线程数 |
 | `KUPL_NUMA_BIND=1` | 由 KUPL 库做 NUMA 绑定；MPI 必须 `--bind-to none` |
 | `OMP_NUM_THREADS` | OpenMP 线程数，也供启动脚本设置 |
@@ -372,13 +379,25 @@ extent 的分解。若 rank 数无法分解，生产入口会报错；三方 ben
 
 `--kupl-lib`：
 
-- `default`：`cpp/kupl/qcu/build/libqcu.so` 或 `PYQCU_KUPL_LIB`。
+- `default`：`cpp/kupl/qcu/libqcu.so` 稳定软链接或 `PYQCU_KUPL_LIB`。
 - `lto`：`cpp/kupl/qcu/build-lto/libqcu.so`。
 - 绝对路径：直接指定 `.so`。
 
 `solve_case.py` 的 KUPL 子进程使用 `mpirun --bind-to none`。CPU 放置由调度器
 cpuset 或 `KUPL_NUMA_BIND=1` 负责。需要启动器直接管理 NUMA 绑定时，使用
 `mpi/solve_case.py`。`solve_case.py` 自己启动 `mpirun`，外层禁止嵌套调用。
+
+通过 `ddub.sh`/Slurm 提交时，应在单引号命令内部先 source 当前仓库环境，并使用
+`--kupl-lib default`：
+
+```bash
+./ddub.sh 'source ~/PyQCU/env.sh && cd ~/PyQCU && python \
+  pyqcu/testing/simple/solve_case.py --backend kupl \
+  --kupl-lib default --out-dir ~/PyQCU/data/production_L24 ...'
+```
+
+这样计算节点会重新获得当前仓库优先的 `PYTHONPATH` 和正确的
+`PYQCU_KUPL_LIB`，不会继承旧 `PyQCU-test*` 安装树。
 
 ### 7.4 QUDA / PyQUDA
 
@@ -714,7 +733,8 @@ python pyqcu/testing/simple/check_clover.py
 
 ### 13.1 生产摘要
 
-`last_solve_<backend>.json` 固定字段：
+`last_solve_<backend>.json` 的字段如下；对当前后端不适用的可选项直接省略，不输出
+JSON `null`：
 
 | 字段 | 含义 |
 |---|---|
@@ -722,16 +742,16 @@ python pyqcu/testing/simple/check_clover.py
 | `solution` | 正式解路径；失败时该文件可能不存在 |
 | `report` | 后端原始 JSON 路径 |
 | `status` | `PASS/WARN/FAIL/SKIP` |
-| `iterations` | 后端原生迭代数，缺失时 `null` |
+| `iterations` | 后端原生迭代数；未提供时省略 |
 | `wall_seconds` | 后端操作墙钟 |
-| `solver_seconds` | 后端独立 solver timer，若提供 |
+| `solver_seconds` | 后端独立 solver timer；未提供时省略 |
 | `true_residual` | 独立或后端真残差 |
 | `residual_source` | 残差来源 |
 | `mpi_size` / `grid` | KUPL MPI 几何 |
-| `libqcu_variant` | CUDA native library 选择 |
-| `quda_variant` | QUDA 安装选择 |
-| `kupl_variant` | KUPL library 选择 |
-| `error` | 失败摘要 |
+| `libqcu_variant` | CUDA native library 选择；非 CUDA 时省略 |
+| `quda_variant` | QUDA 安装选择；非 QUDA 时省略 |
+| `kupl_variant` | KUPL library 选择；非 KUPL 时省略 |
+| `error` | 失败摘要；PASS 时省略 |
 
 ### 13.2 后端原始报告
 

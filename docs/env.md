@@ -24,15 +24,38 @@ DCU 构建使用 `PYQCU_BUILD_BACKEND=dcu` 和 `bash install.sh dcu`。该模式
 source ./env.sh
 ```
 
+该脚本可由 Bash 或 zsh `source`；仓库路径和库目录会被去重，重复执行不会不断
+拉长 `PYTHONPATH` 或 `LD_LIBRARY_PATH`。
+
 `env.sh` 会：
 
-- 把仓库根加入 `PYTHONPATH`；
+- 导出 `PYQCU_ROOT`，并把当前仓库根放在 `PYTHONPATH` 最前，避免旧 editable
+  install 或 `PyQCU-test*` 目录抢先导入；
 - 把 `cpp/cuda/qcu` 和可用的 QUDA 库目录加入 `LD_LIBRARY_PATH`；
 - 仅在仓库内 QUDA 库存在时设置 `QUDA_PATH`；
-- 允许显式 `QUDA_INSTALL` 覆盖默认安装树。
+- 允许显式 `QUDA_INSTALL` 覆盖默认安装树；
+- 导出当前仓库的 CUDA、DCU、KUPL 默认库路径：
+
+```text
+PYQCU_CUDA_LIB=<repo>/cpp/cuda/qcu/libqcu.so
+PYQCU_DCU_LIB=<QCU_DCU_BUILD_DIR>/libqcu.so
+PYQCU_KUPL_LIB=<repo>/cpp/kupl/qcu/libqcu.so
+```
+
+`cpp/kupl/qcu/libqcu.so` 是构建后指向 `${PYQCU_KUPL_BUILD_DIR}/libqcu.so` 的稳定
+软链接，与 `cpp/cuda/qcu/libqcu.so` 的路径形态对齐。
+
+- 固定安全的 KUPL 基础值：`OMP_DYNAMIC=FALSE`、`KUPL_NUMA_BIND=0`、
+  `KUPL_FUSED_BICG_DOTS=1`、`KUPL_DISABLE_CLOVER_CACHE=0`、
+  `KUPL_ALLOW_OVERSUBSCRIBE=0`、`KUPL_HUGEPAGE=0`。
+
+以上变量只在调用者未显式设置时赋默认值。`KUPL_OMP_THREADS` 与
+`OMP_NUM_THREADS` 若只设置其中一个，`env.sh` 会同步另一个；两者都已设置时保持原值。
+`KUPL_NUMA_BIND=1` 时还会清除冲突的 `OMP_PROC_BIND`、`OMP_PLACES`、
+`GOMP_CPU_AFFINITY` 和 `KMP_AFFINITY`。
 
 不要在文档或脚本中硬编码个人仓库绝对路径；需要外部安装树时通过 `QUDA_INSTALL`、
-`PYQCU_KUPL_LIB` 或构建参数显式传入。
+`PYQCU_CUDA_LIB`、`PYQCU_DCU_LIB`、`PYQCU_KUPL_LIB` 或构建参数显式传入。
 
 KUPL 的 `KUPL_OMP_THREADS`、`KUPL_NUMA_BIND`、HMPI/OpenMPI 绑定和内存策略见
 [`kupl_kunpeng_guide.md`](kupl_kunpeng_guide.md)。生产运行应先由调度器/MPI

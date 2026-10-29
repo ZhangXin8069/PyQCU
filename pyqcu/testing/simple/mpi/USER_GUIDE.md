@@ -143,14 +143,14 @@ mpirun --version
 
 需要：
 
-- `cpp/kupl/qcu/build/libqcu.so`，或 `PYQCU_KUPL_LIB` 指向其他库。
+- `cpp/kupl/qcu/libqcu.so`，或 `PYQCU_KUPL_LIB` 指向其他库。
 - OpenMP runtime。
 - MPI 库与 `mpi4py` 匹配。
 
 检查：
 
 ```bash
-test -f cpp/kupl/qcu/build/libqcu.so
+test -f cpp/kupl/qcu/libqcu.so
 ```
 
 ### 4.3 CUDA
@@ -549,7 +549,7 @@ python -B pyqcu/testing/kupl/kupl_env.py \
 加载顺序由 `pyqcu.kupl.qcu` 决定：
 
 1. `PYQCU_KUPL_LIB`。
-2. `cpp/kupl/qcu/build/libqcu.so`。
+2. `cpp/kupl/qcu/libqcu.so`。
 
 MPI 启动器目前没有单独 `--kupl-lib` 参数；需要 LTO 或其他库时设置：
 

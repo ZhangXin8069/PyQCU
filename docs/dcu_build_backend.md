@@ -93,9 +93,10 @@ PYQCU_SKIP_NATIVE_BUILD=1 \
   python setup.py build_ext --inplace
 ```
 
-`make-dcu.sh` 把最终动态库写到 `cpp/cuda/qcu/libqcu.so`，供 Cython bridge
-链接。`PYQCU_SKIP_NATIVE_BUILD=1` 只用于已经完成 native build、仅重建 bridge
-的场景。
+`make-dcu.sh` 把最终动态库写到 `${QCU_DCU_BUILD_DIR}/libqcu.so`，并复制到
+`cpp/cuda/qcu/libqcu.so` 供 Cython bridge 链接。`source ./env.sh` 会把前者导出为
+`PYQCU_DCU_LIB`，把 NVIDIA CUDA 路径导出为 `PYQCU_CUDA_LIB`。
+`PYQCU_SKIP_NATIVE_BUILD=1` 只用于已经完成 native build、仅重建 bridge 的场景。
 
 ## 3. 环境变量
 
@@ -105,6 +106,8 @@ PYQCU_SKIP_NATIVE_BUILD=1 \
 | `QCU_DCU_CUDA_COMPILER` | 自动探测 | DTK nvcc-compatible compiler |
 | `ROCM_PATH` | 未设置 | 自动查找 `$ROCM_PATH/cuda/bin/nvcc` |
 | `QCU_DCU_BUILD_DIR` | `data/build/cuda-qcu-dcu` | native CMake build tree |
+| `PYQCU_DCU_LIB` | `${QCU_DCU_BUILD_DIR}/libqcu.so` | `env.sh` 导出的 DCU native 库路径 |
+| `PYQCU_CUDA_LIB` | `cpp/cuda/qcu/libqcu.so` | `env.sh` 导出的 NVIDIA CUDA native 库路径 |
 | `QCU_DCU_BUILD_TYPE` | `Release` | CMake build type |
 | `PYQCU_BUILD_JOBS` | 在线 CPU 数 | native 并行编译任务数 |
 | `PYQCU_SKIP_NATIVE_BUILD` | 未设置 | `1` 时只构建 Cython bridge |

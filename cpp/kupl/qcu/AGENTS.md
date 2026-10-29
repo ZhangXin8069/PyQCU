@@ -46,6 +46,10 @@
   `make.sh` is the native-only convenience entry from `cpp/kupl/qcu`; use
   `bash ../../../install.sh kupl` from the same directory when the Python
   package path and ctypes smoke should also be validated.
+- A successful `make.sh` atomically updates `cpp/kupl/qcu/libqcu.so` to point
+  at the actual versioned library in the selected build directory. Keep this
+  stable path as the default `PYQCU_KUPL_LIB` surface; do not hard-code
+  `build/libqcu.so` in Python loaders or production launch documentation.
 
 - Pure KUPL installation must never invoke the CUDA backend or Cython bridge.
   `install.sh kupl` uses `PYQCU_BUILD_BACKEND=kupl`; `install.sh` without an

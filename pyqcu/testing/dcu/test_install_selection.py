@@ -37,10 +37,13 @@ class DcuInstallSelectionTests(unittest.TestCase):
         self.assertEqual(completed.returncode, 0, output)
         self.assertIn("dcu", output)
         self.assertIn("QCU_DCU_CUDA_COMPILER", output)
+        self.assertIn("PYQCU_CUDA_LIB", output)
+        self.assertIn("PYQCU_DCU_LIB", output)
 
     def test_make_dcu_check_uses_explicit_compiler(self) -> None:
         env = os.environ.copy()
         env["QCU_DCU_CUDA_COMPILER"] = sys.executable
+        env["QCU_DCU_BUILD_DIR"] = str(ROOT / "data/build/dcu-contract")
         completed = subprocess.run(
             ["bash", str(ROOT / "cpp/cuda/qcu/make-dcu.sh"), "--check"],
             cwd=ROOT,
@@ -54,6 +57,8 @@ class DcuInstallSelectionTests(unittest.TestCase):
         self.assertEqual(completed.returncode, 0, output)
         self.assertIn("PYQCU DCU backend: ready", output)
         self.assertIn(sys.executable, output)
+        self.assertIn(
+            str(ROOT / "data/build/dcu-contract/libqcu.so"), output)
 
     def test_make_dcu_rejects_missing_explicit_compiler(self) -> None:
         env = os.environ.copy()

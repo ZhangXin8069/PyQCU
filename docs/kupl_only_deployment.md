@@ -75,8 +75,11 @@ bash ./install.sh kupl
 默认库路径为：
 
 ```text
-cpp/kupl/qcu/build/libqcu.so
+cpp/kupl/qcu/libqcu.so -> build/libqcu.so
 ```
+
+`make.sh` 在成功构建后原子更新该软链接；`PYQCU_KUPL_LIB`、Python ctypes 和生产启动器
+都默认使用这个稳定入口，而不是直接依赖构建目录名。
 
 目标 Kunpeng 节点可启用本机 ISA 和 LTO：
 
@@ -102,8 +105,10 @@ bash ./install.sh kupl
 安装完成后显式设置库路径：
 
 ```bash
-export PYQCU_KUPL_LIB="$PWD/cpp/kupl/qcu/build-kunpeng/libqcu.so"
+source ./env.sh
 ```
+
+`make.sh` 会把 `cpp/kupl/qcu/libqcu.so` 更新为指向自定义构建目录中的实际库。
 
 只部署运行库、不构建测试程序时可设置：
 
@@ -123,11 +128,12 @@ KUPL_ENABLE_NATIVE=OFF KUPL_ENABLE_LTO=OFF KUPL_BUILD_TESTS=ON \
   bash cpp/kupl/qcu/make.sh
 
 PYQCU_BUILD_BACKEND=kupl python setup.py build_ext --inplace
-export PYQCU_KUPL_LIB="$PWD/cpp/kupl/qcu/build/libqcu.so"
+source ./env.sh
 ```
 
-`make.sh --check` 只打印 build directory、native/LTO/tests/jobs 选择；`make.sh`
-构建 native 库和默认测试程序，不创建或修改 Python Cython 扩展。
+`make.sh --check` 只打印 build directory、稳定公开库路径和 native/LTO/tests/jobs
+选择；`make.sh` 构建 native 库、更新公开软链接和默认测试程序，不创建或修改 Python
+Cython 扩展。
 
 需要 editable Python 安装时可使用：
 
@@ -148,7 +154,7 @@ PYQCU_BUILD_BACKEND=kupl python -m pip install -e . --no-deps
 | `KUPL_ENABLE_NATIVE` | `OFF` | 是否加入 `-march=native` |
 | `KUPL_ENABLE_LTO` | `OFF` | 是否启用 LTO 和局部符号绑定 |
 | `KUPL_BUILD_TESTS` | `ON` | 是否构建 CTest/benchmark；纯部署可设 `OFF` |
-| `PYQCU_KUPL_LIB` | 默认 `build/libqcu.so` | Python 实际加载的动态库 |
+| `PYQCU_KUPL_LIB` | `cpp/kupl/qcu/libqcu.so` | 指向当前构建库的稳定软链接 |
 
 ## 4. 安装验证
 
@@ -254,7 +260,7 @@ python -B pyqcu/testing/kupl/test_pure_kupl_install.py
 运行 Python KUPL 回归：
 
 ```bash
-export PYQCU_KUPL_LIB="$PWD/cpp/kupl/qcu/build/libqcu.so"
+source ./env.sh
 python -m pytest -q pyqcu/testing/kupl
 ```
 
@@ -294,10 +300,11 @@ python pyqcu/testing/simple/prepare_case.py \
 ### 7.2 单次生产求解
 
 ```bash
-export PYQCU_KUPL_LIB="$PWD/cpp/kupl/qcu/build/libqcu.so"
+source ./env.sh
+test -f "$PYQCU_KUPL_LIB"
+
 export KUPL_OMP_THREADS=24
 export OMP_NUM_THREADS=24
-export OMP_DYNAMIC=FALSE
 
 python pyqcu/testing/simple/solve_case.py \
   --backend kupl \
@@ -307,9 +314,35 @@ python pyqcu/testing/simple/solve_case.py \
   --kupl-ranks 2 \
   --kupl-threads 24 \
   --kupl-grid 1 1 1 2 \
-  --kupl-lib "$PYQCU_KUPL_LIB" \
+  --kupl-lib default \
   --out-dir data/production_L24
 ```
+
+`env.sh` 默认把 `PYQCU_KUPL_LIB` 指向当前仓库的
+`cpp/kupl/qcu/libqcu.so` 稳定软链接，并优先保持当前仓库位于 `PYTHONPATH` 首位。使用其他
+构建目录时，在 `source` 前覆盖：
+
+```bash
+export PYQCU_KUPL_BUILD_DIR="$PWD/cpp/kupl/qcu/build-kunpeng"
+source ./env.sh
+```
+
+批处理提交时必须在计算作业内重新 `source` 当前仓库环境；外层单引号不会在提交节点
+展开变量，也容易让旧安装树继续占据 `PYTHONPATH`：
+
+```bash
+./ddub.sh 'source ~/PyQCU/env.sh && cd ~/PyQCU && \
+python pyqcu/testing/simple/solve_case.py \
+  --backend kupl \
+  --gauge ~/PyQCU/data/production_L24/gauge_24x24x24x64_c64.h5 \
+  --source ~/PyQCU/data/production_L24/source_24x24x24x64_c64.h5 \
+  --lat 24 24 24 64 --kupl-ranks 4 --kupl-threads 32 \
+  --kupl-grid 1 1 2 2 --kupl-lib default \
+  --out-dir ~/PyQCU/data/production_L24'
+```
+
+不要在该命令中再次传 `--kupl-lib "$PYQCU_KUPL_LIB"`：`default` 会读取
+`env.sh` 已导出的绝对值，减少空变量和嵌套引号问题。
 
 `solve_case.py --backend kupl` 会在内部启动 `mpirun --bind-to none`，不要在外层
 重复执行 `mpirun`。两个 rank 分域优先切最长时间轴 `t`，但最终必须满足每个 local
@@ -416,11 +449,11 @@ rank”；rank 数超过 NUMA 数、Python/NumPy 输入在绑定前 first-touch�
 #### 7.5.3 运行真实 Legacy-MG
 
 以下示例假定现场检测到唯一 HBM offset。先从 `kupl_env.py` 报告设置
-`hbm_offset`；没有 HBM 时把库参数改为 `--kupl-memory-node local`。未检测到目标库时还必须设置绝对
-`PYQCU_KUPL_LIB`。
+`hbm_offset`；没有 HBM 时把库参数改为 `--kupl-memory-node local`。默认
+`env.sh` 已设置当前仓库的稳定 `PYQCU_KUPL_LIB`；只有刻意选择其他构建时才显式覆盖。
 
 ```bash
-export PYQCU_KUPL_LIB="$PWD/cpp/kupl/qcu/build/libqcu.so"
+source ./env.sh
 : "${hbm_offset:?set this to kupl_env.py detected_offset}"
 
 python -B pyqcu/testing/simple/mpi/solve_case.py \
@@ -537,6 +570,9 @@ ctest --test-dir cpp/kupl/qcu/build --output-on-failure
 export PYQCU_KUPL_LIB=/absolute/path/to/libqcu.so
 ```
 
+稳定软链接只跟随最近一次 `make.sh/install.sh kupl`；需要固定到某个历史构建时，直接
+把 `PYQCU_KUPL_LIB` 设为该 build 目录中的 `libqcu.so`。
+
 禁止仅依赖 `LD_LIBRARY_PATH` 中同名 `libqcu.so` 的搜索顺序。CUDA 与 KUPL 动态库
 可能同名，生产报告必须写出实际解析路径。
 
@@ -546,7 +582,7 @@ export PYQCU_KUPL_LIB=/absolute/path/to/libqcu.so
 
 ```bash
 python pyqcu/testing/kupl/check_abi.py \
-  --library cpp/kupl/qcu/build/libqcu.so \
+  --library cpp/kupl/qcu/libqcu.so \
   --header cpp/kupl/qcu/include/kupl/qcu.h \
   --cuda-header cpp/cuda/qcu/python/pyqcu.h
 ```

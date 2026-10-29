@@ -549,7 +549,7 @@ def _environment_payload(args: argparse.Namespace) -> dict[str, Any]:
 
     libraries = {
         "libqcu_sm70": REPO / "data/libqcu-sm70/libqcu.so",
-        "libqcu_kup": REPO / "cpp/kupl/qcu/build/libqcu.so",
+        "libqcu_kup": REPO / "cpp/kupl/qcu/libqcu.so",
         "libquda_sm70": Path(os.environ.get(
             "QUDA_INSTALL", REPO / "data/quda-sm70-install")) / "lib/libquda.so",
     }

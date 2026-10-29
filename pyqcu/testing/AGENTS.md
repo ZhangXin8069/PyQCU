@@ -98,7 +98,7 @@ python -m pytest -q \
   pyqcu/testing/python/test_multigrid_api.py
 ```
 
-真实 KUPL 回归需要先构建 `cpp/kupl/qcu/build/libqcu.so`；缺库时测试应明确 skip。
+真实 KUPL 回归需要先构建 `cpp/kupl/qcu/libqcu.so` 稳定软链接；缺库时测试应明确 skip。
 
 统一 `Multigrid` 的默认 `variant` 是 `legacy`。测试不得把 Strict 当作隐式默认；
 Strict 用例必须显式写 `variant="strict"` 或直接构造 `StrictMultigrid`。

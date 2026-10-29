@@ -101,7 +101,8 @@ KUPL 参数：
 - CUDA/QUDA 子进程通过隔离环境选择架构库。
 - KUPL 通过 `mpirun --bind-to none` 启动。
 - 解先写 `.partial`，仅 `PASS` 时发布正式文件。
-- 总是写 `last_solve_<backend>.json` 摘要。
+- 总是写 `last_solve_<backend>.json` 摘要；不适用于当前后端的字段直接省略，不写
+  JSON `null`。
 - 只有最终状态 `PASS` 返回 0。
 
 ## 3. 直接 CUDA QCU 示例
@@ -519,6 +520,9 @@ MPI 入口固定构建 2-level 33-tensor cache。每个 rank 生成自己的 nul
 | 变量 | 作用 |
 |---|---|
 | `PYQCU_ROOT` | 仓库根 |
+| `PYQCU_CUDA_LIB` | CUDA native `libqcu.so` 路径 |
+| `PYQCU_DCU_LIB` | DCU native `libqcu.so` 路径 |
+| `PYQCU_KUPL_LIB` | KUPL 稳定 `libqcu.so` 路径 |
 | `PYQCU_REFERENCE_LIME` | 输入 LIME |
 | `PYQCU_LIME_SCOPE=smoke|formal` | smoke 或正式矩阵 |
 | `PYQCU_LIME_BACKENDS` | `qcu quda` |

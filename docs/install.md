@@ -23,6 +23,10 @@ bash ./install.sh kupl
 - CUDA 架构必须在 `libqcu.so` 中实际存在；正式 benchmark 应记录架构请求值、
   `libqcu.so` 路径与 SHA256。
 
+`source ./env.sh` 会把当前仓库置于 `PYTHONPATH` 首位，并导出可覆盖的
+`PYQCU_CUDA_LIB`、`PYQCU_DCU_LIB` 和 `PYQCU_KUPL_LIB`。批处理作业应在计算进程内
+重新 source，避免继承旧 `PyQCU-test*` 安装路径。
+
 纯 KUPL 的安装、旧版 PyTorch 兼容、测试、生产运行、Multigrid、升级和故障排查见
 [`kupl_only_deployment.md`](kupl_only_deployment.md)。
 
@@ -47,8 +51,9 @@ Python uses the same flat ABI through `pyqcu.kupl.qcu`:
 python -m pytest -q pyqcu/testing/kupl
 ```
 
-Set `PYQCU_KUPL_LIB=/absolute/path/libqcu.so` when the library is installed
-outside the default `cpp/kupl/qcu/build/` directory.
+`source ./env.sh` defaults `PYQCU_KUPL_LIB` to the stable
+`cpp/kupl/qcu/libqcu.so` symlink. Set an absolute override only when deliberately
+selecting a library outside the current checkout/build selection.
 
 `PYQCU_BUILD_BACKEND=kupl` 会让 `setup.py` 完全跳过 CUDA Cython 扩展。无 CUDA
 toolkit 的节点不得使用默认 `cuda` 后端，也不应把 `PYQCU_SKIP_NATIVE_BUILD=1`

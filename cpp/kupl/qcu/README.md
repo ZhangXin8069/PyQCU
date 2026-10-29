@@ -15,7 +15,7 @@ include/kupl/       public ABI, geometry, CPU runtime, and operator declarations
 src/apply_*.cpp     thin C ABI adapters, one file per CUDA-compatible entry family
 src/lattice_*.cpp   geometry, halo, Wilson/Clover, solver, Laplacian, Gauss, MG
 src/backend.cpp     LatticeSet facade, validation, and scratch ownership
-qcu.map             ELF export allow-list for the 37 QCU C symbols
+qcu.map             ELF export allow-list for the 40 QCU C symbols
 ```
 
 `src/backend.cpp` no longer contains the numerical implementation. Internal
@@ -30,9 +30,10 @@ instantiates both `float` and `double`.
 - `argv[7]`: `csw`
 - `set_ptrs`: `int64[100]`
 
-The implemented C symbols are declared in `include/kupl/qcu.h`. The shared
-library is built as `libqcu.so`, so a future Cython backend can bind the same
-names without changing call sites.
+The implemented C symbols are declared in `include/kupl/qcu.h`. `make.sh`
+creates the stable `libqcu.so` symlink at this directory, pointing to the actual
+versioned library in `build/`; `PYQCU_KUPL_LIB` and the Python ctypes loader use
+that stable path.
 
 ## Data layout
 
@@ -129,7 +130,7 @@ for the complex phase structure used by the Clover matrix.
 
 ## Implemented operations
 
-The header exports all 37 CUDA QCU ABI entry names, and all 37 now have real
+The header exports all 40 CUDA QCU ABI entry names, and all 40 now have real
 CPU implementations.
 
 - `applyInitQcu`, `applyEndQcu`
@@ -190,7 +191,7 @@ operators, Wilson BiStabCG/CG true residuals, Clover prepare/reconstruct,
 Gaussian SU(3) generation, multigrid transfer/coarse stencil MPI halos,
 strict primitives/V-cycle/FGMRES, recursive legacy Clover-MG and verify,
 slot-isolated lifecycles, non-contiguous binding rejection, the 3D Laplacian,
-the exact 37-symbol dynamic ABI surface, synthetic dual-NUMA rank binding,
+the exact 40-symbol dynamic ABI surface, synthetic dual-NUMA rank binding,
 strict Kunpeng profile/rank-consistency rejection, runtime initialization RSS
 timing with post-binding input allocation, and explicit
 non-convergence/fail-closed behavior.
