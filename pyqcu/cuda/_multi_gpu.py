@@ -263,7 +263,7 @@ def _setup_gpu_tensors(params_t, argv_t, set_ptrs_t, device, mass, atol, csw,
     params_t[define._VERBOSE_] = 1 if verbose else 0
     params_t[define._SEED_] = seed
     params_t[define._TEST_IN_CPU_] = 0
-    av = argv_t.to(dtype=define.dtype(define.epytd(dt)).to_real())
+    av = argv_t.to(dtype=define.real_dtype(define.dtype(define.epytd(dt))))
     av[define._MASS_] = mass
     av[define._ATOL_] = atol
     av[define._SIGMA_] = 0.1

@@ -91,7 +91,7 @@ def load_gauge(lat, mass, atol, seed=42, verbose=False):
         p[define._GRID_X_], p[define._GRID_Y_], p[define._GRID_Z_], p[define._GRID_T_] = 1, 1, 1, 1
         p[define._NODE_RANK_] = 0; p[define._NODE_SIZE_] = 1
         p[define._DATA_TYPE_] = DT
-        av = a.to(dtype=define.dtype(DT).to_real())
+        av = a.to(dtype=define.real_dtype(define.dtype(DT)))
         av[define._MASS_] = mass; av[define._ATOL_] = atol; av[define._SIGMA_] = 0.1
         ls = define.lat_shape(p)
         dt = define.dtype(DT)
@@ -124,7 +124,7 @@ def load_gauge(lat, mass, atol, seed=42, verbose=False):
     p[define._NODE_RANK_] = 0; p[define._NODE_SIZE_] = 1
     p[define._DATA_TYPE_] = DT
     p[define._SEED_] = seed
-    av = a.to(dtype=define.dtype(DT).to_real())
+    av = a.to(dtype=define.real_dtype(define.dtype(DT)))
     av[define._MASS_] = mass; av[define._ATOL_] = atol; av[define._SIGMA_] = 0.1
     ls = define.lat_shape(p)
     s = mod_set_ptrs.clone()
@@ -341,7 +341,7 @@ def solve_bistabcg(g, fi, ce, cei, coo, coi, lat, mass, atol, timeout=300, max_i
         p[define._DATA_TYPE_] = DT
         p[define._SET_INDEX_] = 0; p[define._SET_PLAN_] = 1; p[define._VERBOSE_] = 0
         p[define._MAX_ITER_] = max_iter
-        av = a.to(dtype=define.dtype(DT).to_real())
+        av = a.to(dtype=define.real_dtype(define.dtype(DT)))
         av[define._MASS_] = mass; av[define._ATOL_] = atol; av[define._SIGMA_] = 0.1
         qcu.applyInitQcu(s, p, av)
         fo = torch.empty_like(fi)
@@ -415,7 +415,7 @@ def solve_mg(g, fi, ce, cei, coo, coi, U_full, clover_full, lat, mass, atol,
         p[define._GRID_X_], p[define._GRID_Y_], p[define._GRID_Z_], p[define._GRID_T_] = 1, 1, 1, 1
         p[define._NODE_RANK_] = 0; p[define._NODE_SIZE_] = 1
         p[define._DATA_TYPE_] = DT
-        av = a.to(dtype=define.dtype(DT).to_real())
+        av = a.to(dtype=define.real_dtype(define.dtype(DT)))
         av[define._MASS_] = mass; av[define._ATOL_] = atol; av[define._SIGMA_] = 0.1
         p[define._MG_NUM_LEVEL_] = num_levels
         p[define._MG_USE_GCR_] = 1 if gcr else 0

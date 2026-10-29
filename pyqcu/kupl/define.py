@@ -6,6 +6,7 @@ import math
 from typing import Any, List, Optional
 
 from mpi4py import MPI
+from pyqcu.cann import real_dtype
 
 
 comm = MPI.COMM_WORLD
@@ -141,13 +142,15 @@ def dtype(_data_type_: Any = _LAT_C64_):
 
     value = _data_type_value(_data_type_)
     mapping = {
-        _LAT_C32_: torch.complex32,
         _LAT_C64_: torch.complex64,
         _LAT_C128_: torch.complex128,
         _LAT_R16_: torch.float16,
         _LAT_R32_: torch.float32,
         _LAT_R64_: torch.float64,
     }
+    complex32 = getattr(torch, "complex32", None)
+    if complex32 is not None:
+        mapping[_LAT_C32_] = complex32
     try:
         return mapping[value]
     except KeyError as exc:
@@ -207,11 +210,12 @@ def make_argv(mass: float, *, atol: float = 1.0e-6, sigma: float = 0.1,
         raise ValueError("array_module must be 'torch' or 'numpy'")
     import torch
 
-    real_dtype = dtype(data_type).to_real()
-    return torch.tensor(values, dtype=real_dtype, device="cpu")
+    argv_dtype = real_dtype(dtype(data_type))
+    return torch.tensor(values, dtype=argv_dtype, device="cpu")
 
 
 __all__ = [name for name in globals() if name.startswith("_") or name in {
     "LAT_C64", "LAT_C128", "comm", "dtype", "epytd", "lat_shape",
+    "real_dtype",
     "make_argv", "rank", "size",
 }]

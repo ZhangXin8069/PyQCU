@@ -36,7 +36,8 @@ try:
     params[define._SET_PLAN_] = -1
     params[define._VERBOSE_] = 0
     params[define._SEED_] = 42
-    av = argv.to(dtype=define.dtype(params[define._DATA_TYPE_]).to_real()).clone()
+    av = argv.to(dtype=define.real_dtype(
+        define.dtype(params[define._DATA_TYPE_]))).clone()
     av[define._MASS_] = MASS
     av[define._ATOL_] = 1e-9
     av[define._SIGMA_] = 0.1

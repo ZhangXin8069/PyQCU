@@ -829,7 +829,7 @@ def _qcu_configure(params, argv, lat, mass, tol, levels, dof_list, block, torch_
         argv[define._MG_LEVEL1_ATOL_] = float(tol) * 1e3
     if levels >= 3:
         argv[define._MG_LEVEL2_ATOL_] = float(tol) * 1e3
-    return argv.to(dtype=define.dtype(params[define._DATA_TYPE_]).to_real())
+    return argv.to(dtype=define.real_dtype(define.dtype(params[define._DATA_TYPE_])))
 
 
 def _qcu_build_coarse(args, full_gauge_cpu, mass, primary_device):

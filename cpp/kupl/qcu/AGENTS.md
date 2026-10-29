@@ -39,10 +39,13 @@
 - Build and validate all changes with:
 
   ```bash
-  cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-  cmake --build build -j
+  KUPL_ENABLE_NATIVE=OFF KUPL_ENABLE_LTO=OFF bash ../../../install.sh kupl
   ctest --test-dir build --output-on-failure
   ```
+
+- Pure KUPL installation must never invoke the CUDA backend or Cython bridge.
+  `install.sh kupl` uses `PYQCU_BUILD_BACKEND=kupl`; `install.sh` without an
+  argument retains the legacy CUDA behavior.
 
 - `qcu.map` exposes only the 40 CUDA-compatible `*Qcu` symbols. Keep
   `pyqcu/testing/kupl/check_abi.py` in the CTest suite when changing ABI

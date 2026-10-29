@@ -827,3 +827,11 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: L48 cache and 4-rank Legacy-MG pass; independent residual remains cgroup-limited; L8 streaming residual validated
 - 验证: path, size, required sections, conflict markers
 - 批次状态: in-progress
+## pure-kupl-kunpeng-20261029 - final - 2026-10-29 23:49:54 +0800
+- 主任务: 纯 KUPL Kunpeng 安装与旧版 PyTorch 兼容
+- 日志文件: logs/v2026102923.txt
+- 文件大小: 5149 bytes
+- 触发原因: 任务完成
+- 关键内容: 新增纯 KUPL 构建入口和旧 Torch dtype 兼容，补齐测试与端到端文档
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete

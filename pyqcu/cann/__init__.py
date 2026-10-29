@@ -14,6 +14,25 @@ complex128 = torch.complex128
 long = torch.long
 
 
+def real_dtype(value: torch.dtype) -> torch.dtype:
+    """Return the real component dtype without requiring ``dtype.to_real``.
+
+    ``torch.dtype.to_real()`` is unavailable in several PyTorch builds still
+    used on Kunpeng systems.  Map the complex dtypes used by PyQCU explicitly
+    and pass real dtypes through unchanged.
+    """
+    if value == torch.complex64:
+        return torch.float32
+    if value == torch.complex128:
+        return torch.float64
+    complex32 = getattr(torch, "complex32", None)
+    if complex32 is not None and value == complex32:
+        return torch.float16
+    if getattr(value, "is_complex", False):
+        raise ValueError(f"unsupported complex dtype: {value}")
+    return value
+
+
 def as_tensor(data, dtype=None, device=None) -> torch.Tensor:
     return torch.as_tensor(data, dtype=dtype, device=device)
 
@@ -184,12 +203,12 @@ def linalg_qr(input: torch.Tensor, mode='reduced') -> tuple:
 def eye(n: int, m=None, out=None, dtype: torch.dtype = torch.complex64, layout=torch.strided, device: torch.device = torch.device('cpu'), requires_grad=False) -> torch.Tensor:
     device = _normalize_device(device)
     if device is not None and (device.type == 'npu' or force_use_npu) and dtype is not None and dtype.is_complex:
-        real_dtype = dtype.to_real()
+        real_component_dtype = real_dtype(dtype)
         if m is None:
-            real_eye = torch.eye(n, out=out, dtype=real_dtype,
+            real_eye = torch.eye(n, out=out, dtype=real_component_dtype,
                                  layout=layout, device=device, requires_grad=requires_grad)
         else:
-            real_eye = torch.eye(n, m, out=out, dtype=real_dtype,
+            real_eye = torch.eye(n, m, out=out, dtype=real_component_dtype,
                                  layout=layout, device=device, requires_grad=requires_grad)
         return real_eye.to(dtype)
     else:
@@ -204,11 +223,12 @@ def zeros(*args, size=None, out=None, dtype: torch.dtype, layout=torch.strided, 
     if size is not None:
         args = size
     if device is not None and (device.type == 'npu' or force_use_npu) and dtype is not None and dtype.is_complex:
-        real_dtype = dtype.to_real()
-        real_part = torch.zeros(*args, out=out, dtype=real_dtype,
+        real_component_dtype = real_dtype(dtype)
+        real_part = torch.zeros(*args, out=out, dtype=real_component_dtype,
                                 layout=layout, device=device, requires_grad=requires_grad)
         imag_part = torch.zeros(
-            *args, dtype=real_dtype, layout=layout, device=device, requires_grad=requires_grad)
+            *args, dtype=real_component_dtype, layout=layout, device=device,
+            requires_grad=requires_grad)
         return real_part + imag_part * 1j
     else:
         if size is not None:
@@ -229,11 +249,12 @@ def randn(*args, size=None, out=None, dtype: torch.dtype, layout=torch.strided, 
     if size is not None:
         args = size
     if device is not None and (device.type == 'npu' or force_use_npu) and dtype is not None and dtype.is_complex:
-        real_dtype = dtype.to_real()
-        real_part = torch.randn(*args, out=out, dtype=real_dtype,
+        real_component_dtype = real_dtype(dtype)
+        real_part = torch.randn(*args, out=out, dtype=real_component_dtype,
                                 layout=layout, device=device, requires_grad=requires_grad)
         imag_part = torch.randn(
-            *args, dtype=real_dtype, layout=layout, device=device, requires_grad=requires_grad)
+            *args, dtype=real_component_dtype, layout=layout, device=device,
+            requires_grad=requires_grad)
         return real_part + imag_part * 1j
     else:
         if size is not None:

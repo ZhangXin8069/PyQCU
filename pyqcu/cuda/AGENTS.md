@@ -61,6 +61,9 @@ from pyqcu.cuda import QcuRuntime  # 简化后的生命周期安全调用入口
 新代码优先使用 `define.make_argv(...)` 与 `QcuRuntime`，避免漏写 `_CSW_` 或泄漏
 `applyInitQcu/applyEndQcu` 生命周期。
 
+`define.real_dtype(dtype)` 由 `pyqcu.cann.real_dtype()` 提供。不得恢复
+`torch.dtype.to_real()` 调用，因为部分鲲鹏环境的 PyTorch 不提供该 method。
+
 ## 关键：`_SET_INDEX_` 递增
 
 普通单操作事务必须为 `applyInitQcu → 操作 → applyEndQcu → params[_SET_INDEX_] += 1`。

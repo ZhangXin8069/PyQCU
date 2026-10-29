@@ -1,26 +1,32 @@
 # PyQCU 安装与构建
 
-从仓库根初始化环境并构建：
+从仓库根初始化环境并构建。CUDA 和纯 KUPL 使用不同安装入口：
 
 ```bash
 source ./env.sh
-bash ./build.sh
-bash ./install.sh
+
+# CUDA QCU，需要匹配的 NVIDIA CUDA toolkit
+bash ./install.sh cuda
+
+# 纯 KUPL CPU QCU，不编译 CUDA/Cython 扩展
+bash ./install.sh kupl
 ```
 
-- `build.sh` 构建 `cpp/cuda/qcu` 原生 CUDA 后端，产出 `libqcu.so`。
-- `install.sh` 原地构建 Python/Cython 扩展。
+- `install.sh cuda` 调用 CUDA native build 并原地构建 Cython 扩展。
+- `install.sh kupl` 只构建 `cpp/kupl/qcu`，不查找 `nvcc`，也不创建
+  `pyqcu.cuda.qcu`。
 - CUDA 架构必须在 `libqcu.so` 中实际存在；正式 benchmark 应记录架构请求值、
   `libqcu.so` 路径与 SHA256。
+
+纯 KUPL 的安装、旧版 PyTorch 兼容、测试、生产运行、Multigrid、升级和故障排查见
+[`kupl_only_deployment.md`](kupl_only_deployment.md)。
 
 ## KUPL CPU 后端
 
 The independent MPI+OpenMP backend does not require CUDA:
 
 ```bash
-cmake -S cpp/kupl/qcu -B cpp/kupl/qcu/build \
-  -DCMAKE_BUILD_TYPE=Release
-cmake --build cpp/kupl/qcu/build -j
+KUPL_ENABLE_NATIVE=OFF KUPL_ENABLE_LTO=OFF bash ./install.sh kupl
 ctest --test-dir cpp/kupl/qcu/build --output-on-failure
 ```
 
@@ -32,6 +38,10 @@ python -m pytest -q pyqcu/testing/kupl
 
 Set `PYQCU_KUPL_LIB=/absolute/path/libqcu.so` when the library is installed
 outside the default `cpp/kupl/qcu/build/` directory.
+
+`PYQCU_BUILD_BACKEND=kupl` 会让 `setup.py` 完全跳过 CUDA Cython 扩展。无 CUDA
+toolkit 的节点不得使用默认 `cuda` 后端，也不应把 `PYQCU_SKIP_NATIVE_BUILD=1`
+当作纯 KUPL 模式。
 
 鲲鹏/HMPI、NUMA、片上内存和 OpenMP 放置请继续阅读
 [`kupl_kunpeng_guide.md`](kupl_kunpeng_guide.md)。可部署的通用构建使用

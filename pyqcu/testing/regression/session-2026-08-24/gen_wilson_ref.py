@@ -33,7 +33,7 @@ params[define._SET_INDEX_] = 0
 params[define._SET_PLAN_] = -1
 params[define._VERBOSE_] = 0
 params[define._SEED_] = 42
-argv = argv.to(dtype=define.dtype(params[define._DATA_TYPE_]).to_real())
+argv = argv.to(dtype=define.real_dtype(define.dtype(params[define._DATA_TYPE_])))
 argv[define._MASS_] = MASS
 argv[define._ATOL_] = 1e-9
 argv[define._SIGMA_] = 0.1

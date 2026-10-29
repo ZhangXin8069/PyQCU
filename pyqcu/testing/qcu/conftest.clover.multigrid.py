@@ -113,7 +113,8 @@ def main() -> int:
             params[define._MG_LEVEL2_DATA_TYPE_] = define._LAT_C64_
             params[define._MG_LEVEL2_NUM_RESTART_] = 5  # level1→level2 校正频率
 
-        argv_new = argv.to(dtype=define.dtype(params[define._DATA_TYPE_]).to_real())
+        argv_new = argv.to(dtype=define.real_dtype(
+            define.dtype(params[define._DATA_TYPE_])))
         argv_new[define._MASS_] = MASS; argv_new[define._ATOL_] = ATOL; argv_new[define._SIGMA_] = 0.1
         if NUM_LEVELS >= 2:
             argv_new[define._MG_LEVEL1_ATOL_] = ATOL * COARSE_TOL_FACTOR
