@@ -451,6 +451,7 @@ _minted*/
 .pdfcheck.*
 # ZhangXin
 *.VSCodeCounter
+*.out_perf
 
 # dev87 报告明确引用的正式对照证据；仅放行这些文件，不放开整个 data/。
 !/data/
