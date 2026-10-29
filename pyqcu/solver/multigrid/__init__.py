@@ -13,6 +13,12 @@ from typing import Any
 from pyqcu.api import BackendCapabilities, SolveResult
 from pyqcu.api._compat import compatibility_result
 from pyqcu.torch.solver.multigrid import LegacyMultigrid, StrictMultigrid
+from .cache import (
+    LegacyMultigridCache,
+    MultigridCache,
+    MultigridCacheLoadResult,
+    StrictMultigridCache,
+)
 
 
 class Multigrid:
@@ -141,4 +147,12 @@ def _implementation_type(backend: str, variant: str):
                    "LegacyMultigrid")
 
 
-__all__ = ["LegacyMultigrid", "Multigrid", "StrictMultigrid"]
+__all__ = [
+    "LegacyMultigrid",
+    "LegacyMultigridCache",
+    "Multigrid",
+    "MultigridCache",
+    "MultigridCacheLoadResult",
+    "StrictMultigrid",
+    "StrictMultigridCache",
+]

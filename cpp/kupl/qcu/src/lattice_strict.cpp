@@ -476,6 +476,21 @@ std::vector<Complex<Real>> strict_exchange_backward_links(
 }
 
 template <typename Real>
+using StrictLinkHalo = std::array<std::vector<Complex<Real>>, kDim>;
+
+template <typename Real>
+StrictLinkHalo<Real> strict_cache_backward_links(
+    const Complex<Real> *links, const StrictGeometry &geometry,
+    const StrictTopology &topology) {
+  StrictLinkHalo<Real> result;
+  for (int dim = 0; dim < kDim; ++dim) {
+    result[dim] = strict_exchange_backward_links(
+        links, geometry, topology, dim, 15000);
+  }
+  return result;
+}
+
+template <typename Real>
 void strict_hopping_full(
     Complex<Real> *out, const Complex<Real> *in, const Complex<Real> *links,
     const Complex<Real> *base, const StrictGeometry &geometry,
@@ -581,7 +596,8 @@ template <typename Real>
 void strict_hopping_compact(
     Complex<Real> *out, const Complex<Real> *in, const Complex<Real> *links,
     const Complex<Real> *base, const StrictGeometry &geometry,
-    const StrictTopology &topology, int parity, int tag_base) {
+    const StrictTopology &topology, int parity, int tag_base,
+    const StrictLinkHalo<Real> *link_halo = nullptr) {
   if (out == nullptr || in == nullptr || links == nullptr) {
     throw std::runtime_error("strict compact hopping received a null pointer");
   }
@@ -601,8 +617,15 @@ void strict_hopping_compact(
     strict_exchange_vector(in, geometry, geometry.E, topology, dim, true,
                            source_parity, recv_lower, recv_upper,
                            tag_base);
-    auto link_ghost = strict_exchange_backward_links(
-        links, geometry, topology, dim, tag_base + 100);
+    std::vector<Complex<Real>> exchanged_link_ghost;
+    const std::vector<Complex<Real>> *link_ghost = nullptr;
+    if (link_halo == nullptr) {
+      exchanged_link_ghost = strict_exchange_backward_links(
+          links, geometry, topology, dim, tag_base + 100);
+      link_ghost = &exchanged_link_ghost;
+    } else {
+      link_ghost = &(*link_halo)[dim];
+    }
     const int64_t face_sites = strict_face_sites(geometry, dim);
     const int extent = strict_local_extent(geometry, dim);
 #pragma omp parallel for schedule(static, chunk)
@@ -663,7 +686,7 @@ void strict_hopping_compact(
                      backward_half];
         const Complex<Real> backward_link_value =
             backward_remote
-                ? link_ghost[static_cast<std::size_t>(
+                ? (*link_ghost)[static_cast<std::size_t>(
                       (static_cast<int64_t>(column) * geometry.E + row) *
                           face_sites +
                       face)]
@@ -832,6 +855,50 @@ Real strict_global_norm2(const std::vector<Complex<Real>> &field) {
                              static_cast<int64_t>(field.size()));
 }
 
+template <typename Real>
+void strict_matpc_cached(
+    Complex<Real> *output, const Complex<Real> *input,
+    const Complex<Real> *links, Complex<Real> *scratch,
+    const StrictGeometry &geometry, const StrictTopology &topology,
+    const StrictLinkHalo<Real> &link_halo, int parity) {
+  strict_hopping_compact(
+      scratch, input, links, static_cast<const Complex<Real> *>(nullptr),
+      geometry, topology, 1 - parity, 11000, &link_halo);
+  strict_hopping_compact(output, scratch, links, input, geometry, topology,
+                         parity, 12000, &link_halo);
+}
+
+template <typename Real>
+void strict_prepare_cached(
+    Complex<Real> *output, const Complex<Real> *full_rhs,
+    const Complex<Real> *links, const Complex<Real> *onsite_pair,
+    Complex<Real> *scratch, const StrictGeometry &geometry,
+    const StrictTopology &topology, const StrictLinkHalo<Real> &link_halo,
+    int parity) {
+  const int other = 1 - parity;
+  strict_onsite_full_to_parity(output, full_rhs, onsite_pair, geometry,
+                               parity, 1);
+  strict_onsite_full_to_parity(scratch, full_rhs, onsite_pair, geometry,
+                               other, 1);
+  strict_hopping_compact(output, scratch, links, output, geometry, topology,
+                         parity, 13000, &link_halo);
+}
+
+template <typename Real>
+void strict_reconstruct_cached(
+    Complex<Real> *full_out, const Complex<Real> *full_rhs,
+    const Complex<Real> *target_solution, const Complex<Real> *links,
+    const Complex<Real> *onsite_pair, Complex<Real> *scratch,
+    const StrictGeometry &geometry, const StrictTopology &topology,
+    const StrictLinkHalo<Real> &link_halo, int parity) {
+  const int other = 1 - parity;
+  strict_onsite_full_to_parity(scratch, full_rhs, onsite_pair, geometry,
+                               other, 1);
+  strict_hopping_compact(scratch, target_solution, links, scratch, geometry,
+                         topology, other, 14000, &link_halo);
+  strict_join_parities(full_out, target_solution, scratch, geometry, parity);
+}
+
 template <typename Real> struct StrictHostLevel {
   StrictGeometry geometry;
   const Complex<Real> *links = nullptr;
@@ -846,6 +913,7 @@ template <typename Real> struct StrictHostLevel {
   std::vector<Complex<Real>> v;
   std::vector<Complex<Real>> tmp;
   std::vector<Complex<Real>> correction_full;
+  StrictLinkHalo<Real> link_halo;
 };
 
 template <typename Real> class StrictHostHierarchy {
@@ -905,6 +973,10 @@ public:
       if (state.links == nullptr || state.onsite_pair == nullptr) {
         throw std::runtime_error("strict hierarchy coarse assets are missing");
       }
+      // Coarse links are immutable for the hierarchy lifetime; retain their
+      // MPI ghosts instead of repacking them for every MATPC application.
+      state.link_halo = strict_cache_backward_links(
+          state.links, state.geometry, topology_);
       if (level < num_levels_ - 1) {
         state.null_vectors = reinterpret_cast<const Complex<Real> *>(
             table_[asset_base + kSetPtrsStrictNull]);
@@ -951,6 +1023,9 @@ public:
                 (state.pc_rhs.size() + state.x.size() + state.r.size() +
                  state.v.size() + state.tmp.size() + state.full_rhs.size() +
                  state.correction_full.size());
+      for (const auto &ghost : state.link_halo) {
+        bytes_ += sizeof(Complex<Real>) * ghost.size();
+      }
     }
   }
 
@@ -1277,11 +1352,9 @@ private:
       for (std::size_t i = 0; i < count; ++i) {
         p[i] = state.r[i] + beta * (p[i] - omega * state.v[i]);
       }
-      strict_matpc<Real>(
+      strict_matpc_cached(
           state.v.data(), p.data(), state.links, state.tmp.data(),
-          reinterpret_cast<const int32_t *>(params_), state.geometry.E,
-          state.geometry.X, state.geometry.Y, state.geometry.Z,
-          state.geometry.T, parity_);
+          state.geometry, topology_, state.link_halo, parity_);
       const C denominator = strict_global_dot(rhat, state.v);
       if (std::abs(denominator) <= std::numeric_limits<Real>::min()) {
         return false;
@@ -1296,11 +1369,9 @@ private:
         }
         return true;
       }
-      strict_matpc<Real>(
+      strict_matpc_cached(
           state.v.data(), state.tmp.data(), state.links, state.r.data(),
-          reinterpret_cast<const int32_t *>(params_), state.geometry.E,
-          state.geometry.X, state.geometry.Y, state.geometry.Z,
-          state.geometry.T, parity_);
+          state.geometry, topology_, state.link_halo, parity_);
       const C tt = strict_global_dot(state.v, state.v);
       if (std::abs(tt) <= std::numeric_limits<Real>::min()) {
         return false;
@@ -1321,11 +1392,9 @@ private:
   void smooth(StrictHostLevel<Real> &state, int steps) {
     using C = Complex<Real>;
     for (int step = 0; step < steps; ++step) {
-      strict_matpc<Real>(
+      strict_matpc_cached(
           state.v.data(), state.r.data(), state.links, state.tmp.data(),
-          reinterpret_cast<const int32_t *>(params_), state.geometry.E,
-          state.geometry.X, state.geometry.Y, state.geometry.Z,
-          state.geometry.T, parity_);
+          state.geometry, topology_, state.link_halo, parity_);
       const C numerator = strict_global_dot(state.v, state.r);
       const Real denominator = strict_global_norm2(state.v);
       if (denominator <= std::numeric_limits<Real>::min()) {
@@ -1342,11 +1411,10 @@ private:
   void solve_level(int level, const Complex<Real> *full_rhs,
                    Complex<Real> *full_out) {
     StrictHostLevel<Real> &state = levels_[level];
-    strict_prepare<Real>(
+    strict_prepare_cached(
         state.pc_rhs.data(), full_rhs, state.links, state.onsite_pair,
-        state.tmp.data(), reinterpret_cast<const int32_t *>(params_),
-        state.geometry.E, state.geometry.X, state.geometry.Y,
-        state.geometry.Z, state.geometry.T, parity_);
+        state.tmp.data(), state.geometry, topology_, state.link_halo,
+        parity_);
     std::fill(state.x.begin(), state.x.end(), Complex<Real>(0));
     if (level == num_levels_ - 1) {
       if (!solve_coarsest(state)) {
@@ -1373,21 +1441,18 @@ private:
       for (std::size_t i = 0; i < state.x.size(); ++i) {
         state.x[i] += state.tmp[i];
       }
-      strict_matpc<Real>(
+      strict_matpc_cached(
           state.v.data(), state.x.data(), state.links, state.tmp.data(),
-          reinterpret_cast<const int32_t *>(params_), state.geometry.E,
-          state.geometry.X, state.geometry.Y, state.geometry.Z,
-          state.geometry.T, parity_);
+          state.geometry, topology_, state.link_halo, parity_);
       for (std::size_t i = 0; i < state.r.size(); ++i) {
         state.r[i] = state.pc_rhs[i] - state.v[i];
       }
       smooth(state, smoother_steps_);
     }
-    strict_reconstruct<Real>(
+    strict_reconstruct_cached(
         full_out, full_rhs, state.x.data(), state.links, state.onsite_pair,
-        state.tmp.data(), reinterpret_cast<const int32_t *>(params_),
-        state.geometry.E, state.geometry.X, state.geometry.Y,
-        state.geometry.Z, state.geometry.T, parity_);
+        state.tmp.data(), state.geometry, topology_, state.link_halo,
+        parity_);
   }
 
   Header header_;
@@ -1487,18 +1552,8 @@ int strict_prepare(void *out, const void *full_rhs, const void *links,
   const int other = 1 - parity;
   strict_onsite_full_to_parity(output, rhs, onsite, geometry, parity, 1);
   strict_onsite_full_to_parity(work, rhs, onsite, geometry, other, 1);
-  std::vector<Complex<Real>> correction(
-      static_cast<std::size_t>(E * geometry.half_volume));
-  strict_hopping_compact(
-      correction.data(), work, link_data,
-      static_cast<const Complex<Real> *>(nullptr), geometry, topology, parity,
-      13000);
-  const int64_t count = static_cast<int64_t>(E) * geometry.half_volume;
-  const int64_t chunk = omp_chunk<Real>(count);
-#pragma omp parallel for schedule(static, chunk)
-  for (int64_t index = 0; index < count; ++index) {
-    output[index] -= correction[static_cast<std::size_t>(index)];
-  }
+  strict_hopping_compact(output, work, link_data, output, geometry, topology,
+                         parity, 13000);
   return 0;
 }
 

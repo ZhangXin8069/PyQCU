@@ -38,6 +38,25 @@ backend before setup; fail closed on a mismatch. For a prebuilt odd-Schur cache,
 the Torch fine operator may use `parity_only=True`, but never enable that mode
 while the same operator is still needed to construct a Galerkin hierarchy.
 
+The MPI cache entry is
+`python -m pyqcu.testing.simple.mpi.build_full_mg_cache`, not the serial parent
+script. It must run every rank through distributed null-vector construction,
+assign each rank a disjoint coarse slab, stage only a periodic overlap halo for
+local stencil evaluation, gather the four global tensors, validate every rank
+slab against the published HDF5, and publish the manifest atomically. The
+correct `lonv` patch axes are `(2,4,6,8)`, not the last four tensor axes. Record
+MPI ranks/grid, per-rank patch extent, slab reconstruction status, and all
+global tensor SHA256 values. A 2/4-rank cache is functionally equivalent to the
+1-rank reference only when tensor-level relative differences are reported; MPI
+reduction order means bitwise SHA equality must not be required across rank
+counts.
+
+Identity-safe reuse, QUDA fallback, formal matrix scope, figure/speedup rules,
+required recipe fields, and the real-time document ledger are defined in
+[`references/qcu-benchmark-contract.md`](references/qcu-benchmark-contract.md).
+Read it before launching a formal or multi-backend benchmark. Every speedup must
+show absolute numerator and denominator times with units and sample statistics.
+
 正式三方基准的输入、同窗比较、历史证据和不可外推条件见
 [`pyqcu-docs/references/extracted-guidance.md`](../pyqcu-docs/references/extracted-guidance.md#5-性能与证据解释)。
 
@@ -67,9 +86,9 @@ Torch/CUDA/KUPL × Legacy/Strict、QUDA aligned MG，并额外执行 CUDA Legacy
 fine-only 消融。结果与解释见
 [`docs/qcu_six_way_benchmark_20261023.md`](../../docs/qcu_six_way_benchmark_20261023.md)。
 
-该 `8×8×8×16` 是当前编排器的历史默认值。项目快速矩阵口径已固定为
-`16×16×16×16`，且该格点只用于 Torch/CUDA/KUPL × Legacy/Strict 六项 QCU-MG；
-运行时必须显式覆盖 lattice，不能把历史默认值当作新矩阵口径。合格批次还必须包含
+所有后端的正确性门固定为 `8×8×8×16`，包括 Torch/CUDA/KUPL × Legacy/Strict
+六项 QCU-MG；`16×16×16×16` 及更大格点只能用于性能、容量或历史数据验证。
+合格批次还必须包含
 同输入的 QUDA aligned MG 以及 Torch/CUDA/KUPL/QUDA BiCGStab 边界对照。正式矩阵只用
 trace-off，并在进程启动前设置 `QUDA_ENABLE_TUNING=0`；trace-on 只能单独用于诊断。
 详细执行与证据口径见
@@ -78,6 +97,14 @@ trace-off，并在进程启动前设置 `QUDA_ENABLE_TUNING=0`；trace-on 只能
 不得由 `levels`、`restart` 或 cycle 配置推断 coarse 已执行。每个 Legacy side 必须读取
 `n_vcycles`、`coarse_iters`/`coarse_iterations` 和实际 cycle/correction 计数；多 rank
 CUDA 未显式设置 `params[_MG_USE_DEFLATE_]` 时结果为 fine-only，不能标成 coarse MG。
+
+QUDA GCR-MG on the A100 native-LAPACK build was made usable with `nvec=12`,
+2 levels, `mg_block=2^4`, and `--no-mma`. MMA failed differently by path: `nvec=24`
+exhausted A100 memory, while `nvec=12` requested unsupported coarse color `N=24`.
+The working no-MMA L32 comparison uses internal null-vector setup and should be reported
+as a GCR-MG entry-point comparison, not as an identical Legacy cycle. L32 medians are
+QUDA `0.482426/0.314393/0.287465 s` versus CUDA Legacy
+`0.214456/0.219506/0.218343 s` for 1/2/4 ranks; all three pass independent full residuals.
 
 本轮确认的三个硬边界：
 

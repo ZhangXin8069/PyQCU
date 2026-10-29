@@ -34,8 +34,11 @@ Tests SU(3) gauge generation + gamma matrix algebra.
 ### `test_dslash_wilson(kappa, lat_size, dtype, device, with_data, support_parallel)`
 Tests Wilson Dirac operator.
 - `with_data=False`: Generates random gauge field + source, applies full Wilson operator and eo/oe preconditioned variants
-- `with_data=True`: Loads reference HDF5 data (`refer.wilson.*.L32K0_125.*.h5`), validates operator.matvec against known result
+- `with_data=True`: Explicitly selects the historical `16x16x16x16` fixture (`refer.wilson.*.L16K0_125.*.h5`); it must not silently override the caller lattice
 - **Assertion:** Relative difference < 1e-4
+
+The standard cross-backend correctness lattice is `8x8x8x16`; `16^4` and larger
+volumes are performance/capacity or explicit historical-reference inputs only.
 
 ### `test_dslash_parity(lat_size, kappa, dtype, device)`
 Tests parity-preconditioned Wilson+Clover operator with MPI.

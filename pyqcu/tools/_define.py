@@ -3,6 +3,7 @@ import mpi4py.MPI as MPI
 import torch
 import h5py
 import os
+import sys
 import numpy as np
 from typing import Optional, List
 force_use_npu = False
@@ -38,7 +39,7 @@ torch2np_dtype = {
 try:
     import tilelang.language as T
 except Exception as e:
-    print(f"Error:{e}")
+    print(f"Error:{e}", file=sys.stderr)
     import torch as T
 # Torch → Tilelang
 torch2tl_dtype = {

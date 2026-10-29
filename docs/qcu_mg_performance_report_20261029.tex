@@ -1,0 +1,401 @@
+\documentclass[UTF8,11pt,a4paper]{ctexart}
+\usepackage[margin=2.2cm]{geometry}
+\usepackage{amsmath,amssymb,booktabs,longtable,array}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\hypersetup{colorlinks=true,linkcolor=blue!45!black,urlcolor=blue!45!black}
+
+\newcommand{\code}[1]{\texttt{\detokenize{#1}}}
+\newcommand{\pass}{\textcolor{green!45!black}{PASS}}
+\newcommand{\fail}{\textcolor{red!65!black}{FAIL}}
+\newcommand{\open}{\textcolor{orange!80!black}{OPEN}}
+
+\title{PyQCU MultiGrid 性能优化与 QUDA 对照阶段报告}
+\author{PyQCU Multi-Agent Optimization Run}
+\date{2026-10-29（Asia/Shanghai）}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+本报告记录 CUDA-QCU、KUPL-QCU、Torch-QCU 的 MultiGrid 与原生 Krylov 路径在
+单节点 1/2/4 MPI 条件下的当前工作和可审计证据。报告状态为
+\texttt{active}：CUDA Legacy-MG 已在 L32 上对 QUDA GCR-MG 取得 1/2/4-rank
+入口级速度优势；CUDA Strict-MG 已完成统一的 \(8^3\times16\) 1/2/4-rank
+缓存测量，并在 L32 上完成 2/4-rank full-coarse solve；L32 单 rank 因 40 GiB
+显存容量 OOM。KUPL Strict-MG 已完成小格 MPI 测量并可直接复用 CUDA Legacy cache。
+真实 L48 输入已准备，但当前多 rank builder 的 CPU stencil 阶段空占 4 张 GPU，
+按资源门在 5m36s 主动取消，未发布 L48 性能。
+辅助 BiCGStab 仍未在全部 rank 上快于 QUDA，且 KUPL 的真实鲲鹏生产扩展仍待目标
+平台验证。所有数字均来自本工作区 JSON、日志和已生成图表，不作 tag 后永久承诺。
+\end{abstract}
+
+\section{任务、范围与验收标准}
+
+正式大格下限为 \(32\times32\times32\times64\)，c64。L24 和 \(8^3\times16\)
+只用于调参与正确性 smoke。正式性能验收要求：
+\begin{enumerate}[leftmargin=1.5em]
+  \item 同一算法、同一输入、同一精度和同一停机准则下比较；
+  \item 同时报告绝对耗时、加速比、实际迭代数、独立真残差和并行效率；
+  \item CUDA 必须在单节点 1/2/4 MPI 全部优于 QUDA，才可宣称最终胜出；
+  \item KUPL 只可在真实鲲鹏 HMPI/NUMA/片上内存环境外推其潜力；
+  \item Legacy 和 Strict 分开报告，不把 fine-only BiCGStab 写成 MultiGrid。
+\end{enumerate}
+
+固定输入如下：
+\begin{table}[htbp]
+\centering
+\caption{L32 正式输入 identity}
+\begin{tabular}{@{}ll@{}}
+\toprule
+项目 & 值 \\
+\midrule
+Gauge & \code{beta6.20_mu-0.2770_ms-0.2400_L32x64_cfg_11000.lime} \\
+Gauge SHA256 & \code{daa59a53542eade112ee5d5ebce7e1166cdcd57525502a29cef1d7deb04fd4c6} \\
+RHS & PCG64 float64 采样后 cast c64，seed 42 \\
+RHS SHA256 & \code{8c00a7341b7abb2b3d0e26e477731c3528c86c337888cfe1e539b0e47673ddb6} \\
+mass / kappa / csw & \code{-0.277} / \code{0.13430029546065003} / \code{1.160920226} \\
+停机 & \code{atol=1e-6}, \code{max_iter=1000} \\
+设备 & NVIDIA A100-PCIE-40GB，单节点 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{统一接口与资源复用}
+
+高层公共入口为 \code{pyqcu.solver.Solver}、\code{pyqcu.solver.Multigrid} 和
+\code{pyqcu.solver.MultigridCache}。CUDA/KUPL native solve 在适配层调用一次
+C++ 整次求解，不在 Python 中重新实现 Krylov 循环。
+
+Legacy 33-tensor cache 通过 \code{_legacy_mg_cache.py} 统一 manifest、shape、
+rank slab 和逐 tensor SHA256；Strict v2 cache 通过
+\code{_strict_mg_cache.py} 统一 \code{fine V}、\code{Yhat} 和
+\code{X/X^{-1}}。同一物理 gauge 的 canonical SHA 可用于跨 HDF5 文件版本复用；
+file SHA 变化本身不得强制重建物理粗资产。
+
+\subsection{多 MPI cache builder}
+
+Legacy cache 的规范多 MPI 入口为
+\code{python -m pyqcu.testing.simple.mpi.build_full_mg_cache}。每个 rank 生成
+local null-vector，只计算自己的 coarse slab；周期 overlap patch 仅承担 halos，
+全局 \code{lonv/hnn/hdg/sit} 汇总后由所有 rank 回读 slab 验签。真实 L24 前缀
+\code{8x8x8x16}、c64、\code{dof=[12,2]}、\code{mg_grid=2^4} 的 1/2/4-rank
+builder 均 PASS，2/4-rank 相对 1-rank 的 tensor Frobenius 差约
+\(1.3\times10^{-5}\) 到 \(2.4\times10^{-5}\)。这是功能等价证据，不是生产并行效率。
+CUDA builder 的 1/2/4 MPI cache 也分别由对应 rank 数的 KUPL solve 直接加载，
+\code{verify_status} 均为 0，independent true residual 分别为
+\(2.016388/2.018354/2.020363\times10^{-7}\)。多 rank CUDA 使用 GPU 分布式
+null-vector 和 CPU overlap stencil，报告以 \code{stencil_device=cpu} 显式记录；
+该混合 setup 不作为纯 GPU 性能倍率。
+
+\section{CUDA native BiCGStab}
+
+参数：\code{applyCloverBistabCgQcu}，c64，1 warmth-up + 5 steady，QUDA 使用
+\code{QUDA_BICGSTAB_INVERTER} 和 Direct-PC。下表中的比值为
+\(R=\mathrm{QUDA}/\mathrm{CUDA}\)，并同时给出绝对时间。
+
+\begin{table}[htbp]
+\centering
+\caption{L32 native BiCGStab 同算法结果}
+\begin{tabular}{@{}rrrrrr@{}}
+\toprule
+ranks & CUDA iter & CUDA wall/s & QUDA iter & QUDA wall/s & \(R\) \\
+\midrule
+1 & 18 & 0.1224217 & 17 & 0.1303580 & 1.065 \\
+2 & 20 & 0.1154108 & 17 & 0.0960886 & 0.833 \\
+4 & 19 & 0.1090329 & 17 & 0.1139240 & 1.045 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+结论：CUDA 在 1/4-rank 分别约快 6.5\%/4.5\%，在 2-rank 约慢 20\%。因此
+“CUDA 在所有要求的 rank 上快于 QUDA”尚未成立。CUDA 相对 1-rank 的 wall
+加速比为 \(0.1224217/0.1090329=1.123x\)（4-rank，5 samples），但该数值不能
+替代同算法对 QUDA 的比较。
+
+\begin{figure}[htbp]
+\centering
+\IfFileExists{../data/qcu_sync_resume_20261029/large_volume_plots/l32_bicgstab_wall.png}{
+\includegraphics[width=0.92\linewidth]{../data/qcu_sync_resume_20261029/large_volume_plots/l32_bicgstab_wall.png}
+}{\fbox{wall 图文件暂缺}}
+\caption{L32 BiCGStab 绝对 wall 与 MPI rank 关系。数据来自同目录 summary CSV/JSON。}
+\end{figure}
+
+\section{CUDA Legacy-MultiGrid}
+
+L32 CUDA 参数为 \code{applyCloverMultigridQcu}，2 levels，\code{dof=[12,12]}，
+\code{mg_grid=[2,2,2,2]}，\code{restart=20}，\code{coarse_max_iter=200}，
+\code{coarse_tol_factor=1e4}，1 warmup + 5 repeats。实际执行 1 个 coarse
+V-cycle，coarse iterations 为 8。
+
+\begin{table}[htbp]
+\centering
+\caption{L32 CUDA Legacy-MG 结果}
+\begin{tabular}{@{}rrrr@{}}
+\toprule
+ranks/grid & wall/s & independent true residual & status \\
+\midrule
+\(1/1\times1\times1\times1\) & 0.2144558 & \(3.7442830\times10^{-7}\) & \pass \\
+\(2/2\times1\times1\times1\) & 0.2195061 & \(3.7473052\times10^{-7}\) & \pass \\
+\(4/2\times2\times1\times1\) & 0.2183433 & \(3.7475920\times10^{-7}\) & \pass \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+多 rank 没有强扩展收益。同输入、同格点、同 rank 的 QUDA GCR-MG 对照现已完成：
+
+\begin{table}[htbp]
+\centering
+\caption{L32 CUDA Legacy-MG 与 QUDA GCR-MG 绝对时间}
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+ranks/grid & QUDA MG/s & CUDA Legacy/s & \(R=\mathrm{QUDA}/\mathrm{CUDA}\) & 结论 \\
+\midrule
+\(1/1^4\) & 0.482425556 & 0.214455826 & 2.2495 & CUDA 快 \\
+\(2/2\times1^3\) & 0.314393339 & 0.219506067 & 1.4323 & CUDA 快 \\
+\(4/2^2\times1^2\) & 0.287465227 & 0.218343299 & 1.3166 & CUDA 快 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+QUDA 使用 GCR-MG、内部 null-vector setup、\code{nvec=12}、no-MMA；CUDA 使用
+Legacy-MG、\code{restart=20}、\code{dof=[12,12]}、外部 E12 cache。两者循环不
+完全相同，因此该表是生产入口级比较，而不是任意算法配置的普适排序。QUDA 的
+independent true residuals 为 \(1.240174/1.243528/1.247109\times10^{-7}\)。
+
+\begin{figure}[htbp]
+\centering
+\IfFileExists{../data/qcu_strict_perf_dispatch_20261029/mg_l32_legacy_vs_quda.png}{
+\includegraphics[width=0.92\linewidth]{../data/qcu_strict_perf_dispatch_20261029/mg_l32_legacy_vs_quda.png}
+}{\fbox{L32 性能图文件暂缺}}
+\caption{L32 生产点：CUDA Legacy-MG 与 QUDA GCR-MG 的 1/2/4 MPI 绝对时间。}
+\end{figure}
+
+\section{CUDA Strict-MultiGrid 小格正式门}
+
+统一正确性格点为 \(8\times8\times8\times16\)、c64、mass \(=-0.277\)、
+kappa \(=0.13430029546065003\)、csw \(=1.160920226\)、2 levels、block
+\(2^4\)、\code{nvec=12}、\code{coarse_spin=2}、\code{restart=16}、
+\code{coarse_max_iter=200}、\code{coarse_tol=0.003}、\code{nu_pre=nu_post=1}、
+\code{atol=1e-6}，2 warmup + 5 steady。
+
+\begin{table}[htbp]
+\centering
+\caption{CUDA Strict-MG \(8^3\times16\) 绝对时间、迭代和独立残差}
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+ranks/grid & median/s & MAD/s & FGMRES iters & independent residual \\
+\midrule
+\(1/1^4\) & 0.0270776 & 0.0000483 & 9 & \(2.730702\times10^{-7}\) \\
+\(2/1\times2\times1^2\) & 0.0321998 & 0.0001737 & 10 & \(6.257694\times10^{-7}\) \\
+\(4/2^2\times1^2\) & 0.0419196 & 0.0001740 & 10 & \(5.189006\times10^{-7}\) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+修复前的 4-rank trace 因计数漏加显示 level-0 restriction 为 0，但 coarse solver
+调用 10 次、coarse iterations 20 次，确认不是 fine-only 包装；源码修复后 1-rank
+回归已正确记录 9 次 restriction/prolongation。同一格的 QUDA MG 中位数分别为
+\(0.0173493/0.0244426/0.0297798\) s、8 iterations，独立残差
+\(5.136697/5.139111/5.140204\times10^{-7}\)。因此小格 Strict 的固定开销仍高于
+QUDA；生产默认继续保留 Legacy，Strict 作为显式对照和备选。
+
+同一小格 Legacy-MG 的 1/2/4-rank median 为
+\(0.0388045/0.1128736/0.1670967\) s，独立残差为
+\(2.282105/2.071858/2.063892\times10^{-7}\)；对应 aligned QUDA median 为
+\(0.0173493/0.0244426/0.0297798\) s。该结果表明小格不能用于替代 L32 生产选型：
+Legacy 在 L32 上更快，而在 \(8^3\times16\) 上主要承担正确性和 cache 行为验证。
+
+\begin{figure}[htbp]
+\centering
+\IfFileExists{../data/qcu_strict_perf_dispatch_20261029/mg_8x8x8x16_summary.png}{
+\includegraphics[width=0.92\linewidth]{../data/qcu_strict_perf_dispatch_20261029/mg_8x8x8x16_summary.png}
+}{\fbox{8x8x8x16 性能图文件暂缺}}
+\caption{统一正确性门 \(8^3\times16\)：CUDA Legacy、CUDA Strict 和 aligned QUDA 的绝对时间。}
+\end{figure}
+
+\section{CUDA Strict-MultiGrid L32 容量与性能}
+
+L32 继续使用相同的真实组态、c64、mass \(=-0.277\)、kappa
+\(=0.13430029546065003\)、csw \(=1.160920226\)、2 levels、block \(2^4\)、
+\code{nvec=12}、\code{coarse_spin=2}、\code{restart=16}、
+\code{coarse_tol=0.003}、\code{atol=10^{-6}}，2 warmup + 5 steady。canonical
+full null basis 从已有 Legacy E12 cache 的 \code{lonv} 重构，没有重复生成
+null-space。L32 的 fused FGMRES workspace 实需
+\code{1,887,436,800 B}，故 Krylov 上限使用 2 GiB。
+
+\begin{table}[htbp]
+\centering
+\caption{L32 CUDA Strict-MG 容量、绝对时间、迭代和独立残差}
+\begin{tabular}{@{}llrrrr@{}}
+\toprule
+ranks/grid & status & cold setup/s & steady sync max/s & iters & independent residual \\
+\midrule
+\(1/1^4\) & OOM & n/a & n/a & n/a & n/a \\
+\(2/2\times1^3\) & \pass & 201.073175 & 0.476122238 & 11 & \(6.253315\times10^{-7}\) \\
+\(4/2^2\times1^2\) & \pass & 111.872657 & 0.356964148 & 11 & \(6.320174\times10^{-7}\) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+1-rank 在 \code{StrictTransfer._block_orthogonalise} 将 39.39 GiB A100 用到
+39.37 GiB 后，无法再分配 96 MiB；该结果没有 solve 样本。2/4-rank 每进程绑定
+一张 A100，分别使用 \code{2x1x1x1}/\code{2x2x1x1} 进程网格。4-rank 相对 2-rank
+加速 \(0.476122238/0.356964148=1.334\times\)，相对并行效率 66.7\%。
+
+同窗 Legacy/QUDA 的 2-rank wall 为 \(0.219506067/0.314393339\) s，4-rank 为
+\(0.218343299/0.287465227\) s。因此 L32 Strict/QUDA 在 2/4-rank 分别为
+\(1.514\times/1.242\times\)，Strict 更慢；Strict/Legacy 为
+\(2.169\times/1.635\times\)。当前数据不支持将 Strict 改为生产默认。trace 的
+level-1 每 rank 有 11 次 coarse solver 调用、25/26 次 coarse iterations；
+顶层 \code{restriction_calls=0} 与 \code{fine_restriction} stage 冲突，不能单独
+据此判定 fine-only。
+
+\begin{figure}[htbp]
+\centering
+\IfFileExists{../data/qcu_strict_perf_dispatch_20261029/mg_l32_mg_comparison.png}{
+\includegraphics[width=0.96\linewidth]{../data/qcu_strict_perf_dispatch_20261029/mg_l32_mg_comparison.png}
+}{\fbox{L32 Legacy/Strict/QUDA 图文件暂缺}}
+\caption{L32 生产点三求解器绝对时间；1-rank Strict 明确标记 OOM，不使用伪数值。}
+\end{figure}
+
+\section{KUPL MultiGrid 与 NUMA}
+
+KUPL Release 构建 SHA256 为
+\code{4bd1f56cadd5564aeb9c28a00e84a01a01c9c7e568adb7b563c3358e1f17b3fd}。
+在单 NUMA cpuset 下 CTest 为 34/34 PASS；未绑定时 Kunpeng profile 会正确
+fail-closed，不是数值求解回归。当前运行的 KUPL 1-rank 使用 NUMA0、cpuset
+\code{0-3}、4 OpenMP threads，日志记录
+\code{bound_threads=4}、\code{memory_policy=preferred}、
+\code{memory_bound=true}。
+
+但是今天所有 L24 \code{restart=0} 结果均明确为
+\code{coarse_source="unused: restart=0"}，属于 fine-only BiCGStab。其
+1/2/4-rank 绝对 wall 分别为 25.3325/14.9281/9.8310 s，19 iterations，
+独立 true residual 约 \(4.018\times10^{-7}\)。这些数值只能作为
+fine-only 参照，不能作为 MG 结果。
+
+早期 CUDA Legacy cache 在 KUPL verifier 中记录
+\code{projection=2.11372e-7}、\code{galerkin=0.0886153}。后续数组级审计
+确认根因不在 KUPL 方向槽序，而在 CUDA raw lifecycle 未把更新后的
+\code{params[_PARITY_]} 同步到 Clover native/device params，导致 even/odd
+Clover 实际使用同一 parity。修复后，同 gauge 的 KUPL-vs-CUDA 误差为
+\code{hnn}=\(2.480209\times10^{-7}\)、\code{hdg}=\(7.340791\times10^{-8}\)、
+\code{sit}=\(2.524953\times10^{-7}\)。
+
+在自生成的 \code{8x8x8x16} c64 E2 canonical cache 上，KUPL 1-rank
+\code{verify_status=0}、独立 true residual \(2.877276\times10^{-7}\)，三次
+measured median wall \(0.867535\) s；最终收敛包含 fine parity-Schur fallback，
+不能写成 coarse-only 收敛。独立 E12 构建的 Gram/Galerkin 误差为
+\(1.549721\times10^{-6}/5.804606\times10^{-7}\)。KUPL 直接加载修复后的 CUDA
+canonical E2 cache 后，\code{verify_status=0}，独立 true residual
+\(2.016388\times10^{-7}\)。因此 Legacy 33-tensor payload 已可通过统一 manifest
+和逐 tensor digest 直接在 CUDA/KUPL 间复用。
+
+\subsection{KUPL Strict-MG 小格性能}
+
+真实 L24 非周期前缀 \code{8x8x8x16}、c64、2 levels、block \(2^4\)、
+\code{nvec=12}、\code{restart=20}、\code{atol=10^{-6}}、每 rank 12 OpenMP
+threads，2 warmups + 5 steady。所有解均 12 次外层 FGMRES 迭代。
+
+\begin{table}[htbp]
+\centering
+\caption{KUPL Strict-MG 1/2/4-rank 绝对时间与并行效率}
+\begin{tabular}{@{}rrrrrr@{}}
+\toprule
+ranks/grid & median/s & MAD/s & independent residual & speedup & efficiency \\
+\midrule
+1 / \(1^4\) & 1.222731 & 0.018385 & \(7.320\times10^{-7}\) & 1.000 & 100.0\% \\
+2 / \(1\cdot2\cdot1\cdot1\) & 1.101605 & 0.012859 & \(5.917\times10^{-7}\) & 1.110 & 55.5\% \\
+4 / \(2\cdot2\cdot1\cdot1\) & 1.658620 & 0.074257 & \(6.052\times10^{-7}\) & 0.737 & 18.4\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+该窗口的共享登录节点审计为 load average 约 91、48 CPU、106 用户，因此 4-rank
+没有正向扩展不能解释为鲲鹏生产性能。native MATPC residual 约
+\(2.8\)--\(3.4\times10^{-4}\)，独立 full Wilson/Clover residual 均低于
+\(10^{-6}\)；验收以后者为准。
+
+\section{QUDA 状态}
+
+QUDA QDP BiCGStab 已通过并作为历史/当前参照。native-LAPACK 工作路径最终完成了
+QUDA GCR-MG 的 1/2/4-rank 正式测量，库为
+\code{data/quda-a100-install/lib/libquda.so}，SHA256
+\code{8b86385f5b3d11224a428a1f403a78bcd896333204aff206879ed934d28f9663}。
+成功运行明确关闭 MMA；早期失败包括：
+\begin{itemize}[leftmargin=1.5em]
+  \item 一次动态加载出现 \code{undefined symbol: dslashQcu} 和 segfault；
+  \item 一次 recursive MG 在 A100-40GB 上尝试分配
+        \code{21743271936 B} 后 CUDA OOM；
+  \item 后续采用原生 LAPACK 的 A100 安装、fine \code{nvec=12}、no-MMA 后，
+        1/2/4-rank solve 与 independent full residual 均通过；旧
+        \code{lib/quda-develop/build/lib/libquda.so} 仅作为回退库保留。
+\end{itemize}
+
+因此 QUDA-MG 已不再被记为能力阻塞；应与 CUDA Legacy 分开报告为 GCR-MG 入口对照。
+
+\section{失败、资源与安全审计}
+
+Slurm 1603556 在 7m27s 完成并通过 4-rank L24 smoke，但申请 4 GPU、128 CPU
+和约 220 GB 内存，资源过大。Slurm 1603581 因 candidate 每次约 8 s 报
+\code{ImportError: k_init} 被主动取消。Slurm 1603584 的 final matrix 全部
+PASS，但后续 ABBA 在 4m59s 因一次 candidate segfault 失败；baseline
+\(0.1554899\) s、candidate \(0.1682335\) s，候选慢约 8.2\%。
+
+所有 GPU 作业均限制在 10 min 内；超过 5 min 的作业均检查过阶段日志和 GPU
+状态。未执行未授权的破坏性操作、force push 或发布操作。
+
+L48 尝试使用真实 \(48^3\times96\) LIME、4 MPI/4 A100、32 CPU 和 10 min 上限。
+Slurm 1603908/1603909/1603916 因输出目录在提交时不存在而 0 秒 JobLaunchFailure；
+预创建目录后 Slurm 1603917 正常启动。其在 5m36s 时显示 4 rank 各约 98\% CPU、
+4 张 A100 均 0\% 且各驻留约 8.7 GiB，处于已知的 CPU overlap-stencil 阶段；因
+GPU 空占超过 5 min，主动取消。未生成 cache，也没有 L48 solve 或残差结果。
+
+当前验证快照：Python \code{122 passed, 4 skipped}，KUPL \code{43 passed}，simple
+\code{81 passed}，单 NUMA cpuset 下 KUPL CTest \code{34/34 PASS}，QCU ABI
+\code{PASS}，\code{git diff --check PASS}。docs audit 仍报告 44 个既有归档链接
+缺失，form audit 仍有 29 个既有 finding；本轮新增证据没有伪造或改写这些历史链接。
+
+\section{结论与下一步}
+
+\begin{longtable}{@{}p{0.25\linewidth}p{0.65\linewidth}@{}}
+\toprule
+项目 & 状态与下一步 \\
+\midrule
+CUDA Legacy-MG & L32 真实 coarse 路径与独立残差通过；对 QUDA GCR-MG 在
+1/2/4-rank 的入口级速度比为 \(2.2495/1.4323/1.3166\times\)。 \\
+CUDA Strict-MG & \(8^3\times16\) 的 1/2/4-rank 与小格固定开销均通过；L32
+2/4-rank 也通过，但 1-rank OOM，且 2/4-rank 均慢于 Legacy/QUDA。保留为显式备选。 \\
+CUDA BiCGStab & 2-rank 尚未超过 QUDA；继续定位每轮开销，不能保留无收益候选。 \\
+L48 & 真实输入与 HDF5 已准备；多 rank builder 的 CPU stencil 阶段空占 GPU，
+5m36s 主动取消。下一步需 GPU-native multi-rank overlap stencil 或已验证 cache。 \\
+KUPL MG & Legacy cache 已直接复用；Strict-MG 的 1/2/4-rank 小格
+median 为 \(1.222731/1.101605/1.658620\) s，独立残差均低于 \(10^{-6}\)；
+真实鲲鹏 HMPI/NUMA/片上内存扩展仍待目标平台验证。 \\
+Torch & 仅保留 \code{8x8x8x16} CPU 正确性：15 iterations、wall
+\(1.882129\) s、true residual \(4.453952\times10^{-7}\)；不占用 GPU 性能资源。 \\
+最终报告 & 本 LaTeX 文件持续更新；待所有正式数据完成后输出最终 PDF 版本。 \\
+\bottomrule
+\end{longtable}
+
+\section{可追溯证据}
+
+\begin{itemize}[leftmargin=1.5em]
+  \item L32 BiCG JSON：\code{logs/qcu_sync_resume_20261029/large-volume/}
+  \item L32 Legacy-MG JSON：\code{logs/qcu_sync_resume_20261029/large-volume/qcu-mg-r*/report.json}
+  \item L32 QUDA GCR-MG：\code{logs/qcu_sync_resume_20261029/quda-mg/summary.json}
+  \item CUDA/KUPL/QUDA \(8^3\times16\)：\code{data/qcu_strict_perf_dispatch_20261029/}
+  \item CUDA Strict 1/2/4-rank：\code{data/qcu_strict_perf_dispatch_20261029/cuda/runs/8x8x8x16/}
+  \item CUDA Strict L32 2/4-rank：\code{data/qcu_strict_perf_dispatch_20261029/cuda/runs/32x32x32x64/}
+  \item L32 三求解器汇总图：\code{data/qcu_strict_perf_dispatch_20261029/mg_l32_mg_comparison.png}
+  \item L48 输入与 5 分钟审计：\code{data/qcu_large_volume_L48x96/}
+  \item KUPL CTest：\code{cpp/kupl/qcu/build/Testing/Temporary/LastTest.log}
+  \item KUPL true-MG failure：\code{logs/kupl_l24_true_mg_canonical_20261029/}
+  \item MPI cache builder / Torch CPU 门：\code{docs/qcu_mg_mpi_cache_builder_20261029.md}
+  \item 实时性能账本：\code{docs/qcu_mg_performance_ledger_20261029.md}
+\end{itemize}
+
+\end{document}

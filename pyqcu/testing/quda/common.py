@@ -13,11 +13,12 @@ from typing import Any, Sequence
 import numpy as np
 import torch
 from pyqcu import tools
+from pyqcu.testing._config import CORRECTNESS_LATTICE
 from pyqcu.torch import dslash
 
 ROOT = Path(__file__).resolve().parents[3]
 DATA = Path(os.environ.get("PYQCU_DATA_DIR", str(ROOT / "data"))).expanduser()
-LAT = (16, 16, 16, 16)
+LAT = CORRECTNESS_LATTICE
 MASS = 0.05
 _DISPLAY_ENV = ("RUN_QUDA_TESTS", "QUDA_UNSAFE_INPROCESS")
 
@@ -127,7 +128,7 @@ def _even_positive(value: str) -> int:
 def parser(description: str) -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description=description)
     p.add_argument("--lat", nargs=4, type=_even_positive, default=LAT,
-                   metavar=("X", "Y", "Z", "T"), help="全局格点大小（默认: 16 16 16 16）")
+                   metavar=("X", "Y", "Z", "T"), help="全局格点大小（正确性默认: 8 8 8 16）")
     p.add_argument("--mass", type=float, default=MASS)
     p.add_argument("--no-doc", action="store_true", help="不在开头打印本脚本使用说明")
     p.add_argument("--no-progress", action="store_true", help="隐藏分步进度，只保留结果与耗时")

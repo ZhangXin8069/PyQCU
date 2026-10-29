@@ -22,10 +22,12 @@ from ._bench_plots import mpl_cjk_setup as mpl_cjk_setup
 from ._bench_plots import plot_bench_report as plot_bench_report
 from ._bench_plots import plot_convergence as plot_convergence
 from ._bench_plots import plot_hotspot as plot_hotspot
+from ._bench_plots import plot_rank_metric as plot_rank_metric
 from ._bench_plots import plot_speedup as plot_speedup
 from ._bench_plots import plot_sweep_curves as plot_sweep_curves
 from ._bench_plots import plot_time as plot_time
 from ._bench_plots import save_figure as save_figure
+from ._bench_plots import save_figure_variants as save_figure_variants
 from ._bench_plots import short_label as short_label
 from ._bench_plots import style_axes as style_axes
 from ._budget import CONST_PER_V as CONST_PER_V
@@ -188,6 +190,7 @@ __all__ = [
     "plot_bench_report",
     "plot_convergence",
     "plot_hotspot",
+    "plot_rank_metric",
     "plot_speedup",
     "plot_sweep_curves",
     "plot_time",
@@ -201,6 +204,7 @@ __all__ = [
     "rss_model",
     "save_dict_h5",
     "save_figure",
+    "save_figure_variants",
     "save_tensor_h5",
     "scxyzt2psctzyx",
     "set_device",

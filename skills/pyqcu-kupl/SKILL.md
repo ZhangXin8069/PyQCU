@@ -52,6 +52,17 @@ metadata:
 
 ## ABI 与布局
 
+跨 CUDA/KUPL/Torch 的公共 PyQCU 接口规范以
+[`pyqcu-api/SKILL.md`](../pyqcu-api/SKILL.md#三后端统一接口强制规范) 为唯一权威源。
+`KuplLinearOperator`、`KuplBiCGStabDriver`、KUPL `Multigrid` 和 `ctypes` ABI 属于后端
+适配层；高层调用统一走 `Solver`/`Krylov`、`Multigrid`、`MultigridCache`。新增 KUPL
+功能时保持公共参数名、控制对象和返回类型一致；不支持的能力在构造或能力检查阶段失败关闭。
+
+同一 QCU 版本内 identity、gauge、MPI coarse geometry、dtype 和 setup provenance 一致的
+Legacy/Strict cache 直接复用，包括 CUDA/Torch 生成的 canonical odd-Schur Legacy cache。
+复用前执行统一 manifest 校验，命中后跳过 null-space/Galerkin setup；只有 miss、损坏或
+identity 不一致时才重建。
+
 - `params=int32[58]`、`argv=real[8]`、`set_ptrs=int64[100]`。
 - `argv[7]=csw`，`kappa=1/(2*mass+8)`，Clover onsite 项
   `T=-0.125*kappa*csw*sum(sigma*F)`。
@@ -187,6 +198,39 @@ c128 coarse V-cycle 性能；同规模 c128 coarse 性能仍未验证。
 - 不要用进程当前 cpuset 覆盖显式 `KUPL_OMP_THREADS`；OpenMP runtime 可能已把
   master thread 临时绑定到单核。
 - 不要让 MPI 集合调用依赖 rank 的提前返回。
+
+## 2026-10-29 MPI coarse-cache builder
+
+Legacy 33-tensor cache 的规范 MPI 入口是
+`pyqcu.testing.simple.mpi.build_full_mg_cache`。它不能退回父目录的 rank-0
+串行脚本。实现边界如下：
+
+- 每个 rank 用全局 process grid 生成自己的 fine gauge/Clover 和 null-vector slab；
+- rank 0 汇总 blocked `lonv=[E,12,X,bx,Y,by,Z,bz,T/2,bt]`，overlap patch 必须按
+  `(2,4,6,8)` 四个 coarse 轴切片，不能把 `lonv` 当成普通 lattice-axes-last-4 张量；
+- KUPL local-stencil API 在全局 MPI 作业内需要 `1x1x1x1` 私有 context；C++ geometry
+  以 `params[_NODE_SIZE_]=1` 显式创建单 rank communicator，不能强制用
+  `MPI_COMM_WORLD` 解释 patch grid；
+- 每个 rank 只输出自己的 coarse slab，最终四张量由 rank 0 组装、manifest 验签，
+  再由所有 rank 回读各自 hyperslab 与本地 slab 比对；
+- `--build-device cuda` 在 1 rank 使用 CUDA patch stencil；多 rank 时 CUDA Clover
+  halo 固定绑定 `MPI_COMM_WORLD`，不能安全承载 serial overlap patch，因此
+  null-vector 仍在 GPU 分布式生成，patch stencil 切到 CPU，并在报告中写
+  `stencil_device=cpu`。不得把该混合 setup 时间当作纯 GPU 性能；
+- 1/2/4-rank 不要求 SHA 位级相同，但同一物理输入的功能资产应报告相对误差。
+  2026-10-29 `8x8x8x16` c64 E2 实测 `lonv/hnn/hdg/sit` 的 2/4-rank 对 1-rank
+  Frobenius 相对差约 `1.3e-5–2.4e-5`，符合 MPI 归约顺序差异。
+
+禁止把 overlap patch 做成每 rank 重建完整 hierarchy；它是仅覆盖
+`2*mg_grid` coarse block 的 halo 工作区。
+
+Legacy CUDA-to-KUPL cache 复用已在 2026-10-29 打通。此前约 `8.9%` 的
+Galerkin 和 L8 `hnn=1.35e-2` 失配不是 KUPL slot 顺序，而是 CUDA raw lifecycle
+未同步更新后的 parity，导致 CUDA even/odd Clover 相同。修复 CUDA
+`sync_parity()` 后，同一 gauge 与同一 `lonv` 下 `hnn/hdg/sit` 相对误差为
+`2.48e-7/7.34e-8/2.52e-7`；KUPL 直接加载 CUDA canonical E2 cache 的
+`verify_status=0`，独立 true residual `2.016388e-7`。因此不得再对 Legacy payload
+做方向转置或私有重排来绕过该问题。
 
 ## 2026-10-21 Clover 6×6 块与 MG 几何
 
@@ -324,3 +368,11 @@ verifier=0、PASS，已撤销。下一步应分析 scalar boundary 的 rank-face
 - 完整指南：`docs/kupl_kunpeng_guide.md`；当前阶段证据：
   `logs/kupl_kunpeng_opt_20261027.md`。当前开发机为单 NUMA x86，容器禁止
   `set_mempolicy`，因此不能据此宣称鲲鹏 NUMA/片上内存性能。
+
+  Strict-MG `8x8x8x16` c64, 2 levels, block `2^4`, `nvec=12`,
+  `coarse_spin=2`, `restart=20`, 12 threads/rank currently measures
+  `1.222731/1.101605/1.658620 s` at 1/2/4 ranks (2 warmups + 5 steady), with
+  independent residuals below `1e-6`. The 4-rank point must use `2x2x1x1`; the
+  shared login-node load average makes the negative 4-rank scaling unsuitable as a
+  Kunpeng production claim. Record NUMA/cpuset, MPI ranks/grid, cache load and actual
+  correction counts with every result.

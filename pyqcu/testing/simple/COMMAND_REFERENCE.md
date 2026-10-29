@@ -114,7 +114,7 @@ python pyqcu/testing/simple/qcu_bistabcg.py [options]
 
 | 参数 | 默认 | 说明 |
 |---|---|---|
-| `--lat` | `8 8 16 16` | 格点 |
+| `--lat` | `8 8 8 16` | 正确性格点 |
 | `--mass` | LIME 或 `0.05` | 质量 |
 | `--csw` | LIME 或 `1.160920226` | Clover 系数 |
 | `--atol` | `1e-6` | 容差 |
@@ -161,7 +161,7 @@ python pyqcu/testing/simple/kupl_bistabcg.py [options]
 
 | 参数 | 默认 | 说明 |
 |---|---|---|
-| `--lat` | `8 8 16 16` | 格点 |
+| `--lat` | `8 8 8 16` | 正确性格点 |
 | `--mass` | 自动/LIME | 质量 |
 | `--csw` | 自动/LIME | csw |
 | `--atol` | `1e-6` | 容差 |
@@ -184,7 +184,7 @@ mpirun [OpenMPI options] -np <ranks> \
 
 | 参数 | 默认 | 说明 |
 |---|---|---|
-| `--lat` | `4 4 4 4` | 全局格点 |
+| `--lat` | `8 8 8 16` | 正确性格点 |
 | `--grid` | `(MPI size,1,1,1)` | process grid；乘积必须等于 MPI size |
 | `--mass` / `--csw` | 自动/LIME | 物理参数 |
 | `--atol` | `1e-6` | 容差 |
@@ -227,7 +227,7 @@ python pyqcu/testing/simple/quda_bistabcg.py [options]
 
 | 参数 | 默认 | 说明 |
 |---|---|---|
-| `--lat` | `8 8 16 16` | 格点 |
+| `--lat` | `8 8 8 16` | 正确性格点 |
 | `--mass` | LIME 或默认 | 质量 |
 | `--tol` | `1e-6` | QUDA tolerance |
 | `--max-iter` | `1000` | 最大迭代 |
@@ -252,7 +252,7 @@ python pyqcu/testing/simple/quda_bistabcg.py [options]
 
 | 参数 | 默认 | 说明 |
 |---|---|---|
-| `--lat` | `8 8 16 16` | 格点 |
+| `--lat` | `8 8 8 16` | 正确性格点 |
 | `--mass` | 自动 | 质量 |
 | `--tol` | `1e-6` | tolerance |
 | `--max-iter` | `1000` | 最大迭代 |
@@ -294,7 +294,7 @@ python pyqcu/testing/simple/compare_bistabcg.py \
 | 参数 | 默认 | 说明 |
 |---|---|---|
 | `--gauge` | 自动生成 | LIME/HDF5 gauge |
-| `--lat` | `4 4 4 4` | 格点 |
+| `--lat` | `8 8 8 16` | 正确性格点 |
 | `--mass` | `0.17` | 质量 |
 | `--csw` | `0.8` | csw |
 | `--atol` | `1e-6` | 容差 |
@@ -404,10 +404,12 @@ mpirun --bind-to numa --map-by ppr:1:numa -np 4 \
 ### `build_full_mg_cache.py`
 
 ```bash
-python pyqcu/testing/simple/build_full_mg_cache.py \
+mpirun --allow-run-as-root --oversubscribe --bind-to none -np 4 \
+  python -B -m pyqcu.testing.simple.mpi.build_full_mg_cache \
   --gauge gauge.h5 --lat X Y Z T \
   --mass M --csw C \
   --dof 12 12 --mg-grid 2 2 2 2 \
+  --grid GX GY GZ GT \
   --output cache.h5
 ```
 
@@ -423,10 +425,15 @@ python pyqcu/testing/simple/build_full_mg_cache.py \
 | `--seed` | `42` | builder seed |
 | `--build-device` | `cuda` | `cpu/cuda` |
 | `--batch-size` | `4` | local stencil probe batch |
+| `--grid` | 按 rank 自动 | 4D MPI process grid，乘积必须等于 rank 数 |
+| `--ranks` | `MPI_COMM_WORLD` | 可选预期 rank 数校验 |
 | `--output` | 必填 | cache HDF5 |
 | `--report` | 无 | setup 和 SHA256 报告 |
 
-脚本固定构建 2-level 33-tensor cache，并使用 local stencil builder。
+MPI 入口固定构建 2-level 33-tensor cache。每个 rank 生成自己的 null-vector、
+计算 coarse slab，并通过周期 overlap patch 完成 local stencil；rank 0 只负责
+全局组装、manifest 和原子发布。父目录的 `build_full_mg_cache.py` 保留单进程
+兼容行为。
 
 ## 9. Gaussian gauge 生成
 
@@ -434,7 +441,7 @@ python pyqcu/testing/simple/build_full_mg_cache.py \
 
 | 参数 | 默认 | 说明 |
 |---|---|---|
-| `--lat` | `8 8 16 16` | 四维必须为正偶数 |
+| `--lat` | `8 8 8 16` | 四维必须为正偶数 |
 | `--seed` | `42` | random seed |
 | `--sigma` | `0.1` | Gaussian width |
 | `--mass` | `0.05` | 写入 metadata/kappa |

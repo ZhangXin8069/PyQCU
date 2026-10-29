@@ -1,5 +1,3 @@
-import hashlib
-import json
 import math
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Union
@@ -8,37 +6,17 @@ import numpy as np
 import torch
 from pyqcu import tools
 import pyqcu.cann as _torch
+from pyqcu.tools._legacy_mg_cache import (
+    LEGACY_MG_ASSET_NAMES,
+    file_sha256,
+    load_legacy_mg_cache_slab,
+    logical_dataset_sha256,
+)
 from . import _mpi_roll
 force_use_npu = False
 
 
-LEGACY_MG_ASSET_DATASETS = ("lonv", "hnn", "hdg", "sit")
-
-
-def _file_sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for block in iter(lambda: handle.read(8 << 20), b""):
-            digest.update(block)
-    return digest.hexdigest()
-
-
-def _logical_dataset_sha256(dataset: Any, name: str) -> str:
-    """Hash a dataset independently of HDF5 layout/storage details."""
-    digest = hashlib.sha256()
-    metadata = {
-        "dataset": str(name),
-        "shape": tuple(int(value) for value in dataset.shape),
-        "dtype": str(np.dtype(dataset.dtype)),
-    }
-    digest.update(json.dumps(
-        metadata, sort_keys=True, separators=(",", ":")).encode("utf-8"))
-    if dataset.ndim == 0:
-        digest.update(np.ascontiguousarray(dataset[()]).tobytes())
-    else:
-        for index in range(int(dataset.shape[0])):
-            digest.update(np.ascontiguousarray(dataset[index]).tobytes())
-    return digest.hexdigest()
+LEGACY_MG_ASSET_DATASETS = LEGACY_MG_ASSET_NAMES
 
 
 def load_legacy_mg_assets(
@@ -76,9 +54,11 @@ def load_legacy_mg_assets(
                     f"Legacy MG cache {path_value} is missing datasets {missing}")
             for name in LEGACY_MG_ASSET_DATASETS:
                 dataset = handle[name]
-                identities[name] = _logical_dataset_sha256(dataset, name)
-                values[name] = torch.from_numpy(dataset[...])
-        file_sha = _file_sha256(path_value)
+                identities[name] = logical_dataset_sha256(dataset)
+            source_dtype = np.dtype(handle[LEGACY_MG_ASSET_NAMES[0]].dtype)
+        loaded = load_legacy_mg_cache_slab(path_value, source_dtype)
+        values = {name: torch.from_numpy(loaded[name]) for name in LEGACY_MG_ASSET_NAMES}
+        file_sha = file_sha256(path_value)
         path = str(path_value)
 
     converted: Dict[str, Any] = {}

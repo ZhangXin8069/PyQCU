@@ -76,8 +76,8 @@ def _localise_compact(
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--shape", type=int, nargs=4, default=[4, 4, 4, 4])
-    parser.add_argument("--grid", type=int, nargs=4, default=[2, 1, 1, 1])
+    parser.add_argument("--shape", type=int, nargs=4, default=[8, 8, 8, 16])
+    parser.add_argument("--grid", type=int, nargs=4, default=[1, 2, 1, 1])
     parser.add_argument("--mass", type=float, default=0.1)
     parser.add_argument("--tol", type=float, default=1.0e-6)
     parser.add_argument("--max-iter", type=int, default=30)
@@ -425,16 +425,24 @@ def main() -> int:
             return 0
         solution = solver.solve(rhs)
         torch.cuda.synchronize()
-        full_solution = tools.poooxyzt2oooxyzt(solution).contiguous()
-        full_rhs = tools.poooxyzt2oooxyzt(rhs).contiguous()
-        fine = dslash.operator(
-            U=local_full_gauge.cpu().to(dtype=dtype),
-            clover_term=None, kappa=kappa.cpu(), support_parity=False,
-            verbose=False)
-        residual = fine.matvec(full_solution) - full_rhs
-        residual_norm = float(tools.norm(residual))
-        rhs_norm = float(tools.norm(full_rhs))
-        true_relative = residual_norm / max(rhs_norm, 1.0e-30)
+        from pyqcu.testing.simple.kupl_residual import (
+            distributed_relative_residual,
+        )
+
+        solution_np = np.ascontiguousarray(
+            solution.detach().cpu().numpy().reshape(
+                2, 12, *local_shape[:3], local_shape[3] // 2))
+        rhs_np = np.ascontiguousarray(
+            rhs.detach().cpu().numpy().reshape(
+                2, 12, *local_shape[:3], local_shape[3] // 2))
+        gauge_np = np.ascontiguousarray(
+            local_parity_gauge.detach().cpu().numpy())
+        clover_even_np = np.ascontiguousarray(ce.detach().cpu().numpy())
+        clover_odd_np = np.ascontiguousarray(coo.detach().cpu().numpy())
+        true_relative = distributed_relative_residual(
+            solution_np, rhs_np, gauge_np,
+            clover_even_np, clover_odd_np,
+            float(kappa.item()), comm, coordinate, grid)
         payload = {
             "rank": rank,
             "coordinate": coordinate,
@@ -443,6 +451,9 @@ def main() -> int:
             "outer_iterations": int(solver.iterations),
             "reported_residual": float(solver.final_residual),
             "python_true_relative": true_relative,
+            "true_residual_source": (
+                "independent distributed NumPy Wilson-Clover "
+                "reconstruction with MPI halo exchange"),
         }
         print(payload, flush=True)
         gathered = comm.gather(payload, root=0)

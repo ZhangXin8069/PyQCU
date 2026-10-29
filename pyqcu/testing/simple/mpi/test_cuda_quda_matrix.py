@@ -113,6 +113,11 @@ def _qcu_report(
             "grid": grid,
             "warmups": 1,
             "repeats": 2,
+            "initial_guess": {
+                "use_init_guess": False,
+                "params_index": 57,
+                "params_value": 0,
+            },
             "libqcu": {"sha256": "qcu-library"},
         },
         "ranks": rank_records,
@@ -167,6 +172,7 @@ def _quda_report(
             "max_iter": 1000,
             "warmups": 1,
             "repeats": 2,
+            "use_init_guess": False,
         },
         "input": {
             "lime": {"path": str(gauge_path)},
@@ -312,6 +318,9 @@ def test_matrix_summary_emits_speedup_only_after_all_gates(tmp_path: Path):
     assert row["quda"]["independent_true_residual"] == pytest.approx(4.0e-7)
     assert "not independent" in row["quda"]["native_residual_semantics"]
     assert row["quda"]["residual_acceptance"] == pytest.approx(ACCEPTANCE)
+    assert row["speedup"]["qcu_over_quda_solve_wall"] == pytest.approx(
+        0.45 / 0.21)
+    assert row["speedup"]["acceptance_metric"] == "qcu_over_quda_solve_wall"
 
 
 def test_missing_fairness_identities_do_not_pass_as_none_equals_none(
@@ -521,6 +530,9 @@ def test_summary_uses_persistent_qcu_runtime_for_both_metrics(
     assert row["speedup"]["qcu_over_quda_operation"] == pytest.approx(
         0.3 / 0.15)
     assert row["speedup"]["qcu_over_quda_steady"] == pytest.approx(0.45 / 0.2)
+    assert row["speedup"]["qcu_over_quda_solve_wall"] == pytest.approx(
+        0.45 / 0.15)
+    assert row["speedup"]["acceptance_metric"] == "qcu_over_quda_solve_wall"
 
 
 def test_deferred_residual_is_never_run_on_dcu_partition(

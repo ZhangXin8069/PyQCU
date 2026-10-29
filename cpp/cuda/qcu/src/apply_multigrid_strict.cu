@@ -4038,6 +4038,7 @@ template <typename T> class StrictCoarseHierarchy {
               coarse.E, fine_E, fine_X, fine_Y, fine_Z, fine_T,
               coarse.X, coarse.Y, coarse.Z, coarse.Lt, parity_);
     });
+    ++cycle_counts_[0].restrictions;
     trace_stage(outer_iteration, start_, "coarse_vcycle", [&] {
       // The recursive hierarchy and its arena are persistent.  Avoid the
       // public V-cycle API's entry/exit synchronizations; all kernels remain on
@@ -4051,6 +4052,7 @@ template <typename T> class StrictCoarseHierarchy {
               coarse.E, fine_E, fine_X, fine_Y, fine_Z, fine_T,
               coarse.X, coarse.Y, coarse.Z, coarse.Lt, parity_, 1);
     });
+    ++cycle_counts_[0].prolongations;
     trace_fine_residual(fine, "after_fine_prolongation", out, source, n);
 
     trace_stage(outer_iteration, 0, "fine_correction_residual", [&] {

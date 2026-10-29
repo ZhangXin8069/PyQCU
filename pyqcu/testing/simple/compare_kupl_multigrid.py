@@ -28,7 +28,7 @@ except ImportError:
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--gauge", default=None)
-    parser.add_argument("--lat", nargs=4, type=int, default=(4, 4, 4, 4))
+    parser.add_argument("--lat", nargs=4, type=int, default=(8, 8, 8, 16))
     parser.add_argument("--mass", type=float, default=0.17)
     parser.add_argument("--csw", type=float, default=0.8)
     parser.add_argument("--atol", type=float, default=DEFAULT_ATOL)

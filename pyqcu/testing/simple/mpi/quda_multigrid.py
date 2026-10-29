@@ -26,12 +26,21 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--levels", type=int, default=2)
     parser.add_argument("--nvec", type=int, default=DEFAULT_NVEC)
     parser.add_argument("--block", nargs=4, type=int, default=DEFAULT_BLOCK)
+    parser.add_argument("--nu-pre", type=int, default=None)
+    parser.add_argument("--nu-post", type=int, default=None)
+    parser.add_argument(
+        "--smoother", choices=("mr", "cg", "cagcr"), default=None)
+    parser.add_argument(
+        "--coarse-solver-maxiter", type=int, default=None)
+    parser.add_argument(
+        "--no-mma", action="store_true",
+        help="disable QUDA multigrid MMA setup/dslash/transfer paths")
     parser.add_argument("--solution-output", default=None)
     parser.add_argument("--warmups", type=int, default=1)
     parser.add_argument("--repeats", type=int, default=3)
     parser.add_argument("--seed", type=int, default=42)
     add_mpi_job_options(
-        parser, lattice=(8, 8, 16, 16), ranks=2,
+        parser, lattice=(8, 8, 8, 16), ranks=2,
         report="quda_multigrid_mpi.json")
     return parser
 
@@ -55,6 +64,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--repeats", str(args.repeats),
         "--seed", str(args.seed),
     ]
+    if args.nu_pre is not None:
+        forwarded.extend(("--nu-pre", str(args.nu_pre)))
+    if args.nu_post is not None:
+        forwarded.extend(("--nu-post", str(args.nu_post)))
+    if args.smoother is not None:
+        forwarded.extend(("--smoother", args.smoother))
+    if args.coarse_solver_maxiter is not None:
+        forwarded.extend((
+            "--coarse-solver-maxiter", str(args.coarse_solver_maxiter)))
+    if args.no_mma:
+        forwarded.append("--no-mma")
     if args.source is not None:
         forwarded.extend(("--source", str(args.source)))
     if args.mass is not None:

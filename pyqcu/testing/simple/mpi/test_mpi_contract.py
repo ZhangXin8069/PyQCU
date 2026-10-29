@@ -19,6 +19,7 @@ from pyqcu.testing.simple.mpi._common import (
 )
 from pyqcu.testing.simple.mpi.solve_case import (
     REPO,
+    _build_coarse_cache,
     main as solve_case_main,
     _parse_args,
     _launch_environment,
@@ -27,6 +28,10 @@ from pyqcu.testing.simple.mpi.solve_case import (
 from pyqcu.testing.simple.mpi.benchmark_kupl import (
     _ranks_per_numa,
     main as benchmark_kupl_main,
+)
+from pyqcu.testing.simple.mpi._distributed_mg_cache import (
+    _patch_axis,
+    _periodic_asset_patch,
 )
 from pyqcu.testing.simple.mpi.quda_residual import _add_clover_identity
 import pyqcu.testing.simple.mpi.solve_case as solve_case_module
@@ -46,6 +51,58 @@ def test_default_grid_keeps_even_local_extents():
     grid = default_grid(lattice, 4)
     assert grid == (1, 4, 1, 1)
     assert all((lattice[axis] // grid[axis]) % 2 == 0 for axis in range(4))
+
+
+def test_distributed_mg_lonv_patch_keeps_interleaved_axes():
+    lonv = np.arange(
+        2 * 12 * 4 * 2 * 4 * 2 * 4 * 2 * 4 * 2,
+        dtype=np.float32,
+    ).reshape(2, 12, 4, 2, 4, 2, 4, 2, 4, 2)
+    patch = _periodic_asset_patch(lonv, "lonv", (0, 0, 0, 0),
+                                  (2, 3, 2, 4))
+    assert patch.shape == (2, 12, 2, 2, 3, 2, 2, 2, 4, 2)
+    np.testing.assert_array_equal(patch, lonv[:, :, :2, :, :3, :, :2, :, :4, :])
+
+
+def test_distributed_mg_patch_axis_keeps_alignment_when_narrow():
+    start, extent, center = _patch_axis(8, 2, 3, 2)
+    assert (start, extent, center) == (0, 8, 6)
+
+
+def test_solve_case_builds_coarse_cache_with_requested_mpi_grid(
+        tmp_path, monkeypatch):
+    cache = tmp_path / "coarse.h5"
+    cache.touch()
+    captured = []
+
+    def fake_run(command, **kwargs):
+        captured.append((command, kwargs))
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(solve_case_module.subprocess, "run", fake_run)
+    args = SimpleNamespace(
+        lat=[8, 8, 8, 16], mass=-0.277, csw=1.160920226,
+        dtype="c64", dof=[12, 2], levels=2, mg_grid=[2, 2, 2, 2],
+        nv_iters=1, seed=42, build_device="cpu", build_batch_size=1,
+        grid=[1, 2, 1, 1], mpirun="mpirun", ranks=2, bind_to="none",
+        map_by=None, oversubscribe=True, allow_run_as_root=True,
+    )
+    case = {
+        "gauge_path": str(tmp_path / "gauge.h5"),
+        "mass": -0.277,
+        "csw": 1.160920226,
+    }
+    _build_coarse_cache(args, case, cache)
+
+    command, kwargs = captured[0]
+    assert command[:4] == ["mpirun", "--allow-run-as-root",
+                           "--oversubscribe", "--bind-to"]
+    assert command[command.index("-np") + 1] == "2"
+    grid_index = command.index("--grid")
+    assert command[grid_index:grid_index + 5] == [
+        "--grid", "1", "2", "1", "1"]
+    assert kwargs["cwd"] == REPO
+    assert kwargs["check"] is False
 
 
 def test_clover_residual_operator_adds_unit_onsite_term():

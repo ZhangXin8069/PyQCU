@@ -788,3 +788,27 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: 终止全部待运行对比作业和遗留扫描进程，暂停远程推送及打标
 - 验证: path, size, required sections, conflict markers
 - 批次状态: in-progress
+## Strict-MG 进度简报 - stage - 2026-10-29 06:50:31 +0800
+- 主任务: PyQCU CUDA/KUPL/Torch MultiGrid 性能优化与 QUDA 对照
+- 日志文件: logs/v202610290650.txt
+- 文件大小: 4384 bytes
+- 触发原因: 阶段成果
+- 关键内容: Strict smoke 已通过残差门但非正式性能；CUDA Legacy 消融无稳定组合收益；字体修复验证通过。
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## qcu_unified_8x8x8x16_20261029 - stage - 2026-10-29 09:17:15 +0800
+- 主任务: PyQCU unified correctness lattice and MG performance dispatch
+- 日志文件: logs/v202610290917.txt
+- 文件大小: 5060 bytes
+- 触发原因: 阶段成果
+- 关键内容: 8x8x8x16 correctness gate; CUDA Legacy/Strict and QUDA MG 1/2/4-rank evidence; validation and skill updates
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## qcu-mg-l32-strict-l48-20261029 - stage - 2026-10-29 10:16:18 +0800
+- 主任务: PyQCU MultiGrid L32 Strict 性能、L48 资源门与跨后端 cache/接口统一
+- 日志文件: logs/v202610291016.txt
+- 文件大小: 8508 bytes
+- 触发原因: 阶段成果
+- 关键内容: L32 Strict 2/4-rank PASS；L48 builder 因 CPU stencil 空占 GPU 在 5m36s 取消；统一接口/cache 与回归完成
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress

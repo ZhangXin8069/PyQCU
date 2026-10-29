@@ -18,7 +18,7 @@ from pyqcu.api import (
     ResidualScope,
     SolveStatus,
 )
-from pyqcu.solver import Krylov
+from pyqcu.solver import Krylov, Solver, solve_bicgstab
 from pyqcu.torch import dslash
 from pyqcu.torch.dslash import TorchLinearOperator
 from pyqcu.torch.solver import TorchBiCGStabDriver, TorchCGDriver
@@ -250,6 +250,19 @@ def test_cuda_and_kupl_native_driver_call_one_whole_solve():
         assert solver_name in runtime.calls
         assert driver.capabilities.native_krylov is True
         assert driver.capabilities.python_krylov is False
+
+    convenience = solve_bicgstab(
+        backend="kupl",
+        operator=KuplLinearOperator(runtime=_FakeRuntime(), gauge=gauge),
+        rhs=source,
+        control=BiCGStabControl(rtol=1e-6, max_iter=10),
+    )
+    assert isinstance(Solver(
+        backend="kupl", method="bicgstab",
+        operator=KuplLinearOperator(runtime=_FakeRuntime(), gauge=gauge),
+        control=BiCGStabControl(rtol=1e-6, max_iter=10)), Solver)
+    assert convenience.method == "bicgstab"
+    assert convenience.status is SolveStatus.CONVERGED
 
     cuda_runtime = _FakeRuntime()
     cuda_operator = CudaLinearOperator(runtime=cuda_runtime, gauge=gauge)

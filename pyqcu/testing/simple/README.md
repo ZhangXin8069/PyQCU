@@ -138,7 +138,7 @@ QCU CUDA 与 QUDA BiStabCG 同 RHS 对照：
 ```bash
 python pyqcu/testing/simple/compare_bistabcg.py \
   --gauge ~/data/beta6.20_mu-0.2770_ms-0.2310_L24x64_cfg_9950.lime \
-  --lat 8 8 16 16 \
+  --lat 8 8 8 16 \
   --qcu-device cuda:0
 ```
 
@@ -146,7 +146,7 @@ KUPL CPU 与 QUDA BiStabCG 对照：
 
 ```bash
 python pyqcu/testing/simple/compare_kupl_bistabcg.py \
-  --lat 4 4 4 4 \
+  --lat 8 8 8 16 \
   --mass 0.17 --csw 0.8 \
   --kupl-threads 2
 ```
@@ -155,7 +155,7 @@ KUPL MG 与 QUDA BiStabCG 对照：
 
 ```bash
 python pyqcu/testing/simple/compare_kupl_multigrid.py \
-  --lat 4 4 4 4 \
+  --lat 8 8 8 16 \
   --mass 0.17 --csw 0.8 \
   --levels 2 --dof 12 2 --mg-grid 2 2 2 2 \
   --kupl-threads 2

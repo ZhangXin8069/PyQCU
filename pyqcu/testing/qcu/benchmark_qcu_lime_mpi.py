@@ -365,16 +365,50 @@ def _gather_local_blocks(value: Any, process_grid: Sequence[int],
         comm = MPI.COMM_WORLD
     rank = int(comm.Get_rank())
     array = np.ascontiguousarray(value.detach().cpu().numpy())
+    if int(comm.Get_size()) == 1:
+        return torch.from_numpy(array).to(device=value.device)
     grid = _tuple4(process_grid, "process_grid")
     local = tuple(int(item) for item in array.shape[-4:])
     global_shape = (
         *array.shape[:-4],
         *(local[axis] * grid[axis] for axis in range(4)),
     )
-    blocks = comm.gather(array, root=root)
+    from mpi4py import MPI
+
+    dtype_map = {
+        np.dtype(np.complex64): MPI.C_FLOAT_COMPLEX,
+        np.dtype(np.complex128): MPI.C_DOUBLE_COMPLEX,
+        np.dtype(np.float32): MPI.FLOAT,
+        np.dtype(np.float64): MPI.DOUBLE,
+        np.dtype(np.int32): MPI.INT32_T,
+        np.dtype(np.int64): MPI.INT64_T,
+    }
+    try:
+        mpi_dtype = dtype_map[np.dtype(array.dtype)]
+    except KeyError as exc:
+        raise TypeError(f"unsupported MPI gather dtype {array.dtype}") from exc
+    counts = comm.gather(int(array.size), root=root)
+    receive = None
+    displacements = None
+    if rank == root:
+        assert counts is not None
+        displacements = [0]
+        for count in counts[:-1]:
+            displacements.append(displacements[-1] + int(count))
+        receive = np.empty(sum(int(count) for count in counts), dtype=array.dtype)
+    comm.Gatherv(
+        array, (receive, counts, displacements, mpi_dtype) if rank == root else None,
+        root=root)
     comm.Barrier()
     if rank != root:
         return None
+    assert receive is not None and counts is not None
+    blocks = []
+    offset = 0
+    for count in counts:
+        count = int(count)
+        blocks.append(receive[offset:offset + count].reshape(array.shape))
+        offset += count
     whole = np.empty(global_shape, dtype=array.dtype)
     for block_rank, block in enumerate(blocks or []):
         coordinate = _grid_coordinate(grid, block_rank)
@@ -1209,6 +1243,13 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "grid": list(grid),
                 "warmups": int(args.warmups),
                 "repeats": int(args.repeats),
+                "initial_guess": {
+                    "use_init_guess": False,
+                    "params_index": define._MG_USE_INIT_GUESS_,
+                    "params_value": int(
+                        define._MG_USE_INIT_GUESS_ in params and
+                        params[define._MG_USE_INIT_GUESS_] == 1),
+                },
                 "device_policy": "PYQCU_MPI_DEVICE_ID=<MPI shared-memory local rank>",
                 "mpi_device_aware": os.environ.get(
                     "PYQCU_MPI_DEVICE_AWARE", "auto"),

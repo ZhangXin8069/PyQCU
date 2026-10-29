@@ -110,7 +110,7 @@ def true_residual(fields, operator, tools, kappa_value: float,
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--lat", nargs=4, type=int, default=(8, 8, 16, 16))
+    parser.add_argument("--lat", nargs=4, type=int, default=(8, 8, 8, 16))
     parser.add_argument("--mass", type=float, default=None,
                         help="QCU mass; defaults to LIME Mass or 0.05")
     parser.add_argument("--csw", type=float, default=None,

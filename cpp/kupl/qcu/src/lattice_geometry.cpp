@@ -15,6 +15,8 @@ LatticeGeometry make_geometry(const int32_t *params) {
   }
   MPI_Comm_size(MPI_COMM_WORLD, &geometry.size);
   MPI_Comm_rank(MPI_COMM_WORLD, &geometry.rank);
+  const int world_size = geometry.size;
+  const int world_rank = geometry.rank;
   geometry.laplacian = params[kSetPlan] == kSetPlanLaplacian;
 
   for (int dim = 0; dim < kDim; ++dim) {
@@ -41,16 +43,36 @@ LatticeGeometry make_geometry(const int32_t *params) {
     }
     grid_product *= value;
   }
-  if (grid_product != geometry.size) {
+  const bool serial_local_context =
+      grid_product == 1 && params[kNodeSize] == 1 && world_size > 1;
+  if (grid_product != world_size && !serial_local_context) {
     throw std::runtime_error(
         "process-grid product does not equal MPI_COMM_WORLD size");
   }
 
+  MPI_Comm base_comm = MPI_COMM_WORLD;
+  bool free_base_comm = false;
+  if (serial_local_context) {
+    // A distributed builder may own one global MPI rank while constructing a
+    // periodic overlap patch as an independent serial LatticeSet.  Give that
+    // local context a private one-rank communicator instead of silently
+    // interpreting its 1x1x1x1 process grid as the world communicator.
+    if (MPI_Comm_split(MPI_COMM_WORLD, world_rank, 0, &base_comm) !=
+        MPI_SUCCESS) {
+      throw std::runtime_error("MPI_Comm_split failed for local context");
+    }
+    free_base_comm = true;
+  }
   const int periods[kDim] = {1, 1, 1, 1};
-  if (MPI_Cart_create(MPI_COMM_WORLD, kDim, geometry.grid.data(), periods, 0,
-                      &geometry.comm) != MPI_SUCCESS) {
+  const int cart_status = MPI_Cart_create(
+      base_comm, kDim, geometry.grid.data(), periods, 0, &geometry.comm);
+  if (free_base_comm) {
+    MPI_Comm_free(&base_comm);
+  }
+  if (cart_status != MPI_SUCCESS) {
     throw std::runtime_error("MPI_Cart_create failed");
   }
+  MPI_Comm_size(geometry.comm, &geometry.size);
   MPI_Comm_rank(geometry.comm, &geometry.rank);
   MPI_Cart_coords(geometry.comm, geometry.rank, kDim, geometry.coord.data());
 

@@ -1,5 +1,8 @@
 # AGENTS.md — pyqcu/testing/data
 
+普通端到端正确性门使用 `8x8x8x16`。本目录的 L16/L8 Wilson/Clover 文件是历史参考
+Fixture，只能由显式历史数据路径读取，不得作为当前跨后端正确性默认格点。
+
 测试校验用参考 HDF5 文件。`with_data=True` 时用于对照预计算结果。
 
 包含多种格点尺寸的规范场、费米子源与期望的算子/求解器输出。

@@ -114,9 +114,12 @@ python pyqcu/testing/qcu/single_qcu_wilson_dslash.py --lat 8 8 8 8 --mass 0.05
 python pyqcu/testing/qcu/single_qcu_wilson_dslash.py --pure-only
 ```
 
-`single_qcu_*.py` 默认使用 `16 16 16 16`；支持 `--lat X Y Z T`、`--mass M`、
+`single_qcu_*.py` 的正确性门统一默认使用 `8 8 8 16`；支持 `--lat X Y Z T`、`--mass M`、
 `--pure-only`、`--no-doc` 和 `--no-progress`。设置 `QCU_STRICT_NUMERIC=1`
 会把数值偏差升级为失败，默认只报告偏差。
+
+`16 16 16 16` 及更大格点只能用于性能、容量或历史数据验证，不得替代
+`8 8 8 16` 正确性门。
 
 ### QCU 单功能数值协议
 

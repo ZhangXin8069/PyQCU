@@ -23,6 +23,13 @@ from typing import Any, Sequence
 
 import numpy as np
 
+from pyqcu.tools._legacy_mg_cache import (
+    file_sha256,
+    legacy_mg_cache_identity,
+    logical_array_sha256,
+    validate_legacy_mg_cache,
+)
+
 from pyqcu.testing.simple._common import (
     DATA_DIR,
     read_h5_metadata,
@@ -50,14 +57,6 @@ from pyqcu.testing.simple.mpi.mpi_ranks_power_of_two import validate_rank_count
 
 REPO = Path(__file__).resolve().parents[4]
 BUILD_CACHE = REPO / "pyqcu" / "testing" / "simple" / "build_full_mg_cache.py"
-
-
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for block in iter(lambda: handle.read(1 << 20), b""):
-            digest.update(block)
-    return digest.hexdigest()
 
 
 def _input_metadata(path: Path) -> dict[str, Any]:
@@ -121,6 +120,33 @@ def _materialize_case(args, dtype: np.dtype) -> dict[str, Any]:
             source_input, lattice, mass, csw, args.seed, args.dtype))
     work_dir.mkdir(parents=True, exist_ok=True)
 
+    manifest_path = work_dir / "case_manifest.json"
+    if manifest_path.is_file():
+        existing = json.loads(manifest_path.read_text(encoding="utf-8"))
+        expected = {
+            "input": str(source_input),
+            "lattice": list(lattice),
+            "mass": mass,
+            "csw": csw,
+            "seed": int(args.seed),
+            "dtype": args.dtype,
+        }
+        if all(existing.get(key) == value for key, value in expected.items()):
+            gauge_record = existing.get("gauge", {})
+            source_record = existing.get("source", {})
+            gauge_existing = Path(str(gauge_record.get("path", "")))
+            source_existing = Path(str(source_record.get("path", "")))
+            if (gauge_existing.is_file() and source_existing.is_file() and
+                    file_sha256(gauge_existing) == gauge_record.get("sha256") and
+                    file_sha256(source_existing) == source_record.get("sha256")):
+                return {
+                    **existing,
+                    "work_dir": str(work_dir),
+                    "manifest": str(manifest_path),
+                    "gauge_path": str(gauge_existing),
+                    "source_path": str(source_existing),
+                }
+
     gauge_path = work_dir / "gauge_global_c64.h5" if args.dtype == "c64" else \
         work_dir / "gauge_global_c128.h5"
     if args.dtype == "c128":
@@ -171,13 +197,16 @@ def _materialize_case(args, dtype: np.dtype) -> dict[str, Any]:
         "csw": csw,
         "seed": int(args.seed),
         "dtype": args.dtype,
-        "gauge": {"path": str(gauge_path), "sha256": _sha256(gauge_path)},
-        "source": {"path": str(source_path), "sha256": _sha256(source_path)},
+        "gauge": {
+            "path": str(gauge_path),
+            "sha256": file_sha256(gauge_path),
+            "canonical_sha256": logical_array_sha256(gauge_full),
+        },
+        "source": {"path": str(source_path), "sha256": file_sha256(source_path)},
         "sub_volume_note": (
             "The requested lattice is a prefix sub-volume of the input gauge; "
             "its boundary seams are not periodic."),
     }
-    manifest_path = work_dir / "case_manifest.json"
     write_json(manifest_path, manifest)
     return {
         **manifest,
@@ -196,74 +225,33 @@ def _coarse_cache_path(args, case: dict[str, Any]) -> Path:
         f"_nvi{args.nv_iters}_s{args.seed}.h5")
 
 
-def _coarse_cache_shapes(args) -> dict[str, tuple[int, ...]]:
-    """Return the exact Legacy 33-tensor schema for the requested geometry."""
-    if args.levels < 2:
-        raise ValueError("coarse cache requires at least two levels")
-    fine_odd = (
-        int(args.lat[0]), int(args.lat[1]), int(args.lat[2]),
-        int(args.lat[3]) // 2)
-    block = tuple(int(value) for value in args.mg_grid)
-    if any(value <= 0 or fine_odd[axis] % value
-           for axis, value in enumerate(block)):
-        raise ValueError("coarse cache geometry is not divisible by mg-grid")
-    coarse = tuple(fine_odd[axis] // block[axis] for axis in range(4))
-    dof = int(args.dof[1])
-    local_dof = 12
-    return {
-        "lonv": (
-            dof, local_dof, coarse[0], block[0], coarse[1], block[1],
-            coarse[2], block[2], coarse[3], block[3]),
-        "hnn": (2, 4, dof, dof, *coarse),
-        "hdg": (2, 2, 6, dof, dof, *coarse),
-        "sit": (dof, dof, *coarse),
-    }
+def _coarse_cache_identity(args, case: dict[str, Any]) -> dict[str, Any]:
+    return legacy_mg_cache_identity(
+        gauge_canonical_sha256=case["gauge"]["canonical_sha256"],
+        gauge_file_sha256=case["gauge"]["sha256"],
+        lattice=args.lat,
+        dtype=args.dtype,
+        mass=case["mass"],
+        csw=case["csw"],
+        dof=args.dof[:args.levels],
+        mg_grid=args.mg_grid,
+        nv_iters=args.nv_iters,
+        seed=args.seed,
+    )
 
 
 def _coarse_cache_valid(
-        path: Path, expected_shapes: dict[str, tuple[int, ...]],
-        expected_metadata: dict[str, Any]) -> bool:
-    report_path = path.with_suffix(".json")
-    if not path.is_file() or not report_path.is_file():
-        return False
+        path: Path, identity: dict[str, Any]) -> bool:
     try:
-        import h5py
-        report = json.loads(report_path.read_text(encoding="utf-8"))
-        if report.get("status") != "PASS":
-            return False
-        if report.get("setup_method") != "cxx-null-vector+local-33-stencil":
-            return False
-        for key, expected in expected_metadata.items():
-            if report.get(key) != expected:
-                return False
-
-        with h5py.File(path, "r") as handle:
-            return all(
-                name in handle and
-                tuple(int(value) for value in handle[name].shape) == shape
-                for name, shape in expected_shapes.items())
-    except (OSError, ValueError):
+        validate_legacy_mg_cache(path, identity, verify_file_sha256=True)
+    except (OSError, ValueError, TypeError):
         return False
-
-
-def _coarse_cache_metadata(args, case: dict[str, Any]) -> dict[str, Any]:
-    dtype = "complex64" if args.dtype == "c64" else "complex128"
-    return {
-        "gauge_sha256": case["gauge"]["sha256"],
-        "lattice": [int(value) for value in args.lat],
-        "dtype": dtype,
-        "mass": float(case["mass"]),
-        "csw": float(case["csw"]),
-        "dof": [int(value) for value in args.dof[:args.levels]],
-        "mg_grid": [int(value) for value in args.mg_grid],
-        "nv_iters": int(args.nv_iters),
-        "seed": int(args.seed),
-    }
+    return True
 
 
 def _build_coarse_cache(args, case: dict[str, Any], cache_path: Path) -> None:
     report = cache_path.with_suffix(".json")
-    command = [
+    builder_arguments = [
         sys.executable, str(BUILD_CACHE),
         "--gauge", case["gauge_path"],
         "--lat", *(str(value) for value in args.lat),
@@ -276,9 +264,15 @@ def _build_coarse_cache(args, case: dict[str, Any], cache_path: Path) -> None:
         "--seed", str(args.seed),
         "--build-device", args.build_device,
         "--batch-size", str(args.build_batch_size),
+        "--grid", *(str(value) for value in args.grid),
         "--output", str(cache_path),
         "--report", str(report),
     ]
+    command = build_mpirun_command(
+        mpirun=args.mpirun, ranks=args.ranks, bind_to=args.bind_to,
+        map_by=args.map_by, oversubscribe=args.oversubscribe,
+        allow_run_as_root=args.allow_run_as_root,
+        worker_arguments=builder_arguments)
     completed = subprocess.run(command, cwd=REPO, check=False)
     if completed.returncode != 0 or not cache_path.is_file():
         raise RuntimeError(
@@ -651,13 +645,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     case = _materialize_case(args, dtype)
     cache_path: Path | None = None
     if args.levels > 1 and args.restart != 0:
-        expected_cache_shapes = _coarse_cache_shapes(args)
-        expected_cache_metadata = _coarse_cache_metadata(args, case)
+        expected_cache_identity = _coarse_cache_identity(args, case)
         cache_path = (
             resolve_path(args.coarse_cache, Path(args.coarse_cache).expanduser())
             if args.coarse_cache else _coarse_cache_path(args, case))
         if args.rebuild_coarse_cache or not _coarse_cache_valid(
-                cache_path, expected_cache_shapes, expected_cache_metadata):
+                cache_path, expected_cache_identity):
             _build_coarse_cache(args, case, cache_path)
 
     output = (

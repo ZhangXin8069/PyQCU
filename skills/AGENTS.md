@@ -55,10 +55,10 @@ frontmatter：name 与目录名一致 + description 写触发场景（何时使�
 
 | 技能 | 用途 |
 |---|---|
-| `pyqcu-api` | pyqcu.api：后端无关配置、结果、能力、资产 manifest、Protocol 与 MG 兼容结果。 |
+| `pyqcu-api` | pyqcu.api：后端无关配置、结果、能力、资产 manifest、Protocol，以及三后端统一接口与资源复用规范。 |
 | `pyqcu-lattice` | pyqcu.lattice：gamma/Gell-Mann 矩阵、SU(3) 检查、规范场生成与 Ward 负索引约定。 |
 | `pyqcu-dslash` | pyqcu.torch.dslash：Wilson/Clover 狄拉克算子，顶层 pyqcu.dslash 仅兼容。 |
-| `pyqcu-solver` | pyqcu.torch.solver 与 pyqcu.solver.multigrid：Torch Krylov 实现和 strict/legacy 统一选择器。 |
+| `pyqcu-solver` | pyqcu.torch.solver 与 pyqcu.solver：统一 Solver/Krylov、Legacy/Strict MultiGrid、MG cache 与 identity-safe 复用。 |
 | `pyqcu-smear` | pyqcu.torch.smear：stout 与 Wuppertal smearing，顶层 pyqcu.smear 仅兼容。 |
 | `pyqcu-cann` | pyqcu.cann：Ascend NPU 的 torch 兼容层，将复数算子分解为实/虚部；含 force_use_npu 全局标志与 einsum 组合分解算法。 |
 | `pyqcu-cuda` | pyqcu.cuda：Cython/libqcu.so 桥接、Strict MultiGrid、params[58]/argv[8]/set_ptrs[100] 与显存生命周期。 |

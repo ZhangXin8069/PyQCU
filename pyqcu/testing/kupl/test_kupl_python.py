@@ -43,8 +43,8 @@ def test_kupl_exports_the_complete_qcu_symbol_set() -> None:
     kupl_declarations = _declarations(kupl_header)
     cuda_names = set(cuda_declarations)
     kupl_names = set(kupl_declarations)
-    assert len(kupl_names) == 37
-    assert len(qcu._SIGNATURES) == 37
+    assert len(kupl_names) == 40
+    assert len(qcu._SIGNATURES) == 40
     assert kupl_names == cuda_names
     assert kupl_declarations == cuda_declarations
     for name in sorted(cuda_names):

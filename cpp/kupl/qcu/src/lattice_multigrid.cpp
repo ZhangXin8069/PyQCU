@@ -870,9 +870,15 @@ void LatticeSet<Real>::multigrid_build_stencil_local(
     std::array<int, kDim> expanded_start{};
     std::array<int, kDim> expanded_extent{};
     for (int dim = 0; dim < kDim; ++dim) {
+      // Match the CUDA local-stencil window: spatial dimensions are padded
+      // by two sites on the low side, while parity-compressed time is padded
+      // by one.  The extra high-side site matters once the fine dimension is
+      // larger than the minimum 3*block+2 window.
+      const int low_padding = dim == 3 ? 1 : 2;
       expanded_start[dim] =
-          (center[dim] * block[dim] - block[dim] - 1 + fine[dim]) % fine[dim];
-      expanded_extent[dim] = 3 * block[dim] + 2;
+          (center[dim] * block[dim] - block[dim] - low_padding + fine[dim]) %
+          fine[dim];
+      expanded_extent[dim] = std::min(fine[dim], 3 * block[dim] + 3);
     }
 
     for (int probe = 0; probe < E; ++probe) {

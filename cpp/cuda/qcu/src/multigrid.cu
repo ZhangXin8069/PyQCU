@@ -2619,8 +2619,12 @@ int launch_multigrid_build_stencil_local(
   auto *params = reinterpret_cast<int *>(params_ptr);
   auto *set_ptrs = reinterpret_cast<long long *>(set_ptrs_ptr);
   auto *set = reinterpret_cast<LatticeSet<T> *>(set_ptrs[params[_SET_INDEX_]]);
-  if (set == nullptr || set->host_params[_NODE_SIZE_] != 1 ||
-      set->host_params[_GRID_X_] != 1 || set->host_params[_GRID_Y_] != 1 ||
+  // The local stencil operates on an explicitly gathered periodic patch and
+  // never enters a distributed halo path. A process-grid of 1x1x1x1 is the
+  // actual safety condition; MPI_COMM_WORLD may still contain multiple ranks
+  // when each rank owns an independent patch.
+  if (set == nullptr || set->host_params[_GRID_X_] != 1 ||
+      set->host_params[_GRID_Y_] != 1 ||
       set->host_params[_GRID_Z_] != 1 || set->host_params[_GRID_T_] != 1 ||
       set->host_params[_LAT_X_] != Xf || set->host_params[_LAT_Y_] != Yf ||
       set->host_params[_LAT_Z_] != Zf || set->host_params[_LAT_T_] != Tf) {

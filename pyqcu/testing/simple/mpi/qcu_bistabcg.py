@@ -30,7 +30,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--device-aware", action=argparse.BooleanOptionalAction,
                         default=None)
     add_mpi_job_options(
-        parser, lattice=(8, 8, 16, 16), ranks=2,
+        parser, lattice=(8, 8, 8, 16), ranks=2,
         report="qcu_bistabcg_mpi.json")
     return parser
 

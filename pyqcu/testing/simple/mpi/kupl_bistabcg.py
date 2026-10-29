@@ -28,7 +28,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--repeats", type=int, default=5)
     parser.add_argument("--seed", type=int, default=42)
     add_mpi_job_options(
-        parser, lattice=(8, 8, 16, 16), ranks=2,
+        parser, lattice=(8, 8, 8, 16), ranks=2,
         report="kupl_bistabcg_mpi.json")
     return parser
 

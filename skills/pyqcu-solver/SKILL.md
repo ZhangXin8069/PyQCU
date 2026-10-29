@@ -56,6 +56,19 @@ MPI 格点分域。`MultiGpuMultigrid` 是显式调用的测试专用例外，�
 默认驱动。完整规则见
 [`pyqcu-cuda/SKILL.md`](../pyqcu-cuda/SKILL.md#cuda-production-topology)。
 
+## 三后端统一接口与资源复用
+
+Krylov/BiCGStab/CG、Legacy/Strict MultiGrid 和 MG cache 的公共签名、返回对象、能力门禁
+与后端差异边界以
+[`pyqcu-api/SKILL.md`](../pyqcu-api/SKILL.md#三后端统一接口强制规范) 为唯一权威源。
+高层调用统一使用 `Solver`/`Krylov`、`Multigrid` 和 `MultigridCache`；backend-specific
+类只负责适配。新增公共入口前先复用或扩展现有选择器，不建立平行包装。
+
+存在 identity 已验证的 MG cache、已构建后端库、已生成测试输入或可续构建对象时，直接复用；
+cache 命中必须先通过 manifest、gauge/physical identity、shape/dtype 和 tensor digest 校验，
+然后跳过 Galerkin/null-space 重建。只有资源缺失、identity 不匹配或内容损坏时才重建，并在
+报告中区分 `cache_hit`、验证/加载时间与真实 solve 时间。
+
 ## CUDA 混合路径约定（2026-08-14）
 
 - `_matvec`/`_restrict_cuda`/`_prolong_cuda`/`_coarse_dslash_cuda` 的 C++ 调用后必须
@@ -241,6 +254,37 @@ Runtime-cache schema v2 protects every logical tensor with a streaming SHA256. A
 `memory_report()` reports explicitly owned runtime assets, not all process/device memory. Memory regressions must track setup/export/bind/seal/init/first solve/steady solve/close, distinguish planned from first-solve resident fused bytes, deduplicate shared storages, include backend `LatticeSet` and allocator high-water overhead, and verify repeated solves have stable live bytes. Galerkin setup planning counts four simultaneous full-field arenas. The library default setup cap is `512 MiB`; the formal `16×32×32×48` profile instead uses colored `C=12` with `4 GiB` for c64 and `C=1` with `1 GiB` for c128. The outer fused `max_krylov_bytes` is independent: solver API default `512 MiB`, formal c64 `512 MiB`, formal c128 `1 GiB`. `strict_galerkin_mode="auto"` compares modeled site-batch and colored call/memory costs; record requested/effective mode, `C`, projection batch `K`, cap and stats, and let formal validation fail on silent shrink. Formal benchmark memory probing uses schema version 2 and an independent untimed device-wide `cudaMemGetInfo` measurement named `device_used_max_observed_bytes`; `setup_seconds` ends before sampler stop. A join timeout keeps the sampler handle live and invalidates the record rather than silently accepting incomplete evidence. A memory cap may reduce FGMRES restart but must not change the relative true-residual criterion.
 
 Current strict MPI provides rank-symmetric preflight, c64/c128 global reduction, setup/full/compact/R-P halos and distributed fused FGMRES. Multi-rank runs use one process/rank/device and must pass capability preflight plus an independent true residual; a reduction-only smoke is not sufficient evidence.
+
+### 2026-10-29 L32 Strict 容量与预算
+
+A100-40GB、`32x32x32x64` c64、两层、`nvec=12`、`coarse_spin=2`、
+`restart=16` 的实测边界：
+
+- 已有 Legacy E12 cache 的 `lonv` 可直接经
+  `prepare_fair_nullvec.py` 重构 canonical full basis；不要重复生成 null-space。
+- 1 MPI rank 在 `StrictTransfer._block_orthogonalise` 的 96 MiB 分配处 OOM；
+  2/4 MPI rank（每 rank 一张 A100）成功，cold setup 为 `201.073/111.873 s`，
+  steady sync-max 为 `0.476122/0.356964 s`。L32 Strict 不能假设单卡可容纳
+  full basis、full Clover 和正交化临时量；4-rank 相对 2-rank 仅 `1.334x`。
+- fused FGMRES 的 `restart=16` workspace 实需 `1,887,436,800 B`。512 MiB 预算
+  会 fail-closed；正式 L32 使用 2 GiB。必须记录 required/requested，不能静默缩小
+  restart 冒充同一性能点。
+- `final_residual` 的 native 字段可能使用 absolute/aggregate 口径；L32 2-rank
+  实测为 `4.646653e-3`，而独立 full-operator 相对残差为 `6.253315e-7`。验收只看
+  后者。
+- 旧 Strict trace 的顶层 `restriction_calls` 曾漏记 `precondition_fine()` 的直接
+  fine restriction/prolongation。源码已补计数，8³×16 回归由 0 纠正为 9；历史
+  pre-fix JSON 仍应结合 level-1 `coarse_solver_calls/coarse_solver_iterations`、
+  stage 和 independent residual 交叉解释。
+
+### 2026-10-29 L48 builder 资源门
+
+真实 `48x48x48x96` Legacy E12 cache 的 4-rank CUDA builder 已实测：null-vector 后
+多 rank overlap stencil 按当前实现切换到 CPU。5 分钟审计时 4 个 rank 各约
+98% CPU，而 4 张 A100 均为 0%、每卡驻留约 8.7 GiB；作业因 GPU 空占被主动取消，
+没有 cache 或 solve 结果。按 L32 单 rank GPU stencil `153.889 s × 5.0625`
+仅得约 779 秒的量级估计，不能作为 L48 实测。后续必须实现 GPU-native 多 rank
+overlap stencil/独立 Clover halo communicator，或复用已验证 cache，才可重启 L48。
 
 ## 口径与容差语义（2026-08-24）
 

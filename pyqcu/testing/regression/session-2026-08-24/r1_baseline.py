@@ -23,9 +23,11 @@ def run(name, fn):
 
 run("lattice_cuda", lambda: T.test_lattice(lat_size=[8, 8, 8, 16], device=CUDA))
 run("dslash_wilson_data_par", lambda: T.test_dslash_wilson(
-    with_data=True, support_parallel=True, device=CUDA))
+    lat_size=[16, 16, 16, 16], with_data=True,
+    support_parallel=True, device=CUDA))
 run("dslash_wilson_data_nopar", lambda: T.test_dslash_wilson(
-    with_data=True, support_parallel=False, device=CUDA))
+    lat_size=[16, 16, 16, 16], with_data=True,
+    support_parallel=False, device=CUDA))
 run("dslash_parity_cuda", lambda: T.test_dslash_parity(device=CUDA))
 run("dslash_clover_cuda", lambda: T.test_dslash_clover(device=CUDA))
 run("solver_bistabcg_8888_c128", lambda: T.test_solver(

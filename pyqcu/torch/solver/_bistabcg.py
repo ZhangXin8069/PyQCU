@@ -2,14 +2,14 @@ import torch
 from time import perf_counter
 from typing import Callable, Optional, List
 from pyqcu import tools
+from pyqcu.torch.tools import norm_many, vdot_many
 import pyqcu.cann as _torch
 
 
 def bistabcg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: float = 1e-6, max_iter: int = 1000, x0:  Optional[torch.Tensor] = None, if_rtol: bool = False, verbose: bool = True, history: Optional[List[float]] = None) -> torch.Tensor:
     x = x0.clone() if x0 is not None else _torch.randn_like(b)
     r = b - matvec(x)
-    r_norm = tools.norm(r)
-    b_norm = tools.norm(b)
+    r_norm, b_norm = norm_many((r, b))
     if history is not None:
         history.append(float(r_norm))
     if if_rtol:
@@ -58,12 +58,12 @@ def bistabcg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], to
         alpha = rho / rtv
         s = r - alpha * v
         t = matvec(s)
-        tts = tools.vdot(t, t)
+        tts, ts = vdot_many(((t, t), (t, s)))
         if abs(tts) < 1e-30:
             raise RuntimeError(
                 f"BiCGStab breakdown at iter {i}: vdot(t, t) ≈ 0 "
                 f"(t is zero or near-zero). The method cannot continue.")
-        omega = tools.vdot(t, s) / tts
+        omega = ts / tts
         x = x + alpha * p + omega * s
         r = s - omega * t
         r_norm = tools.norm(r)

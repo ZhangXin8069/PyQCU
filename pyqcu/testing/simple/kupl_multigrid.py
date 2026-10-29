@@ -13,6 +13,16 @@ from typing import Any
 
 import numpy as np
 
+from pyqcu.tools._legacy_mg_cache import (
+    file_sha256,
+    legacy_mg_cache_identity,
+    load_legacy_mg_cache_slab,
+    logical_array_sha256,
+    save_legacy_mg_cache,
+    validate_legacy_mg_cache,
+    write_legacy_mg_assets,
+)
+
 try:
     from mpi4py import MPI
 except ImportError:  # pragma: no cover - KUPL itself requires MPI.
@@ -168,7 +178,9 @@ def build_coarse_assets(gauge: np.ndarray, lattice: tuple[int, int, int, int],
                         verbose: bool = False, local_stencil: bool = False,
                         local_stencil_batch_size: int = 4,
                         device_name: str = "cpu",
-                        setup_stats: dict[str, Any] | None = None):
+                        setup_stats: dict[str, Any] | None = None,
+                        supplied_null_vectors: np.ndarray | None = None,
+                        validate_galerkin: bool = True):
     if levels != 2:
         raise ValueError("the independent simple MG fixture supports two levels")
     del kappa
@@ -186,6 +198,13 @@ def build_coarse_assets(gauge: np.ndarray, lattice: tuple[int, int, int, int],
     sit_shape = (E, E, *coarse_lattice)
     hnn_shape = (2, 4, E, E, *coarse_lattice)
     hdg_shape = (2, 2, 6, E, E, *coarse_lattice)
+    if supplied_null_vectors is not None:
+        supplied_null_vectors = np.ascontiguousarray(
+            supplied_null_vectors, dtype=dtype)
+        if supplied_null_vectors.shape != null_shape:
+            raise ValueError(
+                f"supplied null-vector shape {supplied_null_vectors.shape} "
+                f"!= {null_shape}")
 
     stage_started = time.perf_counter()
     galerkin_error = 0.0
@@ -212,7 +231,13 @@ def build_coarse_assets(gauge: np.ndarray, lattice: tuple[int, int, int, int],
         clover_odd = torch.empty_like(clover_even)
         clover_even_inv = torch.empty_like(clover_even)
         clover_odd_inv = torch.empty_like(clover_even)
-        null_vectors = torch.empty(null_shape, dtype=torch_dtype, device=device)
+        if supplied_null_vectors is None:
+            null_vectors = torch.empty(
+                null_shape, dtype=torch_dtype, device=device)
+        else:
+            null_vectors = torch.from_numpy(supplied_null_vectors).to(
+                device=device, dtype=torch_dtype, non_blocking=False
+            ).contiguous()
         sitting = torch.zeros(sit_shape, dtype=torch_dtype, device=device)
         hop_nn = torch.zeros(hnn_shape, dtype=torch_dtype, device=device)
         hop_diag = torch.zeros(hdg_shape, dtype=torch_dtype, device=device)
@@ -235,7 +260,7 @@ def build_coarse_assets(gauge: np.ndarray, lattice: tuple[int, int, int, int],
         params[define._SEED_] = int(seed)
         argv = define.make_argv(
             float(mass), csw=float(csw), atol=1.0e-7,
-            data_type=int(params[DATA_TYPE]), array_module="numpy")
+            data_type=int(params[DATA_TYPE]))
         set_ptrs = torch.zeros(define._SET_PTRS_SIZE_, dtype=torch.int64)
         qcu.applyInitQcu(set_ptrs, params, argv)
         try:
@@ -246,15 +271,17 @@ def build_coarse_assets(gauge: np.ndarray, lattice: tuple[int, int, int, int],
             qcu.applyCloversQcu(
                 clover_odd, clover_odd_inv, gauge_device, set_ptrs, params)
             params[define._SET_PLAN_] = define._SET_PLAN1_
-            if verbose:
+            if verbose and supplied_null_vectors is None:
                 print(
                     "PYQCU::CUDA::MG_SETUP:\n C++ null-space start",
                     flush=True)
             stage = time.perf_counter()
-            qcu.applyMultigridBuildNullVectorsQcu(
-                null_vectors, gauge_device, clover_even, clover_odd,
-                clover_even_inv, clover_odd_inv, set_ptrs, params, E, e,
-                *fine_odd, *coarse_lattice, max(1, nv_iters), seed, 1.0e-2)
+            if supplied_null_vectors is None:
+                qcu.applyMultigridBuildNullVectorsQcu(
+                    null_vectors, gauge_device, clover_even, clover_odd,
+                    clover_even_inv, clover_odd_inv, set_ptrs, params, E, e,
+                    *fine_odd, *coarse_lattice, max(1, nv_iters), seed,
+                    1.0e-2)
             timings["null_vector_seconds"] = time.perf_counter() - stage
             if verbose:
                 print(
@@ -267,36 +294,40 @@ def build_coarse_assets(gauge: np.ndarray, lattice: tuple[int, int, int, int],
                 set_ptrs, params, E, e, *fine_odd, *coarse_lattice, 8,
                 local_stencil_batch_size)
             timings["stencil_seconds"] = time.perf_counter() - stage
-            stage = time.perf_counter()
-            generator = torch.Generator(device="cpu").manual_seed(941)
-            coarse_vector = torch.randn(
-                (E, *coarse_lattice), generator=generator,
-                dtype=torch_dtype).to(device)
-            prolonged = torch.empty(
-                (e, *fine_odd), dtype=torch_dtype, device=device)
-            schur_vector = torch.empty_like(prolonged)
-            restricted = torch.empty_like(coarse_vector)
-            stencil_vector = torch.empty_like(coarse_vector)
-            qcu.applyMultigridProLongQcu(
-                prolonged, coarse_vector, null_vectors, set_ptrs, params)
-            qcu.applyCloverBistabCgDslashQcu(
-                schur_vector, prolonged, gauge_device, clover_even,
-                clover_odd, clover_even_inv, clover_odd_inv, set_ptrs, params)
-            qcu.applyMultigridRestrictQcu(
-                restricted, schur_vector, null_vectors, set_ptrs, params)
-            qcu.applyMultigridCoarseDslashWideQcu(
-                stencil_vector, coarse_vector, sitting, hop_nn, hop_diag,
-                set_ptrs, params)
-            denominator = torch.linalg.vector_norm(restricted).clamp_min(1.0)
-            galerkin_error = float((
-                torch.linalg.vector_norm(stencil_vector - restricted) /
-                denominator).item())
-            if not np.isfinite(galerkin_error) or galerkin_error > 2.0e-5:
-                raise RuntimeError(
-                    f"CUDA C++ stencil Galerkin error {galerkin_error:.3e}")
-            timings["galerkin_validation_seconds"] = (
-                time.perf_counter() - stage)
-            del prolonged, schur_vector, restricted, stencil_vector
+            if validate_galerkin:
+                stage = time.perf_counter()
+                generator = torch.Generator(device="cpu").manual_seed(941)
+                coarse_vector = torch.randn(
+                    (E, *coarse_lattice), generator=generator,
+                    dtype=torch_dtype).to(device)
+                prolonged = torch.empty(
+                    (e, *fine_odd), dtype=torch_dtype, device=device)
+                schur_vector = torch.empty_like(prolonged)
+                restricted = torch.empty_like(coarse_vector)
+                stencil_vector = torch.empty_like(coarse_vector)
+                qcu.applyMultigridProLongQcu(
+                    prolonged, coarse_vector, null_vectors, set_ptrs, params)
+                qcu.applyCloverBistabCgDslashQcu(
+                    schur_vector, prolonged, gauge_device, clover_even,
+                    clover_odd, clover_even_inv, clover_odd_inv, set_ptrs,
+                    params)
+                qcu.applyMultigridRestrictQcu(
+                    restricted, schur_vector, null_vectors, set_ptrs, params)
+                qcu.applyMultigridCoarseDslashWideQcu(
+                    stencil_vector, coarse_vector, sitting, hop_nn, hop_diag,
+                    set_ptrs, params)
+                denominator = torch.linalg.vector_norm(
+                    restricted).clamp_min(1.0)
+                galerkin_error = float((
+                    torch.linalg.vector_norm(stencil_vector - restricted) /
+                    denominator).item())
+                if (not np.isfinite(galerkin_error) or
+                        galerkin_error > 2.0e-5):
+                    raise RuntimeError(
+                        f"CUDA C++ stencil Galerkin error {galerkin_error:.3e}")
+                timings["galerkin_validation_seconds"] = (
+                    time.perf_counter() - stage)
+                del prolonged, schur_vector, restricted, stencil_vector
         finally:
             qcu.applyEndQcu(set_ptrs, params)
         stage = time.perf_counter()
@@ -314,7 +345,10 @@ def build_coarse_assets(gauge: np.ndarray, lattice: tuple[int, int, int, int],
         clover_odd = np.empty(onsite_shape, dtype=dtype)
         clover_even_inv = np.empty(onsite_shape, dtype=dtype)
         clover_odd_inv = np.empty(onsite_shape, dtype=dtype)
-        null_vectors = np.empty(null_shape, dtype=dtype)
+        if supplied_null_vectors is None:
+            null_vectors = np.empty(null_shape, dtype=dtype)
+        else:
+            null_vectors = supplied_null_vectors.copy()
         sitting = np.zeros(sit_shape, dtype=dtype)
         hop_nn = np.zeros(hnn_shape, dtype=dtype)
         hop_diag = np.zeros(hdg_shape, dtype=dtype)
@@ -359,13 +393,16 @@ def build_coarse_assets(gauge: np.ndarray, lattice: tuple[int, int, int, int],
                 set_ptrs_arg, params_arg)
             params[SET_PLAN] = PLAN_SOLVER
             stage = time.perf_counter()
-            status = qcu.applyMultigridBuildNullVectorsQcu(
-                null_arg, gauge_arg, clover_even_arg, clover_odd_arg,
-                clover_even_inv_arg, clover_odd_inv_arg, set_ptrs_arg,
-                params_arg, E, e,
-                *fine_odd, *coarse_lattice, max(1, nv_iters), seed, 1.0e-2)
-            if status != 0:
-                raise RuntimeError(f"KUPL null-vector setup failed: {status}")
+            if supplied_null_vectors is None:
+                status = qcu.applyMultigridBuildNullVectorsQcu(
+                    null_arg, gauge_arg, clover_even_arg, clover_odd_arg,
+                    clover_even_inv_arg, clover_odd_inv_arg, set_ptrs_arg,
+                    params_arg, E, e,
+                    *fine_odd, *coarse_lattice, max(1, nv_iters), seed,
+                    1.0e-2)
+                if status != 0:
+                    raise RuntimeError(
+                        f"KUPL null-vector setup failed: {status}")
             timings["null_vector_seconds"] = time.perf_counter() - stage
             stage = time.perf_counter()
             status = qcu.applyMultigridBuildStencilLocalQcu(
@@ -376,37 +413,40 @@ def build_coarse_assets(gauge: np.ndarray, lattice: tuple[int, int, int, int],
             if status != 0:
                 raise RuntimeError(f"KUPL stencil setup failed: {status}")
             timings["stencil_seconds"] = time.perf_counter() - stage
-            stage = time.perf_counter()
-            rng = np.random.default_rng(941)
-            coarse_vector = (
-                rng.normal(size=(E, *coarse_lattice)) +
-                1j * rng.normal(size=(E, *coarse_lattice))).astype(dtype)
-            prolonged = np.empty((e, *fine_odd), dtype=dtype)
-            schur_vector = np.empty_like(prolonged)
-            restricted = np.empty_like(coarse_vector)
-            stencil_vector = np.empty_like(coarse_vector)
-            qcu.applyMultigridProLongQcu(
-                NumpyTensor(prolonged), NumpyTensor(coarse_vector), null_arg,
-                set_ptrs_arg, params_arg)
-            qcu.applyCloverBistabCgDslashQcu(
-                NumpyTensor(schur_vector), NumpyTensor(prolonged), gauge_arg,
-                clover_even_arg, clover_odd_arg, clover_even_inv_arg,
-                clover_odd_inv_arg, set_ptrs_arg, params_arg)
-            qcu.applyMultigridRestrictQcu(
-                NumpyTensor(restricted), NumpyTensor(schur_vector), null_arg,
-                set_ptrs_arg, params_arg)
-            qcu.applyMultigridCoarseDslashWideQcu(
-                NumpyTensor(stencil_vector), NumpyTensor(coarse_vector),
-                sitting_arg, hop_nn_arg, hop_diag_arg, set_ptrs_arg,
-                params_arg)
-            denominator = max(float(np.linalg.norm(restricted)), 1.0)
-            galerkin_error = float(
-                np.linalg.norm(stencil_vector - restricted) / denominator)
-            if not np.isfinite(galerkin_error) or galerkin_error > 2.0e-5:
-                raise RuntimeError(
-                    f"KUPL C++ stencil Galerkin error {galerkin_error:.3e}")
-            timings["galerkin_validation_seconds"] = (
-                time.perf_counter() - stage)
+            if validate_galerkin:
+                stage = time.perf_counter()
+                rng = np.random.default_rng(941)
+                coarse_vector = (
+                    rng.normal(size=(E, *coarse_lattice)) +
+                    1j * rng.normal(size=(E, *coarse_lattice))).astype(dtype)
+                prolonged = np.empty((e, *fine_odd), dtype=dtype)
+                schur_vector = np.empty_like(prolonged)
+                restricted = np.empty_like(coarse_vector)
+                stencil_vector = np.empty_like(coarse_vector)
+                qcu.applyMultigridProLongQcu(
+                    NumpyTensor(prolonged), NumpyTensor(coarse_vector),
+                    null_arg, set_ptrs_arg, params_arg)
+                qcu.applyCloverBistabCgDslashQcu(
+                    NumpyTensor(schur_vector), NumpyTensor(prolonged),
+                    gauge_arg, clover_even_arg, clover_odd_arg,
+                    clover_even_inv_arg, clover_odd_inv_arg, set_ptrs_arg,
+                    params_arg)
+                qcu.applyMultigridRestrictQcu(
+                    NumpyTensor(restricted), NumpyTensor(schur_vector),
+                    null_arg, set_ptrs_arg, params_arg)
+                qcu.applyMultigridCoarseDslashWideQcu(
+                    NumpyTensor(stencil_vector), NumpyTensor(coarse_vector),
+                    sitting_arg, hop_nn_arg, hop_diag_arg, set_ptrs_arg,
+                    params_arg)
+                denominator = max(float(np.linalg.norm(restricted)), 1.0)
+                galerkin_error = float(
+                    np.linalg.norm(stencil_vector - restricted) / denominator)
+                if (not np.isfinite(galerkin_error) or
+                        galerkin_error > 2.0e-5):
+                    raise RuntimeError(
+                        f"KUPL C++ stencil Galerkin error {galerkin_error:.3e}")
+                timings["galerkin_validation_seconds"] = (
+                    time.perf_counter() - stage)
         finally:
             qcu.applyEndQcu(set_ptrs_arg, params_arg)
         values = (null_vectors, hop_nn, hop_diag, sitting)
@@ -414,16 +454,19 @@ def build_coarse_assets(gauge: np.ndarray, lattice: tuple[int, int, int, int],
         raise ValueError(f"unsupported build device {device_name!r}")
 
     null_vectors, hop_nn, hop_diag, sitting = values
-    columns = null_vectors.reshape(
-        E, e, coarse_lattice[0], block[0], coarse_lattice[1], block[1],
-        coarse_lattice[2], block[2], coarse_lattice[3], block[3]).transpose(
-            2, 4, 6, 8, 0, 1, 3, 5, 7, 9).reshape(
-                int(np.prod(coarse_lattice)), E, e * int(np.prod(block)))
-    gram = columns.conj() @ np.swapaxes(columns, 1, 2)
-    gram_error = float(np.max(np.abs(
-        gram - np.eye(E, dtype=complex))))
-    if not np.isfinite(gram_error) or gram_error > 1.0e-4:
-        raise RuntimeError(f"MG null-vector Gram error {gram_error:.3e}")
+    gram_error = 0.0
+    if supplied_null_vectors is None:
+        columns = null_vectors.reshape(
+            E, e, coarse_lattice[0], block[0], coarse_lattice[1], block[1],
+            coarse_lattice[2], block[2], coarse_lattice[3], block[3]
+        ).transpose(2, 4, 6, 8, 0, 1, 3, 5, 7, 9).reshape(
+            int(np.prod(coarse_lattice)), E,
+            e * int(np.prod(block)))
+        gram = columns.conj() @ np.swapaxes(columns, 1, 2)
+        gram_error = float(np.max(np.abs(
+            gram - np.eye(E, dtype=complex))))
+        if not np.isfinite(gram_error) or gram_error > 1.0e-4:
+            raise RuntimeError(f"MG null-vector Gram error {gram_error:.3e}")
     if verbose:
         print(
             "PYQCU::CXX::MG_SETUP:\n "
@@ -444,6 +487,8 @@ def build_coarse_assets(gauge: np.ndarray, lattice: tuple[int, int, int, int],
             "local_stencil_batch_size": int(local_stencil_batch_size),
             "gram_max_abs_error": gram_error,
             "galerkin_relative_error": galerkin_error,
+            "null_vectors_supplied": supplied_null_vectors is not None,
+            "galerkin_validated": bool(validate_galerkin),
             **timings,
             "seconds": time.perf_counter() - stage_started,
         })
@@ -454,50 +499,18 @@ def load_coarse_assets(path: Path, dtype: np.dtype,
                        starts: tuple[int, int, int, int] | None = None,
                        local_shape: tuple[int, int, int, int] | None = None):
     """Load the backend-neutral ``lonv/hnn/hdg/sit`` 33-tensor cache."""
-    import h5py
-
-    with h5py.File(path, "r") as handle:
-        required = {"lonv", "hnn", "hdg", "sit"}
-        missing = sorted(required.difference(handle.keys()))
-        if missing:
-            raise ValueError(f"coarse cache {path} is missing datasets {missing}")
-        values = {}
-        for name in ("lonv", "hnn", "hdg", "sit"):
-            dataset = handle[name]
-            if starts is None or local_shape is None:
-                selection = dataset[...]
-            else:
-                if dataset.ndim < 4:
-                    raise ValueError(
-                        f"coarse cache {name} has invalid shape {dataset.shape}")
-                slices = [slice(None)] * dataset.ndim
-                if name == "lonv":
-                    if dataset.ndim != 10:
-                        raise ValueError(
-                            f"coarse cache lonv has invalid shape {dataset.shape}")
-                    dimensions = (2, 4, 6, 8)
-                else:
-                    dimensions = tuple(range(dataset.ndim - 4, dataset.ndim))
-                for axis, dimension in enumerate(dimensions):
-                    slices[dimension] = slice(
-                        int(starts[axis]),
-                        int(starts[axis] + local_shape[axis]))
-                selection = dataset[tuple(slices)]
-            values[name] = np.ascontiguousarray(selection, dtype=dtype)
+    values = load_legacy_mg_cache_slab(
+        path, dtype, starts=starts, local_shape=local_shape)
     # Match build_coarse_assets(): each return value is a per-level sequence.
     # Returning the raw 10-D array makes callers interpret its E axis as levels.
     return (values["lonv"],), (values["hnn"],), (values["hdg"],), (values["sit"],)
 
 
 def write_coarse_assets(path: Path, null_vectors, hop_nn, hop_diag, sitting):
-    import h5py
-
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with h5py.File(path, "w") as handle:
-        for name, value in (
-                ("lonv", null_vectors), ("hnn", hop_nn),
-                ("hdg", hop_diag), ("sit", sitting)):
-            handle.create_dataset(name, data=np.asarray(value))
+    write_legacy_mg_assets(path, {
+        "lonv": null_vectors, "hnn": hop_nn,
+        "hdg": hop_diag, "sit": sitting,
+    })
 
 
 def _slice_last4(array: np.ndarray, starts: tuple[int, int, int, int],
@@ -529,7 +542,7 @@ def _rank_geometry(lattice: tuple[int, int, int, int],
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--lat", nargs=4, type=int, default=(4, 4, 4, 4))
+    parser.add_argument("--lat", nargs=4, type=int, default=(8, 8, 8, 16))
     parser.add_argument("--grid", nargs=4, type=int, default=None,
                         help="MPI process grid; default: one rank in x")
     parser.add_argument("--mass", type=float, default=None)
@@ -649,11 +662,48 @@ def main(argv=None) -> int:
         local_lattice[axis] // args.mg_grid[axis] for axis in range(4))
     if use_coarse_assets:
         started = time.perf_counter()
+        gauge_file_digest = None
+        if args.gauge is not None:
+            gauge_path = resolve_path(
+                args.gauge, Path(args.gauge).expanduser())
+            if rank == 0:
+                gauge_file_digest = file_sha256(gauge_path)
+            if comm is not None:
+                gauge_file_digest = comm.bcast(gauge_file_digest, root=0)
+        cache_identity = legacy_mg_cache_identity(
+            gauge_canonical_sha256=logical_array_sha256(gauge_full),
+            **({
+                "gauge_file_sha256": gauge_file_digest
+            } if gauge_file_digest is not None else {}),
+            lattice=lattice,
+            dtype=dtype,
+            mass=mass,
+            csw=csw,
+            dof=args.dof[:args.levels],
+            mg_grid=args.mg_grid,
+            nv_iters=args.nv_iters,
+            seed=args.seed,
+        )
         if args.coarse_cache is not None:
             cache_path = resolve_path(
                 args.coarse_cache, Path(args.coarse_cache).expanduser())
             if not cache_path.is_file():
                 raise FileNotFoundError(cache_path)
+            validation_error = None
+            if rank == 0:
+                try:
+                    validate_legacy_mg_cache(
+                        cache_path, cache_identity,
+                        verify_file_sha256=True,
+                        verify_dataset_sha256=True)
+                except (OSError, TypeError, ValueError) as exc:
+                    validation_error = f"{type(exc).__name__}: {exc}"
+            if comm is not None:
+                validation_error = comm.bcast(validation_error, root=0)
+            if validation_error is not None:
+                raise ValueError(
+                    f"coarse cache identity validation failed: "
+                    f"{validation_error}")
             cache_layout, coarse_local, coarse_starts = inspect_cache_layout(
                 cache_path, lattice, list(args.mg_grid), list(grid),
                 local_starts, args.legacy_layout)
@@ -684,9 +734,17 @@ def main(argv=None) -> int:
             cache_output = resolve_path(
                 args.write_coarse_cache,
                 Path(args.write_coarse_cache).expanduser())
-            write_coarse_assets(
-                cache_output, null_vectors[0], hop_nn[0], hop_diag[0],
-                sitting[0])
+            save_legacy_mg_cache(
+                cache_output,
+                {
+                    "lonv": null_vectors[0], "hnn": hop_nn[0],
+                    "hdg": hop_diag[0], "sit": sitting[0],
+                },
+                identity=cache_identity,
+                setup_method="cxx-null-vector+local-33-stencil",
+                setup_backend="kupl-qcu-cxx",
+                source_metadata=metadata,
+                setup_seconds=builder_seconds)
 
     set_ptrs[SET_PTRS_LEGACY_LAYOUT] = resolve_legacy_layout(
         cache_layout, use_coarse_assets, tuple(null_vectors), local_lattice)

@@ -153,6 +153,35 @@ Strict cache schema v2 内建：
 Strict cache hit 会读取一次内容做校验、再读取一次做传输，不能把这段验证 I/O 混入纯 solve
 时间。
 
+### 2026-10-29 跨后端复用补充
+
+Legacy 33-tensor payload 已在同一 gauge 上完成 CUDA -> KUPL 直接复用。此前观察到的
+约 8.9% Galerkin 失配和 L8 `hnn` 差异，根因不是 KUPL `[pm,direction]` 槽序，而是
+CUDA raw lifecycle 在同一个 `applyInitQcu` slot 内修改 parity 后未同步 native/device
+params，导致 even/odd Clover 都按 parity 0 生成。CUDA `sync_parity()` 修复后，
+同 gauge、同 `lonv` 的 KUPL-vs-CUDA 误差为：
+
+```text
+hnn  2.480209e-7
+hdg  7.340791e-8
+sit  2.524953e-7
+```
+
+因此不得对 Legacy cache payload 增加后端私有转置或重排来“修复”该历史现象。跨后端
+命中仍必须验证 manifest、物理 identity、shape/dtype 和逐 tensor SHA。
+
+### 多 MPI cache 构建
+
+`pyqcu.testing.simple.mpi.build_full_mg_cache` 是规范入口。每个 rank 生成自己的
+null-vector，并只计算自己的 coarse slab；周期 overlap patch 只承担 halo。`lonv` 的
+coarse 轴是 `(2,4,6,8)`，不是最后四个 tensor 轴。最终 HDF5 必须由所有 rank 回读
+各自 hyperslab 后原子发布。
+
+CUDA rank 1 的 patch stencil 在 GPU 上执行；多 rank CUDA 的 Clover halo 仍绑定
+`MPI_COMM_WORLD`，不能与 serial patch 安全混用，因此多 rank builder 使用 GPU
+distributed null-vector + CPU overlap stencil，并记录 `stencil_device=cpu`。该
+混合 setup 不作为纯 GPU 性能结论。
+
 ## 生命周期与 ABI
 
 33-path 使用 legacy coarse slots：

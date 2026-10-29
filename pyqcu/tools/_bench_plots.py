@@ -47,10 +47,12 @@ BENCH_MUTED = "#898781"
 BENCH_GRID = "#e1e0d9"
 BENCH_SURF = "#fcfcfb"
 
-_CJK_FONT_PATHS = ("/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
-                   "/usr/share/fonts/truetype/arphic/uming.ttc")
-_CJK_FONT_FAMILY = ["DejaVu Sans", "Droid Sans Fallback",
-                    "AR PL UMing CN", "Noto Sans CJK SC"]
+_CJK_FONT_PATHS = (
+    "/usr/share/fonts/google-noto-cjk/NotoSansCJK-Regular.ttc",
+    "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
+    "/usr/share/fonts/truetype/arphic/uming.ttc",
+)
+_CJK_FONT_FAMILY = ["Noto Sans CJK SC", "DejaVu Sans"]
 
 _MPL_READY = False
 
@@ -107,6 +109,60 @@ def save_figure(fig, path, dpi=150):
     plt.close(fig)
     print(f"saved {path}")
     return path
+
+
+def save_figure_variants(fig, path, dpi=150, formats=("svg", "png")):
+    """Save one figure in vector and raster formats, then close it."""
+    base = os.path.splitext(str(path))[0]
+    saved = []
+    for suffix in formats:
+        saved.append(save_figure(fig, f"{base}.{suffix}", dpi=dpi))
+    return saved
+
+
+def plot_rank_metric(results, value_key, out_dir, prefix, ylabel, title,
+                     *, log_y=False, reference=None, dpi=150):
+    """Plot one metric against MPI rank count with stable series styling."""
+    plt, _ = _mpl()
+    rows = [dict(item) for item in results if item.get(value_key) is not None]
+    if not rows:
+        return []
+    series = []
+    for row in rows:
+        key = (str(row["backend"]), str(row["solver"]))
+        if key not in series:
+            series.append(key)
+    colors = [BENCH_PALETTE[name] for name in (
+        "blue", "green", "orange", "violet", "red", "aqua")]
+    markers = ("o", "s", "^", "D", "v", "P")
+    fig, ax = plt.subplots(figsize=(7.8, 4.8))
+    style_axes(ax)
+    for index, (backend, solver) in enumerate(series):
+        selected = sorted(
+            [row for row in rows
+             if row["backend"] == backend and row["solver"] == solver],
+            key=lambda row: int(row["ranks"]))
+        ax.plot(
+            [int(row["ranks"]) for row in selected],
+            [float(row[value_key]) for row in selected],
+            color=colors[index % len(colors)],
+            marker=markers[index % len(markers)], linewidth=2.0,
+            markersize=5, label=f"{backend} {solver}")
+    if reference is not None:
+        ax.axhline(float(reference), color=BENCH_MUTED, linestyle="--",
+                   linewidth=1.0)
+    ranks = sorted({int(row["ranks"]) for row in rows})
+    ax.set_xticks(ranks)
+    ax.set_xticklabels([str(rank) for rank in ranks])
+    ax.set_xlabel("MPI ranks", color=BENCH_INK2)
+    ax.set_ylabel(ylabel, color=BENCH_INK2)
+    ax.set_title(title, color=BENCH_INK, fontsize=11)
+    if log_y:
+        ax.set_yscale("log")
+    ax.legend(fontsize=8, frameon=False, loc="best")
+    fig.tight_layout()
+    return save_figure_variants(
+        fig, os.path.join(out_dir, prefix), dpi=dpi)
 
 
 def short_label(record, keys=("levels", "restart", "ct", "cmi")):
