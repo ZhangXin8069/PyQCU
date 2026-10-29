@@ -427,7 +427,8 @@ def write_legacy_mg_asset_subset(
 def load_legacy_mg_cache_slab(
         cache_path: str | os.PathLike[str], dtype: Any, *,
         starts: Sequence[int] | None = None,
-        local_shape: Sequence[int] | None = None
+        local_shape: Sequence[int] | None = None,
+        names: Sequence[str] = LEGACY_MG_ASSET_NAMES,
         ) -> dict[str, np.ndarray]:
     """Load a global cache or one rank-local coarse hyperslab."""
     import h5py
@@ -439,13 +440,17 @@ def load_legacy_mg_cache_slab(
     start_values = None if starts is None else _tuple4(starts, "starts")
     shape_values = None if local_shape is None else _tuple4(
         local_shape, "local_shape")
+    selected_names = tuple(str(name) for name in names)
+    unknown = sorted(set(selected_names).difference(LEGACY_MG_ASSET_NAMES))
+    if unknown:
+        raise ValueError(f"unknown Legacy MG datasets {unknown}")
     values: dict[str, np.ndarray] = {}
     with h5py.File(path, "r") as handle:
-        missing = sorted(set(LEGACY_MG_ASSET_NAMES).difference(handle.keys()))
+        missing = sorted(set(selected_names).difference(handle.keys()))
         if missing:
             raise ValueError(
                 f"Legacy MG cache {path} is missing datasets {missing}")
-        for name in LEGACY_MG_ASSET_NAMES:
+        for name in selected_names:
             dataset = handle[name]
             if start_values is None:
                 selected = dataset[...]

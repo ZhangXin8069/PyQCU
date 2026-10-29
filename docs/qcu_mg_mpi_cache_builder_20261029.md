@@ -69,6 +69,12 @@ overlap patch 的 coarse halo 为每个方向两个 coarse block；当窄轴无�
   `44.8 GiB`，叠加 HDF5/page cache 后超过 54,976 MiB。分区禁止 4 卡任务超额申请
   memory。因此 L48 在该单节点资源门内仍未发布 cache；不得用首次 `lonv` scratch
   冒充完整 cache。
+- 后续内存路径改为逐 tensor 处理：从对应 patch 提取一个 local slab、写入 HDF5、
+  计算其 local SHA256，然后立即释放该 patch 和 local slab；重建验签也一次只加载
+  一个 dataset。禁止重新一次性构造四份 local slab。
+- `1604231` 已完成 L48 GPU stencil（约 `7m38s`），随后暴露并修复了把
+  `patch_assets` tuple 当作可变列表的一行错误。该失败发生在写盘开始前，不是 OOM；
+  修复后内存路径仍需在下一次作业中完成 cache 发布和独立真残差验证。
 - manifest 必须按固定上限（当前 64 MiB）对 HDF5 dataset 做多维分块摘要，不能只按
   第一维切片；L48 的 `hdg` 单个首维切片本身就可能达到数 GiB。刚由同一进程流式
   生成并记录 digest/file SHA 后，内部结构验签不做第二次无条件全量 digest；
