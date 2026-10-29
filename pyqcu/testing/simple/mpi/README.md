@@ -72,7 +72,9 @@ python pyqcu/testing/simple/mpi/solve_case.py \
 4. 构建全局两级 33-tensor 粗算子缓存。
 5. 设置 `OMP_NUM_THREADS=8`、`KUPL_OMP_THREADS=8`。
 6. 设置 `KUPL_NUMA_BIND=0`，因为 MPI 启动器负责 CPU 绑定。
-7. 启动 `mpirun`，rank 0 汇总解和 JSON 报告。
+7. 启动 `mpirun`；每个 worker 以
+   `/usr/bin/env PYTHONPATH=<current-repo>:...` 启动，防止 HMPI 回退到旧安装树。
+8. rank 0 汇总解和 JSON 报告；不适用字段直接省略，不写 JSON `null`。
 
 在多 NUMA 主机上，预期绑定为：
 

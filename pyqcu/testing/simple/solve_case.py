@@ -39,7 +39,7 @@ from pathlib import Path
 import numpy as np
 
 try:
-    from ._common import (DEFAULT_ATOL, DEFAULT_CSW, DEFAULT_MASS,
+    from ._common import (DEFAULT_ATOL, DEFAULT_CSW, DEFAULT_MASS, json_safe,
                           lime_metadata, read_h5_metadata, resolve_path,
                           write_json)
     from ._runner import (REPO, cuda_environment, default_kupl_grid,
@@ -47,7 +47,7 @@ try:
                           libqcu_environment, quda_environment, run_report)
     from .prepare_case import prepare_gauge, prepare_source
 except ImportError:
-    from _common import (DEFAULT_ATOL, DEFAULT_CSW, DEFAULT_MASS,
+    from _common import (DEFAULT_ATOL, DEFAULT_CSW, DEFAULT_MASS, json_safe,
                          lime_metadata, read_h5_metadata, resolve_path,
                          write_json)
     from _runner import (REPO, cuda_environment, default_kupl_grid,
@@ -113,11 +113,6 @@ def _resolve_case(args, out_dir: Path):
 
 def _solution_path(out_dir: Path, backend: str, lat) -> Path:
     return out_dir / f"solution_{'x'.join(map(str, lat))}_{backend}_c64.h5"
-
-
-def _drop_none_fields(payload: dict) -> dict:
-    """Omit inapplicable optional fields instead of publishing JSON null."""
-    return {key: value for key, value in payload.items() if value is not None}
 
 
 def main(argv=None) -> int:
@@ -238,7 +233,7 @@ def main(argv=None) -> int:
         except FileNotFoundError:
             pass
 
-    summary = _drop_none_fields({
+    summary = json_safe({
         "backend": args.backend,
         "solution": str(output),
         "report": str(report),
@@ -256,8 +251,9 @@ def main(argv=None) -> int:
         "quda_variant": quda_variant,
         "kupl_variant": kupl_variant,
         "error": data.get("error"),
-    })
-    write_json(out_dir / f"last_solve_{args.backend}.json", summary)
+    }, omit_none=True)
+    write_json(out_dir / f"last_solve_{args.backend}.json", summary,
+               omit_none=True)
     print(json.dumps(summary, ensure_ascii=False, indent=2))
     return 0 if summary.get("status") == "PASS" else 1
 

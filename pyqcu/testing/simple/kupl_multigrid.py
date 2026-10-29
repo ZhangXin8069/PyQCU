@@ -30,7 +30,7 @@ except ImportError:  # pragma: no cover - KUPL itself requires MPI.
 
 try:
     from ._common import (DATA_DIR, DEFAULT_ATOL, DEFAULT_BLOCK, DEFAULT_MASS,
-                          convergence_status, kupl_fermion_to_qcu,
+                          convergence_status, json_safe, kupl_fermion_to_qcu,
                           qcu_fermion_to_kupl, qcu_gauge_to_kupl,
                           resolve_csw, resolve_path, write_h5, write_json)
     from ._layouts import qcu_gauge_to_kupl as gauge_to_parity
@@ -43,7 +43,7 @@ try:
                                 gather_solution)
 except ImportError:
     from _common import (DATA_DIR, DEFAULT_ATOL, DEFAULT_BLOCK, DEFAULT_MASS,
-                         convergence_status, kupl_fermion_to_qcu,
+                         convergence_status, json_safe, kupl_fermion_to_qcu,
                          qcu_fermion_to_kupl, qcu_gauge_to_kupl,
                          resolve_csw, resolve_path, write_h5, write_json)
     from _layouts import qcu_gauge_to_kupl as gauge_to_parity
@@ -856,7 +856,9 @@ def main(argv=None) -> int:
         status = "FAIL" if failed else "PASS"
         report["status"] = status
     if rank == 0:
-        write_json(resolve_path(args.report, DATA_DIR / args.report), report)
+        report = json_safe(report, omit_none=True)
+        write_json(resolve_path(args.report, DATA_DIR / args.report), report,
+                   omit_none=True)
         print(json.dumps(report, ensure_ascii=False))
     return 0 if status != "FAIL" else 1
 

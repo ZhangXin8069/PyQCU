@@ -25,7 +25,12 @@ from typing import Sequence
 import numpy as np
 from mpi4py import MPI
 
-from pyqcu.testing.simple._common import convergence_status, write_h5, write_json
+from pyqcu.testing.simple._common import (
+    convergence_status,
+    json_safe,
+    write_h5,
+    write_json,
+)
 from pyqcu.testing.simple.mpi._common import (
     canonical_fermion,
     canonical_gauge,
@@ -104,7 +109,8 @@ def _run_kupl(args, comm: MPI.Comm) -> int:
     if int(comm.Get_rank()) == 0 and Path(args.report).is_file():
         payload = json.loads(Path(args.report).read_text(encoding="utf-8"))
         payload["ranks"] = records
-        write_json(args.report, payload)
+        payload = json_safe(payload, omit_none=True)
+        write_json(args.report, payload, omit_none=True)
     return exit_code
 
 
@@ -395,7 +401,8 @@ def _run_cuda(args, comm: MPI.Comm) -> int:
         "ranks": records,
     }
     if rank == 0:
-        write_json(args.report, report)
+        report = json_safe(report, omit_none=True)
+        write_json(args.report, report, omit_none=True)
         print(json.dumps(report, ensure_ascii=False), flush=True)
     return 0 if final_status != "FAIL" else 1
 
@@ -927,7 +934,8 @@ def _run_torch(args, comm: MPI.Comm) -> int:
             "ranks": records,
         }
         if rank == 0:
-            write_json(args.report, report)
+            report = json_safe(report, omit_none=True)
+            write_json(args.report, report, omit_none=True)
             print(json.dumps(report, ensure_ascii=False), flush=True)
         return 0 if status == "PASS" else 1
     finally:
