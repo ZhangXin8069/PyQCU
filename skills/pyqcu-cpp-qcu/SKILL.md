@@ -24,7 +24,7 @@ Normative project rules:
 
 ```bash
 source ./env.sh       # CUDA toolkit paths, MPI, etc.
-bash ./make.sh        # symlinks CMakeLists-nv.txt → CMakeLists.txt, then cmake + make
+bash ./make-nv.sh     # symlinks CMakeLists-nv.txt → CMakeLists.txt, then cmake + make
 ```
 
 Output: `libqcu.so` — dynamically linked library loaded by the Cython bridge.
@@ -33,7 +33,7 @@ CMake 默认自动使用 `env.sh` 探测到的 GPU compute capability（cubin + 
 不需要为单一 GPU 型号锁死架构；V100 生产基准仍可显式设置：
 
 ```bash
-QCU_CUDA_ARCHITECTURES='70-real;70-virtual' bash ./build.sh
+QCU_CUDA_ARCHITECTURES='70-real;70-virtual' bash ./build-nv.sh
 cuobjdump --list-elf cpp/cuda/qcu/libqcu.so | head
 ```
 

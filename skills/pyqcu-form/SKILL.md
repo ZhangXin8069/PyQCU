@@ -25,8 +25,8 @@ PyQCU 是复杂库，主导语言为 C++/CUDA、Python/Cython 和 Bash。先只�
 ## 本地结构规则
 
 - 顶层目录只允许 `cpp/`、`data/`、`docs/`、`logs/`、`pyqcu/`、`refer/`、`skills/`。
-- 根文件只允许 `AGENTS.md`、`.gitignore`、`LICENSE`、`README.md`、`build.sh`、
-  `env.sh`、`install.sh`、`setup.py`。
+- 根文件只允许 `AGENTS.md`、`.gitignore`、`LICENSE`、`README.md`、`build-nv.sh`、
+  `build-dcu.sh`、`env.sh`、`install.sh`、`setup.py`。
 - **Agent 规则文件名称（硬性）**：所有目录的 agent 指令文件统一使用 `AGENTS.md`；`AGENTS.md` 是唯一名称，`AGENT.md` 是历史输入错误，不是兼容别名。只存在单数文件时直接重命名为 `AGENTS.md`；同目录双文件并存时，以 `AGENTS.md` 为主文件，完整合并并去重 `AGENT.md` 的有效内容后删除 `AGENT.md`，并同步现行脚本、配置、文档和本地规则中的全部引用。历史日志正文可保留旧路径作为既往证据。
 - C++ 头文件和 `.cu` 文件使用小写下划线；类型使用大驼峰，宏使用全大写下划线；
   对外 C API 使用小驼峰，内部函数使用小写下划线。
@@ -80,7 +80,7 @@ PyQCU 是复杂库，主导语言为 C++/CUDA、Python/Cython 和 Bash。先只�
 ```bash
 bash skills/pyqcu-form/form-audit.sh
 python -B skills/pyqcu-docs/scripts/audit-docs-skills.py
-bash -n build.sh env.sh install.sh skills/pyqcu-tag/tag-chain.sh skills/pyqcu-tag/tag-chain.test.sh
+bash -n build-nv.sh build-dcu.sh env.sh install.sh skills/pyqcu-tag/tag-chain.sh skills/pyqcu-tag/tag-chain.test.sh
 bash skills/pyqcu-tag/tag-chain.test.sh
 git cat-file -e <tag>:<archived-report-path>
 git show <tag>:<archived-report-path> >/dev/null

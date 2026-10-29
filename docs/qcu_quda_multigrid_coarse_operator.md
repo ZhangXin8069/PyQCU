@@ -149,8 +149,9 @@ QUDA `DiracCoarse` 保存：
 - `Xinv_h/Xinv_d`：coarse clover inverse；
 - `Yhat_h/Yhat_d`：preconditioned coarse link field。
 
-成员定义见
-[`dirac_quda.h`](../data/quda-sm70-install/include/dirac_quda.h#L1877-L1934)。
+成员定义见历史 QUDA 安装树中的
+`data/quda-sm70-install/include/dirac_quda.h`（约第 1877--1934 行）；该源码树未置于
+当前工作树。
 
 这些字段使用了 QUDA 的 `GaugeField` 容器和“coarse link/coarse clover”命名，
 但其数学来源仍是 transfer operator 下的 Galerkin 粗化。$X$ 起 onsite 作用，

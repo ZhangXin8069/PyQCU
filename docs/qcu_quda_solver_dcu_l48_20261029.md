@@ -1,4 +1,4 @@
-# PyQCU test34 L48 容量与性能门
+# PyQCU DCU L48 容量与性能门（2026-10-29）
 
 > 状态：`BLOCKED-BY-USER`，2026-10-29 23:35 CST 起暂停。  
 > 后续状态：不再提交 canonical/cache/性能作业；恢复需用户明确解除暂停。  
@@ -24,19 +24,21 @@ gauge HDF5，不直接读取 LIME。
 
 ## 2. 容量预算
 
-按本轮 `dof=12 12`、`mg-grid=2 2 2 2` 的 canonical odd-Schur schema，
-粗格为 `12x12x12x24 = 20736` 点。四个 complex64 tensor 的未压缩 payload
-预算如下：
+按当前 `legacy_mg_cache_shapes()` 的 canonical odd-Schur schema，
+`dof=12 12`、`mg-grid=2 2 2 2` 时 coarse 为
+`24x24x24x24 = 331776` 点。四个 complex64 tensor 的未压缩 payload 如下：
 
 | tensor | shape | payload |
 |---|---:|---:|
-| `lonv` | `12x12x12x2x12x2x12x2x24x2` | 23.9 MB |
-| `hnn` | `2x4x12x12x12x12x12x24` | 191.1 MB |
-| `hdg` | `2x2x6x12x12x12x12x12x24` | 573.3 MB |
-| `sit` | `12x12x12x12x12x24` | 23.9 MB |
-| 合计 |  | 812.2 MB（十进制） |
+| `lonv` | `12x12x24x2x24x2x24x2x24x2` | 6,115,295,232 B |
+| `hnn` | `2x4x12x12x24x24x24x24` | 3,057,647,616 B |
+| `hdg` | `2x2x6x12x12x24x24x24x24` | 9,172,942,848 B |
+| `sit` | `12x12x24x24x24x24` | 382,205,952 B |
+| 合计 |  | 18,728,091,648 B（17.44 GiB） |
 
-转换前公共文件系统可用约 14 GB；该预算不作为 cache 已发布的证据。
+转换前公共文件系统可用约 14 GB，而逻辑 payload 已达约 18.73 GB，因此该窗口不具备
+发布完整 cache 的容量条件；该预算不作为 cache 已发布的证据。
+上表只计算逻辑 payload，不包含 HDF5 chunk、属性、manifest 和文件系统开销。
 
 ## 3. 当前状态
 

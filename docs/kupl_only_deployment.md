@@ -181,6 +181,18 @@ python -B pyqcu/testing/kupl/kunpeng_runtime.py inspect --json
 ```
 
 该命令是纯 sysfs/affinity/`mpirun --version` 查询，不应进入 `MPI_Init_thread`。
+生成包含 HBM 候选、cgroup、工具链、动态库和推荐变量的完整环境报告：
+
+```bash
+python -B pyqcu/testing/kupl/kupl_env.py \
+  --ranks 4 --threads-per-rank 32 \
+  --lattice 24 24 24 64 --dtype c64 --grid 1 1 2 2
+```
+
+默认写入 `logs/kupl_env-vYYYY-MM-DD-HH-MM-SS.txt`。该脚本不导入 `mpi4py`、不启动
+solve，也不会调用 `set_mempolicy`。报告中的 `detected_offset` 只表示 sysfs 的
+memory-only NUMA 节点与 CPU 节点形成了唯一稳定 offset；要证明进程实际使用 HBM，
+仍须使用严格 `bind` 并在运行中检查页分布。
 
 ## 5. 旧版 PyTorch 兼容
 
@@ -316,13 +328,28 @@ unset OMP_PROC_BIND OMP_PLACES GOMP_CPU_AFFINITY KMP_AFFINITY
 
 ```bash
 export KUPL_NUMA_BIND=1
-export KUPL_MEMORY_POLICY=preferred
+export KUPL_MEMORY_POLICY=bind
+export KUPL_REQUIRE_MEMORY_BIND=1
 export KUPL_TOPOLOGY_REPORT=1
 ```
 
 禁止同时让 OpenMPI、OpenMP 和 KUPL 三方绑定同一进程。`KUPL_NUMA_BIND=1` 时 MPI
 使用 `--bind-to none`，且不得设置 `OMP_PROC_BIND`、`OMP_PLACES`、
 `GOMP_CPU_AFFINITY` 或 `KMP_AFFINITY`。
+
+只有在现场确认 CPU 节点 `N` 对应独立片上内存节点 `N+offset` 后才设置：
+
+```bash
+: "${hbm_offset:?set this to kupl_env.py detected_offset}"
+export KUPL_MEMORY_NODE="local+${hbm_offset}"
+export KUPL_MEMORY_POLICY=bind
+export KUPL_REQUIRE_MEMORY_BIND=1
+```
+
+`preferred` 在容量不足时会回退 DDR，不能满足“确保使用 HBM”。若本机只有
+CPU+内存合一的 NUMA 节点，使用 `KUPL_MEMORY_NODE=local`，不能把 `local+16` 等
+示例硬编码；不存在的节点会让 `set_mempolicy()` 返回 `EINVAL`，严格模式下进程应
+失败关闭。
 
 ### 7.4 产物与验收
 
@@ -344,20 +371,150 @@ last_solve_kupl.json
 - 独立 full-operator 真残差；
 - cache identity、命中状态和 correction 次数（使用 MG 时）。
 
-### 7.5 Multigrid
+### 7.5 真正的 Legacy-MG 与高效 BiStabCG
 
-`solve_case.py --backend kupl` 的单次默认求解路径是 `restart=0`，不是 coarse
-V-cycle 性能样本。两级 legacy MG 使用专门入口：
+#### 7.5.1 先选择算法路线
+
+`restart` 不是性能档位，而是算法路线：
+
+| 路线 | 正确参数 | coarse hierarchy | 生产用途 |
+|---|---|---|---|
+| Legacy-MG | `--levels 2 --restart 5` | 会构建/加载 33-tensor 粗算子并执行周期 coarse correction | 评估真实 MG 的迭代和墙钟收益 |
+| BiStabCG | `--levels 1 --restart 0` | 不遍历 coarse hierarchy | 稳定的多 rank parity-Schur 基线；当前许多组态上最快 |
+
+`--levels 2 --restart 0` 仍会在数据准备层保留 MG 参数，但实际求解不执行 coarse
+correction；它不能作为完整 MG 性能样本。只有 `levels=2`、`restart>0` 且报告中的
+`coarse_source` 不是 `unused: restart=0` 时，才是在运行真正的 Legacy-MG。
+这里的“真正”表示实际执行 Legacy 粗层 correction，不表示 QUDA-style 或
+Strict-MG 的持久 V-cycle/FGMRES。当前 `mpi/solve_case.py` 的 KUPL 生产路线是
+Legacy-MG；Strict-MG 需要显式 `pyqcu.kupl.multigrid.StrictMultigrid` 集成或专用
+资产/benchmark harness，不能把 Legacy 报告改名为 Strict。
+
+推荐生产入口是 MPI 启动器，不要直接拼 worker 命令：
 
 ```bash
-python pyqcu/testing/simple/kupl_multigrid.py --help
-python pyqcu/testing/simple/mpi/kupl_multigrid.py --help
+python -B pyqcu/testing/simple/mpi/solve_case.py --help
 ```
 
-使用 cache 前必须校验 dtype、gauge identity、MPI business geometry、coarse
-geometry 和 setup provenance。Native KUPL Legacy cache 为 full-time 布局，
-CUDA/Torch public Legacy cache 为 odd-Schur、parity-compressed-time 布局，不能只按
-文件名互换。
+该入口会完成输入物化、全局 coarse-cache 构建或复用、`mpirun` 启动、每 rank
+environment/affinity 记录、rank 0 汇总和独立 full-operator 真残差。它自己启动
+`mpirun`，所以外层不得再次嵌套 `mpirun`。
+
+#### 7.5.2 检测环境并确定绑定
+
+```bash
+python -B pyqcu/testing/kupl/kupl_env.py \
+  --ranks 4 --threads-per-rank 32 \
+  --lattice 24 24 24 64 --dtype c64 --grid 1 1 2 2
+```
+
+报告给出 rank/thread/grid、`KUPL_MEMORY_NODE`、是否检测到稳定 HBM offset，以及
+MG/BiStabCG 两条可直接改路径执行的命令。推荐基线优先使用“一个 CPU NUMA 一个
+rank”；rank 数超过 NUMA 数、Python/NumPy 输入在绑定前 first-touch、或三方同时
+绑定都会降低有效带宽。
+
+#### 7.5.3 运行真实 Legacy-MG
+
+以下示例假定现场检测到唯一 HBM offset。先从 `kupl_env.py` 报告设置
+`hbm_offset`；没有 HBM 时把库参数改为 `--kupl-memory-node local`。未检测到目标库时还必须设置绝对
+`PYQCU_KUPL_LIB`。
+
+```bash
+export PYQCU_KUPL_LIB="$PWD/cpp/kupl/qcu/build/libqcu.so"
+: "${hbm_offset:?set this to kupl_env.py detected_offset}"
+
+python -B pyqcu/testing/simple/mpi/solve_case.py \
+  --backend kupl \
+  --gauge data/production_L24/gauge_24x24x24x64_c64.h5 \
+  --source data/production_L24/source_24x24x24x64_c64.h5 \
+  --lat 24 24 24 64 --dtype c64 --atol 1e-6 \
+  --ranks 4 --grid 1 1 2 2 --omp-threads 32 \
+  --kupl-numa-bind library \
+  --kupl-memory-policy bind \
+  --kupl-memory-node "local+${hbm_offset}" \
+  --kupl-profile kunpeng \
+  --kupl-topology-report \
+  --levels 2 --dof 12 12 --mg-grid 2 2 2 2 \
+  --restart 5 --coarse-max-iter 200 \
+  --coarse-tol-factor 1e4 --nv-iters 2 \
+  --work-dir data/production_L24/legacy-mg
+```
+
+第一次运行包含 null-vector/Galerkin/cache setup；后续使用同一输入、mass、csw、
+dtype、dof、mg-grid、nv-iters 和 seed 时应复用同一身份匹配的 cache。正式性能比较
+应把 `builder_seconds` 与稳态 `wall_seconds` 分栏，先用
+`--rebuild-coarse-cache` 做一次 cold setup，再在 cache-hit 条件比较 solver。
+
+合格的真实 MG 报告至少应满足：
+
+- `levels=2`、`restart>0`、`coarse_source` 指向实际 cache；
+- `verify_status=0`；
+- `final_true_residual <= residual_acceptance`，且未使用
+  `--skip-independent-residual`；
+- `coarse_source`、cache identity、dtype、MPI grid 和 coarse geometry 一致。
+
+MG 不等于“必然更快”。必须与同 gauge/RHS、dtype、atol、ranks/grid/threads 的
+BiStabCG 基线比较；若 coarse correction 增加墙钟或未减少有效迭代，应保留
+BiStabCG 生产路线并在报告中记录 MG 负收益，而不是修改残差或把 `restart=0`
+改写成 MG。
+
+#### 7.5.4 运行高效多 rank BiStabCG
+
+`kupl_bistabcg.py` 是单 MPI rank 的 ctypes 示例，不是多 NUMA 生产入口。多 rank
+生产求解使用同一 MPI 启动器并显式关闭 coarse hierarchy：
+
+```bash
+: "${hbm_offset:?set this to kupl_env.py detected_offset}"
+python -B pyqcu/testing/simple/mpi/solve_case.py \
+  --backend kupl \
+  --gauge data/production_L24/gauge_24x24x24x64_c64.h5 \
+  --source data/production_L24/source_24x24x24x64_c64.h5 \
+  --lat 24 24 24 64 --dtype c64 --atol 1e-6 \
+  --ranks 4 --grid 1 1 2 2 --omp-threads 32 \
+  --kupl-numa-bind library \
+  --kupl-memory-policy bind \
+  --kupl-memory-node "local+${hbm_offset}" \
+  --kupl-profile kunpeng \
+  --kupl-topology-report \
+  --levels 1 --restart 0 \
+  --work-dir data/production_L24/bistabcg
+```
+
+该路线执行优化的 parity-Schur BiStabCG，不构建 coarse cache。保持
+`KUPL_FUSED_BICG_DOTS=1` 作为默认；只有同题 A/B 稳定改善时才改用 `0`。
+`simple/solve_case.py --backend kupl` 也能运行同一多 rank 路线，但它同样在内部
+启动 `mpirun`，外层不要再执行 `mpirun`。
+
+实现层级需要与 CLI 名称区分：
+
+- 独立 Clover BiStabCG 核心是 `cpp/kupl/qcu/src/lattice_solver.cpp` 中的
+  `solve_compact_bistabcg()`；Clover 路径在 `solve_clover()` 中完成 Schur
+  prepare、BiStabCG、解重构和 full-operator residual 验收。
+- `applyCloverBistabCgQcu` 直接调用 `LatticeSet::clover_bistabcg()`，并可通过
+  `kupl_bistabcg.py`、`KuplLinearOperator` 或统一 `Krylov` facade 使用。
+- `applyCloverMultigridQcu` 是共享入口；当 `levels<=1` 或 `restart=0` 时，
+  `clover_multigrid_solve()` 明确转发到同一个 `set.clover_bistabcg()`。因此
+  `solver=applyCloverMultigridQcu` 记录的是入口 ABI，不代表实际执行了 coarse
+  correction。
+- 当前没有名为 `kupl_bistabcg_mpi.py` 的独立多 rank CLI；多 rank 生产复用
+  `kupl_multigrid.py` 或 `simple/mpi/solve_case.py` 的 `levels=1,restart=0`。
+
+#### 7.5.5 性能 A/B 与 HBM 证据
+
+1. MG 与 BiStabCG 各自至少一次 warmup，再做同题 3 次以上 steady 采样。
+2. MG 稳态复用同一 cache；禁止把 cold setup 时间与 BiStabCG solver-only 时间直接
+   相乘或相除。
+3. 扫描 threads 时至少测试满 NUMA 线程数及一半线程数，并记录 load average。
+4. `KUPL_HUGEPAGE=1` 只在专用节点做 A/B，不能在没有 THP/大页证据时写成默认最优。
+5. 严格 HBM 配置必须对每个 rank 检查 `numastat -p <pid>` 或
+   `/proc/<pid>/numa_maps` 的 `N<node>=` 页数；只看 `memory_bound=true` 不够。
+6. 输入文件、Python/NumPy 数组若在 `applyInitQcu` 前 first touch，后续 memory
+   policy 不会自动迁移这些页；使用启动器或在绑定后完成分配。
+
+公共 Legacy cache 统一使用 odd-Schur、parity-compressed-time 布局；身份匹配时 KUPL
+可直接复用 CUDA/Torch 生成的该布局 cache，并通过 Legacy layout 标志选择对应数据路径。
+KUPL 仍保留历史 full-time cache 支持，但两种布局的 coarse shape 不同；不得仅按文件名
+或大小互换，必须校验 manifest identity、dtype、MPI coarse geometry 和 layout。
 
 ## 8. 升级、补充与维护
 

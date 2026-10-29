@@ -1,4 +1,4 @@
-# PyQCU test34 L24 QCU/QUDA 求解器实测
+# PyQCU DCU L24 QCU/QUDA 求解器实测（2026-10-29）
 
 ## 状态
 
@@ -6,7 +6,9 @@
 - 输入：真实 LIME 配置对应的 canonical c64 gauge/source，格点 `24x24x24x64`
 - 二进制：`libqcu.so` SHA256 `b513fbcd41e48caa5e9bc3acd2f23693c52b177ddd26efe65e0cb6f82ed068bf`
 - Cython：`qcu.cpython-38-x86_64-linux-gnu.so` SHA256 `df204a1c5dcce7be6720e988fbc1534be5bfd1f2d5d92f11916b49f589aa9386`
-- 当前阶段：CUDA 目标完成；cache 已认证，1/2/4-rank CUDA QCU MG 已完成 1 warmup + 5 timed cold solves。QUDA 辅助对照已停止且标记 `BLOCKED-RUNTIME`。
+- 本次测试状态（2026-10-29 至 2026-10-30）：CUDA QCU 目标完成；cache 已认证，
+  1/2/4-rank CUDA QCU MG 已完成 1 warmup + 5 timed cold solves。QUDA 辅助对照已停止
+  且标记 `BLOCKED-RUNTIME`。
 - 报告限制：未独立计算 full residual 的 case 只记录 native residual，不能宣称独立真残差 PASS。
 
 ## DCU 硬件与运行环境

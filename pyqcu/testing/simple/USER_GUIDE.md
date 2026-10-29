@@ -342,6 +342,19 @@ python pyqcu/testing/simple/solve_case.py \
 
 ### 7.3 KUPL QCU
 
+先按计划使用的 rank/thread/grid 生成宿主报告：
+
+```bash
+python -B pyqcu/testing/kupl/kupl_env.py \
+  --ranks 4 --threads-per-rank 32 \
+  --lattice 24 24 24 64 --dtype c64 --grid 1 1 2 2
+```
+
+报告默认写入 `logs/kupl_env-vYYYY-MM-DD-HH-MM-SS.txt`，列出 CPU/NUMA/cgroup、
+HBM 候选、`libqcu.so` SHA256、冲突环境变量，以及真实 Legacy-MG 和 BiStabCG 命令。
+`detected_offset` 只允许生成 `KUPL_MEMORY_NODE=local+N` 建议；没有 HBM 证据时必须
+使用 `local`，不能硬编码 `local+16`。
+
 ```bash
 python pyqcu/testing/simple/solve_case.py \
   --backend kupl \
@@ -365,7 +378,7 @@ extent 的分解。若 rank 数无法分解，生产入口会报错；三方 ben
 
 `solve_case.py` 的 KUPL 子进程使用 `mpirun --bind-to none`。CPU 放置由调度器
 cpuset 或 `KUPL_NUMA_BIND=1` 负责。需要启动器直接管理 NUMA 绑定时，使用
-`mpi/solve_case.py`。
+`mpi/solve_case.py`。`solve_case.py` 自己启动 `mpirun`，外层禁止嵌套调用。
 
 ### 7.4 QUDA / PyQUDA
 
@@ -426,6 +439,33 @@ python pyqcu/testing/simple/qcu_multigrid.py \
 
 ### 8.3 KUPL BiStabCG
 
+`kupl_bistabcg.py` 是单 MPI rank 的 ABI/数值示例。多 NUMA 生产求解应使用：
+
+```bash
+python -B pyqcu/testing/simple/mpi/solve_case.py \
+  --backend kupl \
+  --gauge data/production_L24/gauge_24x24x24x64_c64.h5 \
+  --source data/production_L24/source_24x24x24x64_c64.h5 \
+  --lat 24 24 24 64 --dtype c64 --atol 1e-6 \
+  --ranks 4 --grid 1 1 2 2 --omp-threads 32 \
+  --kupl-numa-bind library \
+  --kupl-memory-policy bind --kupl-memory-node local \
+  --kupl-topology-report \
+  --levels 1 --restart 0 \
+  --work-dir data/production_L24/bistabcg
+```
+
+这条路线使用 optimized parity-Schur BiStabCG，不构建 coarse hierarchy。
+`--levels 1 --restart 0` 是算法选择，不是“退化 MG”。检测到稳定 HBM offset 时把
+`--kupl-memory-node local` 替换为报告给出的 `--kupl-memory-node "local+${hbm_offset}"`；
+只有 `KUPL_MEMORY_POLICY=bind` 才能保证容量不足时失败而不是回退 DDR。
+
+KUPL 的 BiStabCG 核心是独立 C++ 实现：`solve_compact_bistabcg()` 与
+`solve_clover()` 位于 `cpp/kupl/qcu/src/lattice_solver.cpp`，
+`applyCloverBistabCgQcu` 直接调用 `clover_bistabcg()`。上面的多 rank 命令复用
+`applyCloverMultigridQcu`，只是因为该入口在 `restart=0` 时转发到同一 BiStabCG
+核心；当前没有单独命名的多 rank BiStabCG CLI，而不是没有独立求解器。
+
 ```bash
 KUPL_OMP_THREADS=8 OMP_NUM_THREADS=8 \
 python pyqcu/testing/simple/kupl_bistabcg.py \
@@ -441,6 +481,33 @@ python pyqcu/testing/simple/kupl_bistabcg.py \
 
 ### 8.4 KUPL legacy MG
 
+真正的 Legacy-MG 必须同时满足 `levels=2`、`restart>0`、实际 coarse cache 和
+`verify_status=0`。推荐由 MPI 启动器自动构建/校验全局 cache：
+
+该入口执行 Legacy additive coarse correction，不是 Strict-MG 的持久
+V-cycle/FGMRES；Strict 路径需要显式 `pyqcu.kupl.multigrid.StrictMultigrid` 集成。
+
+```bash
+python -B pyqcu/testing/simple/mpi/solve_case.py \
+  --backend kupl \
+  --gauge data/production_L24/gauge_24x24x24x64_c64.h5 \
+  --source data/production_L24/source_24x24x24x64_c64.h5 \
+  --lat 24 24 24 64 --dtype c64 --atol 1e-6 \
+  --ranks 4 --grid 1 1 2 2 --omp-threads 32 \
+  --kupl-numa-bind library \
+  --kupl-memory-policy bind --kupl-memory-node local \
+  --kupl-topology-report \
+  --levels 2 --dof 12 12 --mg-grid 2 2 2 2 \
+  --restart 5 --coarse-max-iter 200 \
+  --coarse-tol-factor 1e4 --nv-iters 2 \
+  --work-dir data/production_L24/legacy-mg
+```
+
+第一次运行包含 cache setup；后续同输入、mass、csw、dtype、dof、mg-grid、
+nv-iters 和 seed 应走 cache hit。先在 cache-hit 条件比较 MG 与 BiStabCG 的稳态
+wall/真残差，再决定生产路线。报告若显示 `restart=0`、`coarse_source=unused` 或
+`verify_status!=0`，不能记为 MG PASS。
+
 ```bash
 KUPL_OMP_THREADS=2 OMP_NUM_THREADS=2 \
 mpirun --allow-run-as-root --oversubscribe --bind-to none -np 4 \
@@ -455,9 +522,13 @@ mpirun --allow-run-as-root --oversubscribe --bind-to none -np 4 \
   --report data/kupl_mg_mpi.json
 ```
 
-多 rank 且 `levels>1, restart!=0` 时必须提供全局 `--coarse-cache`。缓存需由
-`build_full_mg_cache.py` 或单 rank 的 `kupl_multigrid.py --write-coarse-cache`
-生成。
+多 rank 且 `levels>1, restart!=0` 时必须提供全局 `--coarse-cache`。缓存应由
+`pyqcu.testing.simple.mpi.build_full_mg_cache` 全 rank 构建；小的单 rank 调试可
+使用 `kupl_multigrid.py --write-coarse-cache`，但不能替代 MPI 生产 cache builder。
+
+直接 `mpirun` 入口需要用户自己维护全局 cache identity 和每 rank 输出；正式生产优先
+使用前面自动化的 `mpi/solve_case.py`。任何 `solve_case.py` 入口都在内部启动
+`mpirun`，外层不能再次嵌套。
 
 ### 8.5 QUDA
 
@@ -800,6 +871,24 @@ mpirun --oversubscribe --bind-to none -np 4 ...
 mpirun --bind-to numa --map-by ppr:1:numa -np 4 \
   python -c 'import os; print(sorted(os.sched_getaffinity(0)))'
 ```
+
+HBM 确认不能只看 affinity。先让 `kupl_env.py` 检测唯一 memory-only node offset；
+检测成功后才使用：
+
+```bash
+export KUPL_NUMA_BIND=1
+: "${hbm_offset:?set this to kupl_env.py detected_offset}"
+export KUPL_MEMORY_NODE="local+${hbm_offset}"
+export KUPL_MEMORY_POLICY=bind
+export KUPL_REQUIRE_MEMORY_BIND=1
+export KUPL_REQUIRE_TOPOLOGY=1
+export KUPL_TOPOLOGY_REPORT=1
+unset OMP_PROC_BIND OMP_PLACES GOMP_CPU_AFFINITY KMP_AFFINITY
+```
+
+其中 `N` 必须来自现场报告，不是固定值。运行中用 `numastat -p <pid>` 或
+`/proc/<pid>/numa_maps` 验证实际页分布；`preferred` 可能回退 DDR，不能作为 HBM
+严格保证。
 
 ### 15.4 生产驱动与 MPI 快速入口的绑核责任
 

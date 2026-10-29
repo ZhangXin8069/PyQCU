@@ -1,4 +1,4 @@
-# QCU Legacy-MultiGrid 与 QUDA L32 全尺寸重测（test34）
+# QCU Legacy-MultiGrid 与 QUDA DCU L32 全尺寸重测（2026-10-29）
 
 > 状态：`BLOCKED-CACHE`；16-batch、resume-32、recovery-64 和 16-rank 均超时，
 > recovery-128 因 native stencil status 1 失败；32-rank 恢复作业 `126271962`

@@ -40,7 +40,7 @@ as a completed solve.
 ## Evidence
 
 - Machine-readable decision:
-  [`strict-skip.json`](../logs/qcu_l24x64_mpi_20261023/strict-skip.json)
+  历史路径 `logs/qcu_l24x64_mpi_20261023/strict-skip.json`；该 JSON 未保留在当前工作树。
 - Incomplete stdout: `logs/qcu_l24x64_mpi_20261023/single/cuda-strict-2l-smoke.stdout`
 - Legacy cold setup:
   `data/benchmark_legacy_vs_strict_20261022/reports/legacy_build_24x24x24x64.json`

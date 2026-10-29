@@ -28,7 +28,7 @@ grep 无其他引用）。用户于 2026-10-15 明确确认删除。
 
 ## 现行约定（后端运行产物的落点）
 
-- 构建输出（`bash ./make.sh` / 根 `build.sh` 的编译器与链接信息）**不再往 `cpp/**` 里写**；
+- 构建输出（`bash cpp/cuda/qcu/make-nv.sh` / 根 `build-nv.sh` 的编译器与链接信息）**不再往 `cpp/**` 里写**；
   `cpp/**` 只保留源码与构建脚本。
 - C++ 后端测试输出走现役入口 `pyqcu/testing/qcu/`（各 `conftest.*.py` 与
   `single_qcu_*.py`），收敛日志的规范路径是仓库根 `logs/clover_multigrid.log`
