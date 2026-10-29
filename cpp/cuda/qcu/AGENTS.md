@@ -10,10 +10,15 @@ C++ halo 与全局归约负责跨 rank 协同；单进程多线程多 GPU 仅限
 
 ```bash
 source ./env.sh       # CUDA toolkit 路径、MPI 等
-bash ./make.sh        # symlink CMakeLists-nv.txt → CMakeLists.txt, 然后 cmake + make
+bash ./make-nv.sh     # symlink CMakeLists-nv.txt → CMakeLists.txt, 然后 cmake + make
 ```
 
 产物：`libqcu.so` — 由 Cython 桥加载的动态库。
+
+DCU/DTK 构建从仓库根使用 `bash install.sh dcu`，或先运行
+`bash cpp/cuda/qcu/make-dcu.sh`。`make-dcu.sh` 要求显式可定位的 DTK
+nvcc-compatible compiler，使用 `CMakeLists-dcu.txt`，不得调用 NVIDIA 专用架构探测；
+`--check` 只验证编译器选路，不启动 CMake。
 
 ## 源码组织
 

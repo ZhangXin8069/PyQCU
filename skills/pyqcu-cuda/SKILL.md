@@ -1,6 +1,6 @@
 ---
 name: pyqcu-cuda
-description: 当任务涉及 pyqcu.cuda、libqcu.so Cython 桥、params/argv/set_ptrs ABI 或 CUDA 显存生命周期时使用。
+description: 当任务涉及 pyqcu.cuda、libqcu.so Cython 桥、CUDA/DCU 构建选择、params/argv/set_ptrs ABI 或 GPU 显存生命周期时使用。
 ---
 # pyqcu.cuda
 
@@ -59,6 +59,13 @@ The cross-document extraction index is
 [`pyqcu-docs/references/extracted-guidance.md`](../pyqcu-docs/references/extracted-guidance.md#3-cuda-生产执行拓扑).
 The 2026-10-23 multi-rank and MultiGrid benchmark constraints are in
 [`pyqcu-benchmark/references/qcu-multigrid-20261023.md`](../pyqcu-benchmark/references/qcu-multigrid-20261023.md).
+
+DCU/DTK builds use the same Cython and native ABI but a separate build profile:
+`PYQCU_BUILD_BACKEND=dcu` with `install.sh dcu` selects
+`cpp/cuda/qcu/make-dcu.sh` and `CMakeLists-dcu.txt`. The Python runtime still
+uses ROCm PyTorch's CUDA-compatible API (`backend="cuda"`, `device="cuda:N"`).
+`cpp/dtk` and `pyqcu/dtk` are placeholders. See
+[`docs/dcu_build_backend.md`](../../docs/dcu_build_backend.md).
 
 ## Public API
 

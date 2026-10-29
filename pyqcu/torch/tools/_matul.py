@@ -1,4 +1,16 @@
-import tilelang.language as T
+from pyqcu._tilelang import TileLangUnavailable, import_tilelang
+
+_tilelang = import_tilelang()
+if _tilelang is not None:
+    import tilelang.language as T
+else:
+    T = None
+
+
+def _require_tilelang():
+    if T is None:
+        raise TileLangUnavailable("TileLang is unavailable")
+    return T
 
 
 def _patch_tilelang_mma_legalize():
@@ -40,10 +52,17 @@ def _patch_tilelang_mma_legalize():
         pass
 
 
-_patch_tilelang_mma_legalize()
+if T is not None:
+    _patch_tilelang_mma_legalize()
 
 
-def matmul_gpu(M, N, K, block_M=128, block_N=128, block_K=32, dtype=T.float16, accum_dtype=T.float32):
+def matmul_gpu(M, N, K, block_M=128, block_N=128, block_K=32,
+               dtype=None, accum_dtype=None):
+    T = _require_tilelang()
+    if dtype is None:
+        dtype = T.float16
+    if accum_dtype is None:
+        accum_dtype = T.float32
     @T.prim_func
     def main(
         A: T.Tensor((M, K), dtype),
@@ -64,6 +83,7 @@ def matmul_gpu(M, N, K, block_M=128, block_N=128, block_K=32, dtype=T.float16, a
 
 
 def matmul_cpu(M, N, K, block_M=32, block_N=32, block_K=32, dtype="float16", accum_dtype="float32"):
+    T = _require_tilelang()
     @T.prim_func
     def main(
         A: T.Tensor((M, K), dtype),

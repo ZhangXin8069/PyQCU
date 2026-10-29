@@ -1,9 +1,5 @@
 from time import perf_counter
-import sys
-try:
-    import tilelang
-except Exception as e:
-    print(f"Error:{e}", file=sys.stderr)
+import pytest
 import torch
 from argparse import Namespace
 from pyqcu import lattice, tools
@@ -11,7 +7,10 @@ from pyqcu.torch import dslash, smear, solver
 import pyqcu.cann as _torch
 import mpi4py.MPI as MPI
 from typing import Optional, List
+from pyqcu._tilelang import import_tilelang
 Namespace.__module__ = "pyqcu.testing"
+
+tilelang = import_tilelang()
 
 
 # Saved Wilson references predate the unified correctness lattice.  They remain
@@ -417,6 +416,8 @@ def test_solver(kind: str = 'clover', method: str = 'bistabcg', kappa: Optional[
 
 
 def test_matmul():
+    if tilelang is None:
+        pytest.skip("TileLang is unavailable")
     M_gpu, N_gpu, K_gpu = 1024, 1024, 1024
     M_cpu, N_cpu, K_cpu = 1024, 1024, 1024
     gpu_tile = {"block_M": 128, "block_N": 128, "block_K": 32}

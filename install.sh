@@ -6,10 +6,11 @@ MODE=${1:-cuda}
 
 usage() {
     cat <<'EOF'
-Usage: bash install.sh [kupl|cuda]
+Usage: bash install.sh [kupl|cuda|dcu]
 
   kupl  Build the independent KUPL C++ library and skip the CUDA/Cython build.
   cuda  Build the CUDA C++ library and Cython extension (default, legacy mode).
+  dcu   Build the DTK/ROCm-compatible GPU library and Cython extension.
 
 KUPL environment variables:
   PYQCU_KUPL_BUILD_DIR  Build directory (default: cpp/kupl/qcu/build)
@@ -18,6 +19,11 @@ KUPL environment variables:
   KUPL_ENABLE_NATIVE    ON/OFF local ISA tuning (default: OFF)
   KUPL_ENABLE_LTO       ON/OFF link-time optimization (default: OFF)
   KUPL_BUILD_TESTS      ON/OFF build CTest executables (default: ON)
+
+DCU environment variables:
+  QCU_DCU_CUDA_COMPILER  DTK nvcc-compatible compiler path override
+  QCU_DCU_BUILD_DIR      Build directory (default: data/build/cuda-qcu-dcu)
+  ROCM_PATH              Used to locate ${ROCM_PATH}/cuda/bin/nvcc
 EOF
 }
 
@@ -28,16 +34,12 @@ case "$MODE" in
         native=${KUPL_ENABLE_NATIVE:-OFF}
         lto=${KUPL_ENABLE_LTO:-OFF}
         build_tests=${KUPL_BUILD_TESTS:-ON}
-        if [[ -z ${PYQCU_BUILD_JOBS:-} ]]; then
-            PYQCU_BUILD_JOBS=$(getconf _NPROCESSORS_ONLN 2>/dev/null || printf '1')
-        fi
-
-        cmake -S "$ROOT/cpp/kupl/qcu" -B "$build_dir" \
-            -DCMAKE_BUILD_TYPE="$build_type" \
-            -DKUPL_ENABLE_NATIVE="$native" \
-            -DKUPL_ENABLE_LTO="$lto" \
-            -DKUPL_BUILD_TESTS="$build_tests"
-        cmake --build "$build_dir" -j "$PYQCU_BUILD_JOBS"
+        PYQCU_KUPL_BUILD_DIR="$build_dir" \
+        CMAKE_BUILD_TYPE="$build_type" \
+        KUPL_ENABLE_NATIVE="$native" \
+        KUPL_ENABLE_LTO="$lto" \
+        KUPL_BUILD_TESTS="$build_tests" \
+            bash "$ROOT/cpp/kupl/qcu/make.sh"
 
         kupl_library="$build_dir/libqcu.so"
         if [[ ! -f "$kupl_library" ]]; then
@@ -60,6 +62,10 @@ case "$MODE" in
         ;;
     cuda)
         PYQCU_BUILD_BACKEND=cuda python "$ROOT/setup.py" build_ext --inplace
+        rm -rf "$ROOT/build"
+        ;;
+    dcu)
+        PYQCU_BUILD_BACKEND=dcu python "$ROOT/setup.py" build_ext --inplace
         rm -rf "$ROOT/build"
         ;;
     -h|--help|help)

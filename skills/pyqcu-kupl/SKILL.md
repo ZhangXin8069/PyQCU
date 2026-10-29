@@ -125,10 +125,14 @@ identity 不一致时才重建。
 ## 构建与验证
 
 ```bash
+bash cpp/kupl/qcu/make.sh --check
 KUPL_ENABLE_NATIVE=OFF KUPL_ENABLE_LTO=OFF bash ./install.sh kupl
 ctest --test-dir cpp/kupl/qcu/build --output-on-failure
 python -m pytest -q pyqcu/testing/kupl/test_kupl_python.py
 ```
+
+在 `cpp/kupl/qcu` 内可直接运行 `bash make.sh` 只构建 native 库和测试程序；
+`make.sh --check` 不写文件，仅显示 build dir、native/LTO/tests/jobs 选择。
 
 目标节点性能构建使用 `KUPL_ENABLE_NATIVE=ON KUPL_ENABLE_LTO=ON`；跨型号部署使用
 `KUPL_ENABLE_NATIVE=OFF`。完整鲲鹏 HMPI、NUMA、大页、测试和证据模板见

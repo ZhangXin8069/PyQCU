@@ -39,9 +39,13 @@
 - Build and validate all changes with:
 
   ```bash
-  KUPL_ENABLE_NATIVE=OFF KUPL_ENABLE_LTO=OFF bash ../../../install.sh kupl
+  KUPL_ENABLE_NATIVE=OFF KUPL_ENABLE_LTO=OFF bash ./make.sh
   ctest --test-dir build --output-on-failure
   ```
+
+  `make.sh` is the native-only convenience entry from `cpp/kupl/qcu`; use
+  `bash ../../../install.sh kupl` from the same directory when the Python
+  package path and ctypes smoke should also be validated.
 
 - Pure KUPL installation must never invoke the CUDA backend or Cython bridge.
   `install.sh kupl` uses `PYQCU_BUILD_BACKEND=kupl`; `install.sh` without an

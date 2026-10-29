@@ -76,6 +76,28 @@ class PureKuplInstallTests(unittest.TestCase):
         self.assertNotIn("build-nv.sh", output)
         self.assertNotIn("Failed to find nvcc", output)
 
+    def test_make_script_selects_kupl_build_contract(self) -> None:
+        env = os.environ.copy()
+        env.update({
+            "PYQCU_KUPL_BUILD_DIR": str(ROOT / "cpp/kupl/qcu/build-contract"),
+            "KUPL_ENABLE_NATIVE": "OFF",
+            "KUPL_ENABLE_LTO": "OFF",
+            "KUPL_BUILD_TESTS": "ON",
+        })
+        completed = subprocess.run(
+            ["bash", str(ROOT / "cpp/kupl/qcu/make.sh"), "--check"],
+            cwd=ROOT,
+            env=env,
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=30,
+        )
+        output = completed.stdout + completed.stderr
+        self.assertEqual(completed.returncode, 0, output)
+        self.assertIn("PYQCU KUPL backend: ready", output)
+        self.assertIn("native=OFF lto=OFF tests=ON", output)
+
     def test_topology_cli_json_does_not_initialize_mpi(self) -> None:
         completed = subprocess.run(
             [

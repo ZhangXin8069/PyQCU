@@ -3,14 +3,16 @@ import subprocess
 from setuptools.command.build_ext import build_ext
 import os
 
+from pyqcu._build_backend import GPU_BUILD_BACKENDS, normalize_build_backend
+
 HOME = os.path.dirname(os.path.abspath(__file__))
 print("HOME:", HOME)
 
-BUILD_BACKEND = os.environ.get("PYQCU_BUILD_BACKEND", "cuda").strip().lower()
-if BUILD_BACKEND not in {"cuda", "kupl"}:
-    raise RuntimeError(
-        "PYQCU_BUILD_BACKEND must be 'cuda' or 'kupl', "
-        f"got {BUILD_BACKEND!r}")
+try:
+    BUILD_BACKEND = normalize_build_backend(
+        os.environ.get("PYQCU_BUILD_BACKEND"))
+except ValueError as error:
+    raise RuntimeError(str(error)) from error
 print(f"PYQCU build backend: {BUILD_BACKEND}")
 
 
@@ -20,12 +22,17 @@ class CMakeBuild(build_ext):
                 os.environ.get("PYQCU_SKIP_NATIVE_BUILD") != "1":
             # The CUDA bridge owns its native build lifecycle.
             subprocess.check_call(["bash", f"{HOME}/build-nv.sh"])
+        elif BUILD_BACKEND == "dcu" and \
+                os.environ.get("PYQCU_SKIP_NATIVE_BUILD") != "1":
+            subprocess.check_call(
+                ["bash", f"{HOME}/cpp/cuda/qcu/make-dcu.sh"],
+                cwd=f"{HOME}/cpp/cuda/qcu")
         super().run()
 
 
 ext_modules = []
-if BUILD_BACKEND == "cuda":
-    # Keep Cython and CUDA-specific imports out of the pure KUPL build path.
+if BUILD_BACKEND in GPU_BUILD_BACKENDS:
+    # Keep Cython and GPU-specific imports out of the pure KUPL build path.
     from distutils.core import Extension
     from Cython.Build import cythonize
     import numpy
@@ -54,7 +61,7 @@ install_requires = [
     "mpi4py", "h5py", "torch", "psutil", "scipy", "matplotlib",
     "opt_einsum",
 ]
-if BUILD_BACKEND == "cuda":
+if BUILD_BACKEND in GPU_BUILD_BACKENDS:
     install_requires.append("cython")
 
 

@@ -3,9 +3,9 @@ import mpi4py.MPI as MPI
 import torch
 import h5py
 import os
-import sys
 import numpy as np
 from typing import Optional, List
+from pyqcu._tilelang import import_tilelang
 force_use_npu = False
 warp_size = 128
 # NumPy → Torch
@@ -36,10 +36,10 @@ torch2np_dtype = {
     torch.complex64: np.complex64,
     torch.complex128: np.complex128,
 }
-try:
+_tilelang = import_tilelang()
+if _tilelang is not None:
     import tilelang.language as T
-except Exception as e:
-    print(f"Error:{e}", file=sys.stderr)
+else:
     import torch as T
 # Torch → Tilelang
 torch2tl_dtype = {

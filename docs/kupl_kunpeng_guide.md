@@ -38,6 +38,15 @@ Kunpeng/HiSilicon CPU 标识；x86 或普通 ARM64 直接入口会失败。拓�
 ```bash
 PYQCU_KUPL_BUILD_DIR="$PWD/cpp/kupl/qcu/build-generic" \
 KUPL_ENABLE_NATIVE=OFF KUPL_ENABLE_LTO=OFF \
+bash cpp/kupl/qcu/make.sh
+ctest --test-dir cpp/kupl/qcu/build-generic --output-on-failure
+```
+
+需要同时验证 Python ctypes 时使用：
+
+```bash
+PYQCU_KUPL_BUILD_DIR="$PWD/cpp/kupl/qcu/build-generic" \
+KUPL_ENABLE_NATIVE=OFF KUPL_ENABLE_LTO=OFF \
 bash ./install.sh kupl
 ctest --test-dir cpp/kupl/qcu/build-generic --output-on-failure
 ```

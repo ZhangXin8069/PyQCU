@@ -1,6 +1,6 @@
 # PyQCU `docs/**` 来源映射
 
-本表覆盖当前 `docs/` 顶层的 34 份 Markdown 文档。`docs/AGENTS.md` 是文件索引；
+本表覆盖当前 `docs/` 顶层的 35 份 Markdown 文档。`docs/AGENTS.md` 是文件索引；
 需要判断“原文应保留在哪里”时先读该文件和 `docs/ORGANIZATION.md`。
 
 ## 权威级别
@@ -24,7 +24,8 @@
 | [`docs/ORGANIZATION.md`](../../../docs/ORGANIZATION.md) | A | `pyqcu-form` | — | `docs/data/logs/testing` 的规范位置、跨目录提升、tag 报告两提交生命周期和语义例外。 |
 | [`docs/dims.md`](../../../docs/dims.md) | A | `pyqcu-tools` | `pyqcu-lattice`, `pyqcu-dslash` | `s/c/d/p/x/y/z/t` 轴含义、规范场/费米子/奇偶布局；空间时间始终是最后四轴。 |
 | [`docs/env.md`](../../../docs/env.md) | A | `pyqcu-tools` | `pyqcu-testing` | Python 依赖、`PYTHONPATH` 与最小环境入口；永久环境仍需以 `env.sh` 和安装文档为准。 |
-| [`docs/install.md`](../../../docs/install.md) | A | `pyqcu-cuda` | `pyqcu-kupl`, `pyqcu-testing-pyquda` | CUDA/KUPL `install.sh` 选路、KUPL CMake/CTest、`PYQCU_KUPL_LIB`、QUDA/PyQUDA 安装选择与 ABI 对齐。 |
+| [`docs/install.md`](../../../docs/install.md) | A | `pyqcu-cuda` | `pyqcu-kupl`, `pyqcu-testing-dcu`, `pyqcu-testing-pyquda` | CUDA/DCU/KUPL `install.sh` 选路、KUPL CMake/CTest、`PYQCU_KUPL_LIB`、QUDA/PyQUDA 安装选择与 ABI 对齐。 |
+| [`docs/dcu_build_backend.md`](../../../docs/dcu_build_backend.md) | A | `pyqcu-cuda` | `pyqcu-testing-dcu`, `pyqcu-docs` | DCU 使用 `PYQCU_BUILD_BACKEND=dcu`/`install.sh dcu`、DTK compiler 预检、ROCm/HIP 验证、CUDA-compatible 运行时命名和当前占位边界。 |
 | [`docs/kupl_only_deployment.md`](../../../docs/kupl_only_deployment.md) | A | `pyqcu-kupl` | `pyqcu-testing-cpu`, `pyqcu-benchmark`, `pyqcu-tools` | 纯 KUPL 无 CUDA 构建、旧版 PyTorch dtype、CTest/Python 测试、生产求解、NUMA 放置、Multigrid、升级和排错。 |
 | [`docs/examples.md`](../../../docs/examples.md) | A | `pyqcu-testing` | — | 旧 `examples/` 到 `pyqcu/testing/` 的迁移映射、目录分类和常用入口。 |
 | [`docs/kupl_kunpeng_guide.md`](../../../docs/kupl_kunpeng_guide.md) | A | `pyqcu-kupl` | `pyqcu-testing-cpu`, `pyqcu-benchmark`, `pyqcu-docs` | KUPL 通用 C++17 兼容边界、鲲鹏 HMPI/MPI/OpenMP 放置、NUMA/片上内存/大页策略、运行时规划器、专项测试和性能证据模板。 |
