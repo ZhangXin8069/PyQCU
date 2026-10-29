@@ -378,6 +378,12 @@ worker 后续改为 rank-local HDF5 gauge/source read、page-cache eviction，�
 \code{2.032667e-7}；L48 Python residual 仍超过 54,976 MiB cgroup，因此 L48
 的正式证据只包括 cache 验签和 native C++ full-operator residual。
 
+L48 同 cache 的规模补测为：1-rank 在加载 \code{hdg} 时 GPU OOM；2-rank
+（\code{1x2x1x1}）为 20 iterations、\code{0.921893 s}、native full residual
+\code{2.243621e-7}；4-rank 为 20 iterations、\code{0.740402 s}、native full
+residual \code{2.243699e-7}。4 对 2 rank 的 solve 加速为 \code{1.245x}。
+没有 L48 QUDA 同窗，不能计算相对 QUDA 加速比。
+
 当前验证快照：Python \code{122 passed, 4 skipped}，KUPL \code{43 passed}，simple
 \code{86 passed}，QCU ABI \code{PASS}，tag-chain \code{PASS}，定向 shell 语法与
 \code{git diff --check PASS}。本环境没有 \code{xelatex/lualatex/pdflatex}，因此

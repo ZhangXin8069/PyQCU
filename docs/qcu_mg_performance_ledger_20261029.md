@@ -408,6 +408,18 @@ cgroup；一个外部 NumPy 探针未通过 L8 oracle 校准，其 L48 数值 `5
 `2.032667e-7`；L48 4-rank 仍在 Python residual 阶段超过 54,976 MiB cgroup，故
 L48 的正式数值证据只包括 cache 验签和 native C++ full-operator residual。
 
+L48 规模补测使用同一 canonical E12 cache、restart 20、atol `1e-6`：
+
+| ranks / grid | status | GPU solve | iterations | native full residual |
+|---:|---|---:|---:|---:|
+| `1 / 1x1x1x1` | GPU OOM | n/a | n/a | n/a |
+| `2 / 1x2x1x1` | PASS | `0.921893 s` | 20 | `2.243621e-7` |
+| `4 / 2x2x1x1` | PASS | `0.740402 s` | 20 | `2.243699e-7` |
+
+1-rank 在加载 `hdg` 时已使用 35.79 GiB，再请求 8.54 GiB，而 A100-40GB 仅剩
+3.59 GiB。4-rank 相对 2-rank 的 solve 加速为 `1.245x`。三项均未执行可完成的
+Python independent residual；没有 L48 QUDA 同窗，不能计算相对 QUDA 加速比。
+
 ## 6. QUDA native-LAPACK 重建
 
 | 项目 | 值 |
