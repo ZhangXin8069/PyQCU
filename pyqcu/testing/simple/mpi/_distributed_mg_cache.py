@@ -235,25 +235,23 @@ def _validate_lonv_source(
                 f"reused lonv dtype {dataset.dtype} != {dtype}")
 
 
-def _write_distributed_asset_slabs(
+def _write_distributed_asset_slab(
     path: Path,
-    local_assets: dict[str, np.ndarray],
-    shapes: dict[str, tuple[int, ...]],
+    name: str,
+    local_value: np.ndarray,
+    shape: tuple[int, ...],
     coarse_starts: tuple[int, int, int, int],
     comm: Any,
 ) -> None:
-    """Collectively create and fill the non-lonv cache tensors."""
+    """Collectively create and fill one non-lonv cache tensor."""
     import h5py
 
     with h5py.File(path, "r+", driver="mpio", comm=comm) as handle:
-        for name in NON_LONV_ASSETS:
-            dataset = (
-                handle[name] if name in handle else
-                handle.create_dataset(
-                    name, shape=shapes[name], dtype=local_assets[name].dtype))
-            dataset[_asset_slab_selection(
-                coarse_starts, local_assets[name].shape[-4:], name
-            )] = local_assets[name]
+        dataset = (
+            handle[name] if name in handle else
+            handle.create_dataset(name, shape=shape, dtype=local_value.dtype))
+        dataset[_asset_slab_selection(
+            coarse_starts, local_value.shape[-4:], name)] = local_value
 
 
 def _periodic_dataset_ranges(
@@ -803,18 +801,22 @@ def _main_native(argv: Sequence[str] | None = None) -> int:
             patch_extent[axis] // _asset_coarse_step(args.mg_grid, axis)
             for axis in range(4))
         # build_coarse_assets has copied the supplied vectors; release the large
-        # fine-gauge and lonv staging patches before allocating rank-local slabs.
+        # fine-gauge and lonv staging patches before extracting rank-local slabs.
         del lonv_patch, gauge_patch
-        local_assets = {
-            name: _asset_patch(
-                patch_assets[index][0], name, coarse_centers, local_coarse)
-            for index, name in enumerate(LEGACY_MG_ASSET_NAMES)
-        }
         stage = time.perf_counter()
-        _write_distributed_asset_slabs(
-            output, local_assets, shapes, coarse_starts, comm)
+        local_asset_sha256: dict[str, str] = {}
+        patch_values = list(patch_assets)
+        for index, name in enumerate(LEGACY_MG_ASSET_NAMES):
+            local_value = _asset_patch(
+                patch_values[index][0], name, coarse_centers, local_coarse)
+            local_asset_sha256[name] = logical_array_sha256(local_value)
+            if name in NON_LONV_ASSETS:
+                _write_distributed_asset_slab(
+                    output, name, local_value, shapes[name], coarse_starts, comm)
+            patch_values[index] = None
+            del local_value
         asset_write_seconds = time.perf_counter() - stage
-        del patch_assets
+        del patch_assets, patch_values
         rank_records = comm.gather({
             "rank": rank,
             "coordinate": list(coordinate),
@@ -892,15 +894,16 @@ def _main_native(argv: Sequence[str] | None = None) -> int:
 
         reconstructed = True
         try:
-            cache_slabs = load_legacy_mg_cache_slab(
-                output, dtype, starts=tuple(
-                    coordinate[axis] * local_coarse[axis]
-                    for axis in range(4)),
-                local_shape=local_coarse)
-            reconstructed = all(
-                logical_array_sha256(cache_slabs[name]) ==
-                logical_array_sha256(local_assets[name])
-                for name in LEGACY_MG_ASSET_NAMES)
+            for name in LEGACY_MG_ASSET_NAMES:
+                cache_slab = load_legacy_mg_cache_slab(
+                    output, dtype, starts=tuple(
+                        coordinate[axis] * local_coarse[axis]
+                        for axis in range(4)),
+                    local_shape=local_coarse, names=(name,))[name]
+                if logical_array_sha256(cache_slab) != local_asset_sha256[name]:
+                    reconstructed = False
+                    break
+                del cache_slab
         except BaseException as exc:
             reconstructed = False
             if rank == 0:
