@@ -226,6 +226,11 @@ setup `499.163295 s`，4/4 slab PASS；`1604447` Legacy-MG 为 20 iterations、
 读取 hyperslab；L48 Python independent residual 仍超过 54,976 MiB cgroup，
 不能据此伪造 independent PASS。
 
+同 cache 的 L48 2-rank（`1x2x1x1`）为 20 iterations、`0.921893 s`、native full
+residual `2.243621e-7`；4-rank 相对 2-rank 为 `1.245x`。1-rank 在加载 `hdg`
+时已用 35.79 GiB、再请求 8.54 GiB，40 GB A100 容量不足。不得把 1-rank OOM 写成
+数值失败，也不得在没有 L48 QUDA 同窗时计算相对加速比。
+
 Strict-MG 性能 benchmark 必须使用合法 4D process grid：每个 rank-local coarse
 extent 必须为偶数。`8x8x8x16` 的 4-rank 应使用 `2x2x1x1`，不能使用 y-only
 `1x4x1x1`。测后独立 full residual 应在 MPI solve 退出后由独立进程计算，避免同一
