@@ -1,46 +1,57 @@
 import torch
-import tilelang.language as T
 import pyqcu.cann as _torch
-from tilelang import jit
 from pyqcu.tools import torch2tl_dtype, warp_size, to_contiguous_real
+from pyqcu._tilelang import import_tilelang
+
+tilelang = import_tilelang()
+if tilelang is not None:
+    import tilelang.language as T
+    from tilelang import jit
+else:
+    T = None
+    jit = None
 pass_configs = {
     # tilelang.PassConfigKey.TL_ASCEND_AUTO_SYNC: True,
     # tilelang.PassConfigKey.TL_ASCEND_MEMORY_PLANNING: True,
 }
 
 
-@jit(out_idx=[-1], pass_configs=pass_configs, target="cuda")
-def _Eexyzt_exyzt2Exyzt(E_size: int, e_size: int, xyzt_size: int, tl_dtype):
-    @T.prim_func
-    def main(
-        Eexyzt: T.Tensor((E_size, e_size, xyzt_size), tl_dtype),
-        exyzt: T.Tensor((e_size, xyzt_size), tl_dtype),
-        Exyzt: T.Tensor((E_size, xyzt_size), tl_dtype),
-    ):
-        with T.Kernel(
-            T.ceildiv(xyzt_size, warp_size),
-            threads=warp_size, is_cpu=False
-        ) as block_i:
-            _Ee_warp = T.alloc_fragment(
-                shape=(e_size, warp_size), dtype=tl_dtype)
-            _e_warp = T.alloc_fragment(
-                shape=(e_size, warp_size), dtype=tl_dtype)
-            _E_warp = T.alloc_fragment(
-                shape=[warp_size], dtype=tl_dtype)
-            start = warp_size * block_i
-            end = warp_size*(block_i+1)
-            T.copy(src=exyzt[:, start:end], dst=_e_warp)
-            for E_i in T.Pipelined(E_size, num_stages=5):
-                T.clear(_E_warp)
-                T.copy(src=Eexyzt[E_i, :, start:end], dst=_Ee_warp)
-                for thread_i in T.Parallel(warp_size):
-                    for e_i in T.unroll(e_size):
-                        # for e_i in T.Unroll(e_size):
-                        _E_warp[thread_i] += _Ee_warp[e_i,
-                                                      thread_i] * _e_warp[e_i, thread_i]
-                T.copy(src=_E_warp,
-                       dst=Exyzt[E_i, start:end])
-    return main
+if tilelang is not None:
+    @jit(out_idx=[-1], pass_configs=pass_configs, target="cuda")
+    def _Eexyzt_exyzt2Exyzt(E_size: int, e_size: int, xyzt_size: int,
+                            tl_dtype):
+        @T.prim_func
+        def main(
+            Eexyzt: T.Tensor((E_size, e_size, xyzt_size), tl_dtype),
+            exyzt: T.Tensor((e_size, xyzt_size), tl_dtype),
+            Exyzt: T.Tensor((E_size, xyzt_size), tl_dtype),
+        ):
+            with T.Kernel(
+                T.ceildiv(xyzt_size, warp_size),
+                threads=warp_size, is_cpu=False
+            ) as block_i:
+                _Ee_warp = T.alloc_fragment(
+                    shape=(e_size, warp_size), dtype=tl_dtype)
+                _e_warp = T.alloc_fragment(
+                    shape=(e_size, warp_size), dtype=tl_dtype)
+                _E_warp = T.alloc_fragment(
+                    shape=[warp_size], dtype=tl_dtype)
+                start = warp_size * block_i
+                end = warp_size*(block_i+1)
+                T.copy(src=exyzt[:, start:end], dst=_e_warp)
+                for E_i in T.Pipelined(E_size, num_stages=5):
+                    T.clear(_E_warp)
+                    T.copy(src=Eexyzt[E_i, :, start:end], dst=_Ee_warp)
+                    for thread_i in T.Parallel(warp_size):
+                        for e_i in T.unroll(e_size):
+                            # for e_i in T.Unroll(e_size):
+                            _E_warp[thread_i] += _Ee_warp[
+                                e_i, thread_i] * _e_warp[e_i, thread_i]
+                    T.copy(src=_E_warp,
+                           dst=Exyzt[E_i, start:end])
+        return main
+else:
+    _Eexyzt_exyzt2Exyzt = None
 # FOR TENSOR CORE
 # @jit(out_idx=[-1], pass_configs=pass_configs, target="cuda")
 # def _Eexyzt_exyzt2Exyzt(E_size: int, e_size: int, xyzt_size: int, tl_dtype):
@@ -82,7 +93,7 @@ def Eexyzt_exyzt2Exyzt(Eexyzt: torch.Tensor, exyzt: torch.Tensor) -> torch.Tenso
             f"Operand dtypes must match: got {Eexyzt.dtype} and {exyzt.dtype}."
         )
     torch_dtype = Eexyzt.dtype
-    if Eexyzt.device.type not in ['cuda']:
+    if tilelang is None or Eexyzt.device.type not in ['cuda']:
         return _torch.einsum('Eexyzt,exyzt->Exyzt', Eexyzt, exyzt)
     tl_dtype = torch2tl_dtype[_torch.real_dtype(torch_dtype)]
     E_size = Eexyzt.shape[0]

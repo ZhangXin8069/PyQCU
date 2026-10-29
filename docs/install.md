@@ -1,6 +1,6 @@
 # PyQCU 安装与构建
 
-从仓库根初始化环境并构建。CUDA 和纯 KUPL 使用不同安装入口：
+从仓库根初始化环境并构建。CUDA、DCU 和纯 KUPL 使用不同安装入口：
 
 ```bash
 source ./env.sh
@@ -8,11 +8,16 @@ source ./env.sh
 # CUDA QCU，需要匹配的 NVIDIA CUDA toolkit
 bash ./install.sh cuda
 
+# AMD DCU/DTK，需要匹配的 ROCm/HIP 和 nvcc-compatible compiler
+QCU_DCU_CUDA_COMPILER=/path/to/dtk/nvcc bash ./install.sh dcu
+
 # 纯 KUPL CPU QCU，不编译 CUDA/Cython 扩展
 bash ./install.sh kupl
 ```
 
 - `install.sh cuda` 调用 CUDA native build 并原地构建 Cython 扩展。
+- `install.sh dcu` 使用 `cpp/cuda/qcu/make-dcu.sh` 和
+  `CMakeLists-dcu.txt` 构建 DCU 兼容库，再构建同一个 Cython bridge。
 - `install.sh kupl` 只构建 `cpp/kupl/qcu`，不查找 `nvcc`，也不创建
   `pyqcu.cuda.qcu`。
 - CUDA 架构必须在 `libqcu.so` 中实际存在；正式 benchmark 应记录架构请求值、
@@ -20,6 +25,9 @@ bash ./install.sh kupl
 
 纯 KUPL 的安装、旧版 PyTorch 兼容、测试、生产运行、Multigrid、升级和故障排查见
 [`kupl_only_deployment.md`](kupl_only_deployment.md)。
+
+DCU 的编译器预检、构建、ROCm/HIP 验证、测试和生产限制见
+[`dcu_build_backend.md`](dcu_build_backend.md)。
 
 ## KUPL CPU 后端
 
@@ -29,6 +37,9 @@ The independent MPI+OpenMP backend does not require CUDA:
 KUPL_ENABLE_NATIVE=OFF KUPL_ENABLE_LTO=OFF bash ./install.sh kupl
 ctest --test-dir cpp/kupl/qcu/build --output-on-failure
 ```
+
+只构建 native 库和测试程序时可运行 `bash cpp/kupl/qcu/make.sh`；
+`make.sh --check` 只检查构建变量，不写文件。
 
 Python uses the same flat ABI through `pyqcu.kupl.qcu`:
 

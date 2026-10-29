@@ -85,6 +85,7 @@ python pyqcu/testing/qcu/conftest.multi_gpu.py
 | `python/test_multigrid_api.py` | 三后端统一 `Multigrid` 名称、选择器、生命周期和 ABI 委托契约 |
 | `python/test_multigrid.py` | CPU 小格的 Strict/Legacy transfer、Galerkin、MATPC、FGMRES/V-cycle 代数回归 |
 | `python/test_torch_namespace.py` | `pyqcu.torch` canonical 实现位置和顶层兼容门面 |
+| `python/test_tilelang_optional.py` | 无 TileLang 时单次 warning、CPU fallback、NPU/DCU skip 且退出码 0 |
 | `kupl/test_krylov_api.py` | 真实 KUPL ctypes 的 Wilson BiCGStab/normal-CG 整次 solve 与独立 full residual |
 | `qcu/test_qcu_api_smoke.py` | CUDA Cython bridge 与 `pyqcu.h` 的符号集合；`QCU_API_REQUIRE_CUDA=1` 时追加最小 init/end |
 

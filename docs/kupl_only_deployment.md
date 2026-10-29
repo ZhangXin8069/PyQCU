@@ -118,15 +118,16 @@ KUPL_BUILD_TESTS=OFF bash ./install.sh kupl
 不使用 `install.sh` 时，等价步骤为：
 
 ```bash
-cmake -S cpp/kupl/qcu -B cpp/kupl/qcu/build \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DKUPL_ENABLE_NATIVE=OFF \
-  -DKUPL_ENABLE_LTO=OFF
-cmake --build cpp/kupl/qcu/build --target kupl_qcu -j 16
+PYQCU_KUPL_BUILD_DIR="$PWD/cpp/kupl/qcu/build" \
+KUPL_ENABLE_NATIVE=OFF KUPL_ENABLE_LTO=OFF KUPL_BUILD_TESTS=ON \
+  bash cpp/kupl/qcu/make.sh
 
 PYQCU_BUILD_BACKEND=kupl python setup.py build_ext --inplace
 export PYQCU_KUPL_LIB="$PWD/cpp/kupl/qcu/build/libqcu.so"
 ```
+
+`make.sh --check` 只打印 build directory、native/LTO/tests/jobs 选择；`make.sh`
+构建 native 库和默认测试程序，不创建或修改 Python Cython 扩展。
 
 需要 editable Python 安装时可使用：
 
@@ -204,14 +205,14 @@ KUPL runtime benchmark。旧版 PyTorch 报错：
 
 说明调用到了未更新的代码或第三方脚本，不应通过安装 `torch_npu` 绕过。
 
-缺少 TileLang 时可能看到：
+缺少 TileLang 时可能看到一次 warning：
 
 ```text
-Error:No module named 'tilelang'
+RuntimeWarning: TileLang is unavailable; TileLang-specific acceleration and tests will be skipped
 ```
 
-这是可选依赖的降级信息。只要当前命令不运行 TileLang 专用测试，该信息不会影响
-KUPL。
+这是可选依赖的降级信息，不是错误。TileLang 专项测试会 skip，普通 PyTorch CPU
+路径会回退；该信息不会影响 KUPL。
 
 ## 6. 测试
 

@@ -19,7 +19,8 @@ Wilson/Clover Dirac 算子、BiStabCG 与多重网格求解器、stout smearing�
 
 - 环境：`source ./env.sh`（LD_LIBRARY_PATH、PYTHONPATH、MPI root 运行权限）
 - 构建 C++ CUDA 后端：`bash ./build.sh`（→ `libqcu.so`，cd cpp/cuda/qcu && make.sh）
-- 构建独立 KUPL CPU 后端：`cmake -S cpp/kupl/qcu -B cpp/kupl/qcu/build -DCMAKE_BUILD_TYPE=Release && cmake --build cpp/kupl/qcu/build -j`
+- 构建 C++ DCU/DTK 后端：`QCU_DCU_CUDA_COMPILER=/path/to/dtk/nvcc bash ./install.sh dcu`
+- 构建独立 KUPL CPU 后端：`cd cpp/kupl/qcu && bash make.sh`（变量与原 CMake 入口一致）
 - 构建 Cython 扩展：`bash ./install.sh`（setup.py build_ext --inplace）
 - 生产求解：`python pyqcu/testing/simple/solve_case.py --backend cuda|quda|kupl`（原子写解，
   失败不发布）；性能测量用 `compare_three_way.py`，说明见 `pyqcu/testing/simple/README.md`

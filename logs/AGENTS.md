@@ -835,3 +835,19 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: 新增纯 KUPL 构建入口和旧 Torch dtype 兼容，补齐测试与端到端文档
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
+## dcu-build-and-kupl-make-20261030 - final - 2026-10-30 00:13:29 +0800
+- 主任务: 增加 DCU 构建选择与 KUPL make.sh
+- 日志文件: logs/v2026103000.txt
+- 文件大小: 4339 bytes
+- 触发原因: 任务完成
+- 关键内容: 新增 install.sh dcu、DTK 编译器预检契约和 cpp/kupl/qcu/make.sh
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+## tilelang-optional-20261030 - final - 2026-10-30 00:23:59 +0800
+- 主任务: 无 TileLang 环境 warning 后 skip
+- 日志文件: logs/v2026103000-2.txt
+- 文件大小: 3821 bytes
+- 触发原因: 任务完成
+- 关键内容: 统一 TileLang 单次 warning、CPU fallback 和 NPU/DCU 测试 skip 行为
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete

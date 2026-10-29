@@ -14,6 +14,7 @@
 | `test_torch_namespace.py` | `pyqcu.torch` canonical 实现位置与顶层兼容门面契约 |
 | `test_api_contract.py` | P0 API 数据模型、能力、资产 manifest 与兼容结果契约 |
 | `test_krylov_api.py` | LinearOperator、Torch Krylov driver、三后端选择器与原生 adapter 契约 |
+| `test_tilelang_optional.py` | 无 TileLang 时单次 warning、CPU fallback 和 DCU 入口 skip 契约 |
 
 ## 用法
 

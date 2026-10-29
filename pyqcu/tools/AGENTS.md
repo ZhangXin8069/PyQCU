@@ -59,7 +59,11 @@ MPI 网格、数据布局、HDF5 I/O、环境/预算和绘图公共工具。Torc
 **NPU 兼容**：NPU 张量 ≤8 维，restrict/prolong/orthogonalize 都有 `_npu` 变体（reshape/permute 链）。与标准路径交叉验证（float32 最大差 ~1e-7）。
 
 ### TileLang（`pyqcu/torch/tools/_einsum.py`、`_matul.py`）
-可选 — 包级 try/except 导入，不可用时静默降级。`Eexyzt_exyzt2Exyzt`（Wilson dslash 用，默认禁用：`tools_Eexyzt_exyzt2Exyzt = False`）、`matmul_gpu`/`matmul_cpu`。内核用 `warp_size = 128`。
+可选 — 统一通过 `pyqcu._tilelang.import_tilelang()` 探测；不可用时每进程只 warning
+一次并缓存。`Eexyzt_exyzt2Exyzt` CPU/无 TileLang 路径回退 `torch.einsum`
+（Wilson dslash 用，默认禁用：`tools_Eexyzt_exyzt2Exyzt = False`）；
+`matmul_gpu`/`matmul_cpu` 缺依赖时抛 `TileLangUnavailable`。内核用
+`warp_size = 128`。
 
 ### dtype 表（`_define.py`）
 `np2torch_dtype`、`torch2np_dtype` 双向映射；`torch2tl_dtype`（仅 float16/32/64）

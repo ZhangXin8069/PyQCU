@@ -4,6 +4,10 @@
 NVIDIA GPU、DCU 以及其他 GPGPU 后端；除非用户明确要求测试多设备例外，新程序
 必须按本文执行。
 
+DCU 的 native 编译选路、DTK/ROCm 预检和当前限制见
+[`dcu_build_backend.md`](dcu_build_backend.md)。DCU 运行时仍通过 ROCm PyTorch 的
+CUDA-compatible API，因此本文中的设备名和 `backend="cuda"` 规则继续适用。
+
 ## 1. 强制约定
 
 生产 CUDA QCU 程序保持：

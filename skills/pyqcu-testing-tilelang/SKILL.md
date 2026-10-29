@@ -21,8 +21,19 @@ real pytest node.
 只有 `exit=0` 或只有 `TESTS=...` 而没有断言结果都不构成验证。来源：
 `docs/multigrid_deprecation_audit_20261022.md:41-61`。
 
-TileLang 是可选依赖；恢复测试入口后，不可用时必须以明确 skip 原因呈现，不能把
-空收集或静默降级报告为通过。
+TileLang 是可选依赖。统一探测入口是 `pyqcu._tilelang.import_tilelang()`：不可用时
+每个进程只发一次 `RuntimeWarning`，结果缓存；专项测试必须以明确 skip 原因呈现，
+不能把空收集、warning 或 CPU fallback 报告成 TileLang 测试通过。
+
+无依赖契约回归：
+
+```bash
+python -m pytest -q pyqcu/testing/python/test_tilelang_optional.py
+```
+
+`Eexyzt_exyzt2Exyzt` 的 CPU 和非 TileLang 路径必须回退 `torch.einsum`。直接调用
+`matmul_gpu()`/`matmul_cpu()` 这类只返回 TileLang program 的 API 时，缺依赖应抛出
+`TileLangUnavailable`，不得返回伪对象。
 
 ## Known upstream defects & hardware limits (2026-08-24, bug36)
 

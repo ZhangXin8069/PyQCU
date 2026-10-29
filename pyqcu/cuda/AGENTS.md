@@ -2,6 +2,10 @@
 
 C++ CUDA 后端（`libqcu.so`）的 Cython 桥包。
 
+DCU/DTK 复用本包的 Cython ABI，但 native 库由
+`PYQCU_BUILD_BACKEND=dcu`/`install.sh dcu` 选择；运行时仍使用 ROCm PyTorch 的
+`cuda` API。`pyqcu.dtk` 仍是占位，不得作为 DCU bridge 导入。
+
 ## 文件
 
 | 文件 | 用途 |

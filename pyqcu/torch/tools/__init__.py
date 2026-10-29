@@ -1,7 +1,5 @@
 """Torch/CANN-only numerical utilities."""
 
-import sys
-
 from ._linalg import norm as norm
 from ._linalg import norm_many as norm_many
 from ._linalg import vdot as vdot
@@ -22,12 +20,9 @@ from ._hierarchical import offload_to_disk as offload_to_disk
 from ._hierarchical import offload_to_ram as offload_to_ram
 from ._hierarchical import reload_to_vram as reload_to_vram
 
-try:
-    from ._einsum import Eexyzt_exyzt2Exyzt as Eexyzt_exyzt2Exyzt
-    from ._matul import matmul_cpu as matmul_cpu
-    from ._matul import matmul_gpu as matmul_gpu
-except Exception as exc:  # pragma: no cover - optional TileLang environment
-    print(f"Error:{exc}", file=sys.stderr)
+from ._einsum import Eexyzt_exyzt2Exyzt as Eexyzt_exyzt2Exyzt
+from ._matul import matmul_cpu as matmul_cpu
+from ._matul import matmul_gpu as matmul_gpu
 
 __all__ = [
     "Eexyzt_exyzt2Exyzt",

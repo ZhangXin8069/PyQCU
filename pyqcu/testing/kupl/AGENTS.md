@@ -25,4 +25,6 @@ KUPL CPU 后端的 Python 黑盒回归。
   `KUPL_NUMA_BIND=1` 时须先执行私有 prebind lifecycle 再读输入；其
   `input_prebind_seconds` 不得混入 solver steady 时间。
 - 缺少 `cpp/kupl/qcu/build/libqcu.so` 时测试明确 skip，不伪造通过。
+- `cpp/kupl/qcu/make.sh` 是 native-only 构建入口；`make.sh --check` 验证变量和路径
+  选择但不写文件。Python ctypes 安装仍使用根目录 `install.sh kupl`。
 - C++ 1/2/4-rank 与 sanitizer 回归属于 `cpp/kupl/qcu/tests/`。

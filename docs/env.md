@@ -2,13 +2,21 @@
 
 PyQCU 要求 Python ≥ 3.10。核心依赖为 PyTorch、mpi4py、h5py 和 NumPy；测试另需
 pytest。Cython 只用于 CUDA Cython bridge，纯 KUPL 源码安装不导入 Cython；
-CUDA C++ 后端还需要与目标 GPU 匹配的 CUDA toolkit。
+CUDA C++ 后端还需要与目标 GPU 匹配的 CUDA toolkit；DCU 构建需要匹配的
+ROCm/HIP PyTorch 以及 DTK nvcc-compatible compiler。
 
-TileLang 是可选依赖，仅用于 JIT 内核实验；缺少时相关测试应明确 skip，不能把静默降级写成通过。
+TileLang 是可选依赖，仅用于 JIT 内核实验。缺少时 `pyqcu._tilelang` 只发出一次
+`RuntimeWarning`；TileLang 专项测试必须明确 skip，CPU 通用路径回退 PyTorch。
+Warning 和 skip 都不等于 TileLang 测试通过。
 
 纯 KUPL 构建使用 `PYQCU_BUILD_BACKEND=kupl`，只编译 C++17 MPI+OpenMP 后端，
 不要求 CUDA toolkit、`nvcc` 或 Cython CUDA 扩展。`torch.dtype.to_real()` 不是所有
 PyTorch 版本都提供；PyQCU 使用 `pyqcu.cann.real_dtype()` 做复杂/实数 dtype 映射。
+
+DCU 构建使用 `PYQCU_BUILD_BACKEND=dcu` 和 `bash install.sh dcu`。该模式复用
+`cpp/cuda/qcu` 与 `pyqcu.cuda`，但 native compiler 由
+`QCU_DCU_CUDA_COMPILER` 或 `ROCM_PATH/cuda/bin/nvcc` 选择，不运行 NVIDIA
+`build-nv.sh`。
 
 从仓库根加载统一环境：
 

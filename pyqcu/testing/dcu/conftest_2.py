@@ -1,8 +1,17 @@
 import pytest
-from tilelang import tvm as tvm
-import tilelang as tl
-import tilelang.language as T
+from pyqcu._tilelang import import_tilelang
+
+if import_tilelang() is None:
+    _message = "TileLang is unavailable; skip DCU TileLang tests"
+    if __name__ == "__main__":
+        print(f"SKIP: {_message}")
+        raise SystemExit(0)
+    pytest.skip(_message, allow_module_level=True)
+
+import tilelang
 import tilelang.testing
+from tilelang import tvm as tvm
+import tilelang.language as T
 
 
 def matmul(

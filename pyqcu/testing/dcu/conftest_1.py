@@ -1,8 +1,8 @@
 import os
+import warnings
+from pyqcu._tilelang import import_tilelang
 
 import torch
-import tilelang
-import tilelang.language as T
 
 
 def main():
@@ -11,6 +11,20 @@ def main():
         return 0
     if os.environ.get("PYQCU_ENABLE_DCU_TESTS") != "1":
         print("SKIP: set PYQCU_ENABLE_DCU_TESTS=1 to run the DCU TileLang test")
+        return 0
+
+    tilelang = import_tilelang()
+    if tilelang is None:
+        return 0
+    try:
+        import tilelang.language as T
+    except Exception as exc:
+        warnings.warn(
+            "TileLang is unavailable; skip the DCU TileLang test "
+            f"({type(exc).__name__}: {exc})",
+            RuntimeWarning,
+            stacklevel=1,
+        )
         return 0
 
     @tilelang.jit(target="hip")

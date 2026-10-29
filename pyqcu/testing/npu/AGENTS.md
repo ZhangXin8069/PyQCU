@@ -14,3 +14,6 @@
 ```bash
 python pyqcu/testing/npu/conftest.py
 ```
+
+`conftest_1.py` 在 TileLang 缺失时只发 warning 并返回 0，不得打印 `Error:` 或
+traceback。

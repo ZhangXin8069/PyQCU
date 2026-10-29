@@ -5,7 +5,7 @@ PyQCU 参考文档。
 > 2026-09-27 迁移：顶层 `examples/` 已迁入 `pyqcu/testing/`。本目录旧报告中若
 > 出现 `examples/...`，应映射为 `pyqcu/testing/...`；现行文档已统一使用新路径。
 
-当前 `docs/` 顶层共有 **34 份 Markdown 文档（含本索引）**。下表只维护文件职责；
+当前 `docs/` 顶层共有 **35 份 Markdown 文档（含本索引）**。下表只维护文件职责；
 权威级别、唯一主责技能和提取边界见
 [`skills/pyqcu-docs/references/project-docs-map.md`](../skills/pyqcu-docs/references/project-docs-map.md)。
 
@@ -16,7 +16,8 @@ PyQCU 参考文档。
 | `ORGANIZATION.md` | `docs/`、`data/`、`logs/`、`pyqcu/testing/` 的统一分类规则、垃圾清理与构建树例外 |
 | `dims.md` | 维度命名方案（`s`=spin、`c`=color、`d`=direction、`p`=parity、`x/y/z/t`=时空）。`ccdxyzt`、`scxyzt`、`psctzyx` 等约定 |
 | `env.md` | Python 环境设置；`env.sh` 始终设置 `LD_LIBRARY_PATH`/`PYTHONPATH`，仅在仓库内 QUDA 库存在时设置 `QUDA_PATH`，显式 `QUDA_INSTALL` 可覆盖安装树 |
-| `install.md` | 安装指南 — CUDA/KUPL 后端选择和 install.sh 工作流 |
+| `install.md` | 安装指南 — CUDA/DCU/KUPL 后端选择和 install.sh 工作流 |
+| `dcu_build_backend.md` | DCU/DTK 构建选路、ROCm/HIP 验证、测试、生产限制和故障排查 |
 | `kupl_only_deployment.md` | 纯 KUPL 无 CUDA 安装、旧版 PyTorch 兼容、测试、生产、Multigrid、升级和故障排查手册 |
 | `examples.md` | 测试与示例迁移映射、运行入口与结果解读 |
 | `kupl_kunpeng_guide.md` | KUPL CPU 后端在鲲鹏上的构建、MPI/OpenMP 绑定、NUMA/内存策略、测试与性能证据规范 |

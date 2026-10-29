@@ -1,11 +1,20 @@
 import argparse
+import warnings
+from pyqcu._tilelang import import_tilelang
 
 def main() -> int:
+    tilelang = import_tilelang()
+    if tilelang is None:
+        return 0
     try:
-        import tilelang
         import tilelang.language as T
     except Exception as exc:
-        print(f"PYQCU::NPU::CONFTEST_1:\n tilelang unavailable: {exc}")
+        warnings.warn(
+            "TileLang is unavailable; skip the NPU kernel example "
+            f"({type(exc).__name__}: {exc})",
+            RuntimeWarning,
+            stacklevel=1,
+        )
         return 0
 
     try:
