@@ -58,7 +58,7 @@ except ImportError:
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_LOG_DIR = REPO_ROOT / "logs"
-DEFAULT_KUPL_LIBRARY = REPO_ROOT / "cpp/kupl/qcu/build/libqcu.so"
+DEFAULT_KUPL_LIBRARY = REPO_ROOT / "cpp/kupl/qcu/libqcu.so"
 REPORT_PREFIX = "kupl_env-v"
 
 KUPL_RUNTIME_KEYS = (

@@ -7,6 +7,8 @@ MODE=${1:-build}
 BUILD_DIR=${QCU_DCU_BUILD_DIR:-"$REPO_ROOT/data/build/cuda-qcu-dcu"}
 BUILD_TYPE=${QCU_DCU_BUILD_TYPE:-Release}
 JOBS=${PYQCU_BUILD_JOBS:-$(getconf _NPROCESSORS_ONLN 2>/dev/null || printf '1')}
+OUTPUT_LIBRARY="$BUILD_DIR/libqcu.so"
+BRIDGE_LIBRARY="$SCRIPT_DIR/libqcu.so"
 
 resolve_executable() {
     local candidate=$1
@@ -36,6 +38,7 @@ fi
 printf 'PYQCU DCU backend: ready\n'
 printf '  compiler: %s\n' "$compiler"
 printf '  build directory: %s\n' "$BUILD_DIR"
+printf '  library: %s\n' "$OUTPUT_LIBRARY"
 
 if [[ "$MODE" == "--check" ]]; then
     exit 0
@@ -49,6 +52,13 @@ ln -sf CMakeLists-dcu.txt "$SCRIPT_DIR/CMakeLists.txt"
 cmake -S "$SCRIPT_DIR" -B "$BUILD_DIR" \
     -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
     -DCMAKE_CUDA_COMPILER="$compiler" \
-    -DCMAKE_LIBRARY_OUTPUT_DIRECTORY="$SCRIPT_DIR"
+    -DCMAKE_LIBRARY_OUTPUT_DIRECTORY="$BUILD_DIR"
 cmake --build "$BUILD_DIR" --parallel "$JOBS"
+if [[ ! -f "$OUTPUT_LIBRARY" ]]; then
+    printf 'error: DCU library was not produced: %s\n' "$OUTPUT_LIBRARY" >&2
+    exit 1
+fi
+cp -f "$OUTPUT_LIBRARY" "$BRIDGE_LIBRARY"
+printf 'DCU library: %s\n' "$OUTPUT_LIBRARY"
+printf 'Cython bridge library: %s\n' "$BRIDGE_LIBRARY"
 printf 'make-dcu.sh: SUCCESS\n'

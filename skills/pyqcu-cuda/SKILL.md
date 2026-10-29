@@ -67,6 +67,11 @@ uses ROCm PyTorch's CUDA-compatible API (`backend="cuda"`, `device="cuda:N"`).
 `cpp/dtk` and `pyqcu/dtk` are placeholders. See
 [`docs/dcu_build_backend.md`](../../docs/dcu_build_backend.md).
 
+`source ./env.sh` exports the current checkout as `PYQCU_ROOT` and defaults
+`PYQCU_CUDA_LIB`, `PYQCU_DCU_LIB`, and `PYQCU_KUPL_LIB` to their canonical library
+paths. DCU builds write `${QCU_DCU_BUILD_DIR}/libqcu.so` and copy it to
+`cpp/cuda/qcu/libqcu.so` for the Cython bridge. Explicit caller values take precedence.
+
 ## Public API
 
 跨 CUDA/KUPL/Torch 的公共 PyQCU 接口规范以

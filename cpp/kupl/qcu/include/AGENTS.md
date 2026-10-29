@@ -3,7 +3,7 @@
 KUPL QCU 的声明层，目录形式与 `cpp/cuda/qcu/include` 对齐。
 
 - `kupl/define.h`：`params/argv/set_ptrs` ABI 常量与计划编码。
-- `kupl/qcu.h`：37 个 `extern "C"` QCU 入口，函数名和签名必须与 CUDA 版一致。
+- `kupl/qcu.h`：40 个 `extern "C"` QCU 入口，函数名和签名必须与 CUDA 版一致。
 - `kupl/lattice_set.h`：`LatticeSetBase`、`LatticeSet<Real>` 和注册生命周期；
   只声明接口，数值实现留在 `src/lattice_*.cpp`。
 - `kupl/lattice_complex.h`：复数别名、自旋/颜色/向量维度常量。

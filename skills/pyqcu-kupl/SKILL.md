@@ -101,6 +101,12 @@ identity 不一致时才重建。
   `local+N`；无候选或不唯一时只建议 `local`。`bind + require=1` 是严格 HBM
   配置，`preferred` 会回退 DDR；最终用 `numastat -p` 或 `/proc/<pid>/numa_maps`
   验证实际页分布。
+- 从仓库根 `source ./env.sh` 会导出当前树优先的 `PYTHONPATH`、`PYQCU_ROOT`、
+  `PYQCU_KUPL_BUILD_DIR`/`PYQCU_KUPL_LIB` 和保守 KUPL 默认值；显式调用者值优先。
+  `cpp/kupl/qcu/libqcu.so` 是构建生成的稳定软链接，指向当前 build 目录中的实际
+  `libqcu.so`；Python ctypes 与生产启动器都通过该路径，不直接写死 build 目录。
+  批处理命令应在作业内 source，随后使用 `--kupl-lib default`，不要在外层单引号中
+  直接展开 `$PYQCU_KUPL_LIB`。
 - `PYQCU_KUPL_PROFILE=kunpeng|kunpeng-2numa` 会校验 Linux ARM64 与
   Kunpeng/HiSilicon CPU 标识；profile/topology/oversubscribe 开关在 rank 间必须
   一致，不一致必须在任何提前返回之前由集合归约统一失败。

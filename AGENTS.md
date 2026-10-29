@@ -49,6 +49,9 @@ Wilson/Clover Dirac 算子、BiStabCG 与多重网格求解器、stout smearing�
   `QcuRuntime.call/operation()`；Strict 多调用生命周期在同一私有槽位内保持索引不变。
 - **张量布局**：规范场 `[3,3,4,Lx,Ly,Lz,Lt]`、费米子场 `[4,3,Lx,Ly,Lz,Lt]`、Clover 项 `[4,3,4,3,Lx,Ly,Lz,Lt]`；时空维永远是最后 4 轴（`...xyzt`），ward 索引用负整数（`wards['x']=-4`）。HDF5 内部用 `zyxt` 序，经 `ccdxyzt2ccdptzyx`/`scxyzt2psctzyx` 转换。
 - **日志约定**：`PYQCU::MODULE::SUBMODULE:\n message`，由 verbose 标志控制。
+- **环境默认值**：`source ./env.sh` 导出当前仓库优先的 `PYTHONPATH`、`PYQCU_ROOT`，
+  以及 `PYQCU_CUDA_LIB`、`PYQCU_DCU_LIB`、`PYQCU_KUPL_LIB`；KUPL 默认库路径是
+  `cpp/kupl/qcu/libqcu.so` 稳定软链接，指向当前 build 中的实际库。
 - **测试**：测试函数在 `pyqcu/testing/__init__.py`，`pyqcu/testing/*/conftest.py` 手动取消注释要运行的测试。
 - **CUDA 生产执行拓扑**：一个 Python 进程对应一个 MPI rank、对应一张 GPU/DCU/GPGPU。跨设备并行必须走 MPI 多进程格点分域；生产驱动不得在一个 Python 进程内创建多 GPU worker，也不得让 rank 数超过设备数后把共享设备当作加速路径。DCU/GPGPU 程序遵循同一进程-rank-设备映射。
 - **多 GPU 测试专用例外**：`pyqcu/cuda/_multi_gpu.py`（`MultiGpuMultigrid`）是显式 opt-in 的测试/基准驱动，不会在导入 `pyqcu` 时自动构造或启动。它在一个单 MPI rank 进程内用 N 线程分别绑定 N 张设备，每线程执行完整 Legacy MG，不是一次 solve 的跨卡分域；除非任务明确要求多卡一致性或吞吐测试，新 CUDA 程序不得使用。该测试驱动仍须保证每线程独立 `params/argv/set_ptrs`（`_SET_INDEX_` 各自从 0 计数）；Cython 桥的 `nogil` 调用与 pxd 声明规则保持不变。

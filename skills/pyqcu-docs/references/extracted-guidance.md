@@ -27,7 +27,8 @@ ctest --test-dir cpp/kupl/qcu/build --output-on-failure
 python -m pytest -q pyqcu/testing/kupl
 ```
 
-KUPL 动态库不在默认构建目录时设置 `PYQCU_KUPL_LIB=/absolute/path/libqcu.so`。
+KUPL 的动态库稳定入口是 `cpp/kupl/qcu/libqcu.so`，由构建更新为指向实际 build
+目录；需要隔离自定义构建时显式设置 `PYQCU_KUPL_LIB=/absolute/path/libqcu.so`。
 `env.sh` 始终设置 `LD_LIBRARY_PATH` 和 `PYTHONPATH`，仅当仓库内 QUDA 库存在时
 设置 `QUDA_PATH`；`QUDA_INSTALL` 可显式覆盖安装树。库架构和 ABI 必须与当前设备
 及 PyQUDA 扩展一致。来源：`docs/env.md`、`docs/install.md`。
@@ -325,7 +326,7 @@ mpirun -np 1 python -u conftest.py
 | `docs/AGENTS.md` | `docs/**` 是正式文档规范源；新增/迁移文档必须同步索引，tag 前报告只在工作区暂存。 | `pyqcu-docs`, `pyqcu-form` |
 | `docs/ORGANIZATION.md` | 文档、日志、数据、测试各只有一个规范目录；tag 报告先提交打标，再在后续提交清理工作区副本。 | `pyqcu-form` |
 | `docs/dims.md` | `s/c/d/p/x/y/z/t` 轴语义固定，时空维永远是最后四轴；gauge/fermion/Clover 使用 canonical 顺序。 | `pyqcu-tools`, `pyqcu-lattice`, `pyqcu-dslash` |
-| `docs/env.md` | Python ≥ 3.10，`PYTHONPATH` 包含仓库根；环境入口为 `env.sh`。 | `pyqcu-tools`, `pyqcu-testing` |
+| `docs/env.md` | Python ≥ 3.10，环境入口为 `env.sh`；当前仓库优先进入 `PYTHONPATH`，并导出 `PYQCU_ROOT`、`PYQCU_CUDA_LIB`、`PYQCU_DCU_LIB`、`PYQCU_KUPL_LIB` 与保守 KUPL 默认值。 | `pyqcu-tools`, `pyqcu-testing` |
 | `docs/install.md` | CUDA/DCU/KUPL 通过 `install.sh` 显式选路；KUPL 独立 CMake/CTest；QUDA/PyQUDA 必须匹配当前架构与 ABI。 | `pyqcu-cuda`, `pyqcu-kupl`, `pyqcu-testing-dcu`, `pyqcu-testing-pyquda` |
 | `docs/dcu_build_backend.md` | DCU 构建使用 `install.sh dcu`、`CMakeLists-dcu.txt` 和显式 DTK compiler；运行层仍是 `backend="cuda"`，实际数值 smoke 必须在 ROCm DCU 上重跑。 | `pyqcu-cuda`, `pyqcu-testing-dcu` |
 | `docs/kupl_only_deployment.md` | 纯 KUPL 使用 `install.sh kupl`/`PYQCU_BUILD_BACKEND=kupl`，不要求 CUDA/Cython 扩展；`kupl_env.py` 生成 MPI-free 环境报告；真实 MG 必须 `levels=2,restart>0` 且有 verified cache，生产 BiStabCG 使用 `levels=1,restart=0`，两类 `solve_case.py` 外层不得再嵌套 `mpirun`。 | `pyqcu-kupl`, `pyqcu-testing-cpu`, `pyqcu-benchmark`, `pyqcu-tools` |

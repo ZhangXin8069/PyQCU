@@ -23,7 +23,7 @@
 | [`docs/AGENTS.md`](../../../docs/AGENTS.md) | A | `pyqcu-docs` | `pyqcu-form` | 文件索引、正式文档边界、tag 生命周期；新增/迁移文档时先更新此索引。 |
 | [`docs/ORGANIZATION.md`](../../../docs/ORGANIZATION.md) | A | `pyqcu-form` | — | `docs/data/logs/testing` 的规范位置、跨目录提升、tag 报告两提交生命周期和语义例外。 |
 | [`docs/dims.md`](../../../docs/dims.md) | A | `pyqcu-tools` | `pyqcu-lattice`, `pyqcu-dslash` | `s/c/d/p/x/y/z/t` 轴含义、规范场/费米子/奇偶布局；空间时间始终是最后四轴。 |
-| [`docs/env.md`](../../../docs/env.md) | A | `pyqcu-tools` | `pyqcu-testing` | Python 依赖、`PYTHONPATH` 与最小环境入口；永久环境仍需以 `env.sh` 和安装文档为准。 |
+| [`docs/env.md`](../../../docs/env.md) | A | `pyqcu-tools` | `pyqcu-testing` | Python 依赖、当前仓库优先的 `PYTHONPATH`、CUDA/DCU/KUPL 库路径、KUPL 默认变量与环境入口。 |
 | [`docs/install.md`](../../../docs/install.md) | A | `pyqcu-cuda` | `pyqcu-kupl`, `pyqcu-testing-dcu`, `pyqcu-testing-pyquda` | CUDA/DCU/KUPL `install.sh` 选路、KUPL CMake/CTest、`PYQCU_KUPL_LIB`、QUDA/PyQUDA 安装选择与 ABI 对齐。 |
 | [`docs/dcu_build_backend.md`](../../../docs/dcu_build_backend.md) | A | `pyqcu-cuda` | `pyqcu-testing-dcu`, `pyqcu-docs` | DCU 使用 `PYQCU_BUILD_BACKEND=dcu`/`install.sh dcu`、DTK compiler 预检、ROCm/HIP 验证、CUDA-compatible 运行时命名和当前占位边界。 |
 | [`docs/kupl_only_deployment.md`](../../../docs/kupl_only_deployment.md) | A | `pyqcu-kupl` | `pyqcu-testing-cpu`, `pyqcu-benchmark`, `pyqcu-tools` | 纯 KUPL 无 CUDA 构建、旧版 PyTorch dtype、CTest/Python 测试、环境检测、生产 BiStabCG/真实 Legacy-MG、HBM 放置、升级和排错。 |

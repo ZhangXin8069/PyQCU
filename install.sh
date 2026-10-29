@@ -14,6 +14,7 @@ Usage: bash install.sh [kupl|cuda|dcu]
 
 KUPL environment variables:
   PYQCU_KUPL_BUILD_DIR  Build directory (default: cpp/kupl/qcu/build)
+  PYQCU_KUPL_LIB        Canonical KUPL library path exported by env.sh
   PYQCU_BUILD_JOBS      Parallel build jobs
   CMAKE_BUILD_TYPE      CMake build type (default: Release)
   KUPL_ENABLE_NATIVE    ON/OFF local ISA tuning (default: OFF)
@@ -23,7 +24,11 @@ KUPL environment variables:
 DCU environment variables:
   QCU_DCU_CUDA_COMPILER  DTK nvcc-compatible compiler path override
   QCU_DCU_BUILD_DIR      Build directory (default: data/build/cuda-qcu-dcu)
+  PYQCU_DCU_LIB          Canonical DCU library path exported by env.sh
   ROCM_PATH              Used to locate ${ROCM_PATH}/cuda/bin/nvcc
+
+CUDA library variable:
+  PYQCU_CUDA_LIB         Canonical CUDA library path exported by env.sh
 EOF
 }
 
@@ -46,19 +51,26 @@ case "$MODE" in
             printf 'error: KUPL library was not produced: %s\n' "$kupl_library" >&2
             exit 1
         fi
+        kupl_public_library="$ROOT/cpp/kupl/qcu/libqcu.so"
+        if [[ ! -f "$kupl_public_library" ]]; then
+            printf 'error: KUPL public library symlink was not produced: %s\n' \
+                "$kupl_public_library" >&2
+            exit 1
+        fi
 
         PYQCU_BUILD_BACKEND=kupl \
-        PYQCU_KUPL_LIB="$kupl_library" \
+        PYQCU_KUPL_LIB="$kupl_public_library" \
         PYTHONPATH="$ROOT${PYTHONPATH:+:$PYTHONPATH}" \
             python "$ROOT/setup.py" build_ext --inplace
-        PYQCU_KUPL_LIB="$kupl_library" \
+        PYQCU_KUPL_LIB="$kupl_public_library" \
         PYTHONPATH="$ROOT${PYTHONPATH:+:$PYTHONPATH}" \
             python -B -c \
             'from pyqcu.kupl import qcu; print(f"KUPL library: {qcu.library_path()}")'
 
         printf 'KUPL installation complete.\n'
-        printf '  library: %s\n' "$kupl_library"
-        printf '  export PYQCU_KUPL_LIB=%q\n' "$kupl_library"
+        printf '  built library: %s\n' "$kupl_library"
+        printf '  public library: %s\n' "$kupl_public_library"
+        printf '  export PYQCU_KUPL_LIB=%q\n' "$kupl_public_library"
         ;;
     cuda)
         PYQCU_BUILD_BACKEND=cuda python "$ROOT/setup.py" build_ext --inplace

@@ -32,7 +32,7 @@ from typing import Any
 
 
 _REPO = Path(__file__).resolve().parents[2]
-_DEFAULT_LIB = _REPO / "cpp/kupl/qcu/build/libqcu.so"
+_DEFAULT_LIB = _REPO / "cpp/kupl/qcu/libqcu.so"
 
 
 def library_path() -> Path:

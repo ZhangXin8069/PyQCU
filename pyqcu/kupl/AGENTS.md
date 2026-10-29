@@ -3,8 +3,8 @@
 独立 KUPL CPU 后端的 Python `ctypes` 绑定。
 
 - `qcu.py` 通过 `RTLD_LOCAL` 加载 `PYQCU_KUPL_LIB` 或
-  `cpp/kupl/qcu/build/libqcu.so`，避免与 CUDA `libqcu.so` 符号冲突；
-  37 个 CUDA QCU ABI 名称均有 Python 包装和 CPU 实现。
+  `cpp/kupl/qcu/libqcu.so` 稳定软链接，避免与 CUDA `libqcu.so` 符号冲突；
+  40 个 CUDA QCU ABI 名称均有 Python 包装和 CPU 实现。
 - `multigrid/` 提供统一命名的 `LegacyMultigrid` 与 `StrictMultigrid`，共同使用
   `setup()/solve()/close()`；粗层资产仍通过 `set_ptrs` 按各自协议预绑定。
 - `linear_operator.py` / `krylov.py` 提供 compact-Schur Operator 与原生整次 BiCGStab/CG

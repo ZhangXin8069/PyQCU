@@ -115,6 +115,11 @@ def _solution_path(out_dir: Path, backend: str, lat) -> Path:
     return out_dir / f"solution_{'x'.join(map(str, lat))}_{backend}_c64.h5"
 
 
+def _drop_none_fields(payload: dict) -> dict:
+    """Omit inapplicable optional fields instead of publishing JSON null."""
+    return {key: value for key, value in payload.items() if value is not None}
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
         description=__doc__,
@@ -213,6 +218,7 @@ def main(argv=None) -> int:
                          f"ranks, got {ranks}")
         env = dict(os.environ)
         env["OMP_NUM_THREADS"] = str(args.kupl_threads)
+        env["KUPL_OMP_THREADS"] = str(args.kupl_threads)
         env = kupl_environment(env, args.kupl_lib)
         kupl_variant = env.get("QCU_KUPL_VARIANT", "default")
         command = kupl_command(args, grid, args.lat, mass, csw, gauge,
@@ -232,7 +238,7 @@ def main(argv=None) -> int:
         except FileNotFoundError:
             pass
 
-    summary = {
+    summary = _drop_none_fields({
         "backend": args.backend,
         "solution": str(output),
         "report": str(report),
@@ -250,10 +256,10 @@ def main(argv=None) -> int:
         "quda_variant": quda_variant,
         "kupl_variant": kupl_variant,
         "error": data.get("error"),
-    }
+    })
     write_json(out_dir / f"last_solve_{args.backend}.json", summary)
     print(json.dumps(summary, ensure_ascii=False, indent=2))
-    return 0 if summary["status"] == "PASS" else 1
+    return 0 if summary.get("status") == "PASS" else 1
 
 
 if __name__ == "__main__":
