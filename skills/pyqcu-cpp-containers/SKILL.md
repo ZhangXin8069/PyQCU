@@ -40,8 +40,8 @@ CUDA/DCU/GPGPU 生产运行遵循一 Python 进程 = 一 MPI rank = 一设备；
 
 ## cpp/cuda/qcu 速查（详规见 `pyqcu-cpp-qcu`）
 
-- **构建**：`source ./env.sh && bash ./make.sh`（`make.sh` 把 `CMakeLists-nv.txt`
-  软链为 `CMakeLists.txt` 后 cmake+make）；仓库根 `bash ./build.sh` 是同一流程的包装。
+- **构建**：进入 `cpp/cuda/qcu/` 后执行 `source ./env.sh && bash ./make-nv.sh`（`make-nv.sh` 把 `CMakeLists-nv.txt`
+  软链为 `CMakeLists.txt` 后 cmake+make）；仓库根 `bash ./build-nv.sh` 是同一流程的包装。
   `env.sh` 自动探测当前 NVIDIA GPU 的 compute capability，CMake 生成对应
   cubin + PTX；需要复现或跨机型构建时用 `QCU_CUDA_ARCHITECTURES` 显式覆盖，
   并把架构写进 provenance。

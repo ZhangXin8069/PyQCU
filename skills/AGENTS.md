@@ -87,7 +87,7 @@ frontmatter：name 与目录名一致 + description 写触发场景（何时使�
 | `pyqcu-testing-npu` | pyqcu/testing/npu：昇腾 NPU 测试（可用 force_use_npu 在 CPU 上测 NPU 路径）。 |
 | `pyqcu-testing-dcu` | pyqcu/testing/dcu：AMD DCU / ROCm (HIP) 测试。 |
 | `pyqcu-testing-profiler` | pyqcu/testing/profiler：torch.profiler 性能剖析，导出 Chrome trace 供 Perfetto 可视化。 |
-| `pyqcu-testing-tilelang` | pyqcu/testing/tilelang：TileLang JIT 集成、历史性能锚点与当前 no-op 测试入口边界。 |
+| `pyqcu-testing-tilelang` | TileLang JIT 集成与历史性能锚点；旧 `pyqcu/testing/tilelang/` 目录已删除，当前使用真实 pytest node 或 `pyqcu.testing.test_matmul()`。 |
 | `pyqcu-testing-data` | pyqcu/testing/data：测试验证参考 HDF5 文件（with_data=True 时使用）。 |
 | `pyqcu-testing-qcu` | pyqcu/testing/qcu：经 Cython 桥测 C++ CUDA 后端；含按职责分类的多重网格性能基准套件与 Strict 对照。 |
 | `pyqcu-qcu-single-tests` | pyqcu/testing/qcu 与 pyqcu/testing/quda 的 QCU/QUDA 单功能测试、PyTorch 参考校验和布局转换约定。 |

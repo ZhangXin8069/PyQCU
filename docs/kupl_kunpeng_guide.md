@@ -80,7 +80,7 @@ HPCKit 安装树。禁止把系统 UCX 与 HPCKit UCX、或两套 HMPI 启停脚
 | `KUPL_MEMORY_NODE` | `local`、`N`、`local+N` | CPU 节点 | 指定后续库分配的 NUMA 内存节点 |
 | `KUPL_MEMORY_POLICY` | `preferred/bind/default` | policy 启用时 `preferred` | preferred 可溢出，bind 严格本地 |
 | `KUPL_REQUIRE_MEMORY_BIND` | `0/1` | `0` | memory policy 失败时从告警改为失败 |
-| `KUPL_REQUIRE_TOPOLOGY` | `0/1` | 由 profile 决定 | 要求每 rank 恰好绑定一个 NUMA 域 |
+| `KUPL_REQUIRE_TOPOLOGY` | `0/1` | 由 profile 决定 | 要求每个 rank 在 `applyInitQcu` 前恰好拥有一个 CPU NUMA 域 |
 | `KUPL_ALLOW_OVERSUBSCRIBE` | `0/1` | `0` | 显式允许线程数大于 cpuset CPU 数 |
 | `KUPL_TOPOLOGY_REPORT` | `0/1` | `0` | 每个 rank 输出实际 NUMA、cpuset、线程和内存策略 |
 | `KUPL_HUGEPAGE` | `0/1` | `0` | 对大型内部 scratch 请求 THP advice |
@@ -156,7 +156,8 @@ mpirun --report-bindings --rankfile kunpeng.rankfile -np 4 ...
 
 ```bash
 export KUPL_NUMA_BIND=1
-export KUPL_MEMORY_POLICY=preferred
+export KUPL_MEMORY_POLICY=bind
+export KUPL_REQUIRE_MEMORY_BIND=1
 export KUPL_TOPOLOGY_REPORT=1
 export KUPL_OMP_THREADS=24
 export OMP_NUM_THREADS=24
@@ -176,22 +177,62 @@ mpirun --bind-to none -np 2 \
 节点。具体节点号随机型、BIOS 和节点配置变化，必须用 `numactl --hardware` 或
 sysfs 现场确认。不能把示例中的 offset `16` 当作所有鲲鹏平台的常量。
 
-确认 `本地CPU节点 N` 对应高带宽节点 `N+16` 后：
+先运行环境检测器，不要根据历史示例猜节点号：
 
 ```bash
+python -B pyqcu/testing/kupl/kupl_env.py \
+  --ranks 4 --threads-per-rank 32 \
+  --lattice 24 24 24 64 --dtype c64 --grid 1 1 2 2
+```
+
+检测器会把“无 CPU 且有内存”的节点列为片上内存候选，并仅在以下条件全部满足时
+建议统一 `local+N`：
+
+- 每个 CPU NUMA 节点都能按 sysfs `distance` 唯一选出最近的内存节点；
+- 所有 CPU 节点到对应内存节点的编号差相同且为正；
+- `numactl --hardware`/系统文档支持该映射，而不是 pmem、CXL 或其他异构内存。
+
+确认 CPU 节点 `N` 对应片上内存节点 `N+offset` 后，才使用严格绑定：
+
+```bash
+: "${hbm_offset:?set this to kupl_env.py detected_offset}"
 export KUPL_NUMA_BIND=1
-export KUPL_MEMORY_NODE=local+16
-export KUPL_MEMORY_POLICY=preferred
+export KUPL_MEMORY_NODE="local+${hbm_offset}"
+export KUPL_MEMORY_POLICY=bind
+export KUPL_REQUIRE_MEMORY_BIND=1
+export KUPL_REQUIRE_TOPOLOGY=1
+export KUPL_TOPOLOGY_REPORT=1
+```
+
+`bind` 严格限制在该节点，容量不足或节点不存在时失败关闭；`preferred` 在片上内存
+耗尽后允许溢出，因此只能用于容量弹性测试，不能满足“确保使用 HBM”。若容器 seccomp
+禁用 `set_mempolicy`，日志会明确报告失败，不能用 `memory_bound=true` 伪装成功。
+
+本机只有 CPU+内存合一 NUMA 节点时，应使用：
+
+```bash
+export KUPL_MEMORY_NODE=local
+export KUPL_MEMORY_POLICY=bind
 export KUPL_REQUIRE_MEMORY_BIND=1
 ```
 
-`preferred` 在片上内存耗尽后允许溢出；`bind` 严格限制在该节点，容量不足会失败。
-若容器 seccomp 禁用 `set_mempolicy`，日志会明确报告失败，不能用 `memory_bound=true`
-伪装成功。
+这保证绑定本地 DDR，不表示存在或使用了 HBM。错误的 `local+16` 会令
+`set_mempolicy()` 返回 `EINVAL`；严格模式必须在 solve 前中止，而不是退回默认分配。
 
 Python/NumPy 输入数组通常大于片上内存，且可能在 `applyInitQcu` 前完成分配。此时
 应优先用调度器/`numactl -m/--preferred` 完成进程级放置，或改造调用方在绑定后
 分配；仅设置 `KUPL_MEMORY_NODE` 不会迁移现有页。
+
+严格 HBM 验收必须在 solve 运行期间检查实际页；仅查看 stderr 的
+`memory_bound=true` 只能证明策略调用成功：
+
+```bash
+numastat -p <rank_pid>
+grep -Eo 'N[0-9]+=[0-9]+' /proc/<rank_pid>/numa_maps | sort | uniq -c
+```
+
+若目标内存节点没有页、绝大多数页位于 DDR、或输入页在绑定前已经 fault-in，
+本次运行不能记为 HBM PASS。
 
 ### 4.4 大页
 
@@ -236,6 +277,18 @@ coarse-MG 资产。容量规划必须再加 Python/NumPy 输入与每个 rank �
 python -B pyqcu/testing/kupl/kunpeng_runtime.py inspect --json
 ```
 
+需要面向生产的完整摘要时使用：
+
+```bash
+python -B pyqcu/testing/kupl/kupl_env.py \
+  --ranks 4 --threads-per-rank 32 \
+  --lattice 24 24 24 64 --dtype c64 --grid 1 1 2 2
+```
+
+默认报告位于 `logs/kupl_env-vYYYY-MM-DD-HH-MM-SS.txt`。它额外记录 cgroup、每个
+NUMA 的 MemTotal/MemFree/distance、HBM 候选评估、实际 `libqcu.so` SHA256、当前
+冲突变量、工作集静态尺度，以及真实 Legacy-MG/parity-Schur BiStabCG 的生产命令。
+
 生成双 NUMA、每 rank 24 线程的调度器绑定计划：
 
 ```bash
@@ -249,10 +302,12 @@ python -B pyqcu/testing/kupl/kunpeng_runtime.py plan \
 生成库内绑定和片上内存计划：
 
 ```bash
+# 只有 kupl_env.py 报告稳定 offset 时才使用；示例 16 不是默认值。
+offset=16
 python -B pyqcu/testing/kupl/kunpeng_runtime.py plan \
   --ranks 2 --threads-per-rank 24 \
   --binding library --mpi openmpi \
-  --memory-policy preferred --memory-node-offset 16 \
+  --memory-policy bind --memory-node-offset "$offset" \
   --program cpp/kupl/qcu/build-kunpeng/kupl_qcu_bench
 ```
 
@@ -291,6 +346,32 @@ RoCE/IB transport 名称必须以现场探测结果为准。默认不要强制
 
 ## 7. 性能测试
 
+### 7.1 生产 solver 路线
+
+KUPL 有两条不能混写的生产路线：
+
+| 路线 | 参数/状态 | 算法边界 |
+|---|---|---|
+| Legacy-MG | `levels=2`、`restart>0`、身份匹配 cache、`verify_status=0` | 真正构建/加载粗层并执行周期 coarse correction |
+| BiStabCG | `levels=1`、`restart=0`、`coarse_source=unused: restart=0` | optimized parity-Schur BiStabCG，不执行粗层 correction |
+
+这里 `simple/mpi/solve_case.py --backend kupl` 的 MG 路线是 Legacy additive
+correction，不是 Strict-MG 持久 V-cycle/FGMRES。Strict 路径必须显式使用
+`pyqcu.kupl.multigrid.StrictMultigrid` 及其专用资产/benchmark 编排。
+BiStabCG 则有独立原生核心 `solve_compact_bistabcg()` 和直接 ABI
+`applyCloverBistabCgQcu`；共享 `applyCloverMultigridQcu` 在 `restart=0` 时只做
+dispatch 并调用同一个 `clover_bistabcg()`。当前缺的是独立多 rank CLI，不是算法实现。
+
+生产入口使用 `pyqcu/testing/simple/mpi/solve_case.py`；它自动创建或校验全局 coarse
+cache、启动一次 MPI solve、记录每 rank affinity/memory 环境并计算独立真残差。
+完整命令和 cache/A/B 规则见
+[`kupl_only_deployment.md`](kupl_only_deployment.md) 的第 7.5 节。
+
+“真实 MG”不等于“MG 必然更快”。只有同 gauge/RHS、dtype、atol、rank/grid/threads
+和 cache 状态下的稳态 A/B 才能决定生产路线；若 correction 增加墙钟，应保留
+BiStabCG 并记录 MG 负收益。不得把 `restart=0` 改名为 MG，也不得把 cache setup
+时间混入 BiStabCG solver-only 比较。
+
 短算子 A/B：
 
 ```bash
@@ -305,7 +386,7 @@ Python 基准默认不设置 `OMP_PROC_BIND`：
 ```bash
 python -B pyqcu/testing/simple/benchmark_kupl.py \
   --lat 16 16 16 32 --iterations 10 --repeats 5 --threads 24 \
-  --openmp-bind none --numa-bind library --memory-policy preferred \
+  --openmp-bind none --numa-bind library --memory-policy bind \
   --output data/kunpeng_smoke.json
 ```
 

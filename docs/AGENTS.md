@@ -5,7 +5,7 @@ PyQCU 参考文档。
 > 2026-09-27 迁移：顶层 `examples/` 已迁入 `pyqcu/testing/`。本目录旧报告中若
 > 出现 `examples/...`，应映射为 `pyqcu/testing/...`；现行文档已统一使用新路径。
 
-当前 `docs/` 顶层共有 **35 份 Markdown 文档（含本索引）**。下表只维护文件职责；
+当前 `docs/` 顶层共有 **39 份 Markdown 文档（含本索引）**。下表只维护文件职责；
 权威级别、唯一主责技能和提取边界见
 [`skills/pyqcu-docs/references/project-docs-map.md`](../skills/pyqcu-docs/references/project-docs-map.md)。
 
@@ -18,9 +18,9 @@ PyQCU 参考文档。
 | `env.md` | Python 环境设置；`env.sh` 始终设置 `LD_LIBRARY_PATH`/`PYTHONPATH`，仅在仓库内 QUDA 库存在时设置 `QUDA_PATH`，显式 `QUDA_INSTALL` 可覆盖安装树 |
 | `install.md` | 安装指南 — CUDA/DCU/KUPL 后端选择和 install.sh 工作流 |
 | `dcu_build_backend.md` | DCU/DTK 构建选路、ROCm/HIP 验证、测试、生产限制和故障排查 |
-| `kupl_only_deployment.md` | 纯 KUPL 无 CUDA 安装、旧版 PyTorch 兼容、测试、生产、Multigrid、升级和故障排查手册 |
+| `kupl_only_deployment.md` | 纯 KUPL 无 CUDA 安装、旧版 PyTorch 兼容、环境检测、生产 BiStabCG/真实 Legacy-MG、HBM、升级和故障排查手册 |
 | `examples.md` | 测试与示例迁移映射、运行入口与结果解读 |
-| `kupl_kunpeng_guide.md` | KUPL CPU 后端在鲲鹏上的构建、MPI/OpenMP 绑定、NUMA/内存策略、测试与性能证据规范 |
+| `kupl_kunpeng_guide.md` | KUPL CPU 后端在鲲鹏上的构建、MPI/OpenMP 绑定、NUMA/HBM 策略、环境检测、生产算法选路、测试与性能证据规范 |
 | `profiler.md` | 剖析指南 — torch.profiler 与 Perfetto |
 | `cuda_execution_topology.md` | CUDA 生产拓扑：一 Python 进程 = 一 MPI rank = 一 GPU/DCU/GPGPU；`MultiGpuMultigrid` 测试专用例外 |
 | `torch_backend_layout.md` | Torch/CANN 实现目录、顶层公共层、兼容门面与 multigrid 选择器边界 |
@@ -31,7 +31,7 @@ PyQCU 参考文档。
 | 文件 | 内容 |
 |---|---|
 | `qcu_unified_backend_strategy_20261023.md` | Torch/CUDA/KUPL 的 Legacy/Strict 六实现对比、统一组件架构及扩展 dslash/BiCGStab/CG 方案 |
-| `multigrid_setup_cpp_migration.md` | Legacy MG 的 null-vector、局部正交化、33-tensor stencil 从 Python 迁移到 CUDA/KUPL C++ 的边界与验收门 |
+| `multigrid_setup_cpp_migration.md` | Legacy MG 的 null-vector、局部正交化、33-tensor stencil 从 Python 迁移到 CUDA/KUPL C++ 的已完成内核边界、混合编排与验收门 |
 | `qcu_quda_multigrid_algorithms.md` | QCU legacy MG 与 QUDA/PyQUDA MG 的算法组成、流程图、默认参数和并排对照 |
 | `qcu_quda_multigrid_subalgorithms.md` | QCU/QUDA MG 子算法的独立流程图、数学摘要、默认配置与同类算法优劣 |
 | `qcu_quda_multigrid_coarse_operator.md` | QCU legacy 33-tensor 与 Strict/QUDA `X/Y/Yhat` 粗层 dslash 表示辨析及源码依据 |
@@ -50,6 +50,10 @@ PyQCU 参考文档。
 | `qcu_mg_mpi_cache_builder_20261029.md` | Legacy-MG 多 MPI cache builder：分布式 null-vector、overlap stencil、1/2/4-rank slab 验证、Torch CPU 小格门和 KUPL 跨 cache 边界（2026-10-29，未打 tag） |
 | `qcu_mg_performance_ledger_20261029.md` | 用户要求的实时性能账本：按批次记录求解器、完整参数、输入/库 SHA、耗时、迭代、真残差、cache、作业审计与失败记录（2026-10-29，未打 tag） |
 | `qcu_mg_performance_report_20261029.tex` | 当前工作的 LaTeX 主报告：统一接口、CUDA/KUPL/QUDA 数据、失败边界和证据路径（2026-10-29，未打 tag；当前环境缺少 XeLaTeX） |
+| `qcu_quda_solver_dcu_20261029.md` | DCU 上 QCU/QUDA L24/L32/L48 总报告：构建 provenance、L24 Real Legacy-MG 正式采样、L32 cache 阻塞、L48 用户暂停与恢复边界 |
+| `qcu_quda_solver_dcu_l24_20261029.md` | L24 CUDA QCU Legacy-MG 的 1/2/4-rank 正式采样、cache 认证、QUDA runtime 阻塞和 native residual 边界 |
+| `qcu_quda_solver_dcu_l32_20261029.md` | L32 distributed cache 的 1--32-rank 恢复尝试、超时/参数门/共享 I/O 阻塞及无性能结果的状态记录 |
+| `qcu_quda_solver_dcu_l48_20261029.md` | L48 容量门、真实 Legacy cache shape/payload 预算、用户暂停状态和恢复条件 |
 | `legacy_vs_strict_mg_status_20261022.md` | Legacy/Strict CUDA 与 KUPL MG 现有 JSON/stdout 的完成状态、数值边界和未验证项（2026-10-22） |
 | `legacy_vs_strict_mg_memory_20261023.md` | Legacy/Strict CUDA MG 的设备级运行时显存峰值、测量边界、差异来源和未验证项（2026-10-23） |
 | `progress_until_20261022_worktree.md` | 当前工作区续接进度总结（2026-10-22） |

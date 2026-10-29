@@ -34,6 +34,8 @@ metadata:
 | `pyqcu/testing/kupl/test_legacy_mg.py` | 1/2/4-rank 递归 Clover-MG、deflate 开关、warm/cold 路径与 verify |
 | `pyqcu/testing/kupl/kunpeng_runtime.py` | 实际 affinity/sysfs NUMA 探测与 HMPI/OpenMPI、CPU/内存绑定规划 |
 | `pyqcu/testing/kupl/test_kunpeng_runtime.py` | 合成双 NUMA、片上内存 offset、线程容量与 CLI JSON 契约 |
+| `pyqcu/testing/kupl/kupl_env.py` | MPI-free 环境报告：CPU/NUMA/cgroup、HBM 候选、KUPL 库/变量冲突、真实 MG/BiStabCG 生产命令 |
+| `pyqcu/testing/kupl/test_kupl_env.py` | HBM offset/歧义/无 sysfs fail-safe、报告命名/原子写和 CLI 不导入 MPI 的契约 |
 | `pyqcu/testing/kupl/test_kunpeng_mpi_binding.py` | 双 rank 实际 cpuset 非空/不重叠门；硬件不足返回 skip 77 |
 | `pyqcu/testing/kupl/test_kunpeng_profile_contract.py` | 非鲲鹏主机拒绝鲲鹏 profile，rank 间 profile 不一致快速失败 |
 | `pyqcu/testing/kupl/benchmark_runtime.py` | 分离 init、首次 Clover 与 RSS 的库级初始化 A/B |
@@ -76,9 +78,10 @@ identity 不一致时才重建。
   结果必须 scatter 回 canonical 外部布局。
 - Strict public wrapper 与 raw ctypes ABI 已对齐；回归应交叉比较两条路径，
   当前同输入 L32 解相对差约 `8.3e-8`。若只验证 raw ABI，不得外推为所有公共路径可用。
-- KUPL Legacy 原生 cache 是 full-time 布局；CUDA/Torch Legacy 的公共 cache 是
-  odd-Schur、parity-compressed-time 布局。两者 coarse shape 不同，禁止按路径或文件大小
-  互换。KUPL 收到外部 cache 时仍须校验 E、coarse geometry 与 ABI。
+- 公共 Legacy cache 使用 canonical odd-Schur、parity-compressed-time 布局，KUPL 通过
+  `SET_PTRS_LEGACY_LAYOUT=1` 可直接消费 CUDA/Torch 生成的兼容 cache。KUPL 也保留
+  历史 full-time cache 路径；两种布局 coarse shape 不同，必须按 manifest 校验
+  identity、dtype、coarse geometry 与 layout，禁止按路径或文件大小猜测。
 
 ## 并行与绑定
 
@@ -92,6 +95,12 @@ identity 不一致时才重建。
 - `KUPL_MEMORY_NODE=local+N` 用于独立编号的片上内存 node；
   `KUPL_REQUIRE_MEMORY_BIND=1` 把 `set_mempolicy` 失败改为 fatal，
   `KUPL_TOPOLOGY_REPORT=1` 输出每 rank 的最终 cpuset/node/thread 证据。
+- 生产前用 `python -B pyqcu/testing/kupl/kupl_env.py --ranks ... --threads-per-rank ...`
+  生成 `logs/kupl_env-vYYYY-MM-DD-HH-MM-SS.txt`。只有 sysfs 中无 CPU 且有内存的
+  NUMA 节点对每个 CPU 节点按 `distance` 唯一映射、且 offset 完全一致时才建议
+  `local+N`；无候选或不唯一时只建议 `local`。`bind + require=1` 是严格 HBM
+  配置，`preferred` 会回退 DDR；最终用 `numastat -p` 或 `/proc/<pid>/numa_maps`
+  验证实际页分布。
 - `PYQCU_KUPL_PROFILE=kunpeng|kunpeng-2numa` 会校验 Linux ARM64 与
   Kunpeng/HiSilicon CPU 标识；profile/topology/oversubscribe 开关在 rank 间必须
   一致，不一致必须在任何提前返回之前由集合归约统一失败。
@@ -164,6 +173,22 @@ ASAN 与 OpenMPI 的 signal handler 可能递归输出 `DEADLYSIGNAL`；先以
 复现。没有可解释栈时，不能把 ASAN 超时写成通过。
 
 ## 性能基准
+
+### 生产算法选路
+
+- 真正 Legacy-MG：`levels=2`、`restart>0`、身份匹配的全局 coarse cache、
+  `coarse_source!=unused: restart=0`、`verify_status=0`。推荐入口
+  `pyqcu/testing/simple/mpi/solve_case.py`，它自动构建/校验 cache 并计算独立真残差。
+- 高效 BiStabCG：`levels=1`、`restart=0`、无 coarse hierarchy/cache；多 rank 生产
+  也走 `simple/mpi/solve_case.py`，`kupl_bistabcg.py` 只作单 rank ABI/数值示例。
+- BiStabCG 原生核心是 `lattice_solver.cpp::solve_compact_bistabcg()`；Clover
+  `solve_clover()` 完成 Schur prepare/solve/reconstruct/full residual。
+  `applyCloverBistabCgQcu` 是直接 ABI；`applyCloverMultigridQcu` 在
+  `restart=0` 时转发到同一个 `clover_bistabcg()`。当前缺独立多 rank CLI，不缺算法。
+- MG 稳态必须复用同一 cache，并与同 gauge/RHS、dtype、atol、rank/grid/thread 的
+  BiStabCG A/B；MG 负收益时保留 BiStabCG，不得把 `restart=0` 写成 MG。
+- `simple/solve_case.py` 和 `simple/mpi/solve_case.py` 都在内部启动 `mpirun`；
+  外层再次运行 `mpirun` 会形成递归 MPI，直接失败。
 
 同窗 KUPL 路径选择、LTO 结果、跨后端比较边界与当前工作区证据状态见
 [`pyqcu-docs/references/extracted-guidance.md`](../pyqcu-docs/references/extracted-guidance.md#5-性能与证据解释)。

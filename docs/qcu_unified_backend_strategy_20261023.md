@@ -44,7 +44,7 @@ Torch、CUDA、KUPL 各有 Legacy/Strict 两条实现，共六种小版本。当
 | TS | Torch Strict | `pyqcu.torch.solver.StrictMultigrid` | transfer、Galerkin full coarse、MATPC、递归 V-cycle | Python 实例持有层级，`setup/close` |
 | CL | CUDA Legacy | `applyCloverMultigridQcu` → `LatticeCloverMultigrid` | odd-Schur、33-tensor、周期 correction、可选多种 Krylov/smoother | 单次 ABI 调用内 `init/run/end`，资产外置 cache |
 | CS | CUDA Strict | `applyMultigridStrict*Qcu` → `StrictCoarseHierarchy` | full coarse、`X/Y/Yhat`、MATPC、fused right-FGMRES | `slot 80` persistent hierarchy，独立 init/end |
-| KL | KUPL Legacy | `applyCloverMultigridQcu` → `LegacyCloverMultigrid` | MPI full-site、33-tensor、周期 correction | 每次 solve 内分配层级向量 |
+| KL | KUPL Legacy | `applyCloverMultigridQcu` → `LegacyCloverMultigrid` | MPI、33-tensor、周期 correction；支持公共 odd-Schur cache 与历史 full-time cache | 每次 solve 内分配层级向量 |
 | KS | KUPL Strict | `applyMultigridStrict*Qcu` → `StrictHostHierarchy` | full coarse、MATPC、MR V-cycle、right-FGMRES | `slot 80` persistent hierarchy；FGMRES/halo 临时区每次 solve 分配 |
 
 证据入口：

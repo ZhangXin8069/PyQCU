@@ -93,6 +93,14 @@ python pyqcu/testing/simple/solve_case.py \
 
 KUPL QCU，8 MPI rank × 2 OpenMP 线程：
 
+先生成宿主报告，确认 NUMA/线程/HBM 建议：
+
+```bash
+python -B pyqcu/testing/kupl/kupl_env.py \
+  --ranks 8 --threads-per-rank 2 \
+  --lattice 24 24 24 64 --grid 1 4 2 1
+```
+
 ```bash
 python pyqcu/testing/simple/solve_case.py \
   --backend kupl \
@@ -102,6 +110,12 @@ python pyqcu/testing/simple/solve_case.py \
   --kupl-lib default \
   --out-dir data/production_L24
 ```
+
+该 KUPL 单次默认路线实际是 `levels=1,restart=0` 的 parity-Schur BiStabCG，不是
+coarse MG。需要真正 Legacy-MG 时使用
+`simple/mpi/solve_case.py --levels 2 --restart 5`；需要高效多 rank BiStabCG 时
+显式使用 `--levels 1 --restart 0`。
+完整 cache、HBM 和 A/B 规则见 `USER_GUIDE.md` 第 7.5 节。
 
 QUDA / PyQUDA：
 

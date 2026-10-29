@@ -13,8 +13,11 @@
 | QUDA | `pyqcu/testing/quda/` | QUDA 单功能对照与布局/归一化锚定 |
 | PyQUDA | `pyqcu/testing/pyquda/` | 独立进程对比、聚合与绘图 |
 | 其他后端 | `pyqcu/testing/{cpu,npu,dcu,gpu}/` | CPU、NPU、DCU 模板与占位入口 |
-| 工具类 | `pyqcu/testing/{benchmark,profiler,tilelang}/` | 基准、Profiler、TileLang |
+| 工具类 | `pyqcu/testing/{benchmark,profiler}/` | 基准与 Profiler |
 | 数据 | `pyqcu/testing/data/` | `with_data=True` 参考 HDF5 与可再生缓存 |
+
+TileLang 没有独立测试目录。历史 `pyqcu/testing/tilelang/conftest.py` no-op 入口已删除；
+需要验证时直接调用 `pyqcu.testing.test_matmul()` 或对应 pytest 测试，不能再用该旧路径。
 
 ## 常用命令
 

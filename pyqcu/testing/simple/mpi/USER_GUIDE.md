@@ -421,6 +421,20 @@ start[axis] = coordinate[axis] * local[axis]
 - `--restart 0`：关闭 coarse hierarchy，KUPL 使用 optimized parity-Schur BiCGStab；
   CUDA worker 把 `levels` 报告为 1。
 
+对 KUPL，生产选路必须写成显式组合：
+
+- 真正 Legacy-MG：`--levels 2 --restart 5`，有身份匹配的全局 cache，且
+  `verify_status=0`；
+- BiStabCG：`--levels 1 --restart 0`，没有 coarse cache/correction。
+
+`levels=2,restart=0` 的 `iterations` 是 BiStabCG 迭代，不是 MG V-cycle 次数。
+`levels=2,restart=5` 的当前生产入口是 Legacy additive correction，不是
+Strict-MG 持久 V-cycle/FGMRES；后者必须显式接入
+`pyqcu.kupl.multigrid.StrictMultigrid` 并使用专用资产/harness。
+KUPL BiStabCG 本身有独立原生实现：`solve_compact_bistabcg()`/`solve_clover()` 与
+直接 ABI `applyCloverBistabCgQcu`。`restart=0` 的共享 MG 入口只是转发到
+`clover_bistabcg()`；当前缺的是独立多 rank CLI，并非缺少求解器。
+
 ### 8.3 cache 构建条件
 
 启动器在以下条件构建 cache：
@@ -516,6 +530,19 @@ KMP_AFFINITY
   `applyInitQcu/applyEndQcu` prebind，使输入页在 affinity/memory policy 建立后
   first-touch；耗时单列为 `input_prebind_seconds`。
 - KUPL 由大量短并行区组成，OpenMP runtime 重复线程绑定会造成明显性能回退。
+
+生产前先运行 MPI-free 环境检测器：
+
+```bash
+python -B pyqcu/testing/kupl/kupl_env.py \
+  --ranks 4 --threads-per-rank 32 \
+  --lattice 24 24 24 64 --dtype c64 --grid 1 1 2 2
+```
+
+默认报告为 `logs/kupl_env-vYYYY-MM-DD-HH-MM-SS.txt`。只有报告给出唯一
+`detected_offset` 时才使用 `--kupl-memory-node local+N --kupl-memory-policy bind`；
+没有 HBM 证据时使用 `local`。`preferred` 允许回退 DDR，不能证明实际使用 HBM。
+运行中还必须对每个 rank 检查 `numastat -p <pid>` 或 `/proc/<pid>/numa_maps`。
 
 ### 9.3 library
 
@@ -710,8 +737,10 @@ case tag 包含：
 --report data/my_case/report.json
 ```
 
-当 `--coarse-cache` 指向外部 cache 时，启动器只验证 `lonv.shape[0] == dof[1]`；
-用户仍负责保证 lattice、mass、csw、mg-grid 和 dtype 与该 cache 一致。
+当 `--coarse-cache` 指向外部 cache 时，启动器会校验 gauge identity、lattice、
+dtype、mass、csw、dof、mg-grid、
+nv-iters 和 seed 组成的 cache identity。校验失败会重建或拒绝外部 cache；不得通过
+改文件名绕过身份校验。
 
 ## 13. JSON 报告字段
 
@@ -721,7 +750,7 @@ case tag 包含：
 |---|---|
 | `status` | `PASS` 或 `FAIL` |
 | `backend` | `kupl` 或 `cuda` |
-| `solver` | `applyCloverMultigridQcu` |
+| `solver` | 调用的 ABI 入口；KUPL `restart=0` 仍记录 `applyCloverMultigridQcu`，实际算法由 `restart`/`coarse_source` 判定 |
 | `lattice` | 全局 `[X,Y,Z,T]` |
 | `grid` | process grid |
 | `dtype` | c64/c128 |
@@ -835,24 +864,54 @@ MPI 启动器只把 `PASS` 视为成功。
 
 ## 15. 完整命令示例
 
-### 15.1 KUPL 4 rank × 8 threads
+### 15.1 KUPL 4 rank × 32 threads
+
+以下命令是真正执行 coarse correction 的 Legacy-MG；第一次运行会构建全局 cache。
+目标机没有 HBM 时把内存节点改成 `local`。
 
 ```bash
+: "${hbm_offset:?set this to kupl_env.py detected_offset}"
 python pyqcu/testing/simple/mpi/solve_case.py \
   --backend kupl \
-  --lime ~/data/reference.lime \
-  --lat 8 8 8 16 \
-  --grid 1 4 1 1 \
-  --ranks 4 \
-  --omp-threads 8 \
-  --levels 2 \
-  --dof 12 12 \
-  --mg-grid 2 2 2 2 \
-  --restart 5 \
-  --work-dir data/mpi_kupl_smoke
+  --gauge data/production_L24/gauge_24x24x24x64_c64.h5 \
+  --source data/production_L24/source_24x24x24x64_c64.h5 \
+  --lat 24 24 24 64 --dtype c64 --atol 1e-6 \
+  --grid 1 1 2 2 --ranks 4 --omp-threads 32 \
+  --levels 2 --dof 12 12 --mg-grid 2 2 2 2 \
+  --restart 5 --coarse-max-iter 200 \
+  --coarse-tol-factor 1e4 --nv-iters 2 \
+  --kupl-numa-bind library \
+  --kupl-memory-policy bind --kupl-memory-node "local+${hbm_offset}" \
+  --kupl-topology-report \
+  --work-dir data/production_L24/legacy-mg
 ```
 
-### 15.2 单 rank KUPL
+MG 报告必须包含 `coarse_source` 实际路径、`verify_status=0` 和独立真残差。
+cache-hit 稳态比较不得混入第一次 `builder_seconds`。
+
+### 15.2 高效 KUPL BiStabCG
+
+生产多 rank BiStabCG 使用同一启动器，但明确选择 `levels=1,restart=0`：
+
+```bash
+: "${hbm_offset:?set this to kupl_env.py detected_offset}"
+python pyqcu/testing/simple/mpi/solve_case.py \
+  --backend kupl \
+  --gauge data/production_L24/gauge_24x24x24x64_c64.h5 \
+  --source data/production_L24/source_24x24x24x64_c64.h5 \
+  --lat 24 24 24 64 --dtype c64 --atol 1e-6 \
+  --grid 1 1 2 2 --ranks 4 --omp-threads 32 \
+  --levels 1 --restart 0 \
+  --kupl-numa-bind library \
+  --kupl-memory-policy bind --kupl-memory-node "local+${hbm_offset}" \
+  --kupl-topology-report \
+  --work-dir data/production_L24/bistabcg
+```
+
+`kupl_bistabcg.py` 只用于单 rank ABI/数值冒烟，不是多 NUMA 生产模板。
+`KUPL_FUSED_BICG_DOTS=1` 是默认；用同题 A/B 决定是否回退 `0`。
+
+### 15.3 单 rank KUPL
 
 ```bash
 python pyqcu/testing/simple/mpi/solve_case.py \
@@ -865,7 +924,10 @@ python pyqcu/testing/simple/mpi/solve_case.py \
   --levels 2 --dof 12 2 --mg-grid 2 2 2 2
 ```
 
-### 15.3 无粗网格 correction
+单 rank 的 8⁴×16 只用于 smoke；生产大格的真实 MG/BiStabCG 选择应使用前述
+`24³×64` 多 rank 配方。
+
+### 15.4 无粗网格 correction
 
 ```bash
 python pyqcu/testing/simple/mpi/solve_case.py \
@@ -873,13 +935,13 @@ python pyqcu/testing/simple/mpi/solve_case.py \
   --lime ~/data/reference.lime \
   --lat 8 8 8 16 \
   --grid 1 2 1 1 --ranks 2 --omp-threads 4 \
-  --levels 2 --dof 12 12 \
+  --levels 1 \
   --restart 0
 ```
 
 该路径复用 KUPL optimized parity-Schur BiCGStab，不构建 coarse cache。
 
-### 15.4 c128
+### 15.5 c128
 
 ```bash
 python pyqcu/testing/simple/mpi/solve_case.py \
@@ -893,7 +955,7 @@ python pyqcu/testing/simple/mpi/solve_case.py \
 
 c128 需要后端和 cache 都使用 complex128。
 
-### 15.5 CUDA 2 ranks
+### 15.6 CUDA 2 ranks
 
 ```bash
 CUDA_VISIBLE_DEVICES=0,1 \
@@ -907,7 +969,7 @@ python pyqcu/testing/simple/mpi/solve_case.py \
   --levels 2 --dof 12 12
 ```
 
-### 15.6 复用 cache
+### 15.7 复用 cache
 
 ```bash
 python pyqcu/testing/simple/mpi/solve_case.py \
@@ -918,7 +980,7 @@ python pyqcu/testing/simple/mpi/solve_case.py \
   --coarse-cache data/mpi_kupl_smoke/coarse_c64_lv2_E12_12_mg2x2x2x2_nvi1_s42.h5
 ```
 
-### 15.7 强制重建 cache
+### 15.8 强制重建 cache
 
 ```bash
 python pyqcu/testing/simple/mpi/solve_case.py \
@@ -928,7 +990,7 @@ python pyqcu/testing/simple/mpi/solve_case.py \
   --work-dir data/mpi_rebuild
 ```
 
-### 15.8 Dry run
+### 15.9 Dry run
 
 ```bash
 python pyqcu/testing/simple/mpi/solve_case.py \
@@ -965,7 +1027,7 @@ python pyqcu/testing/simple/mpi/solve_case.py \
 2. 不支持层间改变 process grid 或 rank agglomeration。
 3. LIME 子体积是固定原点前缀块，不支持任意 offset。
 4. 启动器会自动构建 cache，但大格点构建可能耗时很长。
-5. 外部 `--coarse-cache` 只验证 E 维度，完整身份由用户负责。
+5. 外部 `--coarse-cache` 必须通过统一 cache identity 校验，不能只检查 E 维度。
 6. CUDA `auto` 只依据首张 visible GPU，不保证混合架构。
 7. KUPL 绑定策略依赖本机 `/sys/devices/system/node/online`；容器看不到拓扑时会回退。
 8. 当前不提供跨节点专用 launcher；多节点需要站点 MPI/Slurm 参数。

@@ -173,7 +173,9 @@ python pyqcu/testing/simple/kupl_bistabcg.py [options]
 | `--output` | 无 | 解 HDF5 |
 | `--report` | `performance_kupl_bistabcg.json` | 报告路径 |
 
-该脚本为单 rank 示例。
+该脚本为单 MPI rank 的 ABI/数值示例，不是多 NUMA 生产入口。生产多 rank
+BiStabCG 使用 `mpi/solve_case.py --levels 1 --restart 0`；真正 Legacy-MG 使用
+`--levels 2 --restart 5` 并复用身份匹配的全局 cache。
 
 ### `kupl_multigrid.py`
 
@@ -216,6 +218,21 @@ mpirun [OpenMPI options] -np <ranks> \
 - 每维 local extent 必须为偶数。
 - `levels>1, restart!=0` 时多 rank 必须提供 `--coarse-cache`。
 - 多 rank 不支持 `--write-coarse-cache`。
+
+推荐生产编排使用 `mpi/solve_case.py`，它会自动构建/校验全局 cache、记录每 rank
+NUMA/内存环境和独立真残差。`simple/solve_case.py` 与 `mpi/solve_case.py` 都在
+内部启动 `mpirun`，外层不得再次嵌套。
+
+环境检测与生产变量建议：
+
+```bash
+python -B pyqcu/testing/kupl/kupl_env.py \
+  --ranks 4 --threads-per-rank 32 \
+  --lattice 24 24 24 64 --dtype c64 --grid 1 1 2 2
+```
+
+默认输出 `logs/kupl_env-vYYYY-MM-DD-HH-MM-SS.txt`。没有唯一 HBM NUMA offset
+证据时只建议 `KUPL_MEMORY_NODE=local`；`preferred` 不能作为实际使用 HBM 的保证。
 
 ## 5. 直接 QUDA 示例
 

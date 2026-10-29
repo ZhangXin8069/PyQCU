@@ -1,4 +1,4 @@
-# QCU Legacy-MultiGrid 与 QUDA 全尺寸对照测试（test34 续测）
+# QCU Legacy-MultiGrid 与 QUDA DCU 全尺寸对照测试（2026-10-29）
 
 > 状态：CUDA QCU MG L24 正式采样 PASS；L32 的 16-rank 恢复作业超时，32-rank
 > 恢复作业已由用户终止，L32 构建暂停；QUDA 辅助对照停止，L48
@@ -78,7 +78,7 @@
 
 ## 4. 已发现构建与环境 bug
 
-### B1. `setup.py` 在 DCU 上硬编码 NVIDIA 构建
+### B1. `setup.py` 曾硬编码 NVIDIA 构建（已修复）
 
 `setup.py::CMakeBuild.run` 无条件调用 `build-nv.sh`。在 DTK/ROCm 环境执行 `bash ./install.sh` 时，Cython 化成功，但随后按 NVIDIA `sm_52` 路径重建，并因 `__hipPushCallConfiguration` 未声明失败。  
 本轮未修改核心代码，使用已完成的原生 DCU 构建并执行：
@@ -87,7 +87,9 @@
 PYQCU_SKIP_NATIVE_BUILD=1 python setup.py build_ext --inplace
 ```
 
-该问题应修复为根据 `PYQCU_CUDA_BUILD_BACKEND=dcu|nv` 选择构建脚本。
+这是 test34 运行窗口的历史状态，不是当前生产入口。后续代码已加入
+`PYQCU_BUILD_BACKEND=dcu`、`install.sh dcu` 和 `cpp/cuda/qcu/make-dcu.sh`；
+当前 DCU 构建应使用显式 `dcu` 入口，不再需要上述绕过命令。
 
 ### B2. 默认环境 Python 版本低于项目声明
 
@@ -144,9 +146,9 @@ LIME 为 `beta6.20_mu-0.2770_ms-0.2400_L48x96_cfg_7000.lime`。历史 A100 cache
 
 | 分片 | 子代理运行句柄 | 输出 |
 |---|---:|---|
-| L24 新 cache + 1/2/4-rank MG/QUDA | `19694` | `docs/qcu_quda_solver_test34_L24.md`、`logs/qcu_solver_test34_20261029/L24/` |
-| L32 新 cache 认证 + 全部性能重跑 | `94958` | `docs/qcu_quda_solver_test34_L32.md`、`logs/qcu_solver_test34_20261029/L32/` |
-| L48 新 cache/容量门 + 条件性能 | `76130` | `docs/qcu_quda_solver_test34_L48.md`、`logs/qcu_solver_test34_20261029/L48/` |
+| L24 新 cache + 1/2/4-rank MG/QUDA | `19694` | `docs/qcu_quda_solver_dcu_l24_20261029.md`、`logs/qcu_solver_test34_20261029/L24/` |
+| L32 新 cache 认证 + 全部性能重跑 | `94958` | `docs/qcu_quda_solver_dcu_l32_20261029.md`、`logs/qcu_solver_test34_20261029/L32/` |
+| L48 新 cache/容量门 + 条件性能 | `76130` | `docs/qcu_quda_solver_dcu_l48_20261029.md`、`logs/qcu_solver_test34_20261029/L48/` |
 
 三个分片只写各自目录，不修改 `pyqcu/`、`cpp/`、`setup.py` 或既有报告。
 
@@ -365,10 +367,10 @@ MG CLI 合同、c64/c128 字段 dtype 恢复和 pinned PyQuda pointer。它们�
 
 | 内容 | 路径 |
 |---|---|
-| 总报告 | `docs/qcu_quda_solver_test34_20261029.md` |
-| L24 子报告 | `docs/qcu_quda_solver_test34_L24.md` |
-| L32 子报告 | `docs/qcu_quda_solver_test34_L32.md` |
-| L48 子报告 | `docs/qcu_quda_solver_test34_L48.md` |
+| 总报告 | `docs/qcu_quda_solver_dcu_20261029.md` |
+| L24 子报告 | `docs/qcu_quda_solver_dcu_l24_20261029.md` |
+| L32 子报告 | `docs/qcu_quda_solver_dcu_l32_20261029.md` |
+| L48 子报告 | `docs/qcu_quda_solver_dcu_l48_20261029.md` |
 | L24 cache 认证 | `logs/qcu_solver_test34_20261029/L24/cache-authentication.json` |
 | L24 正式采样认证 | `logs/qcu_solver_test34_20261029/L24/qcu-sample5-authentication.json` |
 | L24 三份原始 solve 报告 | `logs/qcu_solver_test34_20261029/L24/solve/r{1,2,4}/qcu-sample5/qcu.report.json` |

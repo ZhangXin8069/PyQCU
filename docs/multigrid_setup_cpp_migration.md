@@ -2,6 +2,11 @@
 
 日期：2026-10-27
 
+> 2026-10-29 状态更新：C++ null-vector、局部正交化和 33-tensor stencil 内核已经接入
+> `pyqcu.testing.simple.mpi.build_full_mg_cache`；Python 仍负责 MPI 编排、HDF5 MPI-IO、
+> manifest 和认证，但不再调用 Torch-QCU 求解器生成这些数值资产。L24 4-rank DCU cache
+> 已完成 4/4 slab reconstruction。下文的“迁移完成前”只用于理解历史阶段，不是当前状态。
+
 ## 目标
 
 Legacy MultiGrid 的以下三个 setup 阶段必须由 CUDA-QCU 或 KUPL-QCU 的 C++
@@ -9,7 +14,10 @@ Legacy MultiGrid 的以下三个 setup 阶段必须由 CUDA-QCU 或 KUPL-QCU 的
 
 1. near-null-vector 逆迭代；
 2. 每个 coarse site 的局部正交化；
-3. Galerkin 33-tensor stencil 探测与 cache 发布。
+3. Galerkin 33-tensor stencil 的数值生成。
+
+Cache 的 HDF5 MPI-IO、manifest 与认证由 Python 编排层负责；这不会把数值生成重新
+下放给 Torch-QCU。
 
 求解计时仍只属于 `applyCloverMultigridQcu`。Torch-QCU 和 KUPL-QCU 的
 独立求解行不作为本迁移的实现替代。
@@ -21,7 +29,7 @@ Legacy MultiGrid 的以下三个 setup 阶段必须由 CUDA-QCU 或 KUPL-QCU 的
 | 局部 CGS2 正交化 | 已完成，`applyMultigridLocalOrthogonalizeQcu` | 已完成，同名 C++/OpenMP ABI |
 | near-null-vector 逆迭代 | 已完成 C++ CUDA 实现 | 已完成 C++ MPI/OpenMP 实现 |
 | stencil 探测 | 已完成 C++ CUDA 33-tensor 实现 | 已完成 C++/OpenMP 33-tensor 实现 |
-| cache 发布 | Python/h5py | Python/h5py |
+| cache 发布与认证 | Python/h5py + HDF5 MPI-IO | Python/h5py + HDF5 MPI-IO |
 
 已完成 ABI 的共同约束：
 
@@ -59,8 +67,8 @@ Legacy MultiGrid 的以下三个 setup 阶段必须由 CUDA-QCU 或 KUPL-QCU 的
 
 ## 未完成项的验收门
 
-在迁移 remaining setup 前，不得把当前 `simple/mpi` cache builder 描述为
-完整 C++ builder。后续每个阶段必须满足：
+当前生产 builder 是“C++ 数值 kernel + Python MPI/HDF5 编排”的混合实现，不要简写成
+纯 C++ 单进程 builder，也不要把 Python 编排误解为仍由 Torch 计算资产。验收边界为：
 
 1. 不调用 `pyqcu.torch.solver` 或 Torch-QCU operator 生成 null vectors；
 2. 不调用 Torch-QCU operator 构造 coarse stencil；

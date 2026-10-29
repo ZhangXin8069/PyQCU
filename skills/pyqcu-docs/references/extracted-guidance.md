@@ -91,6 +91,10 @@ PyTorch CUDA 与 native QCU 库初始化前完成。rank 数超过设备数只�
 
 - **QCU legacy** 指 `applyCloverMultigridQcu`，fine 系统为 odd-site Schur，粗层直接
   保存 33-tensor `A_c`，默认外层是 BiCGStab + 周期 additive coarse correction。
+- **KUPL BiStabCG** 是独立原生求解器，不是 MG 的占位别名：
+  `lattice_solver.cpp::solve_compact_bistabcg()`/`solve_clover()` 由 OpenMP+MPI 实现，
+  `applyCloverBistabCgQcu` 直接调用 `clover_bistabcg()`；共享 MG ABI 在
+  `restart=0` 时只转发到同一核心。当前缺独立多 rank CLI，不缺算法实现。
 - **QCU Strict** 指 `applyMultigridStrictFgmresQcu`，使用 full-coarse、MATPC、
   `X/Y/Yhat` 持久层级和 fused right-FGMRES。
 - **QUDA/PyQUDA** simple 默认使用 even-even MATPC、外层 GCR(8)、MG 右预条件、
@@ -324,15 +328,15 @@ mpirun -np 1 python -u conftest.py
 | `docs/env.md` | Python ≥ 3.10，`PYTHONPATH` 包含仓库根；环境入口为 `env.sh`。 | `pyqcu-tools`, `pyqcu-testing` |
 | `docs/install.md` | CUDA/DCU/KUPL 通过 `install.sh` 显式选路；KUPL 独立 CMake/CTest；QUDA/PyQUDA 必须匹配当前架构与 ABI。 | `pyqcu-cuda`, `pyqcu-kupl`, `pyqcu-testing-dcu`, `pyqcu-testing-pyquda` |
 | `docs/dcu_build_backend.md` | DCU 构建使用 `install.sh dcu`、`CMakeLists-dcu.txt` 和显式 DTK compiler；运行层仍是 `backend="cuda"`，实际数值 smoke 必须在 ROCm DCU 上重跑。 | `pyqcu-cuda`, `pyqcu-testing-dcu` |
-| `docs/kupl_only_deployment.md` | 纯 KUPL 使用 `install.sh kupl`/`PYQCU_BUILD_BACKEND=kupl`，不要求 CUDA/Cython 扩展；旧版 PyTorch 不调用 `dtype.to_real()`；生产入口、放置和排错均以 KUPL 为唯一后端。 | `pyqcu-kupl`, `pyqcu-testing-cpu`, `pyqcu-benchmark`, `pyqcu-tools` |
+| `docs/kupl_only_deployment.md` | 纯 KUPL 使用 `install.sh kupl`/`PYQCU_BUILD_BACKEND=kupl`，不要求 CUDA/Cython 扩展；`kupl_env.py` 生成 MPI-free 环境报告；真实 MG 必须 `levels=2,restart>0` 且有 verified cache，生产 BiStabCG 使用 `levels=1,restart=0`，两类 `solve_case.py` 外层不得再嵌套 `mpirun`。 | `pyqcu-kupl`, `pyqcu-testing-cpu`, `pyqcu-benchmark`, `pyqcu-tools` |
 | `docs/examples.md` | 顶层 `examples/` 已删除，现行测试/示例入口统一为 `pyqcu/testing/**`；conftest 是手动选择入口。 | `pyqcu-testing` |
-| `docs/kupl_kunpeng_guide.md` | KUPL 保底为通用 C++17/MPI/OpenMP；鲲鹏优先由调度器/HMPI 在 Python 分配前绑定，库内 NUMA/片上内存策略是回退；性能证据必须记录实际 cpuset、策略和独立真残差。 | `pyqcu-kupl`, `pyqcu-testing-cpu`, `pyqcu-benchmark` |
+| `docs/kupl_kunpeng_guide.md` | KUPL 保底为通用 C++17/MPI/OpenMP；鲲鹏优先由调度器/HMPI 在 Python 分配前绑定，库内 NUMA/片上内存策略是回退；HBM 只在唯一 memory-only NUMA offset 下用 `bind+require`，并以实际页分布证明；性能证据必须记录 cpuset、策略和独立真残差。 | `pyqcu-kupl`, `pyqcu-testing-cpu`, `pyqcu-benchmark` |
 | `docs/profiler.md` | 使用 `torch.profiler` 生成 Chrome trace，再用 Perfetto 分析；继续遵守一进程一 rank 一设备。 | `pyqcu-testing-profiler` |
 | `docs/cuda_execution_topology.md` | 生产拓扑固定为一 Python 进程 = 一 MPI rank = 一设备；`MultiGpuMultigrid` 仅测试专用。 | `pyqcu-cuda`, `pyqcu-benchmark` |
 | `docs/torch_backend_layout.md` | Torch/CANN 实现统一位于 `pyqcu/torch/**`；顶层旧导入保留兼容门面，`pyqcu.solver.multigrid` 是三后端公共选择器的例外。 | `pyqcu-solver`, `pyqcu-dslash`, `pyqcu-smear`, `pyqcu-tools` |
 | `docs/api_contract.md` | P0 公共数据模型、配置、能力、资产 manifest 和 Protocol 已实现；`create_backend()` 与完整后端工厂未实现。 | `pyqcu-api`, `pyqcu-solver` |
 | `docs/qcu_unified_backend_strategy_20261023.md` | 六实现共享控制面和数学契约，但保留后端数据面；P0 API 已落地，完整 backend factory 仍属设计提案。 | `pyqcu-api`, `pyqcu-solver`, `pyqcu-cuda`, `pyqcu-kupl` |
-| `docs/multigrid_setup_cpp_migration.md` | Legacy near-null-vector、局部正交化和 33-tensor stencil 必须由 CUDA/KUPL C++ 拥有；cache 发布与 setup/solve 计时分栏，cold setup 超过 10 分钟必须终止审查。 | `pyqcu-solver`, `pyqcu-cuda`, `pyqcu-kupl` |
+| `docs/multigrid_setup_cpp_migration.md` | Legacy near-null-vector、局部正交化和 33-tensor stencil 已由 CUDA/KUPL C++ 拥有并接入 MPI builder；Python 仍负责 HDF5 MPI-IO、manifest 与认证，cache 发布和 setup/solve 计时分栏。 | `pyqcu-solver`, `pyqcu-cuda`, `pyqcu-kupl` |
 | `docs/qcu_quda_multigrid_algorithms.md` | QCU legacy 默认是 Schur BiCGStab + 周期 additive correction，不是 QUDA GCR+CA-GCR；自适应门为 30/12/15%，单 rank 真 Schur refresh 条件为 48 步。 | `pyqcu-solver`, `pyqcu-cpp-qcu` |
 | `docs/qcu_quda_multigrid_subalgorithms.md` | QCU 使用 inverse iteration、local QR、33-tensor Galerkin、guarded coarse BiCGStab；QUDA 当前使用 CGNR setup、aggregate transfer、CA-GCR smoother、GCR(8) 与 recursive cycle。 | `pyqcu-solver` |
 | `docs/qcu_quda_multigrid_coarse_operator.md` | Legacy 保存 compact odd `P†SP` 33-tensor；Strict/QUDA 保存 full-coarse `X/Y/Yhat`。粗层量是有效 Galerkin 算符，不是物理 gauge/clover。 | `pyqcu-solver`, `pyqcu-tools` |
@@ -346,6 +350,10 @@ mpirun -np 1 python -u conftest.py
 | `docs/qcu_mg_unified_interfaces_and_reuse_20261029.md` | 统一 `Solver`/`Multigrid`/`MultigridCache`；Legacy odd-Schur 33-tensor 与 Strict v2 runtime cache 可直接跨 CUDA/Torch/KUPL 复用；L24 只作 smoke，L32 起为正式大格；MG 与 native BiCGStab 分栏对照。当前未打 tag。 | `pyqcu-benchmark`, `pyqcu-api`, `pyqcu-solver`, `pyqcu-cuda`, `pyqcu-kupl`, `pyqcu-report` |
 | `docs/qcu_mg_mpi_cache_builder_20261029.md` | Legacy-MG cache 必须由 native MPI 全 rank 构建；四个 tensor 均经 HDF5 MPI-IO 写 owned slab；CUDA/KUPL serial patch 使用 private singleton communicator；`lonv` coarse/time 轴分别为 `(2,4,6,8)` 和 `2*mg_grid[t]`；L8 GPU+KUPL 门已过，L48 root 汇总 OOM 已由全 MPI-IO 路径修正。Torch 只用 `8x8x8x16` CPU 正确性。当前未打 tag。 | `pyqcu-benchmark`, `pyqcu-kupl`, `pyqcu-cuda`, `pyqcu-solver` |
 | `docs/qcu_mg_performance_ledger_20261029.md` | 用户要求的实时性能账本；完整记录 L32 BiCG、L32 Legacy-MG、Strict smoke、CUDA A/B、QUDA 构建和 Slurm 审计。失败或取消作业不产生性能数据；未打 tag。 | `pyqcu-benchmark`, `pyqcu-cuda`, `pyqcu-kupl`, `pyqcu-solver`, `pyqcu-report` |
+| `docs/qcu_quda_solver_dcu_20261029.md` | DCU 总报告只把 L24 CUDA QCU Legacy-MG 作为正式性能证据；L32 因认证 cache 未发布保持 `BLOCKED-CACHE`，QUDA 因 HIP runtime 保持 `BLOCKED-RUNTIME`，L48 为用户暂停，历史结果不得回填。 | `pyqcu-benchmark`, `pyqcu-cuda`, `pyqcu-testing-dcu`, `pyqcu-testing-pyquda` |
+| `docs/qcu_quda_solver_dcu_l24_20261029.md` | L24 CUDA QCU Legacy-MG 在 1/2/4 rank 均为 20 iterations、`n_vcycles=1`、8 coarse iterations，正式 median 为 `0.301689520/0.461907550/1.024669448 s`；只有 native full residual，且短 solve 扩展差不外推大格。 | `pyqcu-benchmark`, `pyqcu-testing-dcu` |
+| `docs/qcu_quda_solver_dcu_l32_20261029.md` | L32 的 4/16/32-rank cache 恢复均未通过认证，失败边界包括 timeout、`batch_size>64` native 参数拒绝和共享 HDF5 切片 I/O 的 `D` 状态；没有可发布 MG/BiCG 性能。 | `pyqcu-benchmark`, `pyqcu-testing-dcu`, `pyqcu-solver` |
+| `docs/qcu_quda_solver_dcu_l48_20261029.md` | L48 当前为 `BLOCKED-BY-USER`；按 `legacy_mg_cache_shapes()`，Legacy cache 四个 complex64 tensor 的逻辑 payload 合计 `18,728,091,648 B`，不是旧版错误表中的 `812.2 MB`。 | `pyqcu-benchmark`, `pyqcu-testing-dcu`, `pyqcu-solver` |
 | `docs/legacy_vs_strict_mg_status_20261022.md` | Legacy build/solve 4/4 PASS，但 solve 均 `n_vcycles=0`；Strict 3/4 PASS，24³×64 缺失；KUPL 无对应记录，不能计算跨后端 MG 倍率。 | `pyqcu-benchmark`, `pyqcu-solver` |
 | `docs/legacy_vs_strict_mg_memory_20261023.md` | 同输入 c64 两级 `nvec=12` 中 Legacy 峰值更低；Strict 高 32.46%–63.25%。Legacy 未执行 coarse V-cycle，24³×64 Strict 缺失。 | `pyqcu-benchmark`, `pyqcu-solver`, `pyqcu-cuda` |
 | `docs/multigrid_legacy_strict_comparison_20261022.md` | 统一公开名称为 `Multigrid` / `LegacyMultigrid` / `StrictMultigrid`；Torch/CUDA/KUPL 共用 setup/solve/close，但内部算法、槽序和生命周期不可互换。 | `pyqcu-solver`, `pyqcu-cuda`, `pyqcu-kupl` |
