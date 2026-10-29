@@ -288,7 +288,11 @@ private singleton communicator，并把多 GiB `lonv` 改为 HDF5 MPI-IO。
 独立残差必须按新 job id 重新记录。`1604062` 已在 5/8 分钟看到四卡 100%，但最终
 因 root 汇总 `hnn/hdg/sit` 触发 54,976 MiB cgroup OOM；后续四个张量全部使用
 MPI-IO owned slab，`1604161` 并提前释放 staging patch，但仍在 `8m32s` OOM。
-不能再把历史 CPU-stencil 诊断当作当前根因；L48 当前受单节点主机内存门阻塞。
+最终 batch 16、chunked write、已完成 `hnn` 复用和 page-cache eviction 使
+`1604374` 发布 18.7 GB L48 cache（setup `499.163295 s`，4/4 slab PASS）；
+`1604447` 的 4-rank Legacy-MG 为 20 iterations、`0.740402 s`、native full
+residual `2.243699e-7`。Python independent residual 仍受 cgroup 限制，L48 尚无
+QUDA 同窗，不能报告 L48 相对加速比。
 
 ## 口径与容差语义（2026-08-24）
 

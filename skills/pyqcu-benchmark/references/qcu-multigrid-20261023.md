@@ -219,8 +219,11 @@ private singleton communicator 修复后，`1604062` 从约 1 分钟起四张 A1
 `hnn/hdg/sit` 触发 54,976 MiB cgroup OOM（`rc=137`）。因此当前阻塞不是 GPU patch
 或 `MPI_COMM_WORLD`，而是 root 全局粗算子物化。四个张量必须全部走 MPI-IO owned
 slab；`1604133/1604161` 在改为 MPI-IO 并提前释放 staging patch 后仍分别在
-`8m36s/8m32s` OOM。L48 仍没有已发布 cache、solve、迭代或残差结果，不能写成 L48
-性能；4 卡分区也禁止超过 54,976 MiB 的 memory 申请。
+`8m36s/8m32s` OOM。4 卡分区禁止超过 54,976 MiB 的 memory 申请。最终 batch 16、chunked
+write、完成张量复用和 page-cache eviction 使 `1604374` 发布 18.7 GB cache，
+setup `499.163295 s`、4/4 slab PASS；`1604447` Legacy-MG 为 20 iterations、
+`0.740402 s`、native full residual `2.243699e-7`。独立 Python residual 仍因
+cgroup 未完成，且没有 QUDA 同窗。
 
 同一组的 `1603908/1603909/1603916` 均因输出目录在提交时尚不存在而在 0 秒报
 `JobLaunchFailure`。Slurm 会在执行脚本正文前打开 `--output/--error`，因此新批次

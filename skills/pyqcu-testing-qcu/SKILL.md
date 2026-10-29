@@ -218,6 +218,14 @@ streaming SHA 构造 manifest；只按第一维
 MPI-IO `0.884016 s`、总 setup `3.040447 s`，4/4 rank slab 回读通过；同 cache 由 KUPL 求解得到
 `verify_status=0` 和独立真残差 `4.110297e-7`。
 
+L48 `48x48x48x96`、E12 的可行发布组合是：local-stencil batch 16、四张量 MPI-IO
+chunked write、已完成张量按 rank slab SHA 复用、每张量写后
+`posix_fadvise(DONTNEED)`。Slurm `1604374` 发布 `18,728,105,984 B` cache，
+setup `499.163295 s`，4/4 slab PASS；`1604447` Legacy-MG 为 20 iterations、
+`0.740402 s`、native full residual `2.243699e-7`。HDF5 solve 输入必须按 rank
+读取 hyperslab；L48 Python independent residual 仍超过 54,976 MiB cgroup，
+不能据此伪造 independent PASS。
+
 Strict-MG 性能 benchmark 必须使用合法 4D process grid：每个 rank-local coarse
 extent 必须为偶数。`8x8x8x16` 的 4-rank 应使用 `2x2x1x1`，不能使用 y-only
 `1x4x1x1`。测后独立 full residual 应在 MPI solve 退出后由独立进程计算，避免同一

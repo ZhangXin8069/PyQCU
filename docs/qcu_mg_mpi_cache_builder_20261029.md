@@ -75,6 +75,13 @@ overlap patch 的 coarse halo 为每个方向两个 coarse block；当窄轴无�
 - `1604231` 已完成 L48 GPU stencil（约 `7m38s`），随后暴露并修复了把
   `patch_assets` tuple 当作可变列表的一行错误。该失败发生在写盘开始前，不是 OOM；
   修复后内存路径仍需在下一次作业中完成 cache 发布和独立真残差验证。
+- batch 16 将实际 L48 stencil 降到约 `412 s`；`1604374` 使用 chunked HDF5
+  write、已完成 `hnn` 复用、staging 提前释放和 page-cache eviction，首次发布
+  `18,728,105,984 B` cache，总 setup `499.163295 s`，4/4 rank slab 验签 PASS。
+- HDF5 gauge/source 必须由每个 rank 直接读取 own hyperslab；旧 worker 在每个 rank
+  全量读取 L48 输入后再切片，是 solve 后 OOM 的重要原因。独立残差还需一次只物化
+  一个 Clover parity。修复后的 L8 4-rank cache-hit 独立真残差为 `2.032667e-7`；
+  L48 Python residual 仍超过 54,976 MiB，因此只保留 native full-operator gate。
 - manifest 必须按固定上限（当前 64 MiB）对 HDF5 dataset 做多维分块摘要，不能只按
   第一维切片；L48 的 `hdg` 单个首维切片本身就可能达到数 GiB。刚由同一进程流式
   生成并记录 digest/file SHA 后，内部结构验签不做第二次无条件全量 digest；

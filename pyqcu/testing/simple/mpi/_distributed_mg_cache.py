@@ -41,6 +41,7 @@ from pyqcu.tools._legacy_mg_cache import (
     legacy_mg_cache_shapes,
     load_legacy_mg_cache_slab,
     logical_array_sha256,
+    logical_array_sha256_chunked,
     logical_dataset_sha256,
     validate_legacy_mg_cache,
     write_legacy_mg_asset_subset,
@@ -82,6 +83,9 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--report", type=Path, default=None)
     parser.add_argument("--reuse-lonv", type=Path, default=None)
+    parser.add_argument("--reuse-existing-assets", action="store_true")
+    parser.add_argument("--trust-existing-asset", action="append",
+                        choices=LEGACY_MG_ASSET_NAMES, default=[])
     parser.add_argument("--verbose", action="store_true")
     return parser.parse_args(argv)
 
@@ -250,8 +254,43 @@ def _write_distributed_asset_slab(
         dataset = (
             handle[name] if name in handle else
             handle.create_dataset(name, shape=shape, dtype=local_value.dtype))
-        dataset[_asset_slab_selection(
-            coarse_starts, local_value.shape[-4:], name)] = local_value
+        storage_axes = ASSET_LATTICE_AXES[name]
+        for offset in range(int(local_value.shape[-4])):
+            source = [slice(None)] * local_value.ndim
+            destination = [slice(None)] * dataset.ndim
+            source[local_value.ndim - 4] = slice(offset, offset + 1)
+            destination[storage_axes[0]] = slice(
+                coarse_starts[0] + offset, coarse_starts[0] + offset + 1)
+            for axis, storage_axis in enumerate(storage_axes[1:], start=1):
+                source[local_value.ndim - 4 + axis] = slice(
+                    0, int(local_value.shape[-4 + axis]))
+                destination[storage_axis] = slice(
+                    coarse_starts[axis],
+                    coarse_starts[axis] + int(local_value.shape[-4 + axis]))
+            dataset[tuple(destination)] = local_value[tuple(source)]
+
+
+def _existing_asset_slab_matches(
+    path: Path,
+    name: str,
+    coarse_starts: tuple[int, int, int, int],
+    local_value: np.ndarray,
+    local_sha256: str,
+    comm: Any,
+) -> bool:
+    """Check an existing tensor slab symmetrically on every MPI rank."""
+    import h5py
+
+    matches = False
+    with h5py.File(path, "r", driver="mpio", comm=comm) as handle:
+        if name in handle:
+            dataset = handle[name]
+            selection = _asset_slab_selection(
+                coarse_starts, local_value.shape[-4:], name)
+            slab = dataset[selection]
+            matches = logical_array_sha256_chunked(slab) == local_sha256
+            del slab
+    return all(comm.allgather(bool(matches)))
 
 
 def _periodic_dataset_ranges(
@@ -577,6 +616,35 @@ def _asset_patch(
     return np.ascontiguousarray(source[tuple(selection)])
 
 
+def _asset_patch_view(
+    source: np.ndarray,
+    name: str,
+    starts: Sequence[int],
+    local: Sequence[int],
+) -> np.ndarray:
+    selection = [slice(None)] * source.ndim
+    for axis, storage_axis in enumerate(ASSET_LATTICE_AXES[name]):
+        selection[storage_axis] = slice(
+            int(starts[axis]), int(starts[axis] + local[axis]))
+    return source[tuple(selection)]
+
+
+def _drop_file_cache(path: Path) -> None:
+    """Ask the kernel to evict completed HDF5 writes from this cgroup."""
+    if not hasattr(os, "posix_fadvise"):
+        return
+    try:
+        descriptor = os.open(path, os.O_RDONLY)
+    except OSError:
+        return
+    try:
+        os.posix_fadvise(descriptor, 0, 0, os.POSIX_FADV_DONTNEED)
+    except OSError:
+        pass
+    finally:
+        os.close(descriptor)
+
+
 def _patch_axis(
     global_extent: int,
     local_extent: int,
@@ -806,13 +874,23 @@ def _main_native(argv: Sequence[str] | None = None) -> int:
         stage = time.perf_counter()
         local_asset_sha256: dict[str, str] = {}
         patch_values = list(patch_assets)
+        _drop_file_cache(output)
         for index, name in enumerate(LEGACY_MG_ASSET_NAMES):
-            local_value = _asset_patch(
+            local_value = _asset_patch_view(
                 patch_values[index][0], name, coarse_centers, local_coarse)
-            local_asset_sha256[name] = logical_array_sha256(local_value)
+            local_asset_sha256[name] = logical_array_sha256_chunked(local_value)
             if name in NON_LONV_ASSETS:
-                _write_distributed_asset_slab(
-                    output, name, local_value, shapes[name], coarse_starts, comm)
+                trusted = name in args.trust_existing_asset
+                reuse = trusted or (
+                    args.reuse_existing_assets and
+                    _existing_asset_slab_matches(
+                        output, name, coarse_starts, local_value,
+                        local_asset_sha256[name], comm))
+                if not reuse:
+                    _write_distributed_asset_slab(
+                        output, name, local_value, shapes[name],
+                        coarse_starts, comm)
+                    _drop_file_cache(output)
             patch_values[index] = None
             del local_value
         asset_write_seconds = time.perf_counter() - stage

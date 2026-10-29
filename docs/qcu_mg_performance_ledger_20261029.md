@@ -385,6 +385,29 @@ owned-slab 写入，并支持 `--reuse-lonv` 从该 scratch 继续，不再在 r
 `44.8 GiB`，再加 HDF5/page cache 超过分区上限。L48 仍未发布 cache，也没有
 solve、迭代或残差结果。
 
+后续将 local-stencil batch 提升到 16，stencil 降到约 `412 s`；并采用 chunked
+HDF5 write、复用已完成 `hnn`、避免 full local-slab copy，以及对文件页执行
+`posix_fadvise(DONTNEED)`。Slurm `1604374` 首次发布完整 L48 cache：
+
+| 项目 | 结果 |
+|---|---:|
+| cache setup | `499.163295 s` |
+| cache bytes | `18,728,105,984` |
+| cache SHA256 | `078cb76c4e55e44635412f87360776ca53e69d82f59f4793116787e0964d8942` |
+| rank slab reconstruction | 4/4 PASS |
+
+Slurm `1604447` 的 4-rank CUDA Legacy-MG solve 使用
+`applyCloverMultigridQcu`、restart 20、E12、grid `2x2x1x1`：20 iterations，
+GPU solve `0.740402 s`，1 个 accepted V-cycle，C++ full-operator relative
+residual `2.243699e-7`。Python independent residual 仍超过该节点 54,976 MiB
+cgroup；一个外部 NumPy 探针未通过 L8 oracle 校准，其 L48 数值 `5.2e-2` 被拒绝，
+不作为通过或失败证据。L48 尚无 QUDA 同窗结果，不能计算相对加速比。
+
+后续 worker 改为 rank-local HDF5 gauge/source read、page-cache eviction，并一次只
+物化一个 Clover parity。该路径在 L8 4-rank cache-hit 回归得到独立真残差
+`2.032667e-7`；L48 4-rank 仍在 Python residual 阶段超过 54,976 MiB cgroup，故
+L48 的正式数值证据只包括 cache 验签和 native C++ full-operator residual。
+
 ## 6. QUDA native-LAPACK 重建
 
 | 项目 | 值 |
