@@ -114,8 +114,9 @@ python pyqcu/testing/simple/solve_case.py \
   --out-dir data/production_L24
 ```
 
-生产驱动只做一次冷求解。CUDA/QUDA 不会重复 warmup；KUPL 默认计算一次分布式独立
-真残差。三个后端使用同一份 HDF5 gauge/source。
+生产驱动默认执行一次冷求解。显式给出 `--warmup > 0` 或 `--repeat > 1` 时，
+CUDA 与 QUDA worker 会执行相应 warmup/timed solves；CUDA 报告逐次样本、median
+和 MAD。KUPL 仍按自身入口的采样协议执行。三个后端使用同一份 HDF5 gauge/source。
 
 ### 3. 检查产物
 

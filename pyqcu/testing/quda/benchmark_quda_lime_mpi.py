@@ -1044,8 +1044,16 @@ def _build_fields(
     if hasattr(core, "LatticeInfo"):
         array_backend = _load_array_backend()
         info = core.LatticeInfo(list(metadata.lattice_xyzt), 1, 1.0)
-        parity_gauge = info.evenodd(global_qdp_gauge.astype(np.complex128), True)
-        parity_rhs = info.evenodd(qdp_rhs.astype(np.complex128), False)
+        field_dtype = np.dtype(local_rhs.dtype)
+        # The pinned PyQuda field constructors only reshape backend arrays.  Keep
+        # the complex128 even/odd conversion for layout accuracy, then restore
+        # the requested c64/c128 storage dtype before QUDA sees the pointers.
+        parity_gauge = info.evenodd(
+            global_qdp_gauge.astype(np.complex128), True,
+        ).astype(field_dtype, copy=False)
+        parity_rhs = info.evenodd(
+            qdp_rhs.astype(np.complex128), False,
+        ).astype(field_dtype, copy=False)
         if _array_backend_name() == "torch":
             device_gauge = array_backend.from_numpy(parity_gauge).to("cuda")
             device_rhs = array_backend.from_numpy(parity_rhs).to("cuda")
@@ -1144,6 +1152,10 @@ def _build_dirac(
             precondition=device_precision,
             eigensolver=device_precision,
         )
+        # In PyQuda, cpu_prec also controls the element type of QDP-order
+        # gauge input, even when gauge_param.location is CUDA.  Keep it aligned
+        # with the backend array dtype rather than the legacy CPU default.
+        dirac.gauge_param.cpu_prec = device_precision
     else:
         for name in (
             "cuda_prec",

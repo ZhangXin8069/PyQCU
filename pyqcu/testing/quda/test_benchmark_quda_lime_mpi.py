@@ -6,6 +6,7 @@ import importlib.util
 import struct
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 
@@ -119,3 +120,55 @@ def test_mg_cli_contract() -> None:
     assert args.nu_pre == args.nu_post == 2
     assert args.smoother == "mr"
     assert args.coarse_solver_maxiter == 32
+
+
+def test_build_fields_restores_requested_storage_dtype(monkeypatch) -> None:
+    lattice = (4, 4, 4, 4)
+    metadata = SimpleNamespace(lattice_xyzt=lattice)
+    global_qdp_gauge = np.zeros((4, 4, 4, 4, 4, 3, 3), dtype=np.complex128)
+
+    class FakeInfo:
+        def __init__(self, *_args, **_kwargs) -> None:
+            pass
+
+        @staticmethod
+        def evenodd(data, _multi):
+            return np.asarray(data, dtype=np.complex128)
+
+    class FakeLatticeGauge:
+        def __init__(self, _info, _links, value) -> None:
+            self.data = value
+
+    class FakeLatticeFermion:
+        def __init__(self, _info, value) -> None:
+            self.data = value
+
+        def toDevice(self) -> None:
+            pass
+
+    class FakeCore:
+        LatticeInfo = FakeInfo
+
+    monkeypatch.setattr(BENCH, "read_lime_local_gauge", lambda *_args: global_qdp_gauge)
+    monkeypatch.setattr(BENCH, "_array_backend_name", lambda: "cupy")
+    monkeypatch.setattr(BENCH, "_load_array_backend", lambda: SimpleNamespace(asarray=np.asarray))
+
+    for dtype in (np.complex64, np.complex128):
+        local_rhs = np.zeros((4, 3, *lattice), dtype=dtype)
+        gauge, rhs, layout = BENCH._build_fields(
+            metadata, local_rhs, (1, 1, 1, 1), (0, 0, 0, 0),
+            FakeLatticeGauge, FakeLatticeFermion, None, FakeCore,
+        )
+        assert gauge.data.dtype == np.dtype(dtype)
+        assert rhs.data.dtype == np.dtype(dtype)
+        assert layout["qdp_gauge_shape"] == list(global_qdp_gauge.shape)
+
+
+def test_pinned_pyquda_pointer_accepts_complex64() -> None:
+    try:
+        from pyquda_comm.pointer import ndarrayPointer
+    except ImportError:
+        return
+    for dtype in (np.complex64, np.complex128):
+        pointer = ndarrayPointer(np.zeros((4, 8), dtype=dtype))
+        assert type(pointer).__name__ == "Pointers"
