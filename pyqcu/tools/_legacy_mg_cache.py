@@ -128,6 +128,48 @@ def logical_array_sha256(array: np.ndarray) -> str:
     return digest.hexdigest()
 
 
+def logical_array_sha256_chunked(
+        array: np.ndarray, *, max_chunk_bytes: int = 64 << 20) -> str:
+    """Hash an array view in C order without contiguous full-array copies."""
+    if max_chunk_bytes <= 0:
+        raise ValueError("max_chunk_bytes must be positive")
+    value = np.asarray(array)
+    digest = hashlib.sha256()
+    metadata = {
+        "shape": tuple(int(item) for item in value.shape),
+        "dtype": str(np.dtype(value.dtype)),
+    }
+    digest.update(json.dumps(
+        metadata, sort_keys=True, separators=(",", ":")).encode("utf-8"))
+    if value.ndim == 0:
+        digest.update(np.ascontiguousarray(value[()]).tobytes())
+        return digest.hexdigest()
+    shape = tuple(int(item) for item in value.shape)
+    chunk = list(shape)
+    target_elements = max(
+        1, int(max_chunk_bytes) // int(value.dtype.itemsize))
+    while math.prod(chunk) > target_elements:
+        oversized = math.ceil(math.prod(chunk) / target_elements)
+        changed = False
+        for axis, extent in enumerate(chunk):
+            if extent <= 1:
+                continue
+            chunk[axis] = max(1, math.ceil(extent / oversized))
+            changed = True
+            if math.prod(chunk) <= target_elements:
+                break
+        if not changed:
+            break
+    starts = [range(0, shape[axis], chunk[axis]) for axis in range(len(shape))]
+    for origin in product(*starts):
+        selection = tuple(
+            slice(origin[axis], min(
+                origin[axis] + chunk[axis], shape[axis]))
+            for axis in range(len(shape)))
+        digest.update(np.ascontiguousarray(value[selection]).tobytes())
+    return digest.hexdigest()
+
+
 def logical_dataset_sha256(
         dataset: Any, *, max_chunk_bytes: int = 64 << 20) -> str:
     """Stream a dataset hash in bounded multidimensional chunks."""
@@ -587,6 +629,7 @@ __all__ = [
     "legacy_mg_geometry",
     "load_legacy_mg_cache_slab",
     "logical_array_sha256",
+    "logical_array_sha256_chunked",
     "logical_dataset_sha256",
     "save_legacy_mg_cache",
     "validate_legacy_mg_cache",

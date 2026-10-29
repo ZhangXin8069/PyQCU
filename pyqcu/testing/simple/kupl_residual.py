@@ -161,6 +161,18 @@ def distributed_relative_residual(
     ``[4,3,4,3,lx,ly,lz,lt/2]``.  The result is identical to the single-rank
     NumPy reference up to floating-point reduction order.
     """
+    return distributed_relative_residual_streaming(
+        solution, source, gauge,
+        lambda target: clover_even if target == 0 else clover_odd,
+        kappa, comm, coordinate, grid)
+
+
+def distributed_relative_residual_streaming(
+        solution: np.ndarray, source: np.ndarray, gauge: np.ndarray,
+        clover_provider, kappa: float, comm,
+        coordinate: tuple[int, int, int, int],
+        grid: tuple[int, int, int, int]) -> float:
+    """Compute the true residual while materializing one Clover parity at a time."""
     psi = kupl_fermion_to_qcu(solution).astype(np.complex128)
     rhs = kupl_fermion_to_qcu(source).astype(np.complex128)
     links = kupl_gauge_to_qcu(gauge).astype(np.complex128)
@@ -181,7 +193,7 @@ def distributed_relative_residual(
     denominator = 0.0
     for target in range(2):
         mask = parity == target
-        onsite = (clover_even if target == 0 else clover_odd).reshape(12, 12, -1)
+        onsite = np.asarray(clover_provider(target)).reshape(12, 12, -1)
         matrix = np.ascontiguousarray(onsite.astype(np.complex128))
         solution_block = np.ascontiguousarray(flat_psi[:, mask])
         source_block = flat_rhs[:, mask]
@@ -189,6 +201,7 @@ def distributed_relative_residual(
                     kappa * flat_dslash[:, mask] - source_block)
         numerator += float(np.linalg.norm(residual) ** 2)
         denominator += float(np.linalg.norm(source_block) ** 2)
+        del onsite, matrix, solution_block, residual
     if comm is not None:
         numerator = float(comm.allreduce(numerator))
         denominator = float(comm.allreduce(denominator))

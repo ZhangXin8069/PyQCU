@@ -175,8 +175,11 @@ root 汇总 `hnn/hdg/sit` 在约 `530 s` 触发 `54,976 MiB` cgroup OOM，此时
 
 现行 builder 已把四个 tensor 全部改为 HDF5 MPI-IO owned-slab，并支持复用失败
 作业留下的 `lonv` scratch。提前释放 staging patch 后，`1604161` 仍在 `8m32s`
-因 54,976 MiB cgroup 内存上限 OOM；L48 目前没有已发布 cache 或 solve 数据；
-这些 OOM 不得写为算法失败，也不能据此给出 L48 性能。新 Slurm 批次仍必须在提交前
+因 54,976 MiB cgroup 内存上限 OOM。后续 batch 16、chunked write、已有 `hnn`
+复用和 page-cache eviction 使 `1604374` 首次发布 18.7 GB cache，setup
+`499.163295 s`、4/4 slab PASS；`1604447` 的 4-rank Legacy-MG 为 20 iterations、
+`0.740402 s`、accepted V-cycle 1、native full residual `2.243699e-7`。Python
+independent residual 仍受 cgroup 限制，L48 尚无 QUDA 同窗。新 Slurm 批次仍必须在提交前
 创建 `slurm/` 和 `logs/`，否则会在 0 秒 `JobLaunchFailure`。
 
 ## 6. 求解器与参数记录
@@ -216,7 +219,7 @@ trace 模式连成同一曲线。
 - L32 Legacy E12 cache 与 1/2/4-rank MG/BiCG 已完成；同窗 QUDA GCR-MG 1/2/4-rank
   也已完成，CUDA Legacy 入口级速度比为 `2.2495x/1.4323x/1.3166x`，证据见
   `logs/qcu_sync_resume_20261029/quda-mg/summary.json`。
-- L48x96 容量与 10 分钟硬门评估；只在 L32 多 MPI MG 全门通过后启动，并优先复用
+- L48x96 已完成 4-rank cache 与 Legacy-MG 本体门；继续补齐可跨进程运行的独立残差与
   L32 已验证物理资产，避免重复 setup。
 - CUDA Strict-MG 已完成 L32 的 2/4-rank solve、迭代、独立残差和容量记录；1-rank
   因 40 GiB 设备容量 OOM。当前数据不支持把 Strict 改成生产默认。

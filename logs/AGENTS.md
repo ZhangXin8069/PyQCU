@@ -819,3 +819,11 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: L8 CUDA GPU builder and KUPL direct cache reuse pass; L48 blocked by 54,976 MiB cgroup OOM; tests and docs synchronized
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
+## test32 - stage - 2026-10-29 13:09:19 +0800
+- 主任务: PyQCU L48 Legacy-MG cache and solve
+- 日志文件: logs/v202610291309.txt
+- 文件大小: 3086 bytes
+- 触发原因: 阶段成果
+- 关键内容: L48 cache and 4-rank Legacy-MG pass; independent residual remains cgroup-limited; L8 streaming residual validated
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress

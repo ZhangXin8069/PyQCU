@@ -128,6 +128,7 @@ def _run_cuda(args, comm: MPI.Comm) -> int:
     from pyqcu.cuda import QcuRuntime, define
     from pyqcu.testing.simple.kupl_residual import (
         distributed_relative_residual,
+        distributed_relative_residual_streaming,
         gather_solution,
     )
 
@@ -148,10 +149,34 @@ def _run_cuda(args, comm: MPI.Comm) -> int:
 
     local_lattice, starts, coordinate = local_geometry(
         args.lat, args.grid, rank)
-    gauge_full, _, _ = read_gauge(args.gauge, args.lat, numpy_dtype)
-    source_full, _, _ = read_source(args.source, args.lat, numpy_dtype)
-    gauge_local = slice_last4(gauge_full, starts, local_lattice)
-    source_local = slice_last4(source_full, starts, local_lattice)
+    gauge_path = Path(args.gauge).expanduser()
+    source_path = Path(args.source).expanduser()
+    if gauge_path.suffix.lower() in (".h5", ".hdf5"):
+        from pyqcu.testing.simple.mpi._distributed_mg_cache import (
+            _drop_file_cache,
+            _hdf5_gauge_slab,
+        )
+
+        gauge_local = _hdf5_gauge_slab(
+            gauge_path, starts, local_lattice, numpy_dtype)
+        _drop_file_cache(gauge_path)
+    else:
+        gauge_full, _, _ = read_gauge(args.gauge, args.lat, numpy_dtype)
+        gauge_local = slice_last4(gauge_full, starts, local_lattice)
+    if source_path.suffix.lower() in (".h5", ".hdf5"):
+        import h5py
+
+        spatial = tuple(
+            slice(int(starts[axis]), int(starts[axis] + local_lattice[axis]))
+            for axis in range(4))
+        with h5py.File(source_path, "r") as handle:
+            source_local = np.ascontiguousarray(
+                handle["data"][(slice(None), slice(None), *spatial)],
+                dtype=numpy_dtype)
+        _drop_file_cache(source_path)
+    else:
+        source_full, _, _ = read_source(args.source, args.lat, numpy_dtype)
+        source_local = slice_last4(source_full, starts, local_lattice)
     gauge_np = canonical_gauge(gauge_local)
     source_np = canonical_fermion(source_local)
 
@@ -205,6 +230,7 @@ def _run_cuda(args, comm: MPI.Comm) -> int:
                 for value in assets
             ]
             coarse_refs.extend((lonv, hnn, hdg, sit))
+            _drop_file_cache(Path(cache_path))
             base = define._SET_PTRS_COARSE_BASE_ + 4 * (level_index - 1)
             runtime.set_ptrs[base + 0] = lonv.data_ptr()
             runtime.set_ptrs[base + 1] = hnn.data_ptr()
@@ -245,11 +271,6 @@ def _run_cuda(args, comm: MPI.Comm) -> int:
     parity_shape = (*local_lattice[:3], local_lattice[3] // 2)
     solution_np = solution.detach().cpu().numpy().reshape(
         2, 12, *parity_shape)
-    source_np_result = source.detach().cpu().numpy().reshape(
-        2, 12, *parity_shape)
-    gauge_np_result = gauge.detach().cpu().numpy()
-    clover_even_np = clover_even.detach().cpu().numpy()
-    clover_odd_np = clover_odd.detach().cpu().numpy()
     kappa = 1.0 / (2.0 * args.mass + 8.0)
 
     residual_started = time.perf_counter()
@@ -260,9 +281,14 @@ def _run_cuda(args, comm: MPI.Comm) -> int:
         acceptance = float(args.atol)
         residual_source = "native solve only; independent check skipped"
     else:
-        residual = distributed_relative_residual(
+        source_np_result = source.detach().cpu().numpy().reshape(
+            2, 12, *parity_shape)
+        gauge_np_result = gauge.detach().cpu().numpy()
+        residual = distributed_relative_residual_streaming(
             solution_np, source_np_result, gauge_np_result,
-            clover_even_np, clover_odd_np, kappa,
+            lambda target: (
+                clover_even if target == 0 else clover_odd
+            ).detach().cpu().numpy(), kappa,
             comm, coordinate, args.grid)
         converged, status, acceptance = convergence_status(
             residual, args.atol, dtype=numpy_dtype)

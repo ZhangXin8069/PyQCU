@@ -419,6 +419,13 @@ dslash 和 coarse halo 必须使用 `set_ptr->comm`，不得重新硬编码
 `PYQCU_MPI_DEVICE_ID`，否则跳过 null-vector 初始化后 native QCU 可能仍绑定 device
 0，而 Python patch tensor 位于 rank 对应 GPU，触发非法内存访问。
 
+大格 HDF5 solve 输入必须按 rank 直接读取 last-4 hyperslab；让每个 rank 先读取完整
+L48 gauge/source 再切片会使 4-rank host RSS 超过 54,976 MiB。CUDA worker 现对 HDF5
+输入使用 rank-local read，只有 LIME 保留全文件回退，并在载入后对 file page cache
+执行 `posix_fadvise(DONTNEED)`。独立 NumPy residual 一次只物化一个 Clover parity；
+即使如此，L48 Python residual 仍可能超过单节点 cgroup，此时只能记录 native
+C++ full-operator residual，不能伪造独立残差 PASS。
+
 ### Distributed Strict geometry and trace lifecycle (2026-10-29)
 
 Every rank's Strict coarse level is rank-local. Given global fine shape `L`, process

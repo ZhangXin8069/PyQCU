@@ -45,6 +45,7 @@ from pyqcu.tools._legacy_mg_cache import (
     legacy_mg_cache_identity,
     legacy_mg_cache_shapes,
     logical_array_sha256,
+    logical_array_sha256_chunked,
     logical_dataset_sha256,
     validate_legacy_mg_cache,
     write_legacy_mg_asset_subset,
@@ -174,6 +175,8 @@ def test_chunked_dataset_digest_matches_array_digest(tmp_path):
         dataset = handle.create_dataset("value", data=value)
         assert logical_dataset_sha256(
             dataset, max_chunk_bytes=97) == logical_array_sha256(value)
+        assert logical_array_sha256_chunked(
+            value, max_chunk_bytes=97) == logical_array_sha256(value)
 
 
 def test_solve_case_builds_coarse_cache_with_requested_mpi_grid(

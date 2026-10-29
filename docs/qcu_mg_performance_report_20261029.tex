@@ -364,6 +364,20 @@ Slurm 1603908/1603909/1603916 因输出目录在提交时不存在而 0 秒 JobL
 \code{lonv} scratch；提前释放 staging patch 的 \code{1604161} 仍在 8m32s 因
 54,976 MiB cgroup limit OOM。L48 在失败作业中仍没有已发布 cache、solve 或残差结果。
 
+最终 L48 cache 门后来通过：batch 16、chunked HDF5 write、已有 \code{hnn} 复用和
+page-cache eviction 组合使 Slurm \code{1604374} 发布
+\code{18,728,105,984 B} cache，setup \code{499.163295 s}，4/4 rank slab 验签。
+Slurm \code{1604447} 的 4-rank Legacy-MG 为 20 iterations、GPU solve
+\code{0.740402 s}、1 个 accepted V-cycle，native full-operator relative
+residual \code{2.243699e-7}。Python independent residual 仍超过该节点
+54,976 MiB 内存门；外部 NumPy 探针未通过 L8 oracle 校准，故不采信其 L48 数值。
+L48 尚无 QUDA 同窗，不能计算相对加速比。
+
+worker 后续改为 rank-local HDF5 gauge/source read、page-cache eviction，并一次只
+物化一个 Clover parity。修复后的 L8 4-rank independent residual 为
+\code{2.032667e-7}；L48 Python residual 仍超过 54,976 MiB cgroup，因此 L48
+的正式证据只包括 cache 验签和 native C++ full-operator residual。
+
 当前验证快照：Python \code{122 passed, 4 skipped}，KUPL \code{43 passed}，simple
 \code{86 passed}，QCU ABI \code{PASS}，tag-chain \code{PASS}，定向 shell 语法与
 \code{git diff --check PASS}。本环境没有 \code{xelatex/lualatex/pdflatex}，因此
@@ -381,9 +395,10 @@ CUDA Legacy-MG & L32 真实 coarse 路径与独立残差通过；对 QUDA GCR-MG
 CUDA Strict-MG & \(8^3\times16\) 的 1/2/4-rank 与小格固定开销均通过；L32
 2/4-rank 也通过，但 1-rank OOM，且 2/4-rank 均慢于 Legacy/QUDA。保留为显式备选。 \\
 CUDA BiCGStab & 2-rank 尚未超过 QUDA；继续定位每轮开销，不能保留无收益候选。 \\
-L48 & 真实输入与 HDF5 已准备；旧 CPU-stencil 与 root-gather 阻塞已由
-private singleton communicator、GPU patch 和 \code{lonv} MPI-IO 修复。
-L8 4-rank GPU+KUPL 消费门已通过；L48 新构建按 job id 实时审计。 \\
+L48 & 4-rank cache PASS：18,728,105,984 B、setup \code{499.163295 s}、4/4 slab
+验签；Legacy-MG 20 iterations、\code{0.740402 s}、accepted V-cycle 1、
+native full residual \code{2.243699e-7}。Python independent residual 仍受
+54,976 MiB cgroup 限制；无 QUDA 同窗。 \\
 KUPL MG & Legacy cache 已直接复用；Strict-MG 的 1/2/4-rank 小格
 median 为 \(1.222731/1.101605/1.658620\) s，独立残差均低于 \(10^{-6}\)；
 真实鲲鹏 HMPI/NUMA/片上内存扩展仍待目标平台验证。 \\
