@@ -419,6 +419,9 @@ L48 规模补测使用同一 canonical E12 cache、restart 20、atol `1e-6`：
 1-rank 在加载 `hdg` 时已使用 35.79 GiB，再请求 8.54 GiB，而 A100-40GB 仅剩
 3.59 GiB。4-rank 相对 2-rank 的 solve 加速为 `1.245x`。三项均未执行可完成的
 Python independent residual；没有 L48 QUDA 同窗，不能计算相对 QUDA 加速比。
+额外 2-rank independent-residual 作业 `1604536` 在 `1m55s`、约 `52.68 GiB`
+RSS 后仍触发同一 cgroup OOM。故 L48 independent residual 在当前单节点资源下明确
+不可完成，不能把 native full residual 改写成 independent PASS。
 
 ## 6. QUDA native-LAPACK 重建
 

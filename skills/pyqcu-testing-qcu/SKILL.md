@@ -229,7 +229,9 @@ setup `499.163295 s`，4/4 slab PASS；`1604447` Legacy-MG 为 20 iterations、
 同 cache 的 L48 2-rank（`1x2x1x1`）为 20 iterations、`0.921893 s`、native full
 residual `2.243621e-7`；4-rank 相对 2-rank 为 `1.245x`。1-rank 在加载 `hdg`
 时已用 35.79 GiB、再请求 8.54 GiB，40 GB A100 容量不足。不得把 1-rank OOM 写成
-数值失败，也不得在没有 L48 QUDA 同窗时计算相对加速比。
+数值失败，也不得在没有 L48 QUDA 同窗时计算相对加速比。2-rank independent
+residual 也已于约 52.68 GiB host RSS 后触发 54,976 MiB cgroup OOM；L48 只能
+记录 native full residual，不能伪造 independent PASS。
 
 Strict-MG 性能 benchmark 必须使用合法 4D process grid：每个 rank-local coarse
 extent 必须为偶数。`8x8x8x16` 的 4-rank 应使用 `2x2x1x1`，不能使用 y-only
