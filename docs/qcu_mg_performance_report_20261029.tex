@@ -5,9 +5,15 @@
 \usepackage{xcolor}
 \usepackage{hyperref}
 \usepackage{enumitem}
+\usepackage{needspace}
+\usepackage{seqsplit}
 \hypersetup{colorlinks=true,linkcolor=blue!45!black,urlcolor=blue!45!black}
 
-\newcommand{\code}[1]{\texttt{\detokenize{#1}}}
+% 仅允许在长标识符内部断行，并用较高惩罚阻止在短词中间断开（如 lonv）
+\makeatletter
+\def\seqinsert{\ifmmode\penalty\@m\hspace{0pt}\else\hspace{0pt}\penalty 300 \fi}
+\makeatother
+\newcommand{\code}[1]{\texttt{\expandafter\seqsplit\expandafter{\detokenize{#1}}}}
 \newcommand{\pass}{\textcolor{green!45!black}{PASS}}
 \newcommand{\fail}{\textcolor{red!65!black}{FAIL}}
 \newcommand{\open}{\textcolor{orange!80!black}{OPEN}}
@@ -48,7 +54,8 @@ communicator、GPU patch 与 \code{lonv} MPI-IO 消除，L48 新构建按资源�
 \begin{table}[htbp]
 \centering
 \caption{L32 正式输入 identity}
-\begin{tabular}{@{}ll@{}}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.16\linewidth}
+                    >{\raggedright\arraybackslash}p{0.78\linewidth}@{}}
 \toprule
 项目 & 值 \\
 \midrule
@@ -250,10 +257,12 @@ ranks/grid & status & cold setup/s & steady sync max/s & iters & independent res
 一张 A100，分别使用 \code{2x1x1x1}/\code{2x2x1x1} 进程网格。4-rank 相对 2-rank
 加速 \(0.476122238/0.356964148=1.334\times\)，相对并行效率 66.7\%。
 
-同窗 Legacy/QUDA 的 2-rank wall 为 \(0.219506067/0.314393339\) s，4-rank 为
-\(0.218343299/0.287465227\) s。因此 L32 Strict/QUDA 在 2/4-rank 分别为
-\(1.514\times/1.242\times\)，Strict 更慢；Strict/Legacy 为
-\(2.169\times/1.635\times\)。当前数据不支持将 Strict 改为生产默认。trace 的
+同窗 Legacy/QUDA 的 2-rank wall 为 \(0.219506067\)/\allowbreak
+\(0.314393339\) s，4-rank 为 \(0.218343299\)/\allowbreak
+\(0.287465227\) s。因此 L32 Strict/QUDA 在 2/4-rank 分别为
+\(1.514\times\)/\allowbreak \(1.242\times\)，Strict 更慢；
+Strict/\allowbreak Legacy 为
+\(2.169\times\)/\allowbreak \(1.635\times\)。当前数据不支持将 Strict 改为生产默认。trace 的
 level-1 每 rank 有 11 次 coarse solver 调用、25/26 次 coarse iterations；
 顶层 \code{restriction_calls=0} 与 \code{fine_restriction} stage 冲突，不能单独
 据此判定 fine-only。
@@ -282,6 +291,7 @@ fail-closed，不是数值求解回归。当前运行的 KUPL 1-rank 使用 NUMA
 独立 true residual 约 \(4.018\times10^{-7}\)。这些数值只能作为
 fine-only 参照，不能作为 MG 结果。
 
+\needspace{3\baselineskip}
 早期 CUDA Legacy cache 在 KUPL verifier 中记录
 \code{projection=2.11372e-7}、\code{galerkin=0.0886153}。后续数组级审计
 确认根因不在 KUPL 方向槽序，而在 CUDA raw lifecycle 未把更新后的
@@ -354,7 +364,7 @@ PASS，但后续 ABBA 在 4m59s 因一次 candidate segfault 失败；baseline
 状态。未执行未授权的破坏性操作、force push 或发布操作。
 
 L48 尝试使用真实 \(48^3\times96\) LIME、4 MPI/4 A100、32 CPU 和 10 min 上限。
-Slurm 1603908/1603909/1603916 因输出目录在提交时不存在而 0 秒 JobLaunchFailure；
+Slurm 1603908、1603909、1603916 因输出目录在提交时不存在而 0 秒 JobLaunchFailure；
 预创建目录后 Slurm 1603917 正常启动；它是修复前的 CPU-stencil 历史记录，在
 5m36s 因 GPU 空占主动取消。private singleton communicator 修复后，Slurm 1604062
 在 5/8 分钟审计中保持四张 A100 均 100\% util、每卡约 27 GiB，GPU patch stencil
