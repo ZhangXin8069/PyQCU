@@ -62,6 +62,17 @@ The 2026-10-23 multi-rank and MultiGrid benchmark constraints are in
 
 ## Public API
 
+跨 CUDA/KUPL/Torch 的公共 PyQCU 接口规范以
+[`pyqcu-api/SKILL.md`](../pyqcu-api/SKILL.md#三后端统一接口强制规范) 为唯一权威源。
+`CudaLinearOperator`、`CudaBiCGStabDriver`、CUDA `Multigrid` 等属于后端适配层；
+用户可见的高层求解、MG 与 cache 调用必须使用 `pyqcu.solver` 的统一选择器。新增 CUDA
+入口时保持公共参数名、`SolveResult`/`MultigridCacheLoadResult` 返回类型和生命周期一致，
+不支持的组合通过 `BackendCapabilities` 或构造期错误 fail-closed。
+
+已有 CUDA 库、Strict runtime cache 或 Legacy 33-tensor cache 在 SHA256、gauge、几何、
+精度和算法身份一致时直接复用，不重复 setup。缓存命中仍需完整验签；只有 miss、损坏或
+身份变化时重建。恢复增量构建时优先沿用现有 build tree，不清理可复用对象。
+
 ```python
 from pyqcu.cuda import qcu      # Cython bridge to libqcu.so
 from pyqcu.cuda import define   # Parameter constants, dtype helpers, pre-built params/argv/set_ptrs tensors
@@ -384,3 +395,28 @@ ABI 全绿；multi-rank 路径不变。
 无 cache 冷构建总 setup `356.179 -> 353.635 s`（`0.71%`），但 null-space
 `26.524 -> 26.677 s` 在噪声内，stencil 主导 setup。不得把冷构建变化单独归因于
 单/成对归约，也不得声称 null-vector 构建显著提速。
+
+### 2026-10-29 raw Clover parity synchronization
+
+`applyInitQcu` 会复制 `params` 到 `LatticeSet::host_params` 和 device params。
+在同一 private slot 内随后修改 `params[_PARITY_]` 时，`applyCloverQcu` /
+`applyCloversQcu` 必须先调用 `LatticeSet::sync_parity()`。遗漏该同步会让第二次
+Clover 生成继续使用旧 parity，表现为 even 与 odd tensor 位级相同，并进一步污染
+Legacy cache 的 `sit` 和复用方的 Galerkin 验证。
+
+回归入口是
+`pyqcu/testing/qcu/test_csw_cuda.py::test_cuda_clover_parity_refresh_within_initialized_slot`。
+修复后的同一真实 gauge 上，CUDA/KUPL even/odd Clover 误差约 `4.9e-8`，
+Legacy `hnn/hdg/sit` 跨后端误差均低于 `3e-7`。
+
+### Distributed Strict geometry and trace lifecycle (2026-10-29)
+
+Every rank's Strict coarse level is rank-local. Given global fine shape `L`, process
+grid `G`, and MG block `B`, bind `L/(G*B)` into `_MG_LEVELn_{X,Y,Z,T}`. A cold Torch
+hierarchy and the cached C++ runtime must use the same local shape; using the global
+`L/B` only in the cached path fails with `strict FGMRES coarse geometry mismatch`.
+For `8x8x8x16`, use `1x2x1x1` on two ranks (`local coarse=[4,2,4,8]`) and `2x2x1x1`
+on four ranks. Performance traces are immutable per job: use
+`trace/<slurm-job-id>/rank%05d.tsv`. Native trace output is append-mode, so an
+existing-path check alone is not concurrency-safe; the unique job directory is the
+primary guard.

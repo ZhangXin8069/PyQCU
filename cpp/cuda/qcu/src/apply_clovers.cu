@@ -16,6 +16,7 @@ void applyCloversQcu(long long _clover, long long _clover_inv, long long _gauge,
     LatticeSet<float> *set_ptr =
         static_cast<LatticeSet<float> *>((void *)(static_cast<long long *>(
             set_ptrs)[set_index])); // define for apply_clover_dslash
+    set_ptr->sync_parity(static_cast<int *>(params)[_PARITY_]);
     LatticeCloverDslash<float> _clover_dslash;
     LatticeCloverDslash<float> _clover_dslash_inv;
     _clover_dslash.give(set_ptr);
@@ -73,6 +74,7 @@ void applyCloversQcu(long long _clover, long long _clover_inv, long long _gauge,
     LatticeSet<double> *set_ptr =
         static_cast<LatticeSet<double> *>((void *)(static_cast<long long *>(
             set_ptrs)[set_index])); // define for apply_clover_dslash
+    set_ptr->sync_parity(static_cast<int *>(params)[_PARITY_]);
     LatticeCloverDslash<double> _clover_dslash;
     LatticeCloverDslash<double> _clover_dslash_inv;
     _clover_dslash.give(set_ptr);

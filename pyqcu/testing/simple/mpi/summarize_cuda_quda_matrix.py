@@ -238,6 +238,7 @@ def _normalise_qcu(
     ranks = sorted(
         [dict(item) for item in report.get("ranks", [])],
         key=lambda item: int(item["rank"]))
+    qcu_execution = _mapping(report.get("execution"))
     solve_stage = "clover_schur_bistabcg_solve"
     reuse_stage = "clover_schur_bistabcg_solve_reused"
     use_reused = bool(ranks) and all(
@@ -352,6 +353,7 @@ def _normalise_qcu(
         })
     return {
         "status": report.get("status"),
+        "initial_guess": qcu_execution.get("initial_guess"),
         "operation_seconds": _median([
             item["operation_seconds"] for item in rank_metrics]),
         "setup_seconds": max(setup_rank_values) if setup_rank_values else None,
@@ -423,6 +425,7 @@ def _normalise_quda(
     ranks = sorted(
         [dict(item) for item in report.get("mpi", {}).get("ranks", [])],
         key=lambda item: int(item["rank"]))
+    quda_config = _mapping(report.get("config"))
     steady = list(report.get("phases", {}).get("steady", {}).get("samples", []))
     operation_samples = [
         max(float(value) for value in sample["quda_solver_seconds_by_rank"])
@@ -490,6 +493,7 @@ def _normalise_quda(
         float(rank["gauge_load_setup_seconds"]) for rank in ranks]
     return {
         "status": report.get("status"),
+        "initial_guess": quda_config.get("use_init_guess"),
         "operation_seconds": _median([
             item["operation_seconds"] for item in rank_metrics]),
         "setup_seconds": max(setup_values) if setup_values else None,
@@ -648,6 +652,11 @@ def _pair_gates(
         _mapping(qcu_inputs.get("gauge")).get("sha256"))
     quda_gauge_sha256 = _nonempty_text(quda_input.get("lime_sha256"))
     manifest_gauge_sha256 = _nonempty_text(manifest_config.get("gauge_sha256"))
+    qcu_initial = _mapping(qcu.get("initial_guess"))
+    cold_start_aligned = (
+        qcu_initial.get("use_init_guess") is False and
+        qcu_initial.get("params_value") == 0 and
+        quda.get("initial_guess") is False)
     return {
         "run_records_pass": all(
             isinstance(run_pair.get(backend), Mapping) and
@@ -685,6 +694,7 @@ def _pair_gates(
                           quda_config.get("warmups")) and
             _same_integer(qcu_execution.get("repeats"),
                           quda_config.get("repeats"))),
+        "same_cold_start": cold_start_aligned,
         "quda_tuning_disabled": (
             bool(quda_contracts) and all(
                 contract.get("environment_tuning_disabled") is True and
@@ -919,8 +929,9 @@ def summarize_manifest(manifest_path: Path) -> dict[str, Any]:
             row["speedup"] = {
                 "qcu_over_quda_steady": quda_steady / qcu_steady,
                 "qcu_over_quda_operation": quda_operation / qcu_operation,
-                "acceptance_metric": "qcu_over_quda_steady",
-                "acceptance_pass": bool(quda_steady > qcu_steady),
+                "qcu_over_quda_solve_wall": quda_steady / qcu_operation,
+                "acceptance_metric": "qcu_over_quda_solve_wall",
+                "acceptance_pass": bool(quda_steady > qcu_operation),
             }
     requested_cases = sorted(coverage["requested_cases"])
     completed_runs = sum(

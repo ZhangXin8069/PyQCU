@@ -48,7 +48,8 @@ native residual 单独包装成 coarse-correctness 或性能结论。
 - 六项快速矩阵固定为 Torch/CUDA/KUPL × Legacy/Strict，即 `TL/TS/CL/CS/KL/KS` 六行。
   合格的批次还必须包含同一输入下的 QUDA aligned MG 对照，以及 Torch/CUDA/KUPL/QUDA
   各侧 BiCGStab 边界对照。BiCGStab 不属于 MG 加速比分子或分母。
-- 快速矩阵只在 `16×16×16×16`（`16^4`）运行；该格点只用于六项 QCU-MG 快速矩阵。
+- 当前正确性矩阵统一只在 `8×8×8×16` 运行；`16×16×16×16` 及更大格点只用于性能、
+  容量或历史数据验证，不得替代正确性门。
   当前编排器若仍以历史默认格点启动，必须显式覆盖，不能把历史默认值当成本决策。
 - 快速矩阵的计时只使用 `trace-off`。trace-on 只允许作为单侧诊断，不能进入正式
   speedup 或 matrix median。
@@ -189,6 +190,37 @@ n_vcycles / coarse_iterations / correction_count
 | 1 rank / 2 level | `2.336648e-7` | `2.604745e-7` | PASS |
 | 1 rank / 3 level | `2.335826e-7` | `2.605036e-7` | PASS |
 | 1 rank / 4 level | `2.336648e-7` | `2.604566e-7` | PASS |
+
+### 2026-10-29 L32 CUDA Strict-MG 容量门
+
+A100-40GB、真实 L32 `32x32x32x64`、c64、`mass=-0.277`、
+`csw=1.160920226`、两层、block `2^4`、`nvec=12`、`coarse_spin=2`、
+`restart=16`、`atol=1e-6`。canonical full null basis 由同格点已验证 Legacy E12
+cache 的 `lonv` 重构，不重新生成 null-space。
+
+| ranks/grid | status | setup/solve | iters | independent residual | 说明 |
+|---:|---|---:|---:|---:|---|
+| `1/1^4` | OOM | 未进入 solve | n/a | n/a | `_block_orthogonalise` 39.37/39.39 GiB，96 MiB 分配失败 |
+| `2/2x1x1x1` | PASS | setup `201.073175 s`; steady sync max `0.476122238 s` | 11 | `6.253315e-7` | coarse calls 11，coarse iterations 25 |
+| `4/2x2x1x1` | PASS | setup `111.872657 s`; steady sync max `0.356964148 s` | 11 | `6.320174e-7` | coarse calls 11，coarse iterations 26；2→4 rank `1.334x` |
+
+2/4-rank cache-hit solve 使用 2 GiB Krylov 上限；实际 FGMRES workspace required
+`1,887,436,800 B`。同窗 Legacy-MG 为 `0.219506067 s`，QUDA GCR-MG 为
+`0.314393339 s`（2-rank）；4-rank Legacy/QUDA 为
+`0.218343299/0.287465227 s`。因此 L32 Strict 当前不适合作为生产默认。单 MPI 失败后按 MPI
+分摊本地 full asset 是正确的容量路径，但必须同时保留独立真残差门。
+
+### 2026-10-29 L48 builder 审计
+
+真实 L48 `48x48x48x96`、c64、mass `-0.277`、csw `1.160920225783` 的 4-rank
+Legacy cache builder 在 Slurm `1603917` 上运行到 `5m36s` 后主动取消。5 分钟审计
+明确记录：4 rank 各约 98% CPU，4 张 A100 均 0% 且各驻留约 8.7 GiB；null-vector
+后的 CPU overlap-stencil 阶段不符合 GPU 资源效率门。没有 cache、solve、迭代或
+残差结果，不能写成 L48 性能。
+
+同一组的 `1603908/1603909/1603916` 均因输出目录在提交时尚不存在而在 0 秒报
+`JobLaunchFailure`。Slurm 会在执行脚本正文前打开 `--output/--error`，因此新批次
+必须先在提交节点创建 `slurm/` 和 `logs/`。预创建后 `1603917` 正常启动。
 
 ## 未解决
 

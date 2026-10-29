@@ -20,11 +20,12 @@ from typing import Any, Iterable, Sequence
 import torch
 
 from pyqcu import tools
+from pyqcu.testing._config import CORRECTNESS_LATTICE
 from pyqcu.torch import dslash
 from pyqcu.cuda import define
 
 
-DEFAULT_LATTICE = (16, 16, 16, 16)
+DEFAULT_LATTICE = CORRECTNESS_LATTICE
 _DISPLAY_ENV = (
     "QCU_DEVICE", "QCU_SEED", "QCU_ATOL", "QCU_VERBOSE", "QCU_STRICT_NUMERIC",
     "QCU_EXERCISE_DSLASH", "QCU_EXERCISE_SCHUR", "QCU_EXERCISE_LAPLACIAN",
@@ -370,7 +371,7 @@ def assert_roundtrip_layout() -> None:
 def parser(description: str) -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description=description)
     p.add_argument("--lat", nargs=4, type=_even_positive, default=DEFAULT_LATTICE, metavar=("X", "Y", "Z", "T"),
-                   help="全局格点大小（默认: 16 16 16 16）")
+                   help="全局格点大小（正确性默认: 8 8 8 16）")
     p.add_argument("--mass", type=float, default=0.05)
     p.add_argument("--csw", type=float, default=1.0,
                    help="Clover coefficient (default: 1.0)")

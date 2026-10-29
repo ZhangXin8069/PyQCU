@@ -12,4 +12,7 @@ QUDA 与 QCU 不得在同一进程混用；实际 QUDA 调用仅在显式设置
 `RUN_QUDA_TESTS=1 QUDA_UNSAFE_INPROCESS=1` 时启用，正式对照应使用
 `pyqcu/testing/qcu/strict/quda_comparison/` 的双进程运行器。
 
-独立入口默认使用 `16 16 16 16` 格点，并在开头打印脚本说明和输入参数，运行中显示阶段进度与耗时，结束时汇总总耗时。可通过 `--lat X Y Z T`、`--mass M`、`--no-doc` 和 `--no-progress` 调整运行方式；pytest 调用会自动忽略 pytest 自身的命令行参数。
+独立入口统一默认使用 `8 8 8 16` 正确性格点，并在开头打印脚本说明和输入参数，
+运行中显示阶段进度与耗时，结束时汇总总耗时。可通过 `--lat X Y Z T`、`--mass M`、
+`--no-doc` 和 `--no-progress` 调整运行方式；pytest 调用会自动忽略 pytest 自身的
+命令行参数。`16 16 16 16` 只能作为性能、容量或历史数据点。

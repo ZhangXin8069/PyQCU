@@ -1,7 +1,11 @@
 """Torch/CANN-only numerical utilities."""
 
+import sys
+
 from ._linalg import norm as norm
+from ._linalg import norm_many as norm_many
 from ._linalg import vdot as vdot
+from ._linalg import vdot_many as vdot_many
 from ._multigrid import PAIRS as PAIRS
 from ._multigrid import SIGN as SIGN
 from ._multigrid import apply_stencil as apply_stencil
@@ -23,7 +27,7 @@ try:
     from ._matul import matmul_cpu as matmul_cpu
     from ._matul import matmul_gpu as matmul_gpu
 except Exception as exc:  # pragma: no cover - optional TileLang environment
-    print(f"Error:{exc}")
+    print(f"Error:{exc}", file=sys.stderr)
 
 __all__ = [
     "Eexyzt_exyzt2Exyzt",
@@ -40,10 +44,12 @@ __all__ = [
     "matmul_cpu",
     "matmul_gpu",
     "norm",
+    "norm_many",
     "offload_to_disk",
     "offload_to_ram",
     "prolong",
     "reload_to_vram",
     "restrict",
     "vdot",
+    "vdot_many",
 ]

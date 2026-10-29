@@ -15,13 +15,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         epilog="Arguments are parsed by the shared simple MPI solve_case.py")
     parser.add_argument("--gauge", default=None)
     parser.add_argument("--source", default=None)
-    parser.add_argument("--lat", nargs=4, type=int, default=(8, 8, 16, 16))
+    parser.add_argument("--lat", nargs=4, type=int, default=(8, 8, 8, 16))
     parser.add_argument("--mass", type=float, default=None)
     parser.add_argument("--csw", type=float, default=None)
     parser.add_argument("--atol", type=float, default=1.0e-6)
     parser.add_argument("--max-iter", type=int, default=1000)
     parser.add_argument("--dtype", choices=("c64", "c128"), default="c64")
     parser.add_argument("--levels", type=int, default=2)
+    parser.add_argument("--min-size", type=int, default=4)
     parser.add_argument("--dof", nargs="+", type=int, default=(12, 12))
     parser.add_argument("--mg-grid", nargs=4, type=int, default=(2, 2, 2, 2))
     parser.add_argument("--restart", type=int, default=5)
@@ -46,6 +47,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--rebuild-coarse-cache", action="store_true")
     parser.add_argument("--build-device", choices=("cpu", "cuda"), default="cuda")
     parser.add_argument("--build-batch-size", type=int, default=4)
+    parser.add_argument("--warmup", type=int, default=0)
+    parser.add_argument("--repeat", type=int, default=1)
     parser.add_argument("--skip-independent-residual", action="store_true")
     parser.add_argument("--work-dir", default=None)
     parser.add_argument("--output", default=None)
@@ -63,6 +66,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--max-iter", str(args.max_iter),
         "--dtype", args.dtype,
         "--levels", str(args.levels),
+        "--min-size", str(args.min_size),
         "--dof", *(str(value) for value in args.dof[:args.levels]),
         "--mg-grid", *(str(value) for value in args.mg_grid),
         "--restart", str(args.restart),
@@ -100,6 +104,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         forwarded.append("--rebuild-coarse-cache")
     forwarded.extend(("--build-device", str(args.build_device)))
     forwarded.extend(("--build-batch-size", str(args.build_batch_size)))
+    forwarded.extend(("--warmup", str(args.warmup)))
+    forwarded.extend(("--repeat", str(args.repeat)))
     for level_cache in args.coarse_cache_level:
         forwarded.extend(("--coarse-cache-level", str(level_cache)))
     if args.skip_independent_residual:

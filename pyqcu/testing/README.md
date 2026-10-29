@@ -24,10 +24,10 @@ pytest pyqcu/testing/quda
 cd pyqcu/testing && pytest .
 ```
 
-单功能入口默认使用 `16 16 16 16` 格点。脚本启动时会打印当前脚本说明和解析后的输入参数，随后以分步进度条显示阶段耗时，并在结束时汇总总耗时与分项耗时。常用参数如下：
+所有后端正确性入口统一默认使用 `8 8 8 16` 格点；`16 16 16 16` 及更大格点只用于性能、容量或历史数据验证。脚本启动时会打印当前脚本说明和解析后的输入参数，随后以分步进度条显示阶段耗时，并在结束时汇总总耗时与分项耗时。常用参数如下：
 
 ```bash
-python pyqcu/testing/qcu/single_qcu_wilson_dslash.py --lat 8 8 8 8 --mass 0.05
+python pyqcu/testing/qcu/single_qcu_wilson_dslash.py --lat 8 8 8 16 --mass 0.05
 python pyqcu/testing/qcu/single_qcu_wilson_dslash.py --pure-only  # 只跑纯 PyTorch 参考
 python pyqcu/testing/qcu/single_qcu_wilson_dslash.py --no-doc --no-progress
 ```

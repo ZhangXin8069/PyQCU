@@ -138,7 +138,7 @@ matrix_args=(
   --wall-limit "${wall_limit}" --slurm-time-limit "${slurm_time_limit}"
   --child-timeout "${child_timeout}" --mpirun "${mpirun}"
 )
-if [[ ${defer_residual} == 1 ]]; then
+if [[ ${defer_residual} == 1 && ",${backend_csv}," == *",quda,"* ]]; then
   matrix_args+=(--defer-independent-residual)
 fi
 if [[ -n ${PYQCU_LIME_SOURCE:-} ]]; then

@@ -18,6 +18,10 @@
 
 ## 常用命令
 
+所有端到端/跨后端正确性入口默认使用 `8x8x8x16`。`16x16x16x16` 及更大格点只用于
+性能、容量或历史数据验证；历史 `with_data=True` Wilson 参考必须显式传入
+`16x16x16x16`，不得静默覆盖调用者格点。
+
 ```bash
 source ./env.sh
 (cd pyqcu/testing && pytest .)

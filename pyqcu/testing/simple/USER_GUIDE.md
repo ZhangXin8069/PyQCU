@@ -397,7 +397,7 @@ python pyqcu/testing/simple/solve_case.py \
 ```bash
 python pyqcu/testing/simple/qcu_bistabcg.py \
   --gauge ~/data/reference.lime \
-  --lat 8 8 16 16 \
+  --lat 8 8 8 16 \
   --mass -0.277 \
   --atol 1e-6 \
   --device cuda:0 \
@@ -430,7 +430,7 @@ python pyqcu/testing/simple/qcu_multigrid.py \
 KUPL_OMP_THREADS=8 OMP_NUM_THREADS=8 \
 python pyqcu/testing/simple/kupl_bistabcg.py \
   --gauge ~/data/reference.lime \
-  --lat 8 8 16 16 \
+  --lat 8 8 8 16 \
   --mass -0.277 --csw 1.160920226 \
   --dtype c64 \
   --report data/kupl_bistabcg.json
@@ -464,7 +464,7 @@ mpirun --allow-run-as-root --oversubscribe --bind-to none -np 4 \
 ```bash
 python pyqcu/testing/simple/quda_bistabcg.py \
   --gauge ~/data/reference.lime \
-  --lat 8 8 16 16 \
+  --lat 8 8 8 16 \
   --mass -0.277 --csw 1.160920226 \
   --tol 1e-6 \
   --report data/quda_bistabcg.json
@@ -480,7 +480,7 @@ QUDA 脚本兼容 `pyquda_utils` 和旧 `PyQuda-0.3.2` 原生 API。旧 API 缺�
 ```bash
 python pyqcu/testing/simple/compare_bistabcg.py \
   --gauge ~/data/reference.lime \
-  --lat 8 8 16 16 \
+  --lat 8 8 8 16 \
   --mass -0.277 --csw 1.160920226 \
   --atol 1e-6 \
   --qcu-device cuda:0 \
@@ -500,7 +500,7 @@ python pyqcu/testing/simple/compare_bistabcg.py \
 
 ```bash
 python pyqcu/testing/simple/compare_kupl_bistabcg.py \
-  --lat 4 4 4 4 \
+  --lat 8 8 8 16 \
   --mass 0.17 --csw 0.8 \
   --kupl-threads 2
 ```
@@ -511,7 +511,7 @@ python pyqcu/testing/simple/compare_kupl_bistabcg.py \
 
 ```bash
 python pyqcu/testing/simple/compare_kupl_multigrid.py \
-  --lat 4 4 4 4 \
+  --lat 8 8 8 16 \
   --mass 0.17 --csw 0.8 \
   --levels 2 --dof 12 2 --mg-grid 2 2 2 2 \
   --restart 5 \
@@ -548,7 +548,7 @@ Galerkin 粗算子关系。
 ```bash
 python pyqcu/testing/simple/compare_three_way.py \
   --backends cuda,kupl \
-  --lat 8 8 16 16 \
+  --lat 8 8 8 16 \
   --device cuda:0 \
   --kupl-ranks 4 --kupl-threads 4
 ```
@@ -565,7 +565,8 @@ python pyqcu/testing/simple/compare_three_way.py \
 标准命令：
 
 ```bash
-python pyqcu/testing/simple/build_full_mg_cache.py \
+mpirun --allow-run-as-root --oversubscribe --bind-to none -np 4 \
+  python -B -m pyqcu.testing.simple.mpi.build_full_mg_cache \
   --gauge data/production_L24/gauge_24x24x24x64_c64.h5 \
   --lat 24 24 24 64 \
   --mass -0.277 --csw 1.160920226 \
@@ -574,6 +575,7 @@ python pyqcu/testing/simple/build_full_mg_cache.py \
   --mg-grid 2 2 2 2 \
   --nv-iters 1 \
   --build-device cpu \
+  --grid 1 4 1 1 \
   --output data/mg_cache_L24_E12.h5 \
   --report data/mg_cache_L24_E12.json
 ```
@@ -584,6 +586,9 @@ python pyqcu/testing/simple/build_full_mg_cache.py \
 - gauge 必须是目标格点的完整 canonical HDF5，不能直接传更大的 LIME。
 - `--mg-grid` 必须整除格点。
 - `--build-device cuda` 要求目标 CUDA/PyTorch 可执行对应 kernel。
+- `mpi/build_full_mg_cache.py` 使用 native MPI：每个 rank 生成 local null-vector，
+  只计算自己的 coarse slab；周期 overlap patch 仅用于 halo，不复制完整 hierarchy。
+- 全局 `lonv/hnn/hdg/sit` 汇总后统一验签，并以原子方式发布 HDF5、manifest 和报告。
 - 多 rank worker 只读取全局缓存的 rank-local 超切片，不应每个 rank 重复构建。
 
 ## 12. 转换与检查工具
@@ -828,7 +833,7 @@ python pyqcu/testing/simple/solve_case.py \
 
 ```bash
 python pyqcu/testing/simple/compare_bistabcg.py \
-  --gauge reference.lime --lat 8 8 16 16 \
+  --gauge reference.lime --lat 8 8 8 16 \
   --qcu-device cuda:0 --solution-rtol 5e-3
 ```
 

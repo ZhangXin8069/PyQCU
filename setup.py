@@ -15,7 +15,10 @@ print("HOME:", HOME)
 class CMakeBuild(build_ext):
     def run(self):
         if os.environ.get("PYQCU_SKIP_NATIVE_BUILD") != "1":
-            subprocess.check_call(["bash", f"{HOME}/build.sh"])
+            # The top-level build entry point was split by backend; the CUDA
+            # bridge must use the NVIDIA build script rather than the removed
+            # historical build.sh name.
+            subprocess.check_call(["bash", f"{HOME}/build-nv.sh"])
         super().run()
 
 

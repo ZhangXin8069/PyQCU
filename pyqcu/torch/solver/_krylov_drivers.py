@@ -6,6 +6,7 @@ from time import perf_counter
 from typing import Any, Optional
 
 import pyqcu.cann as _torch
+from pyqcu.torch import tools as torch_tools
 from pyqcu.api import (
     BackendCapabilities,
     BiCGStabControl,
@@ -41,10 +42,10 @@ class TorchBiCGStabDriver:
         start = perf_counter()
         solution, iterations, status, history, restart_count = _bicgstab(
             self.operator, rhs, x0, self._control)
-        residual, relative = _true_residual(
+        residual, relative, rhs_norm = _true_residual(
             self.operator, rhs, solution, self._control.residual_scope)
         converged = residual <= self._control.convergence_threshold(
-            _field_norm(rhs))
+            rhs_norm)
         if converged:
             status = SolveStatus.CONVERGED
         elif status is SolveStatus.CONVERGED:
@@ -65,7 +66,7 @@ class TorchBiCGStabDriver:
             solve_seconds=perf_counter() - start,
             diagnostics={
                 "recurrence_history": tuple(history),
-                "rhs_norm": _field_norm(rhs),
+                "rhs_norm": rhs_norm,
             },
         )
 
@@ -108,10 +109,10 @@ class TorchCGDriver:
         start = perf_counter()
         solution, iterations, status, history = _cg(
             self.operator, rhs, x0, self._control)
-        residual, relative = _true_residual(
+        residual, relative, rhs_norm = _true_residual(
             self.operator, rhs, solution, self._control.residual_scope)
         converged = residual <= self._control.convergence_threshold(
-            _field_norm(rhs))
+            rhs_norm)
         if converged:
             status = SolveStatus.CONVERGED
         elif status is SolveStatus.CONVERGED:
@@ -133,7 +134,7 @@ class TorchCGDriver:
             solve_seconds=perf_counter() - start,
             diagnostics={
                 "recurrence_history": tuple(history),
-                "rhs_norm": _field_norm(rhs),
+                "rhs_norm": rhs_norm,
                 "operator_kind": self.control.operator_kind.value,
             },
         )
@@ -147,13 +148,14 @@ def _bicgstab(
         ) -> tuple[Any, int, SolveStatus, list[float], int]:
     x = _initial_guess(rhs, x0)
     r = rhs - operator.apply(x)
-    r_norm = _field_norm(r)
-    threshold = control.convergence_threshold(_field_norm(rhs))
+    r_norm, rhs_norm = torch_tools.norm_many((r, rhs))
+    threshold = control.convergence_threshold(rhs_norm)
     history = [r_norm]
     if r_norm <= threshold:
         return x, 0, SolveStatus.CONVERGED, history, 0
 
     shadow = r.clone()
+    shadow_norm = r_norm
     p = _torch.zeros_like(rhs)
     v = _torch.zeros_like(rhs)
     s = _torch.zeros_like(rhs)
@@ -166,10 +168,12 @@ def _bicgstab(
     iterations = 0
 
     def restart_after_breakdown() -> bool:
-        nonlocal shadow, p, v, s, t, rho_prev, alpha, omega, restart_count
+        nonlocal shadow, shadow_norm, p, v, s, t
+        nonlocal rho_prev, alpha, omega, restart_count
         if restart_count >= control.breakdown_restarts:
             return False
         shadow = r.clone()
+        shadow_norm = r_norm
         p = _torch.zeros_like(rhs)
         v = _torch.zeros_like(rhs)
         s = _torch.zeros_like(rhs)
@@ -182,8 +186,8 @@ def _bicgstab(
 
     for iteration in range(control.max_iter):
         iterations = iteration + 1
-        rho = _torch.vdot(shadow, r)
-        if _breakdown(rho, shadow, r):
+        rho = torch_tools.vdot(shadow, r)
+        if _breakdown(rho, shadow_norm * r_norm, r):
             if not restart_after_breakdown():
                 status = SolveStatus.BREAKDOWN
                 break
@@ -192,8 +196,10 @@ def _bicgstab(
         rho_prev = rho
         p = r + beta * (p - omega * v)
         v = operator.apply(p)
-        denominator = _torch.vdot(shadow, v)
-        if _breakdown(denominator, shadow, v):
+        denominator, v_norm_sq = torch_tools.vdot_many((
+            (shadow, v), (v, v)))
+        v_norm = _norm_from_squared(v_norm_sq)
+        if _breakdown(denominator, shadow_norm * v_norm, v):
             if not restart_after_breakdown():
                 status = SolveStatus.BREAKDOWN
                 break
@@ -206,13 +212,13 @@ def _bicgstab(
             continue
         s = r - alpha * v
         t = operator.apply(s)
-        t_norm_sq = _torch.vdot(t, t)
+        t_dot_s, t_norm_sq = torch_tools.vdot_many(((t, s), (t, t)))
         if _near_zero(t_norm_sq):
             if not restart_after_breakdown():
                 status = SolveStatus.BREAKDOWN
                 break
             continue
-        omega = _torch.vdot(t, s) / t_norm_sq
+        omega = t_dot_s / t_norm_sq
         if not bool(_torch.torch.isfinite(alpha)) or not bool(
                 _torch.torch.isfinite(omega)) or _near_zero(omega):
             if not restart_after_breakdown():
@@ -227,7 +233,7 @@ def _bicgstab(
             status = SolveStatus.CONVERGED
             break
         if _monitor_due(control, iterations):
-            monitored, _ = _true_residual(
+            monitored, _, _ = _true_residual(
                 operator, rhs, x, control.residual_scope)
             if iterations >= control.min_iter and monitored <= threshold:
                 status = SolveStatus.CONVERGED
@@ -241,9 +247,12 @@ def _cg(
     x = _initial_guess(rhs, x0)
     r = rhs - operator.apply(x)
     p = r.clone()
-    rs_old = _torch.vdot(r, r)
-    threshold = control.convergence_threshold(_field_norm(rhs))
-    history = [_field_norm(r)]
+    rs_old, rhs_norm_sq = torch_tools.vdot_many((
+        (r, r), (rhs, rhs)))
+    r_norm = _norm_from_squared(rs_old)
+    rhs_norm = _norm_from_squared(rhs_norm_sq)
+    threshold = control.convergence_threshold(rhs_norm)
+    history = [r_norm]
     if history[0] <= threshold:
         return x, 0, SolveStatus.CONVERGED, history
     status = SolveStatus.MAX_ITERATIONS
@@ -251,21 +260,24 @@ def _cg(
     for iteration in range(control.max_iter):
         iterations = iteration + 1
         image = operator.apply(p)
-        denominator = _torch.vdot(p, image)
-        if _breakdown(denominator, p, image):
+        denominator, p_norm_sq, image_norm_sq = torch_tools.vdot_many((
+            (p, image), (p, p), (image, image)))
+        scale = _norm_from_squared(p_norm_sq) * _norm_from_squared(
+            image_norm_sq)
+        if _breakdown(denominator, scale, image):
             status = SolveStatus.BREAKDOWN
             break
         alpha = rs_old / denominator
         x = x + alpha * p
         r = r - alpha * image
-        rs_new = _torch.vdot(r, r)
-        r_norm = float(_torch.torch.sqrt(_torch.torch.abs(rs_new)))
+        rs_new = torch_tools.vdot(r, r)
+        r_norm = _norm_from_squared(rs_new)
         history.append(r_norm)
         if iterations >= control.min_iter and r_norm <= threshold:
             status = SolveStatus.CONVERGED
             break
         if _monitor_due(control, iterations):
-            monitored, _ = _true_residual(
+            monitored, _, _ = _true_residual(
                 operator, rhs, x, control.residual_scope)
             if iterations >= control.min_iter and monitored <= threshold:
                 status = SolveStatus.CONVERGED
@@ -289,18 +301,21 @@ def _initial_guess(rhs: Any, x0: Any) -> Any:
 
 
 def _field_norm(value: Any) -> float:
-    return float(_torch.norm(value))
+    return float(torch_tools.norm(value))
+
+
+def _norm_from_squared(value: Any) -> float:
+    return float(_torch.torch.sqrt(_torch.torch.abs(value)).item())
 
 
 def _true_residual(
         operator: Any, rhs: Any, x: Any, scope: ResidualScope
-        ) -> tuple[float, float]:
+        ) -> tuple[float, float, float]:
     del scope
     residual = rhs - operator.apply(x)
-    absolute = _field_norm(residual)
-    rhs_norm = _field_norm(rhs)
+    absolute, rhs_norm = torch_tools.norm_many((residual, rhs))
     relative = 0.0 if rhs_norm == 0 else absolute / rhs_norm
-    return absolute, relative
+    return absolute, relative, rhs_norm
 
 
 def _monitor_due(control: SolverControl, iteration: int) -> bool:
@@ -314,10 +329,12 @@ def _near_zero(value: Any) -> bool:
     return abs(value) <= 1e-30
 
 
-def _breakdown(value: Any, left: Any, right: Any) -> bool:
-    scale = _field_norm(left) * _field_norm(right)
-    eps = float(_torch.torch.finfo(right.real.dtype).eps)
-    return scale == 0 or abs(value) <= eps * scale
+def _breakdown(value: Any, scale: float, reference: Any) -> bool:
+    eps = float(_torch.torch.finfo(reference.real.dtype).eps)
+    return (
+        not bool(_torch.isfinite(value)) or scale == 0 or
+        abs(value) <= eps * scale
+    )
 
 
 def _require_operator(operator: Any) -> None:

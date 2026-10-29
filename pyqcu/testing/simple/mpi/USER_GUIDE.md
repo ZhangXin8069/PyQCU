@@ -44,7 +44,8 @@ pyqcu/testing/simple/mpi/worker.py
 `simple/` 的每个公开脚本在本目录都有同名 MPI 特化入口。完整的 source→MPI
 模式、后端和输出映射见 [`MAPPING.md`](MAPPING.md)。其中 `check_*`、`prepare_case`
 和纯格式转换是 rank0-root；`*_bistabcg`、`quda_multigrid` 委托现有 native MPI
-benchmark；`qcu_multigrid`、`kupl_multigrid` 复用 `solve_case.py`/`worker.py`；
+benchmark；`build_full_mg_cache.py` 使用 native MPI 分布式 slab 构建；
+`qcu_multigrid`、`kupl_multigrid` 复用 `solve_case.py`/`worker.py`；
 `compare_*` 仅作为隔离 MPI job 的串行编排器；`test_coarse_cache.py` 使用
 rank-slab。所有入口统一拒绝非 2 次幂 rank 数。
 
@@ -77,6 +78,7 @@ rank-slab。所有入口统一拒绝非 2 次幂 rank 数。
 | `_compare.py` | 后端隔离编排和聚合报告 |
 | `check_*.py`、`prepare_case.py`、`*2*` | rank0-root 检查、准备与格式转换 |
 | `qcu_*`、`quda_*`、`kupl_*` | 对应后端的 delegated/native MPI 入口 |
+| `build_full_mg_cache.py` | native MPI null-vector、overlap stencil 和全局 cache 原子发布 |
 | `test_coarse_cache.py` | 多 rank HDF5 slab、shape/dtype/hash 和 fail-closed 校验 |
 | `MAPPING.md` | 全部公开父入口的逐项映射 |
 | `test_mpi_contract.py` | grid、LIME magic、切片、库选择和 mpirun 命令契约测试 |
@@ -95,7 +97,7 @@ solve_case.py
    |-- 切出 --lat 前缀块
    |-- 生成/读取 source
    |-- 计算 case tag 和 work dir
-   |-- levels>1 且 restart!=0: 构建 coarse cache
+   |-- levels>1 且 restart!=0: 以相同 ranks/grid 分布式构建 coarse cache
    |-- 构造 mpirun 和 env
    v
 mpirun -np N
@@ -856,7 +858,7 @@ python pyqcu/testing/simple/mpi/solve_case.py \
 python pyqcu/testing/simple/mpi/solve_case.py \
   --backend kupl \
   --lime ~/data/reference.lime \
-  --lat 4 4 4 4 \
+  --lat 8 8 8 16 \
   --grid 1 1 1 1 \
   --ranks 1 \
   --omp-threads 4 \

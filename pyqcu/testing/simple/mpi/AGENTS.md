@@ -19,8 +19,10 @@
    `scidac-private-record-xml`/`scidac-record-xml`、`clovCoeff` 和 `Mass`。
 5. 快速验收默认使用 `8x8x8x16` 子体积。LIME 子体积的边界缝不满足原始周期
    条件，只用于代码路径、MPI 通信和数值真残差验证，不作为物理结果。
-6. 多 rank MG 必须使用全局粗算子缓存。启动器可自动构建缓存；worker 只读取
-   各 rank 的粗格超切片，不得让每个 rank 重复构建完整 hierarchy。
+6. 多 rank MG 必须使用全局粗算子缓存。`build_full_mg_cache.py` 由所有 rank
+   协同构建：每 rank 生成 local null-vector、计算自己的 coarse slab，并汇总为
+   一个原子发布的全局 HDF5；worker 只读取本 rank 粗格超切片，不得重复构建完整
+   hierarchy。overlap patch 只能用于边界 halo，不能退化为每 rank 重建全题。
 7. 每个新路径至少验证 `python -m compileall`、契约 pytest、一个 KUPL MPI
    小格点求解和一个 CUDA 小格点求解；设备缺失时记录未验证原因。
 8. 用户文档入口为 `README.md`，完整参数、OpenMPI 绑定、报告字段和排错见

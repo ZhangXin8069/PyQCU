@@ -395,3 +395,19 @@ ctest --test-dir cpp/kupl/qcu/build \
 
 PDF 中的 608 核、16 DDR NUMA、16 on-chip NUMA、每 NUMA 38 核是示例机型参数，
 不是 PyQCU 默认值。
+
+## 11. Strict-MG benchmark 经验（2026-10-29）
+
+- Strict 2-level 的 full-coarse extent 必须逐 rank 保持偶数。`8x8x8x16` 4-rank
+  不能使用 `1x4x1x1`；改用 `2x2x1x1` 后 local fine `4x4x8x16`、local coarse
+  `2x2x4x8` 才满足几何门。
+- solve 结束后先退出 MPI solve 进程，再在独立进程做 full Wilson/Clover 残差。
+  在仍持有同一 `COMM_WORLD` 的 rank 0 内重入 distributed dslash 会出现 busy-wait，
+  该次不计入样本。
+- cache load、wrapper setup、warmup、steady solve 和测后残差分开计时。当前真实
+  `8x8x8x16` c64、12 threads/rank、2 warmups + 5 steady 的 1/2/4-rank median
+  为 `1.222731/1.101605/1.658620 s`，12 次外层迭代，独立残差
+  `7.320e-7/5.917e-7/6.052e-7`。
+- 共享登录节点 `load average≈91/48 CPUs`、106 用户时，4-rank 的 `0.737x`
+  扩展比只能说明该窗口资源拥塞，不能外推目标鲲鹏性能。正式 HMPI benchmark 必须
+  在独占或可审计资源上重跑。

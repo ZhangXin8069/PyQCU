@@ -25,7 +25,9 @@
 
 from __future__ import annotations
 
+from contextlib import nullcontext
 from dataclasses import dataclass
+from functools import wraps
 from itertools import product
 from math import prod
 from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple
@@ -43,6 +45,16 @@ BlockKey = Tuple[int, int, int, int]
 _QCU_DIAGONAL_PAIRS = (
     (0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)
 )
+
+
+def _distributed_roll_method(method: Callable[..., Any]) -> Callable[..., Any]:
+    """Run a hierarchy method inside its distributed roll context."""
+    @wraps(method)
+    def wrapped(self: Any, *args: Any, **kwargs: Any) -> Any:
+        with self._distributed_roll_scope():
+            return method(self, *args, **kwargs)
+
+    return wrapped
 
 
 class QcuStrictAssetBinding:
@@ -3000,6 +3012,21 @@ class _MultigridHierarchy:
                 self.comm, self.process_grid, self.fine_shape):
             return self._setup_impl()
 
+    def _distributed_roll_scope(self):
+        """Return the hierarchy's active distributed roll scope, if needed."""
+        if not self._distributed_process_grid:
+            return nullcontext()
+        from pyqcu.torch.tools import _mpi_roll
+
+        current = _mpi_roll.current_context()
+        if (current is not None and current.comm is self.comm and
+                tuple(current.process_grid) == tuple(self.process_grid) and
+                (current.local_extents is None or
+                 tuple(current.local_extents) == tuple(self.fine_shape))):
+            return nullcontext()
+        return _mpi_roll.distributed_roll(
+            self.comm, self.process_grid, self.fine_shape)
+
     def _setup_impl(self) -> "_MultigridHierarchy":
         if self._cuda_runtime_sealed or self._python_setup_assets_released:
             raise RuntimeError(
@@ -3344,6 +3371,7 @@ class _MultigridHierarchy:
             raise ValueError("随机 null vectors 需要显式 null_vectors 或 fine operator diagonal")
         return _torch.zeros(size=[operator.dof, *operator.shape], dtype=dtype, device=device)
 
+    @_distributed_roll_method
     def apply(self, value: Tensor) -> Tensor:
         self.setup()
         flat, shape_kind = self._to_flat(value, self._fine)
@@ -3359,6 +3387,7 @@ class _MultigridHierarchy:
 
     matvec = apply
 
+    @_distributed_roll_method
     def apply_compact(self, value: Tensor) -> Tensor:
         """应用 MATPC 层级首层的 compact ``S_o``。
 
@@ -3516,6 +3545,7 @@ class _MultigridHierarchy:
                       restart=min(self.restart, max(1, self.coarse_max_iter)),
                       if_rtol=True, verbose=self.verbose)
 
+    @_distributed_roll_method
     def v_cycle(self, rhs: Tensor, level: int = 0) -> Tensor:
         self.setup()
         if self._strict_mode:
@@ -3765,6 +3795,7 @@ class _MultigridHierarchy:
             return solution.reshape(self.fine_spin, self.fine_color, *self.fine_shape)
         return solution
 
+    @_distributed_roll_method
     def solve_parity(self, b: Tensor, tol: Optional[float] = None,
                      max_iter: Optional[int] = None) -> Tensor:
         """直接以 finest Schur 求解并重构 full 解，用于 parity 对照验证。"""
@@ -3791,6 +3822,7 @@ class _MultigridHierarchy:
             return result.reshape(self.fine_spin, self.fine_color, *self.fine_shape)
         return result
 
+    @_distributed_roll_method
     def diagnostics(self, seed_field: Optional[Tensor] = None) -> Dict[str, float]:
         """执行小格验证所需的 P/R、Galerkin、伴随和 Schur 诊断。"""
         self.setup()

@@ -63,6 +63,28 @@ class Krylov:
         return self.solve_result(rhs, x0=x0).x
 
 
+class Solver(Krylov):
+    """Canonical high-level name for the backend-neutral Krylov selector."""
+
+
+def solve_bicgstab(
+        *, backend: str, operator: Any, rhs: Any, control: SolverControl,
+        x0: Any = None) -> SolveResult:
+    """Run BiCGStab with the common API on torch, cuda, or kupl."""
+    return Solver(
+        backend=backend, method="bicgstab", operator=operator,
+        control=control).solve_result(rhs, x0=x0)
+
+
+def solve_cg(
+        *, backend: str, operator: Any, rhs: Any, control: SolverControl,
+        x0: Any = None) -> SolveResult:
+    """Run CG with the common API on torch, cuda, or kupl."""
+    return Solver(
+        backend=backend, method="cg", operator=operator,
+        control=control).solve_result(rhs, x0=x0)
+
+
 def _implementation(
         backend: str, method: str, operator: Any,
         control: SolverControl) -> KrylovDriver:
@@ -77,4 +99,4 @@ def _implementation(
     return driver_type(operator, control)
 
 
-__all__ = ["Krylov"]
+__all__ = ["Krylov", "Solver", "solve_bicgstab", "solve_cg"]

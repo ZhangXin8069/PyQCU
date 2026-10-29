@@ -26,6 +26,13 @@ def _record(handle, name: str, payload: bytes) -> None:
     handle.write(b"\0" * ((-len(payload)) % 8))
 
 
+def test_gpu_uuid_is_converted_to_pickle_safe_text() -> None:
+    raw = bytes.fromhex("00112233445566778899aabbccddeeff")
+    assert BENCH._json_safe_uuid(raw) == (
+        "00112233-4455-6677-8899-aabbccddeeff")
+    assert BENCH._json_safe_uuid(None) is None
+
+
 def test_lime_slab_and_global_rhs_layout(tmp_path) -> None:
     lattice = (4, 4, 4, 4)
     raw = np.zeros((4, 4, 4, 4, 4, 3, 3), dtype=np.complex128)
@@ -73,6 +80,9 @@ def test_lime_slab_and_global_rhs_layout(tmp_path) -> None:
 
     c128_rhs = BENCH._global_rhs_canonical(lattice, 17, "c128")
     assert c128_rhs.dtype == np.dtype(np.complex128)
+    c128_local = BENCH.slice_global_rhs(
+        c128_rhs, lattice, (2, 1, 1, 1), (1, 0, 0, 0))
+    assert c128_local.dtype == np.dtype(np.complex128)
     rng = np.random.default_rng(17)
     expected_c128 = (
         rng.standard_normal((4, 3, *lattice))
@@ -98,8 +108,14 @@ def test_mg_cli_contract() -> None:
     args = BENCH.build_parser().parse_args([
         "--gauge", "gauge.lime", "--solver", "mg", "--levels", "2",
         "--nvec", "6", "--mg-block", "2", "2", "2", "2",
+        "--csw", "0", "--nu-pre", "2", "--nu-post", "2",
+        "--smoother", "mr", "--coarse-solver-maxiter", "32",
     ])
     assert args.solver == "mg"
     assert args.levels == 2
     assert args.nvec == 6
     assert args.mg_block == [2, 2, 2, 2]
+    assert args.csw == 0.0
+    assert args.nu_pre == args.nu_post == 2
+    assert args.smoother == "mr"
+    assert args.coarse_solver_maxiter == 32

@@ -57,6 +57,42 @@ metadata:
    - 不应把 CUDA Graph、cooperative coarsest solve 或完全异步 MPI
      外推到所有 Strict 配置。
 
+## 性能图规范
+
+性能汇报必须多视角作图，不能只放一张总耗时表。正式批次至少包含：总求解时间、相对
+QUDA 的加速比、1/2/4 MPI 并行效率、总迭代数、独立真残差，以及 setup/cache 与稳态
+solve 的分段成本。Legacy/Strict、c64/c128、格点大小和 rank 数改变时使用分面或独立图，
+不把不同口径拼成同一系列。
+
+作图遵守以下规则：
+
+- CSV/JSON 原始记录是唯一数据源；图中数字必须能回溯到源文件和生成命令；
+- 同时输出 SVG（报告主用）与 PNG（快速检查），记录生成脚本和数据摘要；
+- 一个坐标轴只使用一种单位；标题/轴标题写清指标与方向，如 `R=QUDA/PyQCU`；
+- 每个加速比必须同时给出分子/分母的绝对时间、单位和统计量；禁止只展示 `x` 倍；
+- 显示样本数、误差条或离散度定义；正式曲线不得用单样本冒充实测；
+- 保留 `1.0x` 加速比线和残差阈值线；需要跨数量级时显式使用对数轴；
+- 同一后端/算法保持稳定配色；按主指标排序，图内文字满足投影可读性；
+- 较大格点与多 MPI 图单独展示，smoke 数据只能在明确标注的 smoke 图中出现；
+- 图注必须写明硬件、gauge/RHS、cache identity、精度、variant、rank/grid 和限制。
+
+## 性能简报参数清单
+
+性能页和文字简报必须同时给出可复现实验配方，不能只写“默认配置”或“相同参数”。
+每条正式结果至少列出：
+
+- 格子 `X×Y×Z×T`、MPI ranks、4D process grid、进程/rank/设备映射；
+- 后端、Legacy/Strict、精度，以及 `mass`、`kappa`、`csw`；
+- 调用主功能函数、原生 solver/cycle 入口；Legacy/Strict levels、block/`mg_grid`、
+  dof/nvec、restart、coarse max-iter/tolerance、atol、max_iter；
+- warmup、正式重复数、实际迭代/cycle/correction 次数、残差口径和独立真残差；
+- cache path/identity/hit、gauge/RHS SHA256、设备型号/UUID、PyQCU/QUDA 库 SHA256；
+- 计时边界，例如 total solve、steady solve、setup、cache verification/load 或
+  residual reconstruction。
+
+会改变算法、收敛或耗时的参数若缺失，该结果只能标为不可比较；可选诊断缺失时写 `None`，
+不能用配置值或另一后端结果补齐。图表页脚、表格列或附录必须能追溯到完整参数记录。
+
 ## 推荐字体
 
 在 XeLaTeX 中统一配置：

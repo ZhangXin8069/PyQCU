@@ -61,7 +61,8 @@ def test_local_orthogonalize_cgs2_is_orthonormal_and_preserves_span() -> None:
 
 def test_coarse_cache_loader_returns_one_sequence_per_level(tmp_path) -> None:
     arrays = tuple(
-        torch.arange(24, dtype=torch.float32).reshape(2, 3, 4).numpy()
+        torch.arange(24, dtype=torch.float32).to(torch.complex64)
+        .reshape(2, 3, 4).numpy()
         for _ in range(4)
     )
     path = tmp_path / "coarse.h5"
@@ -79,14 +80,17 @@ def test_coarse_cache_loader_returns_one_sequence_per_level(tmp_path) -> None:
 def test_coarse_cache_loader_slices_interleaved_null_vectors(tmp_path) -> None:
     lonv = torch.arange(
         2 * 3 * 4 * 2 * 5 * 2 * 6 * 2 * 7 * 2,
-        dtype=torch.float32).reshape(2, 3, 4, 2, 5, 2, 6, 2, 7, 2).numpy()
+        dtype=torch.float32).to(torch.complex64).reshape(
+            2, 3, 4, 2, 5, 2, 6, 2, 7, 2).numpy()
     hnn = torch.arange(2 * 1 * 3 * 3 * 4 * 5 * 6 * 7,
-                       dtype=torch.float32).reshape(2, 1, 3, 3, 4, 5, 6, 7).numpy()
+                       dtype=torch.float32).to(torch.complex64).reshape(
+                           2, 1, 3, 3, 4, 5, 6, 7).numpy()
     hdg = torch.arange(2 * 1 * 2 * 3 * 3 * 4 * 5 * 6 * 7,
-                       dtype=torch.float32).reshape(
+                       dtype=torch.float32).to(torch.complex64).reshape(
                            2, 1, 2, 3, 3, 4, 5, 6, 7).numpy()
     sitting = torch.arange(3 * 3 * 4 * 5 * 6 * 7,
-                           dtype=torch.float32).reshape(3, 3, 4, 5, 6, 7).numpy()
+                           dtype=torch.float32).to(torch.complex64).reshape(
+                               3, 3, 4, 5, 6, 7).numpy()
     path = tmp_path / "coarse_slice.h5"
     write_coarse_assets(path, lonv, hnn, hdg, sitting)
 

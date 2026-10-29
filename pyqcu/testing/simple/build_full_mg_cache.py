@@ -4,33 +4,32 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import time
 from pathlib import Path
 
 import numpy as np
 
+from pyqcu.tools._legacy_mg_cache import (
+    file_sha256,
+    legacy_mg_cache_identity,
+    logical_array_sha256,
+    save_legacy_mg_cache,
+    write_legacy_mg_cache_manifest,
+)
+
 try:
     from ._common import (
         lime_metadata, qdp_gauge_to_qcu, read_h5, read_h5_metadata,
         read_qdp_gauge, resolve_path,
     )
-    from .kupl_multigrid import build_coarse_assets, write_coarse_assets
+    from .kupl_multigrid import build_coarse_assets
 except ImportError:
     from _common import (
         lime_metadata, qdp_gauge_to_qcu, read_h5, read_h5_metadata,
         read_qdp_gauge, resolve_path,
     )
-    from kupl_multigrid import build_coarse_assets, write_coarse_assets
-
-
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        while chunk := handle.read(8 * 1024 * 1024):
-            digest.update(chunk)
-    return digest.hexdigest()
+    from kupl_multigrid import build_coarse_assets
 
 
 def main(argv=None) -> int:
@@ -75,39 +74,46 @@ def main(argv=None) -> int:
         device_name=args.build_device, setup_stats=setup_stats)
     elapsed = time.perf_counter() - started
     output = resolve_path(args.output, Path(args.output).expanduser())
-    write_coarse_assets(output, *(value[0] for value in assets))
-    report = {
-        "status": "PASS",
-        "gauge": str(gauge_path),
-        "gauge_sha256": _sha256(gauge_path),
-        "lattice": list(lattice),
-        "dtype": str(dtype),
-        "mass": float(args.mass),
-        "csw": float(args.csw),
-        "dof": list(args.dof),
-        "mg_grid": list(args.mg_grid),
-        "nv_iters": int(args.nv_iters),
-        "seed": int(args.seed),
-        "build_device": args.build_device,
-        "setup_method": "cxx-null-vector+local-33-stencil",
-        "setup_backend": (
+    datasets = {
+        name: value[0] for name, value in zip(
+            ("lonv", "hnn", "hdg", "sit"), assets, strict=True)
+    }
+    identity = legacy_mg_cache_identity(
+        gauge_canonical_sha256=logical_array_sha256(gauge),
+        gauge_file_sha256=file_sha256(gauge_path),
+        lattice=lattice,
+        dtype=dtype,
+        mass=args.mass,
+        csw=args.csw,
+        dof=args.dof,
+        mg_grid=args.mg_grid,
+        nv_iters=args.nv_iters,
+        seed=args.seed,
+    )
+    report = save_legacy_mg_cache(
+        output, datasets, identity=identity,
+        setup_method="cxx-null-vector+local-33-stencil",
+        setup_backend=(
             "cuda-qcu-cxx" if args.build_device == "cuda"
             else "kupl-qcu-cxx"),
-        "setup_validation": setup_stats,
+        setup_validation=setup_stats,
+        source_metadata=metadata,
+        setup_seconds=elapsed)
+    report.update({
+        "gauge": str(gauge_path),
+        "build_device": args.build_device,
         "local_stencil": True,
         "local_stencil_batch_size": int(args.batch_size),
-        "setup_seconds": elapsed,
         "output": str(output),
-        "output_sha256": _sha256(output),
-        "output_size_bytes": output.stat().st_size,
-        "source_metadata": metadata,
-    }
+    })
     if args.report is not None:
         report_path = resolve_path(args.report, Path(args.report).expanduser())
-        report_path.parent.mkdir(parents=True, exist_ok=True)
-        report_path.write_text(
-            json.dumps(report, indent=2, ensure_ascii=False) + "\n",
-            encoding="utf-8")
+        write_legacy_mg_cache_manifest(output, report)
+        if report_path.resolve() != output.with_suffix(".json").resolve():
+            report_path.parent.mkdir(parents=True, exist_ok=True)
+            report_path.write_text(
+                json.dumps(report, indent=2, ensure_ascii=False) + "\n",
+                encoding="utf-8")
     print(json.dumps(report, ensure_ascii=False))
     return 0
 

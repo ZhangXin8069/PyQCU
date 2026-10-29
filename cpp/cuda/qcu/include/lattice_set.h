@@ -96,6 +96,28 @@ template <typename T> struct LatticeSet {
       host_argv[i] = static_cast<T *>(_argv)[i];
     }
   }
+
+  void sync_parity(int parity) {
+    const int value = parity == _ODD_ ? _ODD_ : _EVEN_;
+    if (host_params[_PARITY_] == value) {
+      return;
+    }
+    host_params[_PARITY_] = value;
+    if (host_params[_TEST_IN_CPU_] == 1 || device_params == nullptr) {
+      return;
+    }
+    checkCudaErrors(cudaMemcpyAsync(
+        static_cast<char *>(device_params) + _PARITY_ * sizeof(int),
+        host_params + _PARITY_, sizeof(int), cudaMemcpyHostToDevice, stream));
+    give_param<T><<<1, 1, 0, stream>>>(
+        device_params_even_no_dag, _PARITY_, _EVEN_);
+    give_param<T><<<1, 1, 0, stream>>>(
+        device_params_odd_no_dag, _PARITY_, _ODD_);
+    give_param<T><<<1, 1, 0, stream>>>(
+        device_params_even_dag, _PARITY_, _EVEN_);
+    give_param<T><<<1, 1, 0, stream>>>(
+        device_params_odd_dag, _PARITY_, _ODD_);
+  }
   void init() {
     {   // basic set
       { // give params

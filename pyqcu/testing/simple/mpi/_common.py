@@ -8,6 +8,8 @@ from typing import Any, Sequence
 
 import numpy as np
 
+from pyqcu.tools._legacy_mg_cache import load_legacy_mg_cache_slab
+
 from pyqcu.testing.simple._common import (
     DEFAULT_CSW,
     DEFAULT_MASS,
@@ -206,29 +208,9 @@ def load_coarse_assets(path_value: str | Path, dtype: np.dtype,
                        local_shape: Sequence[int] | None = None
                        ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Load global 33-tensor assets or one rank-local hyperslab."""
-    import h5py
-
     path = resolve_path(path_value, Path(path_value).expanduser())
-    with h5py.File(path, "r") as handle:
-        missing = sorted({"lonv", "hnn", "hdg", "sit"}.difference(handle.keys()))
-        if missing:
-            raise ValueError(f"coarse cache {path} is missing datasets {missing}")
-        values: dict[str, np.ndarray] = {}
-        for name in ("lonv", "hnn", "hdg", "sit"):
-            dataset = handle[name]
-            if starts is None or local_shape is None:
-                selected = dataset[...]
-            else:
-                axes = ((2, 4, 6, 8) if name == "lonv"
-                        else (4, 5, 6, 7) if name == "hnn"
-                        else (5, 6, 7, 8) if name == "hdg"
-                        else (2, 3, 4, 5))
-                selection = [slice(None)] * dataset.ndim
-                for axis, h5_axis in enumerate(axes):
-                    selection[h5_axis] = slice(
-                        int(starts[axis]), int(starts[axis] + local_shape[axis]))
-                selected = dataset[tuple(selection)]
-            values[name] = np.ascontiguousarray(selected, dtype=dtype)
+    values = load_legacy_mg_cache_slab(
+        path, dtype, starts=starts, local_shape=local_shape)
     return values["lonv"], values["hnn"], values["hdg"], values["sit"]
 
 

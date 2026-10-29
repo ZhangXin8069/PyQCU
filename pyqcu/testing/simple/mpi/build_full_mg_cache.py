@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
-"""MPI rank-zero entry for the shared full multigrid cache builder."""
+"""Build a Legacy-MG cache cooperatively across MPI ranks."""
 
 from __future__ import annotations
 
 from collections.abc import Sequence
 
-from pyqcu.testing.simple.mpi._entrypoint import run_rank0_module
+from pyqcu.testing.simple.mpi._entrypoint import run_native_module
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    return run_rank0_module(
-        "pyqcu.testing.simple.build_full_mg_cache", argv,
+    return run_native_module(
+        "pyqcu.testing.simple.mpi._distributed_mg_cache", argv,
         description=__doc__, atomic_output_flags=("--output", "--report"))
 
 

@@ -1,6 +1,6 @@
 # PyQCU `docs/**` 来源映射
 
-本表覆盖当前 `docs/` 顶层的 29 份 Markdown 文档。`docs/AGENTS.md` 是文件索引；
+本表覆盖当前 `docs/` 顶层的 33 份 Markdown 文档。`docs/AGENTS.md` 是文件索引；
 需要判断“原文应保留在哪里”时先读该文件和 `docs/ORGANIZATION.md`。
 
 ## 权威级别
@@ -32,6 +32,7 @@
 | [`docs/torch_backend_layout.md`](../../../docs/torch_backend_layout.md) | A | `pyqcu-solver` | `pyqcu-dslash`, `pyqcu-smear`, `pyqcu-tools` | Torch 实现位于 `pyqcu/torch`；公共 lattice/tools/selector 与兼容门面的边界。 |
 | [`docs/api_contract.md`](../../../docs/api_contract.md) | A | `pyqcu-api` | `pyqcu-solver`, `pyqcu-cuda`, `pyqcu-kupl` | P0 数据模型/Protocol 与 P1 `LinearOperator`、统一 `Krylov`、Torch 迭代和 CUDA/KUPL 原生整次 solve 语义。 |
 | [`docs/qcu_unified_backend_strategy_20261023.md`](../../../docs/qcu_unified_backend_strategy_20261023.md) | P | `pyqcu-api` | `pyqcu-solver`, `pyqcu-cuda`, `pyqcu-kupl` | 六实现比较属于现状；P0 契约已落地，完整 backend factory 与组件迁移仍属于设计提案。 |
+| [`docs/multigrid_setup_cpp_migration.md`](../../../docs/multigrid_setup_cpp_migration.md) | B/C | `pyqcu-solver` | `pyqcu-cuda`, `pyqcu-kupl`, `pyqcu-testing` | Legacy setup 的 C++ 迁移边界、ABI、已验证阶段与 10 分钟/cache-hit 验收门；DCU 调度未完成项不得视为已证实。 |
 | [`docs/qcu_quda_multigrid_algorithms.md`](../../../docs/qcu_quda_multigrid_algorithms.md) | B | `pyqcu-solver` | `pyqcu-cpp-qcu`, `pyqcu-cuda` | QCU legacy 与 QUDA/PyQUDA MG 的组成、默认算法、flow、版本边界和源码依据。 |
 | [`docs/qcu_quda_multigrid_subalgorithms.md`](../../../docs/qcu_quda_multigrid_subalgorithms.md) | B | `pyqcu-solver` | — | Schur、null vector、transfer、smoother、Krylov、cycle、reliable update 的公式与优劣。 |
 | [`docs/qcu_quda_multigrid_coarse_operator.md`](../../../docs/qcu_quda_multigrid_coarse_operator.md) | B | `pyqcu-solver` | `pyqcu-tools`, `pyqcu-cpp-qcu` | legacy 33-tensor 与 Strict/QUDA `X/Y/Yhat` 粗算子的表示差异；禁止把有效粗量解释成物理 gauge/clover。 |
@@ -42,6 +43,10 @@
 | [`docs/qcu_six_way_benchmark_20261023.md`](../../../docs/qcu_six_way_benchmark_20261023.md) | C | `pyqcu-benchmark` | `pyqcu-solver`, `pyqcu-cuda`, `pyqcu-kupl` | 六版本与 QUDA 的真实 LIME 前缀同窗结果；严格区分 fine-only、实际 correction/V-cycle、CPU/GPU 和不可比边界。 |
 | [`docs/qcu_mg_benchmark_decisions_20261023.md`](../../../docs/qcu_mg_benchmark_decisions_20261023.md) | C | `pyqcu-benchmark` | `pyqcu-solver`, `pyqcu-cuda`, `pyqcu-kupl` | 大格 Strict setup 不可接受的 benchmark skip 决策；只说明未完成下界和项目范围，不写成数值 FAIL。 |
 | [`docs/qcu_mg_refactor_validation_20261023.md`](../../../docs/qcu_mg_refactor_validation_20261023.md) | B/C | `pyqcu-benchmark` | `pyqcu-solver`, `pyqcu-cuda`, `pyqcu-kupl`, `pyqcu-api` | 16⁴ 六项矩阵、QUDA/BiCG 对照、跨实现解差、L24 单/多 rank 2/3/4 层回归、非 root 边界与已知未验证项。 |
+| [`docs/qcu_mg_unified_interfaces_and_reuse_20261029.md`](../../../docs/qcu_mg_unified_interfaces_and_reuse_20261029.md) | C | `pyqcu-benchmark` | `pyqcu-api`, `pyqcu-solver`, `pyqcu-cuda`, `pyqcu-kupl`, `pyqcu-report` | 当前工作树统一接口、Legacy odd-Schur/Strict v2 cache、identity-safe reuse、L24 smoke 与 L32 正式入口、QUDA 构建经验、BiCG/MG 分栏及作图规则；未打 tag。 |
+| [`docs/qcu_mg_mpi_cache_builder_20261029.md`](../../../docs/qcu_mg_mpi_cache_builder_20261029.md) | C | `pyqcu-benchmark` | `pyqcu-kupl`, `pyqcu-cuda`, `pyqcu-solver` | 多 MPI Legacy cache builder 的分布式 null-vector、周期 overlap stencil、1/2/4-rank slab 验证、Torch CPU 小格门与 KUPL CUDA-cache 兼容阻塞；未打 tag。 |
+| [`docs/qcu_mg_performance_ledger_20261029.md`](../../../docs/qcu_mg_performance_ledger_20261029.md) | C | `pyqcu-benchmark` | `pyqcu-cuda`, `pyqcu-kupl`, `pyqcu-solver`, `pyqcu-report` | 用户要求的实时性能账本；逐批记录完整配方、输入/库 identity、耗时、迭代、真残差、cache、Slurm 审计、失败和主动取消；未打 tag。 |
+| [`docs/qcu_mg_performance_report_20261029.tex`](../../../docs/qcu_mg_performance_report_20261029.tex) | C | `pyqcu-report` | `pyqcu-benchmark`, `pyqcu-cuda`, `pyqcu-kupl`, `pyqcu-solver` | 当前工作的 LaTeX 主报告源码；包含结果表、失败边界和证据路径，尚未完成 PDF 编译；未打 tag。 |
 | [`docs/legacy_vs_strict_mg_status_20261022.md`](../../../docs/legacy_vs_strict_mg_status_20261022.md) | C | `pyqcu-benchmark` | `pyqcu-solver`, `pyqcu-cuda`, `pyqcu-kupl` | Legacy/Strict CUDA 与 KUPL 现有 JSON/stdout 的完成状态；保留 V-cycle 计数、KUPL 缺失和不可比边界。 |
 | [`docs/legacy_vs_strict_mg_memory_20261023.md`](../../../docs/legacy_vs_strict_mg_memory_20261023.md) | C | `pyqcu-solver` | `pyqcu-benchmark`, `pyqcu-cuda` | 同输入 c64 两级设备峰值；Legacy 更低，但 Legacy 未执行 coarse V-cycle，24³×64 Strict 缺失。 |
 | [`docs/multigrid_legacy_strict_comparison_20261022.md`](../../../docs/multigrid_legacy_strict_comparison_20261022.md) | B/C | `pyqcu-solver` | `pyqcu-cuda`, `pyqcu-kupl`, `pyqcu-testing` | 算法、接口与生命周期属于当前参考；第 5 节性能状态属于时点证据。 |

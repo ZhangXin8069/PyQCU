@@ -9,7 +9,7 @@ import pyqcu.cann as _torch
 from pyqcu import tools
 from pyqcu.torch import dslash
 from pyqcu.torch.tools._multigrid import load_legacy_mg_assets
-from pyqcu.torch.tools import _mpi_roll
+from pyqcu.torch.tools import _mpi_roll, norm_many, vdot_many
 import mpi4py.MPI as MPI
 from time import perf_counter
 from pyqcu._multigrid_warnings import warn_excessive_multigrid_levels
@@ -559,8 +559,7 @@ class LegacyMultigrid:
 
         x = torch.zeros_like(b)
         r = b - matvec(x)
-        b_norm = tools.norm(b)
-        r_norm = tools.norm(r)
+        b_norm, r_norm = norm_many((b, r))
         if level == 0:
             # Match CUDA Legacy's relative Schur-residual stopping rule.
             tolerance = self.tol * max(float(b_norm), 1e-30)
@@ -630,8 +629,8 @@ class LegacyMultigrid:
             x_origin = tools.poooxyzt2oooxyzt(
                 input_array=torch.stack([x_e, x], dim=0))
             residual = b_origin - self.op_list[0].matvec(src=x_origin)
-            absolute = float(tools.norm(residual))
-            relative = absolute / max(float(tools.norm(b_origin)), 1e-30)
+            absolute, b_origin_norm = norm_many((residual, b_origin))
+            relative = absolute / max(b_origin_norm, 1e-30)
             return absolute, relative
 
         corrections_enabled = (
@@ -692,10 +691,10 @@ class LegacyMultigrid:
                     raise RuntimeError("alpha non-finite")
                 s = r - alpha * v
                 t = matvec(s)
-                tts = tools.vdot(t, t)
+                tts, ts = vdot_many(((t, t), (t, s)))
                 if abs(tts) < 1e-20:
                     raise RuntimeError("tts")
-                omega = tools.vdot(t, s) / tts
+                omega = ts / tts
                 if not torch.isfinite(omega):
                     raise RuntimeError("omega non-finite")
             except RuntimeError:
@@ -862,14 +861,14 @@ class LegacyMultigrid:
             x_origin = tools.poooxyzt2oooxyzt(
                 input_array=torch.stack([x_e, x], dim=0))
             r_origin = b_origin - self.op_list[0].matvec(src=x_origin)
-            self._cycle_stats["full_residual_norm"] = float(tools.norm(r_origin))
-            self._cycle_stats["full_relative_residual"] = float(
-                tools.norm(r_origin) /
-                max(float(tools.norm(b_origin)), 1e-30))
+            r_origin_norm, b_origin_norm = norm_many((r_origin, b_origin))
+            self._cycle_stats["full_residual_norm"] = r_origin_norm
+            self._cycle_stats["full_relative_residual"] = (
+                r_origin_norm / max(b_origin_norm, 1e-30))
             if self.verbose:
                 print(
                     f"PYQCU::SOLVER::LEGACY_MULTIGRID:\n "
-                    f"Final residual(origin): {tools.norm(r_origin):.2e}")
+                    f"Final residual(origin): {r_origin_norm:.2e}")
             x = x_origin.clone()
         return x
 
@@ -948,10 +947,10 @@ class LegacyMultigrid:
                     raise RuntimeError("alpha non-finite")
                 s = r - alpha * v
                 t = matvec(s)
-                tts = tools.vdot(t, t)
+                tts, ts = vdot_many(((t, t), (t, s)))
                 if abs(tts) < 1e-20:
                     raise RuntimeError("tts")
-                omega = tools.vdot(t, s) / tts
+                omega = ts / tts
                 if not torch.isfinite(omega):
                     raise RuntimeError("omega non-finite")
             except RuntimeError:
@@ -1057,7 +1056,7 @@ class LegacyMultigrid:
             x_origin = tools.poooxyzt2oooxyzt(
                 input_array=torch.stack([x_e, x], dim=0))
             r_origin = b_origin-self.op_list[0].matvec(src=x_origin)
-            r_norm_origin = tools.norm(r_origin)
+            r_norm_origin, _ = norm_many((r_origin, b_origin))
             print(
                 f"PYQCU::SOLVER::LEGACY_MULTIGRID:\n Final residual(origin): {r_norm_origin:.2e}")
             x = x_origin.clone()

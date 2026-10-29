@@ -89,6 +89,13 @@ def _positive_float(value: str) -> float:
     return parsed
 
 
+def _nonnegative_float(value: str) -> float:
+    parsed = _finite_float(value)
+    if parsed < 0.0:
+        raise argparse.ArgumentTypeError("value must be non-negative")
+    return parsed
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=__doc__,
@@ -109,7 +116,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="QCU/KUPL bare mass; defaults to LIME record XML Mass",
     )
     parser.add_argument(
-        "--csw", type=_positive_float, default=None,
+        "--csw", type=_nonnegative_float, default=None,
         help="Clover csw; defaults to LIME record XML clovCoeff",
     )
     parser.add_argument(
@@ -128,6 +135,15 @@ def build_parser() -> argparse.ArgumentParser:
         "--nvec", type=_positive_int, default=6,
         help="MG near-null vectors; installed build supports 6,24,32",
     )
+    parser.add_argument("--nu-pre", type=_nonnegative_int, default=None)
+    parser.add_argument("--nu-post", type=_nonnegative_int, default=None)
+    parser.add_argument(
+        "--smoother", choices=("mr", "cg", "cagcr"), default=None)
+    parser.add_argument(
+        "--coarse-solver-maxiter", type=_positive_int, default=None)
+    parser.add_argument(
+        "--no-mma", action="store_true",
+        help="disable QUDA multigrid setup/dslash/transfer MMA paths")
     parser.add_argument(
         "--mg-block", nargs=4, type=_positive_int, default=(2, 2, 2, 2),
         metavar=("BX", "BY", "BZ", "BT"), help="MG block size",
@@ -438,8 +454,8 @@ def _resolve_mass_and_csw(
         )
     if not math.isfinite(mass) or mass <= -4.0:
         raise BenchmarkFailure(f"mass={mass} must be finite and greater than -4")
-    if not math.isfinite(csw) or csw <= 0.0:
-        raise BenchmarkFailure(f"csw={csw} must be finite and positive for a Clover benchmark")
+    if not math.isfinite(csw) or csw < 0.0:
+        raise BenchmarkFailure(f"csw={csw} must be finite and non-negative")
     return mass, mass_source, csw, csw_source
 
 
@@ -541,7 +557,8 @@ def slice_global_rhs(
         raise ValueError("global RHS shape does not match --lat")
     x_slice, y_slice, z_slice, t_slice = _local_bounds(lattice, grid, coord)
     return np.ascontiguousarray(
-        global_rhs[:, :, x_slice, y_slice, z_slice, t_slice], dtype=np.complex64,
+        global_rhs[:, :, x_slice, y_slice, z_slice, t_slice],
+        dtype=global_rhs.dtype,
     )
 
 
@@ -730,23 +747,49 @@ def _gpu_info(array_backend: Any, device: int) -> dict[str, Any]:
             "compute_capability": f"{properties.major}.{properties.minor}",
             "multiprocessor_count": int(properties.multi_processor_count),
             "total_global_memory_bytes": int(properties.total_memory),
-            "uuid": getattr(properties, "uuid", None),
+            "uuid": _json_safe_uuid(getattr(properties, "uuid", None)),
         }
     properties = array_backend.cuda.runtime.getDeviceProperties(int(device))
     name = properties.get("name", "")
     if isinstance(name, bytes):
         name = name.decode("utf-8", errors="replace")
     uuid = properties.get("uuid")
-    if isinstance(uuid, bytes):
-        uuid = uuid.hex()
     return {
         "device": int(device),
         "name": str(name),
         "compute_capability": f"{properties.get('major')}.{properties.get('minor')}",
         "multiprocessor_count": int(properties.get("multiProcessorCount", 0)),
         "total_global_memory_bytes": int(properties.get("totalGlobalMem", 0)),
-        "uuid": uuid,
+        "uuid": _json_safe_uuid(uuid),
     }
+
+
+def _json_safe_uuid(value: Any) -> str | None:
+    """Convert torch/CUDA UUID objects to a stable JSON/MPI-safe string."""
+    if value is None:
+        return None
+    if isinstance(value, bytes):
+        return _format_uuid_hex(value.hex())
+    raw = getattr(value, "bytes", None)
+    if callable(raw):
+        raw = raw()
+    if isinstance(raw, bytes):
+        return _format_uuid_hex(raw.hex())
+    text = str(value)
+    hexdigits = "0123456789abcdef"
+    compact = "".join(ch for ch in text.lower() if ch in hexdigits)
+    if len(compact) == 32:
+        return _format_uuid_hex(compact)
+    return text
+
+
+def _format_uuid_hex(value: str) -> str:
+    compact = "".join(ch for ch in value.lower() if ch in "0123456789abcdef")
+    if len(compact) != 32:
+        return value
+    return "-".join((
+        compact[:8], compact[8:12], compact[12:16],
+        compact[16:20], compact[20:]))
 
 
 def _array_backend_name() -> str:
@@ -795,7 +838,11 @@ def _install_legacy_torch_dtype_shim() -> None:
     if _array_backend_name() != "torch":
         return
     import torch
-    import pyquda_comm.array as array_module
+    try:
+        import pyquda_comm.array as array_module
+    except ImportError:
+        # PyQuda 0.3.x predates pyquda_comm and does not need this shim.
+        return
 
     if getattr(array_module.arrayDType, "_pyqcu_dtype_shim", False):
         return
@@ -1050,6 +1097,11 @@ def _build_dirac(
     nvec: int,
     mg_block: Sequence[int],
     global_lattice: Sequence[int],
+    nu_pre: int | None = None,
+    nu_post: int | None = None,
+    smoother: str | None = None,
+    coarse_solver_maxiter: int | None = None,
+    disable_mma: bool = False,
 ) -> tuple[Any, dict[str, Any]]:
     if not hasattr(core, "getDslash"):
         raise BenchmarkFailure("PyQuda API mismatch: pyquda.core.getDslash is unavailable")
@@ -1130,6 +1182,7 @@ def _build_dirac(
         mg_param = getattr(getattr(dirac, "mg", None), "param", None)
     nvec_applied = False
     nvec_resolved: list[int] | None = None
+    mg_controls: dict[str, Any] = {}
     if solver == "mg":
         if mg_param is None:
             raise BenchmarkFailure("MG Dirac has no QudaMultigridParam")
@@ -1142,11 +1195,92 @@ def _build_dirac(
         if not nvec_applied:
             raise BenchmarkFailure(
                 f"QUDA n_vec assignment did not stick: {nvec_resolved}")
+        active_levels = int(getattr(mg_param, "n_level", levels))
+        if active_levels < levels:
+            raise BenchmarkFailure(
+                f"QUDA n_level={active_levels} is below requested {levels}")
+        mg_controls["mma_requested"] = not disable_mma
+        if disable_mma:
+            from pyquda.enum_quda import QudaBoolean
+            disabled = int(QudaBoolean.QUDA_BOOLEAN_FALSE)
+            for name in (
+                    "setup_use_mma", "dslash_use_mma", "transfer_use_mma"):
+                if not hasattr(mg_param, name):
+                    mg_controls[f"{name}_exposed"] = False
+                    continue
+                current = [int(item) for item in list(getattr(mg_param, name))]
+                updated = list(current)
+                for level in range(active_levels):
+                    updated[level] = disabled
+                setattr(mg_param, name, updated)
+                resolved = [
+                    int(item) for item in list(getattr(mg_param, name))]
+                if resolved[:active_levels] != updated[:active_levels]:
+                    raise BenchmarkFailure(
+                        f"QUDA MG {name} assignment did not stick: {resolved}")
+                mg_controls[f"{name}_exposed"] = True
+                mg_controls[f"{name}_resolved"] = resolved
+
+        def assign_repeated(name: str, value: int) -> list[int]:
+            current = [int(item) for item in list(getattr(mg_param, name))]
+            if len(current) < active_levels:
+                raise BenchmarkFailure(
+                    f"QUDA MG {name} has only {len(current)} entries")
+            updated = list(current)
+            for level in range(active_levels):
+                updated[level] = int(value)
+            setattr(mg_param, name, updated)
+            resolved = [int(item) for item in list(getattr(mg_param, name))]
+            if resolved[:active_levels] != updated[:active_levels]:
+                raise BenchmarkFailure(
+                    f"QUDA MG {name} assignment did not stick: {resolved}")
+            return resolved
+
+        if nu_pre is not None:
+            mg_controls["nu_pre_requested"] = int(nu_pre)
+            mg_controls["nu_pre_resolved"] = assign_repeated("nu_pre", nu_pre)
+        if nu_post is not None:
+            mg_controls["nu_post_requested"] = int(nu_post)
+            mg_controls["nu_post_resolved"] = assign_repeated(
+                "nu_post", nu_post)
+        if coarse_solver_maxiter is not None:
+            mg_controls["coarse_solver_maxiter_requested"] = int(
+                coarse_solver_maxiter)
+            mg_controls["coarse_solver_maxiter_resolved"] = assign_repeated(
+                "coarse_solver_maxiter", coarse_solver_maxiter)
+        if smoother is not None:
+            inverter = enum_quda["QudaInverterType"]
+            smoother_value = {
+                "mr": inverter.QUDA_MR_INVERTER,
+                "cg": inverter.QUDA_CG_INVERTER,
+                "cagcr": inverter.QUDA_CA_GCR_INVERTER,
+            }[smoother]
+            current = list(getattr(mg_param, "smoother"))
+            updated = list(current)
+            for level in range(active_levels):
+                updated[level] = smoother_value
+            setattr(mg_param, "smoother", updated)
+            resolved = list(getattr(mg_param, "smoother"))
+            if [int(item) for item in resolved[:active_levels]] != [
+                    int(item) for item in updated[:active_levels]]:
+                raise BenchmarkFailure(
+                    f"QUDA MG smoother assignment did not stick: {resolved}")
+            tolerances = list(getattr(mg_param, "smoother_tol"))
+            updated_tolerances = list(tolerances)
+            for level in range(active_levels):
+                updated_tolerances[level] = 0.0
+            setattr(mg_param, "smoother_tol", updated_tolerances)
+            mg_controls["smoother_requested"] = smoother
+            mg_controls["smoother_resolved"] = [
+                _enum_name(item, inverter) for item in resolved]
 
     expected_kappa = kappa_from_mass(mass)
     expected_clover_coeff = expected_kappa * float(csw)
+    dslash_type = enum_quda["QudaDslashType"]
+    is_clover = invert.dslash_type == dslash_type.QUDA_CLOVER_WILSON_DSLASH
+    is_wilson = invert.dslash_type == dslash_type.QUDA_WILSON_DSLASH
     checks = {
-        "dslash_is_clover": invert.dslash_type == enum_quda["QudaDslashType"].QUDA_CLOVER_WILSON_DSLASH,
+        "dslash_matches_csw": is_clover if csw > 0.0 else (is_wilson or is_clover),
         "solve_type_is_direct_pc": invert.solve_type == enum_quda["QudaSolveType"].QUDA_DIRECT_PC_SOLVE,
         "mass_normalization_is_kappa": (
             invert.mass_normalization
@@ -1218,6 +1352,7 @@ def _build_dirac(
         "nvec_requested": int(nvec),
         "nvec_resolved": nvec_resolved,
         "mg_block": [int(item) for item in mg_block],
+        "mg_controls": mg_controls,
         "tol": float(invert.tol),
         "maxiter": int(invert.maxiter),
         "requested_dtype": dtype,
@@ -1382,6 +1517,8 @@ def _config_payload(
         "warmups": int(args.warmups),
         "repeats": int(args.repeats),
         "seed": int(args.seed),
+        "no_mma": bool(args.no_mma),
+        "use_init_guess": False,
     }
 
 
@@ -1596,6 +1733,8 @@ def _run_benchmark(
             core, enum_quda, _local_lattice(lattice, grid),
             mass, csw, args.tol, args.max_iter, args.dtype, args.solver,
             args.levels, args.nvec, args.mg_block, lattice,
+            args.nu_pre, args.nu_post, args.smoother,
+            args.coarse_solver_maxiter, args.no_mma,
         ),
     )
 

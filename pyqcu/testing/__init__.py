@@ -1,8 +1,9 @@
 from time import perf_counter
+import sys
 try:
     import tilelang
 except Exception as e:
-    print(f"Error:{e}")
+    print(f"Error:{e}", file=sys.stderr)
 import torch
 from argparse import Namespace
 from pyqcu import lattice, tools
@@ -11,6 +12,11 @@ import pyqcu.cann as _torch
 import mpi4py.MPI as MPI
 from typing import Optional, List
 Namespace.__module__ = "pyqcu.testing"
+
+
+# Saved Wilson references predate the unified correctness lattice.  They remain
+# explicitly opt-in historical fixtures; ordinary correctness uses 8x8x8x16.
+HISTORICAL_WILSON_REFERENCE_LATTICE = (16, 16, 16, 16)
 
 
 def test_lattice(lat_size: List[int] = [8, 8, 8, 16], dtype: torch.dtype = torch.complex64, device: torch.device = torch.device('cpu')):
@@ -61,6 +67,11 @@ def test_dslash_wilson(kappa: Optional[torch.Tensor] = torch.Tensor([0.1]), lat_
     else:
         kappa = torch.Tensor([0.125])
         dtype = torch.complex64
+        if tuple(lat_size) != HISTORICAL_WILSON_REFERENCE_LATTICE:
+            raise ValueError(
+                "with_data=True uses historical 16x16x16x16 Wilson fixtures; "
+                "pass that lattice explicitly or use the standard 8x8x8x16 "
+                "correctness case with with_data=False")
         lat_size = [16, 16, 16, 16]
         path = __file__.replace('__init__.py', 'data/')
         refer_U = tools.hdf5oooxyzt2gridoooxyzt(
@@ -326,6 +337,11 @@ def test_solver(kind: str = 'clover', method: str = 'bistabcg', kappa: Optional[
                                               4, 3]+lat_size, root=root, dtype=dtype, device=device)
     else:
         kappa = torch.Tensor([0.125])
+        if tuple(lat_size) != HISTORICAL_WILSON_REFERENCE_LATTICE:
+            raise ValueError(
+                "with_data=True uses historical 16x16x16x16 Wilson fixtures; "
+                "pass that lattice explicitly or use the standard 8x8x8x16 "
+                "correctness case with with_data=False")
         lat_size = [16, 16, 16, 16]
         path = __file__.replace('__init__.py', 'data/')
         refer_U = tools.hdf5oooxyzt2gridoooxyzt(
@@ -604,7 +620,7 @@ def test_npu_emulation(lat_size: List[int] = [8, 8, 8, 16],
         test_dslash_wilson(lat_size=lat_size, dtype=dtype, device=device)
         test_smear_stout(lat_size=lat_size, device=device, dtype=dtype)
         test_solver(kind='wilson', method='bistabcg',
-                    lat_size=[8, 8, 8, 8], dtype=dtype, device=device)
+                    lat_size=lat_size, dtype=dtype, device=device)
         print("PYQCU::TESTING::NPU::EMULATION:\n"
               " lattice/dslash_wilson/smear_stout/solver_bistabcg all PASS "
               "(force_use_npu decomposed-complex path)")
@@ -653,7 +669,7 @@ def test_h5py_multithread(nthreads: int = 4, tmp_dir: str = None,
     return tmp_dir
 
 
-def test_multigrid_multithread(nthreads: int = 2, lat_size: List[int] = [8, 8, 8, 8],
+def test_multigrid_multithread(nthreads: int = 2, lat_size: List[int] = [8, 8, 8, 16],
                                mass: float = 0.05, tol: float = 1e-5,
                                verbose: bool = False):
     """Python multigrid 多线程实例并行验证。

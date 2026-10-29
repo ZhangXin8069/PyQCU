@@ -742,10 +742,15 @@ template <typename T> struct LatticeCloverMultigrid {
   double prof_coarse_dot_ms = 0;      // coarse dot products
   double prof_coarse_vec_ms = 0;      // coarse vector kernels
 
-  // Direct MPI reduction accounting.  The production path performs one
-  // two-element Allreduce per complex scalar product.  Defining
+  // Direct MPI reduction accounting. A complex scalar uses one two-element
+  // Allreduce; adjacent scalar pairs use one four-element Allreduce. Defining
   // QCU_MPI_PAIR_REDUCTION_BASELINE restores the historical two independent
-  // scalar Allreduce calls for an instrumented A/B diagnostic build.
+  // scalar calls for one complex scalar in an instrumented A/B build.
+  // QCU_MPI_DUAL_DOT_BASELINE keeps the two adjacent (t,s)/(t,t) reductions
+  // separate. QCU_MPI_SKIP_REDUCTION_BARRIERS is an explicit diagnostic mode:
+  // the default keeps cross-rank barriers and the coarse H2D wait because a
+  // 4-rank A100 ABBA profile showed the fully unsynchronized pair path 6.10%
+  // slower than pair fusion with those synchronization points retained.
   long long n_mpi_logical_complex_reductions = 0;
   long long n_mpi_pair_reductions = 0;
   long long n_mpi_scalar_reductions = 0;
@@ -760,6 +765,8 @@ template <typename T> struct LatticeCloverMultigrid {
   long long n_mpi_pair_coarse_dot_host = 0;
   long long n_mpi_pair_dot_coarse = 0;
   long long n_mpi_pair_mixed_dot_host = 0;
+  long long n_mpi_fused_dot_pair_reductions = 0;
+  long long n_mpi_explicit_reduction_barriers = 0;
 
   // dev84 CUDA-GRAPH segment replay: on this WSL2 box a kernel launch costs
   // ~75 µs host-side and a stream sync flushes the WHOLE queued backlog
@@ -848,6 +855,31 @@ template <typename T> struct LatticeCloverMultigrid {
   }
 
   template <typename U>
+  void mpi_reduce_complex_pair(std::complex<U> value0,
+                               std::complex<U> value1,
+                               std::complex<U> &result0,
+                               std::complex<U> &result1) {
+    if (!mg_multi) {
+      result0 = value0;
+      result1 = value1;
+      return;
+    }
+    U values[4] = {
+        value0.real(), value0.imag(), value1.real(), value1.imag()};
+    checkMpiErrors(MPI_Allreduce(
+        MPI_IN_PLACE, values, 4, mpi_real_type<U>(), MPI_SUM,
+        MPI_COMM_WORLD));
+    n_mpi_logical_complex_reductions += 2;
+    n_mpi_candidate_logical_reductions += 2;
+    n_mpi_pair_reductions += 1;
+    n_mpi_candidate_pair_reductions += 1;
+    n_mpi_allreduce_calls += 1;
+    n_mpi_fused_dot_pair_reductions += 1;
+    result0 = std::complex<U>(values[0], values[1]);
+    result1 = std::complex<U>(values[2], values[3]);
+  }
+
+  template <typename U>
   U mpi_reduce_real(U value) {
     if (!mg_multi) return value;
     MPI_Allreduce(MPI_IN_PLACE, &value, 1, mpi_real_type<U>(), MPI_SUM,
@@ -863,6 +895,13 @@ template <typename T> struct LatticeCloverMultigrid {
     ++n_mpi_pair_reductions;
     ++n_mpi_allreduce_calls;
     ++n_mpi_unmodified_pair_reductions;
+  }
+
+  void mpi_reduction_barrier() {
+#if !defined(QCU_MPI_SKIP_REDUCTION_BARRIERS)
+    checkMpiErrors(MPI_Barrier(MPI_COMM_WORLD));
+    ++n_mpi_explicit_reduction_barriers;
+#endif
   }
 
   // ==================================================================
@@ -1723,12 +1762,12 @@ template <typename T> struct LatticeCloverMultigrid {
         a,1,b,1,&dv[_send_tmp_]));
     checkCudaErrors(cudaMemcpyAsync(&host_vals[_send_tmp_],&dv[_send_tmp_],
         sizeof(LatticeComplex<T>),cudaMemcpyDeviceToHost,set_ptr->streams[si]));
-    MPI_Barrier(MPI_COMM_WORLD);
+    mpi_reduction_barrier();
     checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[si]));
     _MPI_Allreduce<T>(&host_vals[_send_tmp_],&host_vals[vals_idx],_REAL_IMAG_,
         MPI_SUM,MPI_COMM_WORLD);
     count_unmodified_pair_reduction();
-    MPI_Barrier(MPI_COMM_WORLD);
+    mpi_reduction_barrier();
     checkCudaErrors(cudaMemcpyAsync(&dv[vals_idx],&host_vals[vals_idx],
         sizeof(LatticeComplex<T>),cudaMemcpyHostToDevice,set_ptr->streams[si]));
   }
@@ -1745,14 +1784,63 @@ template <typename T> struct LatticeCloverMultigrid {
         a,1,b,1,&dv[_send_tmp_]));
     checkCudaErrors(cudaMemcpyAsync(&host_vals[_send_tmp_],&dv[_send_tmp_],
         sizeof(LatticeComplex<T>),cudaMemcpyDeviceToHost,set_ptr->streams[si]));
-    MPI_Barrier(MPI_COMM_WORLD);
+    mpi_reduction_barrier();
     checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[si]));
     _MPI_Allreduce<T>(&host_vals[_send_tmp_],&host_vals[vals_idx],_REAL_IMAG_,
         MPI_SUM,MPI_COMM_WORLD);
     count_unmodified_pair_reduction();
-    MPI_Barrier(MPI_COMM_WORLD);
+    mpi_reduction_barrier();
     checkCudaErrors(cudaMemcpyAsync(&dv[vals_idx],&host_vals[vals_idx],
         sizeof(LatticeComplex<T>),cudaMemcpyHostToDevice,set_ptr->streams[si]));
+  }
+
+  /**
+   * @brief Fuse two adjacent fine-level complex dot products into one
+   *        four-scalar Allreduce.
+   *
+   * The two local dots run on their independent cuBLAS streams. Each stream is
+   * synchronized once so the host partials are valid, then MPI performs one
+   * deterministic count=4 reduction. Both global results are published on the
+   * second stream before the caller launches the scalar consumer there.
+   */
+  void dot_mpi_pair(void *left, void *right0, void *right1, int n,
+                    int vals_idx0, int vals_idx1, int si0, int si1) {
+    LatticeComplex<T> *dv =
+        static_cast<LatticeComplex<T> *>(set_ptr->device_vals);
+    CUBLAS_CHECK(_cublasDot<T>(
+        set_ptr->cublasHs[si0], n, left, 1, right0, 1,
+        &dv[vals_idx0]));
+    CUBLAS_CHECK(_cublasDot<T>(
+        set_ptr->cublasHs[si1], n, left, 1, right1, 1,
+        &dv[vals_idx1]));
+    checkCudaErrors(cudaMemcpyAsync(
+        &host_vals[vals_idx0], &dv[vals_idx0],
+        sizeof(LatticeComplex<T>), cudaMemcpyDeviceToHost,
+        set_ptr->streams[si0]));
+    checkCudaErrors(cudaMemcpyAsync(
+        &host_vals[vals_idx1], &dv[vals_idx1],
+        sizeof(LatticeComplex<T>), cudaMemcpyDeviceToHost,
+        set_ptr->streams[si1]));
+    checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[si0]));
+    checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[si1]));
+
+    std::complex<T> result0(
+        host_vals[vals_idx0].real(), host_vals[vals_idx0].imag());
+    std::complex<T> result1(
+        host_vals[vals_idx1].real(), host_vals[vals_idx1].imag());
+    mpi_reduce_complex_pair<T>(result0, result1, result0, result1);
+    host_vals[vals_idx0] =
+        LatticeComplex<T>(result0.real(), result0.imag());
+    host_vals[vals_idx1] =
+        LatticeComplex<T>(result1.real(), result1.imag());
+    checkCudaErrors(cudaMemcpyAsync(
+        &dv[vals_idx0], &host_vals[vals_idx0],
+        sizeof(LatticeComplex<T>), cudaMemcpyHostToDevice,
+        set_ptr->streams[si1]));
+    checkCudaErrors(cudaMemcpyAsync(
+        &dv[vals_idx1], &host_vals[vals_idx1],
+        sizeof(LatticeComplex<T>), cudaMemcpyHostToDevice,
+        set_ptr->streams[si1]));
   }
 
   /**
@@ -2032,9 +2120,9 @@ template <typename T> struct LatticeCloverMultigrid {
     if (!mg_multi) return;
 
     // coarse_dot_dest() is asynchronous and writes only the local scalar.
-    // Complete that stream work, reduce the two real components separately
-    // (MPI has no portable complex<T> datatype here), and publish the global
-    // value back to device_vals before the next update kernel is launched.
+    // Complete that stream work, reduce real/imag together (MPI has no
+    // portable complex<T> datatype here), and publish the global value back
+    // to device_vals. The next consumer is ordered on this same stream.
     checkCudaErrors(cudaMemcpyAsync(&host_vals[slot], &dv[slot],
         sizeof(LatticeComplex<T>), cudaMemcpyDeviceToHost,
         set_ptr->stream));
@@ -2046,7 +2134,47 @@ template <typename T> struct LatticeCloverMultigrid {
     checkCudaErrors(cudaMemcpyAsync(&dv[slot], &host_vals[slot],
         sizeof(LatticeComplex<T>), cudaMemcpyHostToDevice,
         set_ptr->stream));
+#if !defined(QCU_MPI_SKIP_REDUCTION_BARRIERS)
     checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
+#endif
+    // Keep the default wait for the A100 pair-fusion profile. The explicit
+    // no-wait diagnostic mode relies on same-stream ordering instead.
+  }
+
+  void coarse_dot_slot_pair(int lev,
+                            const LatticeComplex<T>* left0,
+                            const LatticeComplex<T>* right0,
+                            const LatticeComplex<T>* left1,
+                            const LatticeComplex<T>* right1,
+                            int slot0, int slot1) {
+    LatticeComplex<T> *dv =
+        static_cast<LatticeComplex<T> *>(set_ptr->device_vals);
+    coarse_dot_dest(lev, left0, right0, &dv[slot0]);
+    coarse_dot_dest(lev, left1, right1, &dv[slot1]);
+    if (!mg_multi) return;
+
+    checkCudaErrors(cudaMemcpyAsync(
+        &host_vals[slot0], &dv[slot0], sizeof(LatticeComplex<T>),
+        cudaMemcpyDeviceToHost, set_ptr->stream));
+    checkCudaErrors(cudaMemcpyAsync(
+        &host_vals[slot1], &dv[slot1], sizeof(LatticeComplex<T>),
+        cudaMemcpyDeviceToHost, set_ptr->stream));
+    checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
+
+    std::complex<T> result0(
+        host_vals[slot0].real(), host_vals[slot0].imag());
+    std::complex<T> result1(
+        host_vals[slot1].real(), host_vals[slot1].imag());
+    mpi_reduce_complex_pair<T>(result0, result1, result0, result1);
+    host_vals[slot0] = LatticeComplex<T>(result0.real(), result0.imag());
+    host_vals[slot1] = LatticeComplex<T>(result1.real(), result1.imag());
+    // Both scalar consumers in the coarse iteration are on this same stream.
+    checkCudaErrors(cudaMemcpyAsync(
+        &dv[slot0], &host_vals[slot0], sizeof(LatticeComplex<T>),
+        cudaMemcpyHostToDevice, set_ptr->stream));
+    checkCudaErrors(cudaMemcpyAsync(
+        &dv[slot1], &host_vals[slot1], sizeof(LatticeComplex<T>),
+        cudaMemcpyHostToDevice, set_ptr->stream));
   }
 
   // dev84: same dot with an EXPLICIT destination — used to write results into
@@ -2159,10 +2287,11 @@ template <typename T> struct LatticeCloverMultigrid {
     // 7. t = A_c·s
     coarse_dslash_op(st.t, st.s, lev);
     // 8. omega = <t,s>/<t,t>
-    cdot(static_cast<const LatticeComplex<T>*>(st.t),
-         static_cast<const LatticeComplex<T>*>(st.s), _tmp0_);
-    cdot(static_cast<const LatticeComplex<T>*>(st.t),
-         static_cast<const LatticeComplex<T>*>(st.t), _tmp1_);
+    coarse_dot_slot_pair(
+        lev, static_cast<const LatticeComplex<T>*>(st.t),
+        static_cast<const LatticeComplex<T>*>(st.s),
+        static_cast<const LatticeComplex<T>*>(st.t),
+        static_cast<const LatticeComplex<T>*>(st.t), _tmp0_, _tmp1_);
     mg_give_1omega<T><<<1,1,0,S>>>(dv);
     // 9. r = s - omega*t;  x = x + alpha*p + omega*s
     //    dev84 kernel-count diet: both elementwise updates fused (one launch).
@@ -2204,10 +2333,11 @@ template <typename T> struct LatticeCloverMultigrid {
     LatticeComplex<T> *dv =
         static_cast<LatticeComplex<T> *>(set_ptr->device_vals);
     coarse_dslash_op(st.v, st.r, lev);  // Ar
-    coarse_dot_slot(lev, static_cast<const LatticeComplex<T> *>(st.v),
-                    static_cast<const LatticeComplex<T> *>(st.r), _tmp0_);
-    coarse_dot_slot(lev, static_cast<const LatticeComplex<T> *>(st.v),
-                    static_cast<const LatticeComplex<T> *>(st.v), _tmp1_);
+    coarse_dot_slot_pair(
+        lev, static_cast<const LatticeComplex<T> *>(st.v),
+        static_cast<const LatticeComplex<T> *>(st.r),
+        static_cast<const LatticeComplex<T> *>(st.v),
+        static_cast<const LatticeComplex<T> *>(st.v), _tmp0_, _tmp1_);
     mg_mr_give_alpha<T><<<1, 1, 0, S>>>(dv);
     mg_mr_update_xr<T><<<site_grid(lev), _BLOCK_SIZE_, 0, S>>>(
         static_cast<LatticeComplex<T> *>(st.x),
@@ -2327,10 +2457,16 @@ template <typename T> struct LatticeCloverMultigrid {
     checkCudaErrors(cudaStreamSynchronize(S));
 
     // Step 8: τ₀=(t,s); τ₁=(t,t)          [_c_],[_d_]
+#if defined(QCU_MPI_DUAL_DOT_BASELINE)
     if(fine){ if(fullsite){dot_full_mpi(st.t,st.s,_tmp0_,_c_);dot_full_mpi(st.t,st.t,_tmp1_,_d_);}
               else        {dot_mpi(st.t,st.s,_tmp0_,_c_);dot_mpi(st.t,st.t,_tmp1_,_d_);} }
     else    {dot_coarse(st.t,st.s,lev,_tmp0_,_c_);dot_coarse(st.t,st.t,lev,_tmp1_,_d_);}
-    checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_c_]));
+#else
+    const int pair_n = fullsite
+        ? 2 * static_cast<int>(set_ptr->lat_4dim_SC)
+        : static_cast<int>(set_ptr->lat_4dim_SC);
+    dot_mpi_pair(st.t, st.s, st.t, pair_n, _tmp0_, _tmp1_, _c_, _d_);
+#endif
 
     // Step 9: ω = τ₀/τ₁                   [_d_]
     if (fine)
@@ -3748,9 +3884,10 @@ template <typename T> struct LatticeCloverMultigrid {
           st.rhs,1,st.rhs,1,&dv[_send_tmp_]));
       checkCudaErrors(cudaMemcpyAsync(&hc0,&dv[_send_tmp_],sizeof(LatticeComplex<T>),
           cudaMemcpyDeviceToHost,set_ptr->streams[_a_]));
-      MPI_Barrier(MPI_COMM_WORLD);checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
+      mpi_reduction_barrier();
+      checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
       T g0=mpi_reduce_real(hc0.real());
-      MPI_Barrier(MPI_COMM_WORLD); r0 = sqrt(g0<0?0:g0);
+      mpi_reduction_barrier(); r0 = sqrt(g0<0?0:g0);
     } else {
       r0 = st.r0_ref;
     }
@@ -4728,10 +4865,10 @@ template <typename T> struct LatticeCloverMultigrid {
         st.rhs,1,st.rhs,1, &dv[_send_tmp_]));
     checkCudaErrors(cudaMemcpyAsync(&ht,&dv[_send_tmp_],sizeof(LatticeComplex<T>),
         cudaMemcpyDeviceToHost,set_ptr->streams[_a_]));
-    MPI_Barrier(MPI_COMM_WORLD);
+    mpi_reduction_barrier();
     checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
     T g=mpi_reduce_real(ht.real());
-    MPI_Barrier(MPI_COMM_WORLD);
+    mpi_reduction_barrier();
     T nb=sqrt(g<0?0:g);
     if(rank==0){
       log_write<T>("PYQCU::SOLVER::MULTIGRID::\n 0:Norm of b:"+std::to_string(nb),rank,true);
@@ -5114,6 +5251,10 @@ template <typename T> struct LatticeCloverMultigrid {
           <<" mpi_pair_coarse_dot_host="<<n_mpi_pair_coarse_dot_host
           <<" mpi_pair_dot_coarse="<<n_mpi_pair_dot_coarse
           <<" mpi_pair_mixed_dot_host="<<n_mpi_pair_mixed_dot_host
+          <<" mpi_fused_dot_pair_reductions="
+          <<n_mpi_fused_dot_pair_reductions
+          <<" mpi_explicit_reduction_barriers="
+          <<n_mpi_explicit_reduction_barriers
           <<" checks="<<prof_n_checks<<" check_ms="<<prof_check_ms
           <<" ck(k/d/s)=" <<prof_ck_kernel_ms<<"/"<<prof_ck_d2h_ms
           <<"/"<<prof_ck_sync_ms;
@@ -5836,7 +5977,11 @@ template <typename T> struct LatticeCloverMultigrid {
           <<" mpi_pair_coarse_dot_slot="<<n_mpi_pair_coarse_dot_slot
           <<" mpi_pair_coarse_dot_host="<<n_mpi_pair_coarse_dot_host
           <<" mpi_pair_dot_coarse="<<n_mpi_pair_dot_coarse
-          <<" mpi_pair_mixed_dot_host="<<n_mpi_pair_mixed_dot_host;
+          <<" mpi_pair_mixed_dot_host="<<n_mpi_pair_mixed_dot_host
+          <<" mpi_fused_dot_pair_reductions="
+          <<n_mpi_fused_dot_pair_reductions
+          <<" mpi_explicit_reduction_barriers="
+          <<n_mpi_explicit_reduction_barriers;
       log_write<T>(sect.str(),rank,true);
     }
   }
@@ -5904,19 +6049,22 @@ template <typename T> struct LatticeCloverMultigrid {
       CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasHs[_a_],n,parity_dst,1,parity_dst,1,&dv[_send_tmp_]));
       checkCudaErrors(cudaMemcpyAsync(&ht,&dv[_send_tmp_],sizeof(LatticeComplex<T>),
           cudaMemcpyDeviceToHost,set_ptr->streams[_a_]));
-      MPI_Barrier(MPI_COMM_WORLD);checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
-      T gn=mpi_reduce_real(ht.real());MPI_Barrier(MPI_COMM_WORLD);
+      mpi_reduction_barrier();
+      checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
+      T gn=mpi_reduce_real(ht.real());mpi_reduction_barrier();
       T dn=sqrt(gn<0?0:gn);
       CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasHs[_a_],n,b_e,1,b_e,1,&dv[_send_tmp_]));
       checkCudaErrors(cudaMemcpyAsync(&ht,&dv[_send_tmp_],sizeof(LatticeComplex<T>),
           cudaMemcpyDeviceToHost,set_ptr->streams[_a_]));
-      MPI_Barrier(MPI_COMM_WORLD);checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
-      T gbe=mpi_reduce_real(ht.real());MPI_Barrier(MPI_COMM_WORLD);
+      mpi_reduction_barrier();
+      checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
+      T gbe=mpi_reduce_real(ht.real());mpi_reduction_barrier();
       CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasHs[_a_],n,b_o,1,b_o,1,&dv[_send_tmp_]));
       checkCudaErrors(cudaMemcpyAsync(&ht,&dv[_send_tmp_],sizeof(LatticeComplex<T>),
           cudaMemcpyDeviceToHost,set_ptr->streams[_a_]));
-      MPI_Barrier(MPI_COMM_WORLD);checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
-      T gbo=mpi_reduce_real(ht.real());MPI_Barrier(MPI_COMM_WORLD);
+      mpi_reduction_barrier();
+      checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
+      T gbo=mpi_reduce_real(ht.real());mpi_reduction_barrier();
       T nb=sqrt(gbe+gbo);
       T rd=(nb>(T)1e-30)?dn/nb:dn;
       if(rank==0){

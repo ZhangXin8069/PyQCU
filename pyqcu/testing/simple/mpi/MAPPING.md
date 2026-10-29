@@ -16,7 +16,7 @@ gap.
 |---|---|---|---|---|
 | `benchmark_kupl.py` | `benchmark_kupl.py` | delegated launcher | KUPL | root-atomic JSON report |
 | `benchmark_kupl_lime_mpi.py` | `benchmark_kupl_lime_mpi.py` | native MPI | KUPL | root-atomic JSON report |
-| `build_full_mg_cache.py` | `build_full_mg_cache.py` | rank0-root | CPU/CUDA builder | root-atomic HDF5 cache and optional JSON report |
+| `build_full_mg_cache.py` | `build_full_mg_cache.py` | native MPI | CPU/CUDA builder | distributed HDF5 cache and optional JSON report |
 | `check_clover.py` | `check_clover.py` | rank0-root | QCU/QUDA layout | rank-0 JSON stdout |
 | `check_fermion.py` | `check_fermion.py` | rank0-root | QCU/QUDA layout | rank-0 JSON stdout |
 | `check_gauge.py` | `check_gauge.py` | rank0-root | QCU/QUDA layout | rank-0 JSON stdout |

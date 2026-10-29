@@ -16,6 +16,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from math import prod
 from numbers import Integral
+import os
 from threading import local
 from typing import Any, Iterator, Optional, Sequence, Tuple
 
@@ -28,6 +29,7 @@ Shape4 = Tuple[int, int, int, int]
 _SPACE_DIMS = 4
 _LOW_FACE_TAG = 0x2100
 _HIGH_FACE_TAG = 0x2200
+_SINGLE_FACE_STAGING_ENV = "PYQCU_TORCH_HALO_SINGLE_FACE"
 _STATE = local()
 
 
@@ -299,14 +301,18 @@ def _roll_axis_once(tensor: Any, axis: int, direction: int) -> Any:
             source = _face_slice(result.ndim, axis, slice(1, local_extent))
             target = _face_slice(result.ndim, axis, slice(0, local_extent - 1))
             result[target] = tensor[source]
-    low = _face_buffer(tensor, axis, 0)
-    high = _face_buffer(tensor, axis, local_extent - 1)
-    recv_low = np.zeros_like(low)
-    recv_high = np.zeros_like(high)
     previous = _neighbor_rank(context, axis, -1)
     following = _neighbor_rank(context, axis, +1)
+    single_face = os.environ.get(
+        _SINGLE_FACE_STAGING_ENV, "1").strip() != "0"
 
     if direction > 0:
+        high = _face_buffer(tensor, axis, local_extent - 1)
+        if not single_face:
+            # Compatibility A/B path: retain the historical extra low-face
+            # staging while still exchanging the same selected slab.
+            _face_buffer(tensor, axis, 0)
+        recv_low = np.empty_like(high)
         # Rank r sends its original high face to r+1 and receives r-1's
         # original high face into its low ghost.
         context.comm.Sendrecv(
@@ -320,6 +326,12 @@ def _roll_axis_once(tensor: Any, axis: int, direction: int) -> Any:
         result[_face_slice(result.ndim, axis, 0)] = _tensor_from_buffer(
             recv_low, result)
     else:
+        low = _face_buffer(tensor, axis, 0)
+        if not single_face:
+            # See compatibility note above; only the low face participates
+            # when rolling toward the negative direction.
+            _face_buffer(tensor, axis, local_extent - 1)
+        recv_high = np.empty_like(low)
         # Rank r sends its original low face to r-1 and receives r+1's
         # original low face into its high ghost.
         context.comm.Sendrecv(

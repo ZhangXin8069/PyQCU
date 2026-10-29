@@ -11,6 +11,10 @@ description: 当任务涉及 pyqcu/testing/qcu 或 quda 的单功能测试、PyT
 一个紧密的接口族，输入使用小格点和固定随机种子，先做纯 PyTorch 参考，再按环境选择 CUDA/QUDA
 扩展运行。缺少 CUDA、`libqcu.so`、pyquda 或 QIO 资产时必须明确 skip，不能伪造通过。
 
+当前端到端正确性格点统一为 `8x8x8x16`。QCU/QUDA 单功能入口和 simple MPI wrapper
+默认必须使用该格点；`16^4`、`8x8x16x16`、`4^4` 只可保留为显式性能、容量、
+合成契约或历史数据测试，并必须在报告中标注。
+
 ## QCU 生命周期
 
 控制张量固定为 `params=int32[58]`、`argv=real[8]`（槽 7 为 `csw`）、

@@ -35,7 +35,8 @@ See
 - `pyqcu/testing/simple/mpi` 使用扁平脚本布局，不创建 `examples/` 子目录。示例必须在
   启动 solver 前验证 rank 数是 2 的正整数次幂，并支持 `DRY_RUN=1` 只输出解析后的命令；
   3/6/12 等 rank 数必须 fail-closed。
-- 六项快速矩阵为 Torch/CUDA/KUPL × Legacy/Strict，只在 `16×16×16×16` 运行；同批要有
+- 六项正确性矩阵为 Torch/CUDA/KUPL × Legacy/Strict，统一只在 `8×8×8×16` 运行；
+  同批要有
   QUDA aligned MG 和 Torch/CUDA/KUPL/QUDA BiCGStab 对照。计时只用 trace-off，并设置
   `QUDA_ENABLE_TUNING=0`。
 - 大格 `24×24×24×64` c64 Strict 两层初始化运行约 33m50s 仍未完成，项目已决定大格
@@ -189,3 +190,36 @@ capability，再选择两侧相同的 coarse spin/nvec 语义。
 
 任何 GPU 作业超过 10 分钟仍在运行时，必须留下一次运行中审计记录；仅有
 `RUNNING` 状态不足以证明任务健康。
+
+## 2026-10-29 raw Clover parity 与 Legacy/Strict 性能门
+
+同一 `applyInitQcu` slot 内切换 `params[_PARITY_]` 后，`applyCloverQcu` /
+`applyCloversQcu` 必须同步 native/device parity。遗漏时 even/odd Clover 会位级相同，
+并把错误 odd term 写入 Legacy cache。最小回归为
+`pyqcu/testing/qcu/test_csw_cuda.py::test_cuda_clover_parity_refresh_within_initialized_slot`；
+同 gauge 的 KUPL-vs-CUDA `hnn/hdg/sit` 当前均低于 `3e-7`。
+
+多 MPI CUDA Legacy cache builder 不要把 overlap patch 交给仍绑定
+`MPI_COMM_WORLD` 的 CUDA Clover halo。此类调用会在 patch `Sendrecv`、Python
+`Bcast` 和全局 `Gather` 之间形成 collective 顺序错位。当前 builder 在 rank 1 使用
+GPU patch stencil，多 rank 使用 GPU distributed null-vector + CPU patch stencil，
+并记录 `stencil_device=cpu`。
+
+Strict-MG 性能 benchmark 必须使用合法 4D process grid：每个 rank-local coarse
+extent 必须为偶数。`8x8x8x16` 的 4-rank 应使用 `2x2x1x1`，不能使用 y-only
+`1x4x1x1`。测后独立 full residual 应在 MPI solve 退出后由独立进程计算，避免同一
+`COMM_WORLD` 内重入 distributed dslash 导致 busy-wait。缺少真实 Strict cache 时，
+允许用同一 gauge/RHS 的持久化内存资产，但必须记录 cache/setup 时间并标记为
+合成或内存资产。
+
+分布式 Strict runtime 的 MG level shape 必须按
+`global_lattice / (process_grid * mg_block)` 计算 local coarse shape。cold setup
+使用 Torch hierarchy 的 local shape，measure 若误写全局 coarse shape，会在
+`applyMultigridStrictFgmresQcu` 报 `strict FGMRES coarse geometry mismatch`。
+`8x8x8x16` 的 2-rank 使用 `1x2x1x1`、local coarse shape `[4,2,4,8]`；4-rank 使用
+`2x2x1x1`。性能 trace 每次 Slurm 作业必须写入 `trace/<job-id>/rank*.tsv`，不能复用
+固定 `trace/rank00000.tsv`；native trace 以 append 打开，旧文件存在时探针应 fail-closed。
+
+Slurm 只分配一个 batch task 时，OpenMPI 可能把多 GPU 作业仍计为一个 slot。启动
+`mpirun -np N` 应使用项目统一的 `--bind-to none --oversubscribe`，同时保持 Slurm
+`--gpus=N --cpus-per-task=N`，不得借 oversubscribe 申请少于 rank 的 CPU/GPU。

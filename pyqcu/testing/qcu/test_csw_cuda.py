@@ -70,6 +70,45 @@ def test_qcu_init_rejects_invalid_control_abi() -> None:
 
 
 @pytest.mark.skipif(not _qcu_available(), reason="QCU CUDA extension unavailable")
+def test_cuda_clover_parity_refresh_within_initialized_slot() -> None:
+    from pyqcu.cuda import qcu
+
+    lattice_shape = (4, 4, 4, 4)
+    full_gauge = torch.empty(
+        (3, 3, 4, *lattice_shape), dtype=torch.complex64)
+    lattice.generate_gauge_field(
+        full_gauge, sigma=0.2, seed=53, verbose=False)
+    runtime = QcuRuntime.from_lattice(
+        lattice_shape, mass=0.1, csw=0.8, dtype=torch.complex64,
+        device=_test_device(), plan=define._SET_PLAN2_)
+    gauge = tools.oooxyzt2poooxyzt(full_gauge).to(
+        runtime.device).contiguous()
+    shape = (4, 3, 4, 3, 4, 4, 4, 2)
+    even = torch.empty(shape, dtype=gauge.dtype, device=gauge.device)
+    odd = torch.empty_like(even)
+    even_inv = torch.empty_like(even)
+    odd_inv = torch.empty_like(even)
+
+    qcu.applyInitQcu(runtime.set_ptrs, runtime.params, runtime.argv)
+    try:
+        runtime.params[define._PARITY_] = 0
+        qcu.applyCloversQcu(
+            even, even_inv, gauge, runtime.set_ptrs, runtime.params)
+        runtime.params[define._PARITY_] = 1
+        qcu.applyCloversQcu(
+            odd, odd_inv, gauge, runtime.set_ptrs, runtime.params)
+    finally:
+        qcu.applyEndQcu(runtime.set_ptrs, runtime.params)
+
+    reference_odd, _ = runtime.make_clover(
+        gauge, with_inverse=True, parity=1)
+    parity_difference = float(torch.linalg.vector_norm(odd - even))
+    reference_difference = float(torch.linalg.vector_norm(odd - reference_odd))
+    assert parity_difference / float(torch.linalg.vector_norm(even)) > 1.0e-3
+    assert reference_difference / float(torch.linalg.vector_norm(reference_odd)) < 1.0e-6
+
+
+@pytest.mark.skipif(not _qcu_available(), reason="QCU CUDA extension unavailable")
 def test_test_clover_dslash_uses_configured_csw() -> None:
     lattice_shape = (4, 4, 4, 4)
     full_gauge = torch.empty((3, 3, 4, *lattice_shape), dtype=torch.complex64)
