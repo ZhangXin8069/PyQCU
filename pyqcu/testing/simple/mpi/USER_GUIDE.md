@@ -139,6 +139,11 @@ python -c 'from mpi4py import MPI; print(MPI.COMM_WORLD.size)'
 mpirun --version
 ```
 
+`solve_case.py` 不只修改父进程环境；它还会在 `mpirun -np ...` 后显式加入
+`/usr/bin/env PYTHONPATH=<current-repo>:... PYQCU_ROOT=<current-repo>`，再启动
+worker Python。即使 HMPI/OpenMPI 未可靠继承父进程 `PYTHONPATH`，所有 rank 仍从当前
+仓库导入，不会混用旧 `PyQCU-test*` 的 worker 和当前仓库的输入。
+
 ### 4.2 KUPL
 
 需要：
@@ -758,7 +763,7 @@ nv-iters 和 seed 组成的 cache identity。校验失败会重建或拒绝外�
 | `levels`、`dof`、`mg_grid`、`restart` | MG 配置 |
 | `wall_seconds` | 所有 rank 最大 solve wall |
 | `residual_seconds` | 所有 rank 最大残差 wall |
-| `final_true_residual` | 全局相对真残差，或 `null` |
+| `final_true_residual` | 全局相对真残差；独立检查被跳过时省略 |
 | `residual_acceptance` | Python 验收门限 |
 | `residual_source` | 独立残差或 skip 说明 |
 | `converged` | 是否满足验收 |
@@ -774,11 +779,11 @@ nv-iters 和 seed 组成的 cache identity。校验失败会重建或拒绝外�
 | `builder_seconds` | 各 rank 最大 cache load/build time |
 | `coarse_source` | cache 路径或 `unused: restart=0` |
 | `deflate` | initial coarse correction |
-| `iterations` | restart=0 时后端 native iteration，否则常为 `null` |
+| `iterations` | restart=0 时后端 native iteration；后端未提供时省略 |
 | `verify_status` | KUPL MG verify 返回码，0 为通过 |
 | `memory` | rank 0 RSS 和 OMP 环境 |
 
-`ranks[]` 还包含：
+生产 JSON 不写 `null`；当前后端不适用的可选字段直接省略。`ranks[]` 还包含：
 
 - `rank`
 - `coordinate`
@@ -788,13 +793,13 @@ nv-iters 和 seed 组成的 cache identity。校验失败会重建或拒绝外�
 - `omp_num_threads`
 - `kupl_omp_threads`
 - `kupl_numa_bind`
-- `kupl_memory_policy`：库内 memory policy；未指定时为 `null`
-- `kupl_memory_node`：显式内存节点/`local+N`；未指定时为 `null`
+- `kupl_memory_policy`：库内 memory policy；未指定时省略
+- `kupl_memory_node`：显式内存节点/`local+N`；未指定时省略
 - `kupl_require_memory_bind`：memory policy 失败是否必须中止
 - `kupl_disable_clover_cache`：是否禁用跨调用 Clover/gauge cache
 - `kupl_fused_bicg_dots`：是否启用成对 BiCGStab 点积
-- `kupl_hugepage`：THP advice 请求值；未指定时为 `null`
-- `pyqcu_kupl_profile`：严格拓扑 profile；generic/未指定时为 `null`
+- `kupl_hugepage`：THP advice 请求值；未指定时省略
+- `pyqcu_kupl_profile`：严格拓扑 profile；generic/未指定时省略
 
 ### 13.3 CUDA 额外字段
 
@@ -857,7 +862,7 @@ MPI 启动器只把 `PASS` 视为成功。
 开启后：
 
 - 不执行分布式 NumPy 真残差。
-- 报告 `final_true_residual=null`。
+- 报告省略 `final_true_residual`。
 - 状态只代表 native solver 完成，不代表独立正确性验证。
 
 该选项只应用于计时或临时调试，不建议用于正确性验收。
@@ -1018,7 +1023,7 @@ python pyqcu/testing/simple/mpi/solve_case.py \
 | 多 rank 共享 GPU | ranks > visible GPUs | 明确拒绝；生产路径要求一 rank 一 device |
 | report 不存在 | worker 崩溃或旧 report 被删除 | 查看 mpirun stderr 和退出码 |
 | `status=FAIL` 但 native residual 很小 | Python 验收 floor/配置不可比 | 检查 acceptance 和 residual source |
-| `final_true_residual=null` | 使用了 skip 选项 | 去掉 `--skip-independent-residual` |
+| 缺少 `final_true_residual` | 使用了 skip 选项或独立检查被跳过 | 去掉 `--skip-independent-residual` |
 | LIME 子体积边界不满足原周期条件 | 原 link 在切口不闭合 | 只用于代码/MPI 正确性验证 |
 
 ## 17. 已知限制

@@ -217,19 +217,33 @@ def write_array(
         write_h5(path, array, dataset=dataset, metadata=metadata)
 
 
-def write_json(path: str | os.PathLike[str], payload: Mapping[str, Any]) -> None:
-    def safe(value: Any) -> Any:
-        if isinstance(value, float) and not np.isfinite(value):
-            return None
-        if isinstance(value, Mapping):
-            return {str(key): safe(item) for key, item in value.items()}
-        if isinstance(value, (list, tuple)):
-            return [safe(item) for item in value]
-        return value
+def json_safe(value: Any, *, omit_none: bool = False) -> Any:
+    """Convert a report to JSON-native values, optionally dropping nulls."""
+    if isinstance(value, float) and not np.isfinite(value):
+        return None
+    if isinstance(value, Mapping):
+        result = {}
+        for key, item in value.items():
+            converted = json_safe(item, omit_none=omit_none)
+            if omit_none and converted is None:
+                continue
+            result[str(key)] = converted
+        return result
+    if isinstance(value, (list, tuple)):
+        converted = [json_safe(item, omit_none=omit_none) for item in value]
+        if omit_none:
+            converted = [item for item in converted if item is not None]
+        return converted
+    return value
 
+
+def write_json(path: str | os.PathLike[str], payload: Mapping[str, Any],
+               *, omit_none: bool = False) -> None:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(safe(payload), indent=2, ensure_ascii=False, allow_nan=False),
+    path.write_text(json.dumps(
+                        json_safe(payload, omit_none=omit_none), indent=2,
+                        ensure_ascii=False, allow_nan=False),
                     encoding="utf-8")
 
 

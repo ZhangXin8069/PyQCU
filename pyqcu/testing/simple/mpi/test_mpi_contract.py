@@ -24,6 +24,7 @@ from pyqcu.testing.simple.mpi.solve_case import (
     main as solve_case_main,
     _parse_args,
     _launch_environment,
+    _worker_environment_prefix,
     build_mpirun_command,
 )
 from pyqcu.testing.simple.mpi.benchmark_kupl import (
@@ -299,6 +300,14 @@ def test_kupl_hybrid_launch_command():
     assert command[8:10] == ["4", "python"]
 
 
+def test_worker_command_pins_current_checkout_pythonpath():
+    prefix = _worker_environment_prefix()
+
+    assert prefix[0].endswith("/env")
+    assert prefix[1].startswith(f"PYTHONPATH={REPO}")
+    assert prefix[2] == f"PYQCU_ROOT={REPO}"
+
+
 def test_mpi_cuda_explicit_library_variant(tmp_path, monkeypatch):
     import pyqcu.testing.simple._runner as runner
 
@@ -410,8 +419,13 @@ def test_c128_dry_run_uses_real_dtype_paths(capsys):
         "--output", "relative-solution.h5", "--report", "relative-report.json",
         "--dry-run",
     ]) == 0
-    payload = json.loads(capsys.readouterr().out)
+    output = capsys.readouterr().out
+    assert "null" not in output
+    payload = json.loads(output)
     command = payload["command"]
+    worker_index = command.index("-np") + 2
+    assert command[worker_index].endswith("/env")
+    assert command[worker_index + 1].startswith(f"PYTHONPATH={REPO}")
     assert command[command.index("--output") + 1] == str(
         REPO / "data" / "relative-solution.h5")
     assert command[command.index("--report") + 1] == str(

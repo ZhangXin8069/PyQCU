@@ -15,6 +15,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -32,6 +33,7 @@ from pyqcu.tools._legacy_mg_cache import (
 
 from pyqcu.testing.simple._common import (
     DATA_DIR,
+    json_safe,
     read_h5_metadata,
     resolve_path,
     write_h5,
@@ -252,6 +254,7 @@ def _coarse_cache_valid(
 def _build_coarse_cache(args, case: dict[str, Any], cache_path: Path) -> None:
     report = cache_path.with_suffix(".json")
     builder_arguments = [
+        *_worker_environment_prefix(),
         sys.executable, str(BUILD_CACHE),
         "--gauge", case["gauge_path"],
         "--lat", *(str(value) for value in args.lat),
@@ -283,6 +286,7 @@ def _build_coarse_cache(args, case: dict[str, Any], cache_path: Path) -> None:
 def _worker_arguments(args, case: dict[str, Any], cache_path: Path | None,
                       grid: Sequence[int], output: Path, report: Path) -> list[str]:
     values = [
+        *_worker_environment_prefix(),
         sys.executable, "-m", "pyqcu.testing.simple.mpi.worker",
         "--backend", args.backend,
         "--torch-device", args.torch_device,
@@ -338,9 +342,8 @@ def build_mpirun_command(*, mpirun: str, ranks: int, bind_to: str,
 
 def _launch_environment(args) -> dict[str, str]:
     env = benchmark_environment()
-    python_path = env.get("PYTHONPATH", "")
-    entries = [str(REPO), *[item for item in python_path.split(":") if item]]
-    env["PYTHONPATH"] = ":".join(dict.fromkeys(entries))
+    env["PYTHONPATH"] = _worker_pythonpath(env.get("PYTHONPATH", ""))
+    env["PYQCU_ROOT"] = str(REPO)
     env["OMP_NUM_THREADS"] = str(args.omp_threads)
     env["KUPL_OMP_THREADS"] = str(args.omp_threads)
     if args.backend == "kupl":
@@ -391,6 +394,22 @@ def _launch_environment(args) -> dict[str, str]:
     elif args.backend == "cuda":
         env = libqcu_environment(env, "cuda:0", args.libqcu)
     return env
+
+
+def _worker_pythonpath(current: str) -> str:
+    entries = [str(REPO), *[item for item in current.split(":") if item]]
+    return ":".join(dict.fromkeys(entries))
+
+
+def _worker_environment_prefix() -> list[str]:
+    env_program = shutil.which("env")
+    if env_program is None:
+        raise RuntimeError("cannot locate the env executable for MPI workers")
+    return [
+        env_program,
+        f"PYTHONPATH={_worker_pythonpath(os.environ.get('PYTHONPATH', ''))}",
+        f"PYQCU_ROOT={REPO}",
+    ]
 
 
 def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
@@ -618,7 +637,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             allow_run_as_root=args.allow_run_as_root,
             worker_arguments=worker)
         launch_environment = _launch_environment(args)
-        print(json.dumps({
+        dry_run_payload = json_safe({
             "status": "DRY-RUN", "backend": args.backend,
             "lime": str(input_path), "lattice": args.lat, "grid": args.grid,
             "ranks": args.ranks, "omp_threads": args.omp_threads,
@@ -639,7 +658,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "OPENBLAS_NUM_THREADS", "NUMEXPR_NUM_THREADS",
                     "TORCH_NUM_THREADS")
             },
-        }, indent=2, ensure_ascii=False))
+        }, omit_none=True)
+        print(json.dumps(dry_run_payload, indent=2, ensure_ascii=False))
         return 0
 
     case = _materialize_case(args, dtype)
@@ -673,12 +693,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         allow_run_as_root=args.allow_run_as_root,
         worker_arguments=worker)
     env = _launch_environment(args)
-    print(json.dumps({
+    launch_payload = json_safe({
         "stage": "launch", "backend": args.backend,
         "command": command, "lattice": args.lat, "grid": args.grid,
         "omp_threads": args.omp_threads, "bind_to": args.bind_to,
         "map_by": args.map_by, "binding_fallback": args.binding_fallback,
-    }, ensure_ascii=False), flush=True)
+        "worker_pythonpath": env["PYTHONPATH"],
+    }, omit_none=True)
+    print(json.dumps(launch_payload, ensure_ascii=False), flush=True)
     completed = subprocess.run(command, cwd=REPO, env=env, check=False)
     if not staged_report.is_file():
         try:
@@ -693,12 +715,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         }
         write_json(staged_report, failure)
         os.replace(staged_report, report)
-        print(json.dumps({
+        failure_payload = json_safe({
             "status": "FAIL", "backend": args.backend,
             "exit_code": completed.returncode,
             "error": "worker did not publish a JSON report",
             "report": str(report),
-        }, ensure_ascii=False))
+        }, omit_none=True)
+        print(json.dumps(failure_payload, ensure_ascii=False))
         return 1 if completed.returncode == 0 else completed.returncode
 
     payload = json.loads(staged_report.read_text(encoding="utf-8"))
@@ -724,7 +747,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     if completed.returncode != 0 and payload.get("status") not in ("FAIL", "SKIP"):
         payload["status"] = "FAIL"
         payload["converged"] = False
-    write_json(staged_report, payload)
+    payload = json_safe(payload, omit_none=True)
+    write_json(staged_report, payload, omit_none=True)
     if publish_output:
         os.replace(staged_output, output)
     os.replace(staged_report, report)

@@ -399,6 +399,10 @@ cpuset 或 `KUPL_NUMA_BIND=1` 负责。需要启动器直接管理 NUMA 绑定�
 这样计算节点会重新获得当前仓库优先的 `PYTHONPATH` 和正确的
 `PYQCU_KUPL_LIB`，不会继承旧 `PyQCU-test*` 安装树。
 
+`mpi/solve_case.py` 还会把当前仓库路径直接写入每个 `mpirun` worker 的
+`/usr/bin/env PYTHONPATH=...` 前缀，避免 HMPI/OpenMPI 未可靠继承父进程
+`PYTHONPATH` 时回退到旧安装树。
+
 ### 7.4 QUDA / PyQUDA
 
 ```bash
