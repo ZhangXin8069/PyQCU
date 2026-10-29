@@ -461,7 +461,6 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: 综合完成度 Legacy 最高；CUDA Legacy/Strict 均支持 MPI 一进程一卡多卡，Legacy 另有单进程多线程多 GPU 驱动
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
-
 ## analysis - final - 2026-10-22 17:38:57 +0800
 - 主任务: 解释 Legacy 单进程多线程多 GPU 驱动
 - 日志文件: logs/v2026102217-7.txt
@@ -827,6 +826,7 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: L48 cache and 4-rank Legacy-MG pass; independent residual remains cgroup-limited; L8 streaming residual validated
 - 验证: path, size, required sections, conflict markers
 - 批次状态: in-progress
+<<<<<<< Updated upstream
 ## pure-kupl-kunpeng-20261029 - final - 2026-10-29 23:49:54 +0800
 - 主任务: 纯 KUPL Kunpeng 安装与旧版 PyTorch 兼容
 - 日志文件: logs/v2026102923.txt
@@ -849,5 +849,53 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 文件大小: 3821 bytes
 - 触发原因: 任务完成
 - 关键内容: 统一 TileLang 单次 warning、CPU fallback 和 NPU/DCU 测试 skip 行为
+=======
+## test34-continuation-build-dispatch - general - 2026-10-29 22:43:12 +0800
+- 主任务: git-tag-test34 QCU/QUDA L24 L32 L48 新构建与新 cache 测试
+- 日志文件: logs/v20261029224312.txt
+- 文件大小: 2497 bytes
+- 触发原因: 一般记录
+- 关键内容: QCU rebuilt; setup.py/Python/QUDA runtime issues recorded; three test shards dispatched
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## test34-resume-final-20261029 - final - 2026-10-29 23:51:44 +0800
+- 主任务: resume run 20261029T220155.nYVrWC; test34 L24/L32/L48; 50GB disk cleanup
+- 日志文件: logs/v2026102923.txt
+- 文件大小: 4722 bytes
+- 触发原因: 任务完成
+- 关键内容: L24 cache/QCU PASS, L24 QUDA blocked-runtime, L32 blocked-cache/timeout, L48 blocked-by-user; reclaimed about 6.2GB
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+## test34-cuda-qcu-stage-20261030 - stage - 2026-10-30 01:35:13 +0800
+- 主任务: resume run 20261029T220155.nYVrWC; CUDA QCU MG formal sampling; L32 cache recovery; 50GB disk cleanup
+- 日志文件: logs/v202610300135.txt
+- 文件大小: 5032 bytes
+- 触发原因: 阶段成果
+- 关键内容: CUDA QCU L24 formal 1/2/4-rank PASS; warmup/repeat fixed; L32 remains blocked-cache; 10.9GB core dumps cleaned
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+## test34-cuda-qcu-hardware-20261030 - stage - 2026-10-30 02:19:46 +0800
+- 主任务: resume 20261029T220155.nYVrWC: CUDA QCU L24/L32 MG 与 DCU 硬件报告
+- 日志文件: logs/v202610300219.txt
+- 文件大小: 4308 bytes
+- 触发原因: 阶段成果
+- 关键内容: L24 PASS; L32 16-rank timeout, 32-rank recovery running; DCU hardware added to reports; disk 40G/50G
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+## test34-cuda-qcu-hardware-20261030 - general - 2026-10-30 02:24:17 +0800
+- 主任务: 终止 Slurm 作业 126271962 并同步 L32 状态
+- 日志文件: logs/v20261030022417.txt
+- 文件大小: 1866 bytes
+- 触发原因: 一般记录
+- 关键内容: User-requested cancellation of L32 32-rank cache job; reports synchronized; partial and audit evidence retained
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+## test34-cuda-qcu-final-20261030 - final - 2026-10-30 02:48:36 +0800
+- 主任务: test34 CUDA QCU MG、L32 cache恢复、DCU硬件与50GB资源收尾
+- 日志文件: logs/v2026103002.txt
+- 文件大小: 30325 bytes
+- 触发原因: 任务完成
+- 关键内容: L24 CUDA QCU MG PASS; L32 BLOCKED-CACHE and stopped by user; QUDA BLOCKED-RUNTIME; L48 BLOCKED-BY-USER; DCU hardware and full report archived; no active jobs; disk 40G/50G
+>>>>>>> Stashed changes
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete

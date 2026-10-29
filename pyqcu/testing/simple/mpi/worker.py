@@ -19,6 +19,7 @@ import sys
 import time
 import traceback
 from pathlib import Path
+from statistics import median
 from typing import Sequence
 
 import numpy as np
@@ -256,17 +257,43 @@ def _run_cuda(args, comm: MPI.Comm) -> int:
                       mass=args.mass, csw=args.csw, atol=args.atol,
                       max_iter=args.max_iter)
     solution = torch.empty_like(source)
-    comm.Barrier()
-    torch.cuda.synchronize(device)
-    started = time.perf_counter()
-    with runtime.operation("applyCloverMultigridQcu") as operation:
-        operation(solution, source, gauge, clover_even, clover_odd,
-                  clover_even_inv, clover_odd_inv)
-    torch.cuda.synchronize(device)
-    comm.Barrier()
-    solve_seconds = time.perf_counter() - started
-    local_solve_seconds = float(solve_seconds)
-    solve_seconds = float(comm.allreduce(solve_seconds, op=MPI.MAX))
+    runtime.params[define._MG_USE_INIT_GUESS_] = 0
+
+    def solve_once() -> tuple[float, float]:
+        # Every sampled solve is a cold solve with the same source.  Keep the
+        # zeroing and synchronization outside the timed region.
+        solution.zero_()
+        torch.cuda.synchronize(device)
+        comm.Barrier()
+        started = time.perf_counter()
+        with runtime.operation("applyCloverMultigridQcu") as operation:
+            operation(solution, source, gauge, clover_even, clover_odd,
+                      clover_even_inv, clover_odd_inv)
+        torch.cuda.synchronize(device)
+        comm.Barrier()
+        local_seconds = time.perf_counter() - started
+        distributed_seconds = float(comm.allreduce(
+            local_seconds, op=MPI.MAX))
+        return distributed_seconds, float(local_seconds)
+
+    warmup_seconds: list[float] = []
+    warmup_local_seconds: list[float] = []
+    for _ in range(int(args.warmup)):
+        distributed, local = solve_once()
+        warmup_seconds.append(distributed)
+        warmup_local_seconds.append(local)
+
+    steady_seconds: list[float] = []
+    steady_local_seconds: list[float] = []
+    for _ in range(int(args.repeat)):
+        distributed, local = solve_once()
+        steady_seconds.append(distributed)
+        steady_local_seconds.append(local)
+
+    solve_seconds = float(median(steady_seconds))
+    solve_mad_seconds = float(median(
+        abs(value - solve_seconds) for value in steady_seconds))
+    local_solve_seconds = float(median(steady_local_seconds))
 
     parity_shape = (*local_lattice[:3], local_lattice[3] // 2)
     solution_np = solution.detach().cpu().numpy().reshape(
@@ -326,6 +353,11 @@ def _run_cuda(args, comm: MPI.Comm) -> int:
         "local_lattice": list(local_lattice),
         "local_starts": list(starts),
         "solve_seconds": local_solve_seconds,
+        "steady_seconds": steady_local_seconds,
+        "steady_mad_seconds": float(median(
+            abs(value - local_solve_seconds)
+            for value in steady_local_seconds)),
+        "warmup_seconds": warmup_local_seconds,
         "affinity_cpus": _affinity(),
         "omp_num_threads": os.environ.get("OMP_NUM_THREADS"),
     }
@@ -350,6 +382,11 @@ def _run_cuda(args, comm: MPI.Comm) -> int:
         "restart": args.restart,
         "coarse_cache": args.coarse_cache,
         "wall_seconds": solve_seconds,
+        "wall_seconds_samples": steady_seconds,
+        "wall_seconds_mad": solve_mad_seconds,
+        "warmup_seconds": warmup_seconds,
+        "warmup_runs": int(args.warmup),
+        "timed_samples": int(args.repeat),
         "residual_seconds": residual_seconds,
         "final_true_residual": residual,
         "residual_acceptance": acceptance,
