@@ -174,13 +174,16 @@ sit  2.524953e-7
 
 `pyqcu.testing.simple.mpi.build_full_mg_cache` 是规范入口。每个 rank 生成自己的
 null-vector，并只计算自己的 coarse slab；周期 overlap patch 只承担 halo。`lonv` 的
-coarse 轴是 `(2,4,6,8)`，不是最后四个 tensor 轴。最终 HDF5 必须由所有 rank 回读
-各自 hyperslab 后原子发布。
+coarse 轴是 `(2,4,6,8)`，时间 stride 是 `2*mg_grid[t]`。各 rank 通过 HDF5 MPI-IO
+写 owned slab，并直接从暂存 HDF5 读取周期 patch；多 GiB tensor 不得经 root
+`gather/scatter`。最终 HDF5 由所有 rank 回读各自 hyperslab 后原子发布。
 
-CUDA rank 1 的 patch stencil 在 GPU 上执行；多 rank CUDA 的 Clover halo 仍绑定
-`MPI_COMM_WORLD`，不能与 serial patch 安全混用，因此多 rank builder 使用 GPU
-distributed null-vector + CPU overlap stencil，并记录 `stencil_device=cpu`。该
-混合 setup 不作为纯 GPU 性能结论。
+CUDA patch LatticeSet 在 serial geometry 下持有 private singleton communicator，
+Clover/coarse halo 使用 `set_ptr->comm`，因此多 rank patch stencil 在各自 GPU 执行，
+报告要求 `stencil_device=cuda:*`。`8x8x8x16` 4-rank E2 实测总 setup `3.040447 s`，
+其中 `lonv` MPI-IO `0.354144 s`、GPU stencil `0.137035 s`、其余三张量
+MPI-IO `0.884016 s`，4/4 slab 验签通过；同一 cache
+由 KUPL 直接加载得到 `verify_status=0`、独立真残差 `4.110297e-7`。
 
 ## 生命周期与 ABI
 

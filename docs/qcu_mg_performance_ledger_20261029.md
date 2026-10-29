@@ -369,19 +369,21 @@ metadata 为 mass `-0.277`、csw `1.160920225783`。已生成可复用 QCU 输�
 `data/qcu_large_volume_L48x96/{slurm,logs}/`，而目录首次尚不存在。预创建目录后
 Slurm `1603917` 正常启动；这是调度输出目录问题，不是求解参数失败。
 
-`1603917` 运行到 `5m36s`，5 分钟审计见
+`1603917` 是修复前历史：运行到 `5m36s`，5 分钟审计见
 `data/qcu_large_volume_L48x96/logs/audit-5m.txt`：4 个 builder rank 均约
 `98% CPU`、RSS 合计约 `15 GiB`，4 张 A100 均 `0%` 利用率且各驻留约
-`8.7 GiB`。该阶段是已知的多 rank CUDA builder 边界：null-vector 后为规避
-`MPI_COMM_WORLD` halo 冲突改用 CPU overlap stencil。它没有死锁，但 GPU 连续
-空闲超过 5 分钟，不满足本任务的资源效率门，因此主动取消。未生成 cache/report，
-也没有 L48 solve、迭代或残差结果。
+`8.7 GiB`，因 CPU overlap stencil 空占 GPU 主动取消。
 
-按 L32 单 rank GPU stencil 实测 `153.889 s` 与体积比 `5.0625` 仅作量级估计：
-`153.889*5.0625≈779 s`，已经超过 10 分钟硬门；这不是 L48 实测值，只说明回到
-单 rank GPU builder 不是当前时限内的可行方案。L48 后续必须先实现 GPU-native
-多 rank overlap stencil（并解决 Clover halo communicator），或获得已验证 cache；
-在此之前保留输入资产，不继续消耗 GPU 空等。
+private singleton communicator 和 `lonv` MPI-IO 修复后，Slurm `1604062` 从约
+1 分钟起四张 A100 均持续 `100%` util、每卡约 `27 GiB`；5/8 分钟审计均健康。
+GPU patch stencil 在约 `455 s` 完成，随后 root 汇总 `hnn/hdg/sit` 时在
+`8m50s` 触发 `54,976 MiB` cgroup OOM，`MaxRSS=35,000,128 KiB`、`rc=137`。
+`lonv` MPIIO scratch 5.7 GiB 已保留。现行实现把四个 tensor 全部改为 HDF5 MPIIO
+owned-slab 写入，并支持 `--reuse-lonv` 从该 scratch 继续，不再在 root 物化全局
+粗算子。后续 `1604133` 和提前释放 staging patch 的 `1604161` 仍分别在
+`8m36s/8m32s` OOM；后者 batch `MaxRSS=29,410,048 KiB`，写入时进程 RSS 总和约
+`44.8 GiB`，再加 HDF5/page cache 超过分区上限。L48 仍未发布 cache，也没有
+solve、迭代或残差结果。
 
 ## 6. QUDA native-LAPACK 重建
 
@@ -557,10 +559,22 @@ rank 数的 KUPL solve 直接加载 CUDA cache：
 | `2 / 1x2x1x1` | 9.655451 s | 0 | `2.018354e-7` |
 | `4 / 1x4x1x1` | 10.264782 s | 0 | `2.020363e-7` |
 
-1-rank CUDA patch stencil 使用 GPU；多 rank 因 CUDA Clover halo 固定绑定
-`MPI_COMM_WORLD`，与独立 serial patch 冲突，改为 GPU null-vector + CPU overlap
-stencil。报告显式记录 `stencil_device=cpu`。该混用只作为 builder 正确性/容量路径，
-不得作为纯 GPU setup 性能倍率。
+上表的 4-rank 结果来自修复前兼容路径：CUDA Clover halo 固定绑定
+`MPI_COMM_WORLD`，因而暂用 CPU overlap stencil。现行 `LatticeSet` 对 serial patch
+创建 private singleton communicator 并把它传给 Clover/coarse halo；同时
+`lonv` 改为 HDF5 MPI-IO owned-slab 写入和周期直接读取，消除 root 对多 GiB tensor
+的 `gather/scatter`。修复后的 `8x8x8x16` 4-rank、`2x2x1x1`、E2 结果为：
+
+| phase / gate | value |
+|---|---:|
+| HDF5 MPI-IO `lonv` | `0.354144 s` |
+| GPU patch stencil | `0.137035 s` |
+| HDF5 MPI-IO `hnn/hdg/sit` | `0.884016 s` |
+| total setup | `3.040447 s` |
+| slab reconstruction | 4/4 PASS |
+| `stencil_device` | `cuda:0` |
+| KUPL direct-cache verify | 0 |
+| KUPL independent true residual | `4.110297e-7` |
 
 ## 8. 当前性能判断
 
@@ -576,6 +590,8 @@ stencil。报告显式记录 `stencil_device=cpu`。该混用只作为 builder �
 6. Multi-MPI cache builder 已通过 1/2/4-rank slab 正确性门；CUDA raw parity
    刷新 bug 修复后，KUPL 已可直接消费 CUDA Legacy cache，`hnn/hdg/sit` 对 CUDA
    同 gauge 结果的误差均低于 `3e-7`。
+7. 多 rank CUDA 的 private singleton communicator 与 `lonv` MPI-IO 路径已通过
+   L8 GPU patch、4/4 slab 验签和 KUPL 独立真残差门；CUDA patch 不再降级 CPU。
 
 ## 9. 实时更新规则
 

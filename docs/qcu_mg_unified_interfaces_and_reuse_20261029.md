@@ -78,15 +78,22 @@ Strict full-coarse `X/Y/Yhat` 仍不可互载。
 ### 4.1 多 MPI Legacy cache builder
 
 规范入口为 `python -m pyqcu.testing.simple.mpi.build_full_mg_cache`。每个 rank
-生成自己的 null-vector slab；rank 0 汇总 blocked `lonv` 后按 coarse slab
-分发周期 overlap patch；每个 rank 只计算自己的 `lonv/hnn/hdg/sit`，最后由 rank 0
-原子发布，并由所有 rank 回读 HDF5 hyperslab 验签。`lonv` 的 coarse 轴是
-`(2,4,6,8)`，不能按普通 lattice-axes-last-4 切片。
+生成自己的 null-vector slab；所有 rank 通过 HDF5 MPI-IO 写入 blocked `lonv`
+owned slab，再按周期 coarse 坐标直接读取自己的 overlap patch。每个 rank 只计算
+自己的 `lonv/hnn/hdg/sit` 并写回 owned slab；rank 0 只完成属性和 manifest，
+所有 rank 回读 HDF5 hyperslab 验签。`lonv` 的 coarse 轴是 `(2,4,6,8)`，不能按普通
+lattice-axes-last-4 切片；其时间步长是 `2*mg_grid[t]`。不得恢复 root
+`gather/scatter` 多 GiB `lonv` 的旧路径。
 
-CUDA `--build-device cuda` 在 1 rank 使用 GPU patch stencil。多 rank 时 CUDA
-Clover halo 仍固定绑定 `MPI_COMM_WORLD`，与独立 serial overlap patch 冲突；
-因此 null-vector 保留 GPU 分布式构建，patch stencil 显式切到 CPU，报告写
-`stencil_device=cpu`。该混合 setup 只证明构建正确性，不作为纯 GPU 性能倍率。
+CUDA `--build-device cuda` 的多 rank patch stencil 已恢复为 GPU：当 patch 的
+`params[NODE_SIZE]=1` 且 grid product 为 1 时，CUDA `LatticeSet` 创建并持有私有
+singleton communicator，Clover/coarse halo 改用 `set_ptr->comm`，不再与
+`MPI_COMM_WORLD` 的 Python collective 串序。修复后 `8x8x8x16` 4-rank、
+grid `2x2x1x1` builder 的 lonv MPI-IO 为 `0.354144 s`、GPU patch stencil 为
+`0.137035 s`、其余三张量 MPI-IO 为 `0.884016 s`、总 setup `3.040447 s`，
+4/4 rank slab 验签通过并记录
+`stencil_device=cuda:0`。同 cache 由 KUPL 直接加载后 `verify_status=0`，独立真残差
+`4.110297e-7`。
 
 ### 4.2 跨后端直接复用验证
 
@@ -160,15 +167,17 @@ operator relative residual；trace 的顶层 `restriction_calls=0` 也不能覆�
 
 真实 L48 输入为完整 `48x48x48x96` LIME，SHA256
 `e3b27a2ee9ee3b78b6512549ca84340f8f65c60122d84356ce5693a0324b6acb`；
-已生成 c64 gauge/source 和 manifest。4-rank Legacy cache builder 在 null-vector
-之后进入 CPU overlap-stencil，5 分钟审计时 4 rank 各约 98% CPU、4 张 A100 均
-0%，因此按资源门主动取消。没有生成 L48 cache，也没有 solve 数据。
+已生成 c64 gauge/source 和 manifest。早期 `1603917` 曾进入 CPU overlap-stencil，
+5 分钟时 4 张 A100 均 0%，已主动取消。private singleton communicator 修复后的
+`1604062` 在整个 5/8 分钟窗口保持四卡 100%、每卡约 27 GiB；GPU stencil 完成后，
+root 汇总 `hnn/hdg/sit` 在约 `530 s` 触发 `54,976 MiB` cgroup OOM，此时 max RSS
+为 `35,000,128 KiB`。因此当前根因已从 GPU/communicator 转为主机全局粗算子峰值。
 
-这不是数值失败，而是当前多 rank builder 的 GPU 空占问题。L48 若要继续，必须先
-实现 GPU-native 多 rank overlap stencil/独立 Clover halo communicator，或复用
-经验证的 cache；单 rank GPU stencil 按 L32 实测体积缩放仅为约 779 秒估计，不具备
-10 分钟硬门下的可行性。新 Slurm 批次还必须在提交前创建 `slurm/` 和 `logs/`，
-否则会在 0 秒 `JobLaunchFailure`。
+现行 builder 已把四个 tensor 全部改为 HDF5 MPI-IO owned-slab，并支持复用失败
+作业留下的 `lonv` scratch。提前释放 staging patch 后，`1604161` 仍在 `8m32s`
+因 54,976 MiB cgroup 内存上限 OOM；L48 目前没有已发布 cache 或 solve 数据；
+这些 OOM 不得写为算法失败，也不能据此给出 L48 性能。新 Slurm 批次仍必须在提交前
+创建 `slurm/` 和 `logs/`，否则会在 0 秒 `JobLaunchFailure`。
 
 ## 6. 求解器与参数记录
 

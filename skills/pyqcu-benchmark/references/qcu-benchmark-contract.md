@@ -14,10 +14,12 @@ cold-cache/miss request. Report verification/load and solve timing separately.
 
 For a coarse-cache miss, launch the native MPI builder with the benchmark's
 requested rank count and process grid. It must construct local null vectors,
-compute disjoint coarse slabs with periodic overlap halos, gather and verify
-`lonv/hnn/hdg/sit`, and atomically publish the HDF5 plus manifest. A rank-0-only
-builder is not valid multi-rank evidence. Preserve per-rank patch geometry,
-global tensor SHA256, and the 1-vs-N-rank tensor relative-error comparison.
+compute disjoint coarse slabs with periodic overlap halos, write
+`lonv/hnn/hdg/sit` as owned slabs through HDF5 MPI-IO, and atomically publish the
+HDF5 plus manifest. Do not root-gather or scatter `lonv`; L48 OOM showed that
+root assembly of `hnn/hdg/sit` is also unsafe. A rank-0-only builder is not valid
+multi-rank evidence. Preserve per-rank patch geometry, global tensor SHA256, and
+the 1-vs-N-rank tensor relative-error comparison.
 
 For distributed strict solves, run the post-solve independent full residual in
 a fresh process after MPI teardown. Re-entering distributed dslash while only

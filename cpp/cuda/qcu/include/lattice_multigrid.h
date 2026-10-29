@@ -308,7 +308,7 @@ template <typename U, typename SetT> struct CoarseHaloExchange
         const int tag = 800 + (side == 0 ? 1 : 0);
         checkMpiErrors(_MPI_Irecv<U>(buffer, real_count[side],
                                      compact_peer[side], tag,
-                                     MPI_COMM_WORLD, &recv_request[side]));
+                                     set_ptr->comm, &recv_request[side]));
       }
       for (int side = 0; side < 2; ++side) {
         const void *buffer = use_device_mpi ? slot_const(device_send, side)
@@ -316,7 +316,7 @@ template <typename U, typename SetT> struct CoarseHaloExchange
         const int tag = 800 + side;
         checkMpiErrors(_MPI_Isend<U>(buffer, real_count[side],
                                      compact_peer[side], tag,
-                                     MPI_COMM_WORLD, &send_request[side]));
+                                     set_ptr->comm, &send_request[side]));
       }
       request_active = true;
       return;
@@ -370,14 +370,14 @@ template <typename U, typename SetT> struct CoarseHaloExchange
                                       : real_slot(host_recv, h);
         checkMpiErrors(_MPI_Irecv<U>(
             buffer, real_count[h], peer[h], 700 + source_direction,
-            MPI_COMM_WORLD, &recv_request[h]));
+            set_ptr->comm, &recv_request[h]));
       }
       for (int d = 0; d < 32; ++d) {
         if (peer[d] == rank) continue;
         const void *buffer = use_device_mpi ? real_slot_const(device_send, d)
                                             : real_slot_const(host_send, d);
         checkMpiErrors(_MPI_Isend<U>(buffer, real_count[d], peer[d], 700 + d,
-                                     MPI_COMM_WORLD, &send_request[d]));
+                                     set_ptr->comm, &send_request[d]));
       }
     }
     request_active = true;

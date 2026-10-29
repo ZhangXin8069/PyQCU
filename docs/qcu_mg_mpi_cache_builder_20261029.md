@@ -23,10 +23,13 @@ mpirun --allow-run-as-root --oversubscribe --bind-to none -np 4 \
 
 1. 按全局 process grid 读取自己的 gauge hyperslab；
 2. 用分布式 Schur/Clover 算子生成本 rank 的 null-vector slab；
-3. rank 0 汇总 blocked `lonv`，按 coarse slab 给各 rank 分发周期 overlap patch；
-4. 每个 rank 只对 patch 运行 local stencil，输出自己的 `lonv/hnn/hdg/sit` slab；
-5. rank 0 组装全局 33-tensor HDF5、统一 manifest 与 SHA256；
-6. 所有 rank 回读自己的 HDF5 hyperslab，与本地 slab 逐 tensor 比对后发布。
+3. 所有 rank 用 HDF5 MPI-IO 把 blocked `lonv` owned slab 写入同一暂存缓存；
+4. 每个 rank 按周期 coarse 坐标只读取自己的 overlap patch，不再经 rank 0
+   `gather/scatter`；
+5. 每个 rank 对 patch 运行 local stencil，计算自己的 `lonv/hnn/hdg/sit` slab；
+6. 所有 rank 继续用 HDF5 MPI-IO 写 `hnn/hdg/sit` owned slab，rank 0 只补文件属性、
+   流式计算 HDF5 dataset digest 并原子发布；
+7. 所有 rank 回读自己的 HDF5 hyperslab，与本地 slab 逐 tensor 比对后发布。
 
 overlap patch 的 coarse halo 为每个方向两个 coarse block；当窄轴无法容纳该 halo
 时，该轴使用完整周期范围，但仍保持 coarse-block 对齐。patch 不是完整 hierarchy，
@@ -41,7 +44,35 @@ overlap patch 的 coarse halo 为每个方向两个 coarse block；当窄轴无�
   `(2,3,4,5)`。
 - KUPL patch stencil 在全局 MPI 作业内部需要独立的 `1x1x1x1` LatticeSet context。
   `make_geometry()` 现在仅在 `params[NODE_SIZE]=1` 且 grid product 为 1 时创建
-  单 rank 子通信域；正常生产 solve 仍使用完整 `MPI_COMM_WORLD` process grid。
+  单 rank 子通信域，并将该 `comm` 传入 Legacy halo；正常生产 solve 仍使用完整
+  `MPI_COMM_WORLD` process grid。早期固定使用 `MPI_COMM_WORLD` 会让 overlap patch
+  与其它 rank 的 halo collective 串序，修复后多 rank patch 可直接在各自 GPU 计算。
+- 禁止把多 GiB 的 `local_lonv` 列表经 `comm.gather` 汇聚到 root：这会同时保留
+  global tensor、Python object 列表和 pickle 临时副本。`lonv` 的 owned slab 由各
+  rank 通过 `h5py.File(..., driver="mpio", comm=comm)` 写入，周期读取按每个轴拆成
+  连续 source/destination slices，避免 fancy-index 生成整张临时 patch。
+- `lonv` 的时间轴已经过 odd-Schur 压缩。物理 fine 坐标到 cache coarse 的步长是
+  `mg_grid[t] * 2`，不是 `mg_grid[t]`；计算 patch center/extent 时必须使用该步长。
+- 写入后立即释放 `local_lonv`，避免它与 overlap patch 同时驻留。L48 初次 GPU 化
+  试验曾证明只移除 `lonv` root gather 仍不足：`1604062` 在四卡 100% 运行约 530 s
+  后于 root 汇总 `hnn/hdg/sit` 时触发 cgroup OOM。现行路径把这三个张量也按 owned
+  coarse slab 由 MPI-IO 写入，runner 不再构造任何全局粗算子。
+- `build_coarse_assets()` 返回后立即释放 `gauge_patch` 和 `lonv_patch`，再去复制
+  rank-local slab。L48 两者分别约 `1.36 GB/rank` 和 `1.53 GB/rank`；延迟到写盘后
+  才释放会让四 rank 峰值超过分区默认 54,976 MiB。
+- 失败作业留下的仅 `lonv` HDF5 可通过 `--reuse-lonv` 继续：先验证 shape/dtype，
+  再 hardlink（跨文件系统才复制）为 staged output。复用路径跳过 null-vector，
+  但必须在 patch stencil 前按 shared-memory local rank 设置
+  `PYQCU_MPI_DEVICE_ID`，否则 native QCU 会错误绑定 device 0。
+- 即使四个 tensor 全走 MPI-IO 并提前释放 staging patch，最终 `1604161` 仍在
+  `8m32s` cgroup OOM；batch `MaxRSS=29,410,048 KiB` 但精确进程 RSS 求和在写入时约
+  `44.8 GiB`，叠加 HDF5/page cache 后超过 54,976 MiB。分区禁止 4 卡任务超额申请
+  memory。因此 L48 在该单节点资源门内仍未发布 cache；不得用首次 `lonv` scratch
+  冒充完整 cache。
+- manifest 必须按固定上限（当前 64 MiB）对 HDF5 dataset 做多维分块摘要，不能只按
+  第一维切片；L48 的 `hdg` 单个首维切片本身就可能达到数 GiB。刚由同一进程流式
+  生成并记录 digest/file SHA 后，内部结构验签不做第二次无条件全量 digest；
+  已发布 cache 的正式外部验签仍保持完整。
 - 所有粗层组装和 slab 回读均通过同一 `_legacy_mg_cache.py` manifest/shape/digest
   契约完成，不引入第二套后端私有 cache 格式。
 
@@ -91,11 +122,22 @@ KUPL solve 直接加载 cache 并检查 verifier 与独立真残差：
 | 2 / `1x2x1x1` | 9.655451 s | 0 | `2.018354e-7` |
 | 4 / `1x4x1x1` | 10.264782 s | 0 | `2.020363e-7` |
 
-CUDA rank 1 的 patch stencil 在 GPU 上执行。多 rank CUDA `LatticeSet` 的 Clover
-halo 仍绑定 `MPI_COMM_WORLD`，与 overlap patch 的串行语义冲突，实际会在不同
-collective 间死锁；因此多 rank 的 null-vector 仍在 GPU 分布式构建，而互相独立的
-patch stencil 在 CPU 执行。报告中的 `stencil_device=cpu` 是显式 provenance，
-不能把该混合 setup 时间外推成纯 GPU builder 性能。
+上表是修复前的历史结果。早期多 rank CUDA `LatticeSet` halo 固定使用
+`MPI_COMM_WORLD`，与独立 serial overlap patch 的 collective 顺序冲突，因此当时
+暂以 CPU patch 保证正确性。现在 LatticeSet 在 `NODE_SIZE=1`、process-grid product
+为 1、world size 大于 1 时创建私有 singleton communicator，Clover 和 coarse halo
+均使用 `set_ptr->comm`。修复后的 4-rank `8x8x8x16`、grid `2x2x1x1` 实测：
+
+| phase | seconds |
+|---|---:|
+| HDF5 MPI-IO lonv write/read | `0.354144` |
+| GPU patch stencil | `0.137035` |
+| HDF5 MPI-IO hnn/hdg/sit write | `0.884016` |
+| total setup | `3.040447` |
+
+报告记录 `stencil_device=cuda:0`，4/4 rank slab 重建验签通过；该 cache 随即由同
+进程网格 KUPL 直接加载，`verify_status=0`，独立真残差 `4.110297e-7`。因此当前
+多 rank CUDA builder 不再使用 CPU patch stencil。
 
 本轮修复后 CUDA 库 SHA256 为
 `e881d9a7d5d12712c869e673c2f0f05f4e8ac041ede922a896122b7db4103746`，
