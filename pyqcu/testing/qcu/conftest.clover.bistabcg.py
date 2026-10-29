@@ -25,7 +25,8 @@ def main() -> int:
     params[define._SET_PLAN_] = 1
     params[define._VERBOSE_] = 1
     params[define._SEED_] = 42
-    argv_local = argv.to(dtype=define.dtype(params[define._DATA_TYPE_]).to_real())
+    argv_local = argv.to(dtype=define.real_dtype(
+        define.dtype(params[define._DATA_TYPE_])))
     argv_local[define._MASS_] = 0.05
     argv_local[define._ATOL_] = 1e-9
     argv_local[define._SIGMA_] = 0.1
@@ -116,6 +117,5 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
 
 

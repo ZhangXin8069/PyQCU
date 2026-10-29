@@ -1,58 +1,79 @@
 from setuptools import setup, find_packages
 import subprocess
-# BUGFIX 2026-07-28: import only Extension from distutils, NOT setup.
-# The previous `from distutils.core import Extension, setup` was overriding
-# setuptools.setup with distutils.setup, silently disabling setuptools features.
-from distutils.core import Extension
 from setuptools.command.build_ext import build_ext
-from Cython.Build import cythonize
-import numpy
 import os
+
 HOME = os.path.dirname(os.path.abspath(__file__))
 print("HOME:", HOME)
+
+BUILD_BACKEND = os.environ.get("PYQCU_BUILD_BACKEND", "cuda").strip().lower()
+if BUILD_BACKEND not in {"cuda", "kupl"}:
+    raise RuntimeError(
+        "PYQCU_BUILD_BACKEND must be 'cuda' or 'kupl', "
+        f"got {BUILD_BACKEND!r}")
+print(f"PYQCU build backend: {BUILD_BACKEND}")
 
 
 class CMakeBuild(build_ext):
     def run(self):
-        if os.environ.get("PYQCU_SKIP_NATIVE_BUILD") != "1":
-            # The top-level build entry point was split by backend; the CUDA
-            # bridge must use the NVIDIA build script rather than the removed
-            # historical build.sh name.
+        if BUILD_BACKEND == "cuda" and \
+                os.environ.get("PYQCU_SKIP_NATIVE_BUILD") != "1":
+            # The CUDA bridge owns its native build lifecycle.
             subprocess.check_call(["bash", f"{HOME}/build-nv.sh"])
         super().run()
 
 
-extensions = [
-    Extension(
-        "pyqcu.cuda.qcu",
-        [f"{HOME}/pyqcu/cuda/qcu/qcu.pyx"],
-        include_dirs=[f"{HOME}/pyqcu/cuda/qcu", f"{HOME}/cpp/cuda/qcu/python", numpy.get_include()],
-        library_dirs=[f"{HOME}/cpp/cuda/qcu"],
-        libraries=["qcu"],
-        language="c++",
+ext_modules = []
+if BUILD_BACKEND == "cuda":
+    # Keep Cython and CUDA-specific imports out of the pure KUPL build path.
+    from distutils.core import Extension
+    from Cython.Build import cythonize
+    import numpy
+
+    extensions = [
+        Extension(
+            "pyqcu.cuda.qcu",
+            [f"{HOME}/pyqcu/cuda/qcu/qcu.pyx"],
+            include_dirs=[
+                f"{HOME}/pyqcu/cuda/qcu",
+                f"{HOME}/cpp/cuda/qcu/python",
+                numpy.get_include(),
+            ],
+            library_dirs=[f"{HOME}/cpp/cuda/qcu"],
+            libraries=["qcu"],
+            language="c++",
+        )
+    ]
+    ext_modules = cythonize(
+        extensions,
+        language_level="3",
     )
+
+
+install_requires = [
+    "mpi4py", "h5py", "torch", "psutil", "scipy", "matplotlib",
+    "opt_einsum",
 ]
-ext_modules = cythonize(
-    extensions,
-    language_level="3",
-)
+if BUILD_BACKEND == "cuda":
+    install_requires.append("cython")
+
+
 setup(
     name="PyQCU",
     version="0.0.1",
     description="Python wrapper for QCU written in Cython.",
     author="ZhangXin8069",
     author_email="zhangxin8069@qq.com",
-    # BUGFIX 2026-07-28: test modules are in pyqcu.testing, not test.*
-    # R3: pyqcu.cuda now has __init__.py, so find_packages discovers it.
     packages=find_packages(exclude=["pyqcu.testing.*", "pyqcu.testing"]),
     package_data={"pyqcu.cuda.qcu": ["*.pyi"]},
     ext_modules=ext_modules,
     license="MIT",
-    cmdclass={'build_ext': CMakeBuild},
-    # BUGFIX 2026-07-28 R3: PyTorch 2.x requires Python >= 3.8.
-    python_requires=">=3.8",
-    install_requires=["mpi4py", "cython", "h5py", "torch", "psutil", "scipy", "matplotlib", "opt_einsum"],
+    cmdclass={"build_ext": CMakeBuild},
+    python_requires=">=3.10",
+    install_requires=install_requires,
     url="https://github.com/zhangxin8069/PyQCU",
-    keywords=['c++', 'cuda', 'python',
-              'quantum chromodynamics(QCD)', 'lattice QCD', 'high performance computing', 'made in China'],
+    keywords=[
+        "c++", "cuda", "python", "quantum chromodynamics(QCD)",
+        "lattice QCD", "high performance computing", "made in China",
+    ],
 )

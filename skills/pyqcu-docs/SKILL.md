@@ -26,7 +26,7 @@ metadata:
 - 带“工作区结果”“尚未提交/打 tag”或 `userinterlude` 状态的报告属于时点证据；
   引用时必须保留窗口、算法、硬件、精度与计时边界，不得提升为永久性能承诺。
 
-完整的 33 份现行 Markdown 文档职责、权威级别和目标技能见
+完整的 34 份现行 Markdown 文档职责、权威级别和目标技能见
 [`references/project-docs-map.md`](references/project-docs-map.md)。需要立即复用安装、
 维度、测试、CUDA 拓扑、MultiGrid、性能或 profiler 结论时，读取
 [`references/extracted-guidance.md`](references/extracted-guidance.md)。

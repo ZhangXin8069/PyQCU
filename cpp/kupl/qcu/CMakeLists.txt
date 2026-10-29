@@ -225,6 +225,12 @@ if(KUPL_BUILD_TESTS)
     )
     list(APPEND KUPL_CTEST_NAMES kupl_qcu_kunpeng_runtime_plan)
 
+    add_test(NAME kupl_qcu_pure_kupl_contract COMMAND
+      ${Python3_EXECUTABLE}
+      ${KUPL_PYTHON_TEST_DIR}/test_pure_kupl_install.py
+    )
+    list(APPEND KUPL_CTEST_NAMES kupl_qcu_pure_kupl_contract)
+
     add_test(NAME kupl_qcu_abi_surface COMMAND
       ${Python3_EXECUTABLE}
       ${KUPL_PYTHON_TEST_DIR}/check_abi.py

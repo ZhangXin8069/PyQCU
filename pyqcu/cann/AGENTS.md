@@ -25,6 +25,7 @@
 | 归约/形状 | `roll`、`allclose`、`einsum` | `roll` → 实虚分开 roll；`allclose` → 实虚分别检查 |
 | 创建 | `zeros`、`zeros_like`、`randn`、`randn_like`、`eye` | 先建实部再组合成复数 |
 | 线性代数 | `linalg_qr` | NPU 复数输入回退 CPU |
+| dtype | `real_dtype` | 不依赖 `torch.dtype.to_real()`，兼容旧版 PyTorch 的复/实 dtype 映射 |
 
 ### 裸 torch 使用
 - `torch.linalg.det` — `lattice.check_su3()` 的 SU(3) 行列式检查；`_torch` 无等价，NPU 实矩阵可用

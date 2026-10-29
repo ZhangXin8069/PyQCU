@@ -1,6 +1,7 @@
 import mpi4py.MPI as MPI
 import math
 from pyqcu import tools
+from pyqcu.cann import real_dtype
 import torch
 from typing import List, Optional
 comm = MPI.COMM_WORLD
@@ -124,7 +125,11 @@ def dtype(_data_type_: Optional[torch.Tensor] = _LAT_C64_IN_TENSOR_) -> torch.dt
     if _data_type_ == torch.Tensor([_LAT_C16_], device=torch.device('cpu')):
         raise ValueError(f"Unsupported QCU data type: _LAT_C16_ (complex16) at constant {_data_type_.item()}")
     elif _data_type_ == torch.Tensor([_LAT_C32_], device=torch.device('cpu')):
-        return torch.complex32
+        complex32 = getattr(torch, "complex32", None)
+        if complex32 is None:
+            raise ValueError(
+                "Unsupported QCU data type: _LAT_C32_ on this PyTorch build")
+        return complex32
     elif _data_type_ == torch.Tensor([_LAT_C64_], device=torch.device('cpu')):
         return torch.complex64
     elif _data_type_ == torch.Tensor([_LAT_C128_], device=torch.device('cpu')):
@@ -187,8 +192,9 @@ def make_argv(mass: float, *, atol: float = 1.0e-6, sigma: float = 0.1,
     if mg_atol is not None:
         for index, value in enumerate(mg_atol[:4]):
             values[_MG_LEVEL1_ATOL_ + index] = float(value)
-    real_dtype = dtype(torch.tensor([data_type], dtype=torch.int32)).to_real()
-    return torch.tensor(values, dtype=real_dtype, device=torch.device("cpu"))
+    argv_dtype = real_dtype(
+        dtype(torch.tensor([data_type], dtype=torch.int32)))
+    return torch.tensor(values, dtype=argv_dtype, device=torch.device("cpu"))
 
 
 params = torch.Tensor(
@@ -212,7 +218,7 @@ params[_SET_PLAN_] = 0
 params[_VERBOSE_] = 1
 params[_SEED_] = 42
 params[_TEST_IN_CPU_] = 0
-argv = torch.Tensor([0.0]*_ARGV_SIZE_).to(dtype=dtype(params[_DATA_TYPE_]).to_real(),
+argv = torch.Tensor([0.0]*_ARGV_SIZE_).to(dtype=real_dtype(dtype(params[_DATA_TYPE_])),
                                           device=torch.device('cpu'))
 argv[_MASS_] = -3.5  # make kappa=1.0
 argv[_ATOL_] = 1e-9

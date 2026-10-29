@@ -125,16 +125,21 @@ identity 不一致时才重建。
 ## 构建与验证
 
 ```bash
-cmake -S cpp/kupl/qcu -B cpp/kupl/qcu/build \
-  -DCMAKE_BUILD_TYPE=Release
-cmake --build cpp/kupl/qcu/build -j
+KUPL_ENABLE_NATIVE=OFF KUPL_ENABLE_LTO=OFF bash ./install.sh kupl
 ctest --test-dir cpp/kupl/qcu/build --output-on-failure
 python -m pytest -q pyqcu/testing/kupl/test_kupl_python.py
 ```
 
-目标节点性能构建使用 `-DKUPL_ENABLE_LTO=ON`；跨型号部署使用
-`-DKUPL_ENABLE_NATIVE=OFF`。完整鲲鹏 HMPI、NUMA、大页、测试和证据模板见
+目标节点性能构建使用 `KUPL_ENABLE_NATIVE=ON KUPL_ENABLE_LTO=ON`；跨型号部署使用
+`KUPL_ENABLE_NATIVE=OFF`。完整鲲鹏 HMPI、NUMA、大页、测试和证据模板见
 [`docs/kupl_kunpeng_guide.md`](../../docs/kupl_kunpeng_guide.md)。
+
+纯 KUPL 无 CUDA 模式必须使用 `bash install.sh kupl` 或
+`PYQCU_BUILD_BACKEND=kupl`。该模式不调用 `build-nv.sh`、不要求 `nvcc`，也不创建
+`pyqcu.cuda.qcu` Cython 扩展。旧版 PyTorch 的复数/实数 dtype 转换统一使用
+`pyqcu.cann.real_dtype()`，禁止调用可能不存在的 `torch.dtype.to_real()`。
+完整安装、测试、生产、升级和排错流程见
+[`docs/kupl_only_deployment.md`](../../docs/kupl_only_deployment.md)。
 
 UBSAN 全 MPI 回归建议使用单 OpenMP 线程：
 
@@ -370,7 +375,8 @@ verifier=0、PASS，已撤销。下一步应分析 scalar boundary 的 rank-face
   `4.1e-7`。共享机存在大幅漂移，只可引用相邻对，稳定承诺写约 1%–3.4%，
   不可跨窗口拼接或选最大收益。
 - 默认 Release、`KUPL_ENABLE_NATIVE=OFF`、`KUPL_ENABLE_LTO=ON` 和 UBSAN 构建
-  均完成 33/33 CTest；本轮新增 profile contract 后当前并行构建为 34/34。
+  曾完成 33/33 CTest；新增 profile contract 与 pure-KUPL contract 后，当前
+  Release 并行构建为 35/35。
   LTO 选项只是把历史 `4.8%` 构建方式产品化，不把共享机短样本升级为新倍率。
 - boundary 预过滤与“全部 Irecv 提前于 face pack”两个候选在 2/4-rank 相邻复测
   中收益不一致，已完整撤销。不能仅凭访存或通信直觉保留。

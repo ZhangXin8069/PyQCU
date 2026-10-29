@@ -182,7 +182,7 @@ def generate_gauge_field(U: torch.Tensor, sigma: float = 0.1, seed: Optional[int
     a = torch.normal(
         0.0, 1.0,
         size=(4, U.shape[-4], U.shape[-3], U.shape[-2], U.shape[-1], 8),
-        dtype=U.dtype.to_real(),
+        dtype=_torch.real_dtype(U.dtype),
         device=U.device
     )
     if verbose:

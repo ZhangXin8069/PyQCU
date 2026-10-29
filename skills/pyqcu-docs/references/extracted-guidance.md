@@ -7,17 +7,18 @@
 
 ```bash
 source ./env.sh
-bash ./build.sh
-bash ./install.sh
+bash ./install.sh cuda
+bash ./install.sh kupl
 ```
 
 - 基础运行要求 Python ≥ 3.10；`PYTHONPATH` 必须包含仓库根。
-- CUDA 后端由 `build.sh` 构建 `cpp/cuda/qcu`，Cython 扩展由 `install.sh` 原地构建。
-- 独立 KUPL 后端不依赖 CUDA：
+- `install.sh cuda` 构建 CUDA 后端和 Cython 扩展；`install.sh kupl` 只构建独立
+  KUPL 后端，不查找 `nvcc` 或创建 `pyqcu.cuda.qcu`。
+- 纯 KUPL 后端不依赖 CUDA。`PYQCU_BUILD_BACKEND=kupl` 是 `setup.py` 的强制选路，
+  旧版 PyTorch 使用 `pyqcu.cann.real_dtype()` 而不得调用 `dtype.to_real()`：
 
 ```bash
-cmake -S cpp/kupl/qcu -B cpp/kupl/qcu/build -DCMAKE_BUILD_TYPE=Release
-cmake --build cpp/kupl/qcu/build -j
+KUPL_ENABLE_NATIVE=OFF KUPL_ENABLE_LTO=OFF bash ./install.sh kupl
 ctest --test-dir cpp/kupl/qcu/build --output-on-failure
 python -m pytest -q pyqcu/testing/kupl
 ```
@@ -318,6 +319,7 @@ mpirun -np 1 python -u conftest.py
 | `docs/dims.md` | `s/c/d/p/x/y/z/t` 轴语义固定，时空维永远是最后四轴；gauge/fermion/Clover 使用 canonical 顺序。 | `pyqcu-tools`, `pyqcu-lattice`, `pyqcu-dslash` |
 | `docs/env.md` | Python ≥ 3.10，`PYTHONPATH` 包含仓库根；环境入口为 `env.sh`。 | `pyqcu-tools`, `pyqcu-testing` |
 | `docs/install.md` | CUDA 走 `build.sh`/`install.sh`；KUPL 独立 CMake/CTest；QUDA/PyQUDA 必须匹配当前架构与 ABI。 | `pyqcu-cuda`, `pyqcu-kupl`, `pyqcu-testing-pyquda` |
+| `docs/kupl_only_deployment.md` | 纯 KUPL 使用 `install.sh kupl`/`PYQCU_BUILD_BACKEND=kupl`，不要求 CUDA/Cython 扩展；旧版 PyTorch 不调用 `dtype.to_real()`；生产入口、放置和排错均以 KUPL 为唯一后端。 | `pyqcu-kupl`, `pyqcu-testing-cpu`, `pyqcu-benchmark`, `pyqcu-tools` |
 | `docs/examples.md` | 顶层 `examples/` 已删除，现行测试/示例入口统一为 `pyqcu/testing/**`；conftest 是手动选择入口。 | `pyqcu-testing` |
 | `docs/kupl_kunpeng_guide.md` | KUPL 保底为通用 C++17/MPI/OpenMP；鲲鹏优先由调度器/HMPI 在 Python 分配前绑定，库内 NUMA/片上内存策略是回退；性能证据必须记录实际 cpuset、策略和独立真残差。 | `pyqcu-kupl`, `pyqcu-testing-cpu`, `pyqcu-benchmark` |
 | `docs/profiler.md` | 使用 `torch.profiler` 生成 Chrome trace，再用 Perfetto 分析；继续遵守一进程一 rank 一设备。 | `pyqcu-testing-profiler` |

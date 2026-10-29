@@ -15,9 +15,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable
 
-from pyqcu.tools._argparse import BooleanOptionalAction
-
-
 DEFAULT_NODE_ROOT = Path("/sys/devices/system/node")
 DEFAULT_CPUINFO = Path("/proc/cpuinfo")
 DEFAULT_MEMINFO = Path("/proc/meminfo")
@@ -468,9 +465,9 @@ def _parser() -> argparse.ArgumentParser:
                       help="use KUPL_MEMORY_NODE=local+OFFSET for on-chip memory")
     plan.add_argument("--rankfile", default=None,
                       help="use exact launcher slots instead of --map-by")
-    plan.add_argument("--fused-bicg-dots", action=BooleanOptionalAction,
+    plan.add_argument("--fused-bicg-dots", action=argparse.BooleanOptionalAction,
                       default=True)
-    plan.add_argument("--disable-clover-cache", action=BooleanOptionalAction,
+    plan.add_argument("--disable-clover-cache", action=argparse.BooleanOptionalAction,
                       default=False)
     plan.add_argument("--allow-oversubscribe", action="store_true")
     plan.add_argument("--program", default="<program>")

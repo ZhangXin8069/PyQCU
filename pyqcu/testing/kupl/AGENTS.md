@@ -11,6 +11,8 @@ KUPL CPU 后端的 Python 黑盒回归。
   verify；`check_abi.py` 同时比对 KUPL/CUDA C 声明和动态导出。
 - `kunpeng_runtime.py` 读取实际 affinity/sysfs NUMA 拓扑并生成 HMPI/OpenMPI、
   CPU/内存绑定计划；`test_kunpeng_runtime.py` 用合成双 NUMA 数据验证参数契约。
+- `test_pure_kupl_install.py` 验证纯 KUPL 构建不触发 CUDA/Cython、旧 PyTorch
+  dtype 映射不依赖 `to_real()`，且拓扑 CLI 不初始化 MPI。
 - `test_kunpeng_mpi_binding.py` 启动双 rank，验证 `KUPL_NUMA_BIND=1` 后每个 rank
   的 cpuset 非空且互不重叠；无 Linux/sysfs 或 CPU 不足时返回 CTest skip 77。
 - `test_kunpeng_profile_contract.py` 验证非鲲鹏主机拒绝鲲鹏 profile，并保证

@@ -2,6 +2,8 @@
 
 本文是 `cpp/kupl/qcu` 在鲲鹏服务器上的构建、MPI/OpenMP 拓扑、NUMA/内存绑定、
 测试和性能证据指南。通用 Linux、x86_64 与其他 ARM64 平台仍使用同一套 C++17 ABI。
+纯 KUPL、不编译 CUDA 的端到端安装和运维流程见
+[`kupl_only_deployment.md`](kupl_only_deployment.md)。
 
 > 名称说明：本文的 KUPL 指 PyQCU 的独立 CPU backend。它不是 Kunpeng HPCKit 中
 > 同名的 KUPL 并行库；PyQCU 不链接 HPCKit KUPL/KML，也不要求安装 HPCKit。
@@ -34,22 +36,18 @@ Kunpeng/HiSilicon CPU 标识；x86 或普通 ARM64 直接入口会失败。拓�
 通用可部署构建关闭本机 ISA 特化：
 
 ```bash
-cmake -S cpp/kupl/qcu -B cpp/kupl/qcu/build-generic \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DKUPL_ENABLE_NATIVE=OFF \
-  -DKUPL_ENABLE_LTO=OFF
-cmake --build cpp/kupl/qcu/build-generic -j
+PYQCU_KUPL_BUILD_DIR="$PWD/cpp/kupl/qcu/build-generic" \
+KUPL_ENABLE_NATIVE=OFF KUPL_ENABLE_LTO=OFF \
+bash ./install.sh kupl
 ctest --test-dir cpp/kupl/qcu/build-generic --output-on-failure
 ```
 
 目标鲲鹏节点的性能构建：
 
 ```bash
-cmake -S cpp/kupl/qcu -B cpp/kupl/qcu/build-kunpeng \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DKUPL_ENABLE_NATIVE=ON \
-  -DKUPL_ENABLE_LTO=ON
-cmake --build cpp/kupl/qcu/build-kunpeng -j
+PYQCU_KUPL_BUILD_DIR="$PWD/cpp/kupl/qcu/build-kunpeng" \
+KUPL_ENABLE_NATIVE=ON KUPL_ENABLE_LTO=ON \
+bash ./install.sh kupl
 ctest --test-dir cpp/kupl/qcu/build-kunpeng --output-on-failure
 ```
 
@@ -377,7 +375,7 @@ ctest --test-dir cpp/kupl/qcu/build \
 - BiCGStab `(t,t)` 与 `(t,s)` 成对点积，默认一次归约，可 A/B 回退；
 - 可复现的 `KUPL_ENABLE_LTO` CMake 选项。
 
-本仓库在 x86 共享开发机上验证了构建、34 项 CTest、MPI cpuset 不重叠和函数正确性，
+本仓库在 x86 共享开发机上验证了构建、35 项 CTest、MPI cpuset 不重叠和函数正确性，
 但该主机只有一个 NUMA 节点，且容器禁止 `set_mempolicy`。因此它只能证明回退与
 测试逻辑，不构成鲲鹏 NUMA、片上内存或 HMPI 性能承诺。历史双 NUMA 记录只保留
 作时点证据；正式优化必须在目标鲲鹏节点按本文证据模板重跑。
