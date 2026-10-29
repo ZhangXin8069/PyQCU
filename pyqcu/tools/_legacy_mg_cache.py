@@ -13,6 +13,7 @@ import json
 import math
 import os
 from collections.abc import Mapping, Sequence
+from itertools import product
 from pathlib import Path
 from typing import Any
 
@@ -127,8 +128,11 @@ def logical_array_sha256(array: np.ndarray) -> str:
     return digest.hexdigest()
 
 
-def logical_dataset_sha256(dataset: Any) -> str:
-    """Stream a dataset hash without materializing the whole tensor set."""
+def logical_dataset_sha256(
+        dataset: Any, *, max_chunk_bytes: int = 64 << 20) -> str:
+    """Stream a dataset hash in bounded multidimensional chunks."""
+    if max_chunk_bytes <= 0:
+        raise ValueError("max_chunk_bytes must be positive")
     digest = hashlib.sha256()
     metadata = {
         "shape": tuple(int(value) for value in dataset.shape),
@@ -138,9 +142,31 @@ def logical_dataset_sha256(dataset: Any) -> str:
         metadata, sort_keys=True, separators=(",", ":")).encode("utf-8"))
     if dataset.ndim == 0:
         digest.update(np.ascontiguousarray(dataset[()]).tobytes())
-    else:
-        for index in range(int(dataset.shape[0])):
-            digest.update(np.ascontiguousarray(dataset[index]).tobytes())
+        return digest.hexdigest()
+
+    shape = tuple(int(value) for value in dataset.shape)
+    chunk = list(shape)
+    element_bytes = int(np.dtype(dataset.dtype).itemsize)
+    target_elements = max(1, int(max_chunk_bytes) // element_bytes)
+    while math.prod(chunk) > target_elements:
+        changed = False
+        oversized = math.ceil(math.prod(chunk) / target_elements)
+        for axis, extent in enumerate(chunk):
+            if extent <= 1:
+                continue
+            chunk[axis] = max(1, math.ceil(extent / oversized))
+            changed = True
+            if math.prod(chunk) <= target_elements:
+                break
+        if not changed:
+            break
+    starts = [range(0, shape[axis], chunk[axis]) for axis in range(len(shape))]
+    for origin in product(*starts):
+        selection = tuple(
+            slice(origin[axis], min(
+                origin[axis] + chunk[axis], shape[axis]))
+            for axis in range(len(shape)))
+        digest.update(np.ascontiguousarray(dataset[selection]).tobytes())
     return digest.hexdigest()
 
 
@@ -214,29 +240,57 @@ def identity_sha256(identity: Mapping[str, Any]) -> str:
 
 def build_legacy_mg_cache_manifest(
         cache_path: str | os.PathLike[str], identity: Mapping[str, Any], *,
-        datasets: Mapping[str, np.ndarray], setup_method: str,
+        datasets: Mapping[str, np.ndarray] | None, setup_method: str,
         setup_backend: str, setup_validation: Mapping[str, Any] | None = None,
         source_metadata: Mapping[str, Any] | None = None,
         setup_seconds: float | None = None) -> dict[str, Any]:
-    """Build the sidecar consumed by every QCU Legacy backend."""
+    """Build the sidecar consumed by every QCU Legacy backend.
+
+    ``datasets=None`` hashes the already-written HDF5 datasets in streaming
+    order.  This lets a distributed MPI builder publish ``lonv`` directly
+    without first gathering the full tensor on rank zero.
+    """
     path = Path(cache_path)
     normalized = _normalize_identity(identity)
     expected_shapes = legacy_mg_cache_shapes(
         normalized["lattice"], normalized["mg_grid"], normalized["dof"])
     records: dict[str, dict[str, Any]] = {}
-    for name in LEGACY_MG_ASSET_NAMES:
-        value = np.asarray(datasets[name])
-        if tuple(value.shape) != expected_shapes[name]:
-            raise ValueError(
-                f"{name} shape {tuple(value.shape)} != {expected_shapes[name]}")
-        if np.dtype(value.dtype) != np.dtype(normalized["dtype"]):
-            raise ValueError(
-                f"{name} dtype {value.dtype} != {normalized['dtype']}")
-        records[name] = {
-            "shape": list(value.shape),
-            "dtype": str(value.dtype),
-            "sha256": logical_array_sha256(value),
-        }
+    if datasets is None:
+        import h5py
+
+        with h5py.File(path, "r") as handle:
+            missing = sorted(set(LEGACY_MG_ASSET_NAMES).difference(handle.keys()))
+            if missing:
+                raise ValueError(
+                    f"Legacy MG cache {path} is missing datasets {missing}")
+            for name in LEGACY_MG_ASSET_NAMES:
+                dataset = handle[name]
+                if tuple(dataset.shape) != expected_shapes[name]:
+                    raise ValueError(
+                        f"{name} shape {tuple(dataset.shape)} != "
+                        f"{expected_shapes[name]}")
+                if np.dtype(dataset.dtype) != np.dtype(normalized["dtype"]):
+                    raise ValueError(
+                        f"{name} dtype {dataset.dtype} != {normalized['dtype']}")
+                records[name] = {
+                    "shape": list(dataset.shape),
+                    "dtype": str(dataset.dtype),
+                    "sha256": logical_dataset_sha256(dataset),
+                }
+    else:
+        for name in LEGACY_MG_ASSET_NAMES:
+            value = np.asarray(datasets[name])
+            if tuple(value.shape) != expected_shapes[name]:
+                raise ValueError(
+                    f"{name} shape {tuple(value.shape)} != {expected_shapes[name]}")
+            if np.dtype(value.dtype) != np.dtype(normalized["dtype"]):
+                raise ValueError(
+                    f"{name} dtype {value.dtype} != {normalized['dtype']}")
+            records[name] = {
+                "shape": list(value.shape),
+                "dtype": str(value.dtype),
+                "sha256": logical_array_sha256(value),
+            }
     report: dict[str, Any] = {
         "status": "PASS",
         "schema_version": LEGACY_MG_CACHE_SCHEMA,
@@ -326,6 +380,47 @@ def write_legacy_mg_assets(
     finally:
         if temporary.exists():
             temporary.unlink()
+    return path
+
+
+def write_legacy_mg_asset_subset(
+        cache_path: str | os.PathLike[str],
+        datasets: Mapping[str, np.ndarray], *,
+        identity: Mapping[str, Any]) -> Path:
+    """Append selected tensors to an existing staged cache.
+
+    The MPI builder creates ``lonv`` collectively first, then rank zero appends
+    the smaller ``hnn/hdg/sit`` tensors.  Existing datasets are rejected so a
+    partially initialized file cannot silently change its logical contents.
+    """
+    import h5py
+
+    path = Path(cache_path)
+    if not path.is_file():
+        raise FileNotFoundError(f"staged Legacy MG cache not found: {path}")
+    normalized = _normalize_identity(identity)
+    expected_shapes = legacy_mg_cache_shapes(
+        normalized["lattice"], normalized["mg_grid"], normalized["dof"])
+    unknown = sorted(set(datasets).difference(LEGACY_MG_ASSET_NAMES))
+    if unknown:
+        raise ValueError(f"unknown Legacy MG datasets {unknown}")
+    with h5py.File(path, "r+") as handle:
+        handle.attrs["pyqcu_cache_schema"] = LEGACY_MG_CACHE_SCHEMA
+        handle.attrs["pyqcu_cache_layout"] = LEGACY_MG_CACHE_LAYOUT
+        handle.attrs["pyqcu_cache_identity_sha256"] = identity_sha256(normalized)
+        for name in LEGACY_MG_ASSET_NAMES:
+            if name not in datasets:
+                continue
+            value = np.asarray(datasets[name])
+            if tuple(value.shape) != expected_shapes[name]:
+                raise ValueError(
+                    f"{name} shape {tuple(value.shape)} != {expected_shapes[name]}")
+            if np.dtype(value.dtype) != np.dtype(normalized["dtype"]):
+                raise ValueError(
+                    f"{name} dtype {value.dtype} != {normalized['dtype']}")
+            if name in handle:
+                raise ValueError(f"staged Legacy MG cache already has {name}")
+            handle.create_dataset(name, data=value)
     return path
 
 
@@ -490,6 +585,7 @@ __all__ = [
     "logical_dataset_sha256",
     "save_legacy_mg_cache",
     "validate_legacy_mg_cache",
+    "write_legacy_mg_asset_subset",
     "write_legacy_mg_assets",
     "write_legacy_mg_cache_manifest",
 ]

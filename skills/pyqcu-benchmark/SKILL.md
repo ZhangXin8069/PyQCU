@@ -42,8 +42,10 @@ The MPI cache entry is
 `python -m pyqcu.testing.simple.mpi.build_full_mg_cache`, not the serial parent
 script. It must run every rank through distributed null-vector construction,
 assign each rank a disjoint coarse slab, stage only a periodic overlap halo for
-local stencil evaluation, gather the four global tensors, validate every rank
-slab against the published HDF5, and publish the manifest atomically. The
+local stencil evaluation, write all four tensors through HDF5 MPI-IO owned slabs,
+validate every rank slab against the published HDF5, and publish the manifest
+atomically. Never root-gather multi-GiB `lonv`; L48 experience also rules out
+root assembly of `hnn/hdg/sit`. The
 correct `lonv` patch axes are `(2,4,6,8)`, not the last four tensor axes. Record
 MPI ranks/grid, per-rank patch extent, slab reconstruction status, and all
 global tensor SHA256 values. A 2/4-rank cache is functionally equivalent to the

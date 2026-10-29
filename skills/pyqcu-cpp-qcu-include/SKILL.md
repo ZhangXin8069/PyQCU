@@ -18,7 +18,7 @@ MPI. `MultiGpuMultigrid` is a test-only exception. See
 | `define.h` | Parameter index constants, block size — must mirror `pyqcu/cuda/define.py` |
 | `include.h` | 系统/第三方头聚合（`cuda*`/`cublas_v2`/`curand*`/`mpi.h`/`chrono`/…），被 `qcu.h:6` 首先包含 |
 | `lattice_complex.h` | Complex number arithmetic on GPU |
-| `lattice_set.h` | Lattice geometry, grid layout, site indexing (use ceiling division for grid dims) |
+| `lattice_set.h` | Lattice geometry, grid layout, site indexing, private singleton communicator lifecycle for serial patches |
 | `lattice_cuda.h` | CUDA stream management, device utilities |
 | `lattice_mpi.h` | MPI halo exchange (blocking `MPI_Sendrecv`) |
 | `qcu.h` | Top-level include aggregator |
@@ -37,6 +37,11 @@ MPI. `MultiGpuMultigrid` is a test-only exception. See
 | `gauss_gauge.h` | Gaussian gauge field generation |
 
 Headers correspond to `.cu` source files in `../src/` that `#include` them and instantiate the templates.
+
+Serial overlap patches under a multi-rank world must use the owning
+`LatticeSet::comm`, not `MPI_COMM_WORLD`. Clover and coarse halo paths therefore
+use `set_ptr->comm`; newly added halo code must do the same. The singleton
+communicator is created only for local grid product one and freed in `end()`.
 
 ## 参数与 Strict 槽位
 

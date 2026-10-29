@@ -41,6 +41,8 @@ template <typename T> struct LatticeSet {
   MPI_Request recv_request[_WARDS_];
   int host_params[_PARAMS_SIZE_];
   T host_argv[_ARGV_SIZE_];
+  MPI_Comm comm = MPI_COMM_WORLD;
+  bool owns_comm = false;
   void *device_send_vec[_WARDS_];
   void *device_recv_vec[_WARDS_];
   void *host_send_vec[_WARDS_];
@@ -122,10 +124,21 @@ template <typename T> struct LatticeSet {
     {   // basic set
       { // give params
         blockDim = _BLOCK_SIZE_;
-        checkMpiErrors(
-            MPI_Comm_rank(MPI_COMM_WORLD, host_params + _NODE_RANK_));
-        checkMpiErrors(
-            MPI_Comm_size(MPI_COMM_WORLD, host_params + _NODE_SIZE_));
+        int world_rank = 0;
+        int world_size = 1;
+        checkMpiErrors(MPI_Comm_rank(MPI_COMM_WORLD, &world_rank));
+        checkMpiErrors(MPI_Comm_size(MPI_COMM_WORLD, &world_size));
+        const int grid_product = host_params[_GRID_X_] * host_params[_GRID_Y_] *
+                                 host_params[_GRID_Z_] * host_params[_GRID_T_];
+        const bool serial_local_context =
+            host_params[_NODE_SIZE_] == 1 && grid_product == 1 && world_size > 1;
+        if (serial_local_context) {
+          checkMpiErrors(
+              MPI_Comm_split(MPI_COMM_WORLD, world_rank, 0, &comm));
+          owns_comm = true;
+        }
+        checkMpiErrors(MPI_Comm_rank(comm, host_params + _NODE_RANK_));
+        checkMpiErrors(MPI_Comm_size(comm, host_params + _NODE_SIZE_));
         grid_1dim[_X_] = host_params[_GRID_X_];
         grid_1dim[_Y_] = host_params[_GRID_Y_];
         grid_1dim[_Z_] = host_params[_GRID_Z_];
@@ -658,6 +671,11 @@ template <typename T> struct LatticeSet {
              get_time() / 1e3);
       cudaEventDestroy(start);
       cudaEventDestroy(stop);
+    }
+    if (owns_comm && comm != MPI_COMM_NULL) {
+      checkMpiErrors(MPI_Comm_free(&comm));
+      comm = MPI_COMM_NULL;
+      owns_comm = false;
     }
   }
   void _print() {

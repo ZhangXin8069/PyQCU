@@ -453,7 +453,6 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: 默认由调用兼容性和工程边界决定，并非统一性能裁决；Strict 的 setup/cache 成本需按重复求解场景摊销
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
-
 ## analysis - final - 2026-10-22 17:31:25 +0800
 - 主任务: 比较 C++ QCU Legacy 与 Strict 的完成度和多卡能力
 - 日志文件: logs/v2026102217-6.txt
@@ -812,3 +811,11 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: L32 Strict 2/4-rank PASS；L48 builder 因 CPU stencil 空占 GPU 在 5m36s 取消；统一接口/cache 与回归完成
 - 验证: path, size, required sections, conflict markers
 - 批次状态: in-progress
+## test30 - final - 2026-10-29 11:41:04 +0800
+- 主任务: PyQCU multi-backend MG cache and L48 resource audit
+- 日志文件: logs/v2026102911.txt
+- 文件大小: 5439 bytes
+- 触发原因: 任务完成
+- 关键内容: L8 CUDA GPU builder and KUPL direct cache reuse pass; L48 blocked by 54,976 MiB cgroup OOM; tests and docs synchronized
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete

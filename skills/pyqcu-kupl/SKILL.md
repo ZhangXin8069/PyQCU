@@ -206,17 +206,20 @@ Legacy 33-tensor cache 的规范 MPI 入口是
 串行脚本。实现边界如下：
 
 - 每个 rank 用全局 process grid 生成自己的 fine gauge/Clover 和 null-vector slab；
-- rank 0 汇总 blocked `lonv=[E,12,X,bx,Y,by,Z,bz,T/2,bt]`，overlap patch 必须按
-  `(2,4,6,8)` 四个 coarse 轴切片，不能把 `lonv` 当成普通 lattice-axes-last-4 张量；
+- 所有 rank 用 HDF5 MPI-IO 把 blocked `lonv=[E,12,X,bx,Y,by,Z,bz,T/2,bt]`
+  owned slab 写入暂存 cache，再按 `(2,4,6,8)` 四个 coarse 轴读取本地周期 patch；
+  不得把多 GiB `lonv` 经 root gather/scatter，也不能把它当成 axes-last-4 张量；
 - KUPL local-stencil API 在全局 MPI 作业内需要 `1x1x1x1` 私有 context；C++ geometry
   以 `params[_NODE_SIZE_]=1` 显式创建单 rank communicator，不能强制用
   `MPI_COMM_WORLD` 解释 patch grid；
-- 每个 rank 只输出自己的 coarse slab，最终四张量由 rank 0 组装、manifest 验签，
-  再由所有 rank 回读各自 hyperslab 与本地 slab 比对；
-- `--build-device cuda` 在 1 rank 使用 CUDA patch stencil；多 rank 时 CUDA Clover
-  halo 固定绑定 `MPI_COMM_WORLD`，不能安全承载 serial overlap patch，因此
-  null-vector 仍在 GPU 分布式生成，patch stencil 切到 CPU，并在报告中写
-  `stencil_device=cpu`。不得把该混合 setup 时间当作纯 GPU 性能；
+- 每个 rank 只输出自己的 coarse slab，四个张量均经 HDF5 MPI-IO 写 owned slab；
+  rank 0 只生成属性和 manifest，再由所有 rank 回读各自 hyperslab 与本地 slab 比对；
+- `--build-device cuda` 的所有 rank 均可使用 GPU patch stencil；patch LatticeSet 的
+  private singleton communicator 必须贯穿 Clover/coarse halo。报告应要求
+  `stencil_device=cuda:*`，出现 `cpu` 视为未启用当前 GPU-native 路径；
+- `lonv` 时间轴已做 odd-Schur 压缩，物理 fine 到 cache coarse 的 stride 是
+  `2*mg_grid[t]`；写盘后释放 local slab，root 只汇总较小的 `hnn/hdg/sit` 并流式
+  计算已有 dataset digest；
 - 1/2/4-rank 不要求 SHA 位级相同，但同一物理输入的功能资产应报告相对误差。
   2026-10-29 `8x8x8x16` c64 E2 实测 `lonv/hnn/hdg/sit` 的 2/4-rank 对 1-rank
   Frobenius 相对差约 `1.3e-5–2.4e-5`，符合 MPI 归约顺序差异。
@@ -231,6 +234,12 @@ Galerkin 和 L8 `hnn=1.35e-2` 失配不是 KUPL slot 顺序，而是 CUDA raw li
 `2.48e-7/7.34e-8/2.52e-7`；KUPL 直接加载 CUDA canonical E2 cache 的
 `verify_status=0`，独立 true residual `2.016388e-7`。因此不得再对 Legacy payload
 做方向转置或私有重排来绕过该问题。
+
+多 rank builder 的 overlap patch 现在由 CUDA GPU 直接生成，不再因
+`MPI_COMM_WORLD` halo 串序而降级到 CPU。当前 L8 4-rank、`2x2x1x1`、E2 cache 已由
+同 rank/grid 的 KUPL 直接加载，`verify_status=0`，独立 distributed NumPy 真残差
+`4.110297e-7`。跨后端验证必须同时记录 cache identity、rank/grid、独立残差和
+`stencil_device=cuda:*`，不能只检查 cache 能否打开。
 
 ## 2026-10-21 Clover 6×6 块与 MG 几何
 

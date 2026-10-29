@@ -6,6 +6,7 @@ import argparse
 import json
 from types import SimpleNamespace
 
+import h5py
 import numpy as np
 import pytest
 
@@ -30,10 +31,24 @@ from pyqcu.testing.simple.mpi.benchmark_kupl import (
     main as benchmark_kupl_main,
 )
 from pyqcu.testing.simple.mpi._distributed_mg_cache import (
+    _asset_coarse_step,
+    _asset_slab_selection,
+    _hdf5_asset_patch,
+    _hdf5_gauge_canonical_sha256,
+    _hdf5_gauge_patch,
     _patch_axis,
     _periodic_asset_patch,
 )
 from pyqcu.testing.simple.mpi.quda_residual import _add_clover_identity
+from pyqcu.tools._legacy_mg_cache import (
+    build_legacy_mg_cache_manifest,
+    legacy_mg_cache_identity,
+    legacy_mg_cache_shapes,
+    logical_array_sha256,
+    logical_dataset_sha256,
+    validate_legacy_mg_cache,
+    write_legacy_mg_asset_subset,
+)
 import pyqcu.testing.simple.mpi.solve_case as solve_case_module
 import pyqcu.testing.simple.mpi.benchmark_kupl as benchmark_module
 from pyqcu.tools._argparse import BooleanOptionalAction
@@ -67,6 +82,98 @@ def test_distributed_mg_lonv_patch_keeps_interleaved_axes():
 def test_distributed_mg_patch_axis_keeps_alignment_when_narrow():
     start, extent, center = _patch_axis(8, 2, 3, 2)
     assert (start, extent, center) == (0, 8, 6)
+
+
+def test_distributed_mg_cache_time_uses_odd_schur_coarse_stride():
+    assert [_asset_coarse_step((2, 4, 8, 16), axis) for axis in range(4)] == [
+        2, 4, 8, 32]
+
+
+def test_hdf5_gauge_patch_wraps_without_collective(tmp_path):
+    rng = np.random.default_rng(19)
+    gauge = (
+        rng.normal(size=(3, 3, 4, 4, 4, 4, 4)) +
+        1j * rng.normal(size=(3, 3, 4, 4, 4, 4, 4))).astype(np.complex64)
+    path = tmp_path / "gauge.h5"
+    with h5py.File(path, "w") as handle:
+        handle.create_dataset("data", data=gauge)
+    starts = (3, 3, 3, 3)
+    extent = (2, 2, 2, 2)
+    actual = _hdf5_gauge_patch(
+        path, starts, extent, np.dtype(np.complex64))
+    expected = gauge
+    for axis, (start, width) in enumerate(zip(starts, extent, strict=True)):
+        expected = np.take(
+            expected, (start + np.arange(width)) % 4, axis=axis + 3)
+    np.testing.assert_array_equal(actual, expected)
+    with h5py.File(path, "r") as handle:
+        expected_sha = logical_dataset_sha256(handle["data"])
+    assert _hdf5_gauge_canonical_sha256(path) == expected_sha
+
+
+def test_hdf5_lonv_patch_matches_in_memory_periodic_read(tmp_path):
+    lonv = np.arange(
+        2 * 12 * 4 * 2 * 3 * 2 * 2 * 2 * 5 * 2,
+        dtype=np.float32,
+    ).reshape(2, 12, 4, 2, 3, 2, 2, 2, 5, 2)
+    path = tmp_path / "lonv.h5"
+    with h5py.File(path, "w") as handle:
+        handle.create_dataset("lonv", data=lonv)
+    starts = (3, 2, 1, 4)
+    extent = (2, 2, 2, 3)
+    actual = _hdf5_asset_patch(
+        path, "lonv", starts, extent, np.dtype(np.float32),
+        max_first_axis_extent=1)
+    expected = _periodic_asset_patch(lonv, "lonv", starts, extent)
+    np.testing.assert_array_equal(actual, expected)
+    selection = _asset_slab_selection((1, 2, 0, 1), (2, 1, 2, 1), "lonv")
+    assert selection[2] == slice(1, 3)
+    assert selection[4] == slice(2, 3)
+    assert selection[6] == slice(0, 2)
+    assert selection[8] == slice(1, 2)
+
+
+def test_staged_cache_can_manifest_streamed_existing_datasets(tmp_path):
+    lattice = (4, 4, 4, 4)
+    mg_grid = (2, 2, 2, 2)
+    shapes = legacy_mg_cache_shapes(lattice, mg_grid, (12, 2))
+    identity = legacy_mg_cache_identity(
+        gauge_canonical_sha256="1" * 64,
+        gauge_file_sha256="2" * 64,
+        lattice=lattice, dtype=np.dtype(np.complex64), mass=-0.277,
+        csw=1.160920225783, dof=(12, 2), mg_grid=mg_grid,
+        nv_iters=1, seed=42)
+    datasets = {
+        name: np.zeros(shape, dtype=np.complex64)
+        for name, shape in shapes.items()
+    }
+    path = tmp_path / "cache.h5"
+    with h5py.File(path, "w") as handle:
+        handle.create_dataset("lonv", data=datasets["lonv"])
+        handle.attrs["pyqcu_cache_schema"] = "pyqcu.legacy-mg-cache.v1"
+        handle.attrs["pyqcu_cache_layout"] = "odd-schur"
+    write_legacy_mg_asset_subset(
+        path, {name: datasets[name] for name in ("hnn", "hdg", "sit")},
+        identity=identity)
+    manifest = build_legacy_mg_cache_manifest(
+        path, identity, datasets=None, setup_method="test",
+        setup_backend="unit")
+    with h5py.File(path, "r") as handle:
+        assert manifest["assets"]["lonv"]["sha256"] == (
+            logical_dataset_sha256(handle["lonv"]))
+    from pyqcu.tools._legacy_mg_cache import write_legacy_mg_cache_manifest
+
+    write_legacy_mg_cache_manifest(path, manifest)
+    validate_legacy_mg_cache(path, identity, verify_file_sha256=False)
+
+
+def test_chunked_dataset_digest_matches_array_digest(tmp_path):
+    value = np.arange(3 * 5 * 7 * 11, dtype=np.complex64).reshape(3, 5, 7, 11)
+    path = tmp_path / "chunked.h5"
+    with h5py.File(path, "w") as handle:
+        dataset = handle.create_dataset("value", data=value)
+        assert logical_dataset_sha256(
+            dataset, max_chunk_bytes=97) == logical_array_sha256(value)
 
 
 def test_solve_case_builds_coarse_cache_with_requested_mpi_grid(

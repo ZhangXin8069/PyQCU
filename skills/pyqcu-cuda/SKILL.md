@@ -409,6 +409,16 @@ Legacy cache 的 `sit` 和复用方的 Galerkin 验证。
 修复后的同一真实 gauge 上，CUDA/KUPL even/odd Clover 误差约 `4.9e-8`，
 Legacy `hnn/hdg/sit` 跨后端误差均低于 `3e-7`。
 
+### 2026-10-29 private communicator for serial patches
+
+`LatticeSet` 保存 `comm=MPI_COMM_WORLD` 和 `owns_comm`。当 `NODE_SIZE=1`、
+process-grid product 为 `1x1x1x1` 而 MPI world size 大于 1 时，它为独立 overlap
+patch 创建私有 singleton communicator，并在 `end()` 中只由 owner 释放。Clover
+dslash 和 coarse halo 必须使用 `set_ptr->comm`，不得重新硬编码
+`MPI_COMM_WORLD`。复用已有 GPU cache 时还必须按共享内存 local rank 设置
+`PYQCU_MPI_DEVICE_ID`，否则跳过 null-vector 初始化后 native QCU 可能仍绑定 device
+0，而 Python patch tensor 位于 rank 对应 GPU，触发非法内存访问。
+
 ### Distributed Strict geometry and trace lifecycle (2026-10-29)
 
 Every rank's Strict coarse level is rank-local. Given global fine shape `L`, process

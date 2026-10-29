@@ -5,8 +5,10 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import time
 from collections.abc import Sequence
+from itertools import product
 from pathlib import Path
 from typing import Any
 
@@ -33,13 +35,15 @@ from pyqcu.testing.simple.mpi._common import (
 from pyqcu.testing.simple.mpi.mpi_ranks_power_of_two import validate_rank_count
 from pyqcu.tools._legacy_mg_cache import (
     LEGACY_MG_ASSET_NAMES,
+    build_legacy_mg_cache_manifest,
     file_sha256,
     legacy_mg_cache_identity,
     legacy_mg_cache_shapes,
     load_legacy_mg_cache_slab,
     logical_array_sha256,
-    save_legacy_mg_cache,
+    logical_dataset_sha256,
     validate_legacy_mg_cache,
+    write_legacy_mg_asset_subset,
     write_legacy_mg_cache_manifest,
 )
 
@@ -50,6 +54,13 @@ ASSET_LATTICE_AXES = {
     "hdg": (5, 6, 7, 8),
     "sit": (2, 3, 4, 5),
 }
+
+NON_LONV_ASSETS = ("hnn", "hdg", "sit")
+
+
+def _asset_coarse_step(mg_grid: Sequence[int], axis: int) -> int:
+    """Return the physical-fine to cache-coarse stride for one axis."""
+    return int(mg_grid[axis]) * (2 if axis == 3 else 1)
 
 
 def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
@@ -70,6 +81,7 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument("--ranks", type=int, default=None)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--report", type=Path, default=None)
+    parser.add_argument("--reuse-lonv", type=Path, default=None)
     parser.add_argument("--verbose", action="store_true")
     return parser.parse_args(argv)
 
@@ -100,6 +112,221 @@ def _hdf5_gauge_slab(
         else:
             raise ValueError(f"unsupported gauge HDF5 shape {dataset.shape}")
     return np.ascontiguousarray(slab, dtype=dtype)
+
+
+def _hdf5_gauge_patch(
+    path: Path,
+    starts: tuple[int, int, int, int],
+    extent: tuple[int, int, int, int],
+    dtype: np.dtype,
+) -> np.ndarray:
+    """Read one periodic QCU/QDP gauge patch without gathering MPI world."""
+    import h5py
+
+    def sorted_axis(dataset: Any, values: np.ndarray, axis: int) -> np.ndarray:
+        ordered = np.unique(values)
+        selection = [slice(None)] * dataset.ndim
+        selection[axis] = ordered
+        selected = dataset[tuple(selection)]
+        positions = np.searchsorted(ordered, values)
+        return np.take(selected, positions, axis=axis)
+
+    with h5py.File(path, "r") as handle:
+        dataset = handle["data"]
+        if dataset.ndim != 7:
+            raise ValueError(f"unsupported gauge HDF5 shape {dataset.shape}")
+        global_shape = tuple(int(value) for value in dataset.shape[-4:])
+        indices = tuple(
+            (int(starts[axis]) + np.arange(int(extent[axis]))) % global_shape[axis]
+            for axis in range(4)
+        )
+        if tuple(dataset.shape[:3]) == (3, 3, 4):
+            value = sorted_axis(dataset, indices[0], 3)
+            value = np.take(value, indices[1], axis=-3)
+            value = np.take(value, indices[2], axis=-2)
+            value = np.take(value, indices[3], axis=-1)
+        elif int(dataset.shape[0]) == 4 and tuple(dataset.shape[-2:]) == (3, 3):
+            value = sorted_axis(dataset, indices[0], 1)
+            value = np.take(value, indices[1], axis=1)
+            value = np.take(value, indices[2], axis=2)
+            value = np.take(value, indices[3], axis=3)
+            value = qdp_gauge_to_qcu(value)
+        else:
+            raise ValueError(f"unsupported gauge HDF5 shape: {dataset.shape}")
+    return np.ascontiguousarray(value, dtype=dtype)
+
+
+def _hdf5_gauge_canonical_sha256(path: Path) -> str:
+    """Stream the canonical QCU HDF5 gauge digest on rank zero."""
+    import h5py
+
+    with h5py.File(path, "r") as handle:
+        dataset = handle["data"]
+        if tuple(dataset.shape[:3]) == (3, 3, 4):
+            return logical_dataset_sha256(dataset)
+        if int(dataset.shape[0]) == 4 and tuple(dataset.shape[-2:]) == (3, 3):
+            return logical_array_sha256(qdp_gauge_to_qcu(dataset[...]))
+        raise ValueError(f"unsupported gauge HDF5 shape: {dataset.shape}")
+
+
+def _asset_slab_selection(
+    starts: Sequence[int],
+    local_shape: Sequence[int],
+    name: str,
+) -> tuple[slice, ...]:
+    storage_axes = ASSET_LATTICE_AXES[name]
+    selection: list[slice] = [slice(None)] * (max(storage_axes) + 1)
+    for axis, storage_axis in enumerate(storage_axes):
+        selection[storage_axis] = slice(
+            int(starts[axis]), int(starts[axis] + local_shape[axis]))
+    return tuple(selection)
+
+
+def _create_distributed_lonv(
+    path: Path,
+    local_lonv: np.ndarray,
+    global_shape: tuple[int, ...],
+    coarse_starts: tuple[int, int, int, int],
+    comm: Any,
+) -> None:
+    """Write one rank's blocked lonv slab into the staged cache via MPI-IO."""
+    import h5py
+
+    with h5py.File(path, "w", driver="mpio", comm=comm) as handle:
+        dataset = handle.create_dataset(
+            "lonv", shape=global_shape, dtype=local_lonv.dtype)
+        dataset[_asset_slab_selection(
+            coarse_starts, local_lonv.shape[2::2], "lonv")] = local_lonv
+
+
+def _stage_reused_lonv(path: Path, source: Path, comm: Any) -> None:
+    """Publish a validated lonv-only HDF5 scratch file into the staged cache."""
+    status = 0
+    if int(comm.Get_rank()) == 0:
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                os.link(source, path)
+            except OSError:
+                shutil.copyfile(source, path)
+        except BaseException:
+            status = 1
+    status = int(comm.bcast(status, root=0))
+    if status != 0:
+        raise RuntimeError(f"failed to stage reused lonv cache {source}")
+
+
+def _validate_lonv_source(
+    path: Path,
+    expected_shape: tuple[int, ...],
+    dtype: np.dtype,
+) -> None:
+    import h5py
+
+    with h5py.File(path, "r") as handle:
+        if "lonv" not in handle:
+            raise ValueError(f"reused cache {path} has no lonv dataset")
+        dataset = handle["lonv"]
+        if tuple(dataset.shape) != expected_shape:
+            raise ValueError(
+                f"reused lonv shape {dataset.shape} != {expected_shape}")
+        if np.dtype(dataset.dtype) != dtype:
+            raise ValueError(
+                f"reused lonv dtype {dataset.dtype} != {dtype}")
+
+
+def _write_distributed_asset_slabs(
+    path: Path,
+    local_assets: dict[str, np.ndarray],
+    shapes: dict[str, tuple[int, ...]],
+    coarse_starts: tuple[int, int, int, int],
+    comm: Any,
+) -> None:
+    """Collectively create and fill the non-lonv cache tensors."""
+    import h5py
+
+    with h5py.File(path, "r+", driver="mpio", comm=comm) as handle:
+        for name in NON_LONV_ASSETS:
+            dataset = (
+                handle[name] if name in handle else
+                handle.create_dataset(
+                    name, shape=shapes[name], dtype=local_assets[name].dtype))
+            dataset[_asset_slab_selection(
+                coarse_starts, local_assets[name].shape[-4:], name
+            )] = local_assets[name]
+
+
+def _periodic_dataset_ranges(
+    start: int,
+    extent: int,
+    global_extent: int,
+    *,
+    max_extent: int | None = None,
+) -> list[tuple[slice, slice]]:
+    """Split a cyclic dataset interval into bounded contiguous reads."""
+    if extent <= 0 or extent > global_extent:
+        raise ValueError(
+            f"invalid periodic interval start={start} extent={extent} "
+            f"global={global_extent}")
+    source = int(start) % global_extent
+    destination = 0
+    remaining = int(extent)
+    ranges: list[tuple[slice, slice]] = []
+    while remaining:
+        width = min(remaining, global_extent - source)
+        if max_extent is not None:
+            width = min(width, int(max_extent))
+        ranges.append((
+            slice(source, source + width),
+            slice(destination, destination + width),
+        ))
+        source = (source + width) % global_extent
+        destination += width
+        remaining -= width
+    return ranges
+
+
+def _hdf5_asset_patch(
+    path: Path,
+    name: str,
+    starts: tuple[int, int, int, int],
+    extent: tuple[int, int, int, int],
+    dtype: np.dtype,
+    *,
+    comm: Any | None = None,
+    max_first_axis_extent: int | None = None,
+) -> np.ndarray:
+    """Read one cyclic blocked-asset patch without a global root gather."""
+    import h5py
+
+    open_kwargs = (
+        {"driver": "mpio", "comm": comm} if comm is not None else {})
+    with h5py.File(path, "r", **open_kwargs) as handle:
+        dataset = handle[name]
+        if dataset.ndim != 10:
+            raise ValueError(
+                f"unsupported {name} HDF5 rank {dataset.ndim}: {dataset.shape}")
+        patch_shape = list(dataset.shape)
+        axes = ASSET_LATTICE_AXES[name]
+        for axis, storage_axis in enumerate(axes):
+            patch_shape[storage_axis] = int(extent[axis])
+        patch = np.empty(tuple(patch_shape), dtype=dtype)
+        ranges = [
+            _periodic_dataset_ranges(
+                starts[axis], extent[axis], int(dataset.shape[storage_axis]),
+                max_extent=(
+                    max_first_axis_extent if axis == 0 else None))
+            for axis, storage_axis in enumerate(axes)
+        ]
+        for selected_ranges in product(*ranges):
+            source = [slice(None)] * dataset.ndim
+            destination = [slice(None)] * dataset.ndim
+            for axis, (source_range, destination_range) in enumerate(
+                    selected_ranges):
+                source[axes[axis]] = source_range
+                destination[axes[axis]] = destination_range
+            patch[tuple(destination)] = dataset[tuple(source)]
+    return np.ascontiguousarray(patch, dtype=dtype)
 
 
 def _load_local_gauge(
@@ -339,19 +566,6 @@ def _fill_last4(
     destination[tuple(selection)] = source
 
 
-def _fill_asset(
-    destination: np.ndarray,
-    source: np.ndarray,
-    name: str,
-    starts: Sequence[int],
-) -> None:
-    selection = [slice(None)] * destination.ndim
-    for axis, storage_axis in enumerate(ASSET_LATTICE_AXES[name]):
-        selection[storage_axis] = slice(
-            int(starts[axis]), int(starts[axis] + source.shape[storage_axis]))
-    destination[tuple(selection)] = source
-
-
 def _asset_patch(
     source: np.ndarray,
     name: str,
@@ -429,60 +643,6 @@ def _global_gauge(
     return global_gauge
 
 
-def _global_lonv(
-    local_lonv: np.ndarray,
-    lattice: tuple[int, int, int, int],
-    grid: tuple[int, int, int, int],
-    mg_grid: Sequence[int],
-    shape: tuple[int, ...],
-    comm: Any,
-) -> np.ndarray | None:
-    gathered = comm.gather(local_lonv, root=0)
-    if int(comm.Get_rank()) != 0:
-        return None
-    result = np.empty(shape, dtype=local_lonv.dtype)
-    for source_rank, value in enumerate(gathered or []):
-        local_fine, _, coordinate = local_geometry(lattice, grid, source_rank)
-        local_coarse = tuple(
-            (local_fine[axis] // 2 if axis == 3 else local_fine[axis])
-            // int(mg_grid[axis]) for axis in range(4))
-        coarse_starts = tuple(
-            coordinate[axis] * local_coarse[axis] for axis in range(4))
-        _fill_asset(result, value, "lonv", coarse_starts)
-    return result
-
-
-def _global_assets(
-    local_assets: dict[str, np.ndarray],
-    shapes: dict[str, tuple[int, ...]],
-    lattice: tuple[int, int, int, int],
-    grid: tuple[int, int, int, int],
-    mg_grid: Sequence[int],
-    comm: Any,
-) -> dict[str, np.ndarray] | None:
-    gathered = {
-        name: comm.gather(local_assets[name], root=0)
-        for name in LEGACY_MG_ASSET_NAMES
-    }
-    if int(comm.Get_rank()) != 0:
-        return None
-    result = {
-        name: np.empty(shapes[name], dtype=local_assets[name].dtype)
-        for name in LEGACY_MG_ASSET_NAMES
-    }
-    for source_rank in range(int(comm.Get_size())):
-        local_fine, _, coordinate = local_geometry(lattice, grid, source_rank)
-        local_coarse = tuple(
-            (local_fine[axis] // 2 if axis == 3 else local_fine[axis])
-            // int(mg_grid[axis]) for axis in range(4))
-        coarse_starts = tuple(
-            coordinate[axis] * local_coarse[axis] for axis in range(4))
-        for name in LEGACY_MG_ASSET_NAMES:
-            _fill_asset(
-                result[name], gathered[name][source_rank], name, coarse_starts)
-    return result
-
-
 def _main_native(argv: Sequence[str] | None = None) -> int:
     from mpi4py import MPI
 
@@ -520,7 +680,15 @@ def _main_native(argv: Sequence[str] | None = None) -> int:
             args, comm, lattice, local, starts, dtype)
         loading_seconds = time.perf_counter() - stage
         stage = time.perf_counter()
-        if args.build_device == "cuda":
+        local_lonv: np.ndarray | None
+        if args.reuse_lonv is not None:
+            local_lonv = None
+            null_timings = {
+                "clover_seconds": 0.0,
+                "null_vector_seconds": 0.0,
+                "host_transfer_seconds": 0.0,
+            }
+        elif args.build_device == "cuda":
             local_lonv, null_timings = _build_cuda_null_vectors(
                 local_gauge, local, grid, comm, args, dtype)
         else:
@@ -529,10 +697,6 @@ def _main_native(argv: Sequence[str] | None = None) -> int:
         setup_seconds = time.perf_counter() - stage
 
         shapes = legacy_mg_cache_shapes(lattice, args.mg_grid, args.dof[:2])
-        global_gauge = _global_gauge(local_gauge, lattice, grid, comm)
-        global_lonv = _global_lonv(
-            local_lonv, lattice, grid, args.mg_grid, shapes["lonv"], comm)
-
         patch_spec = tuple(
             _patch_axis(lattice[axis], local[axis], coordinate[axis],
                         int(args.mg_grid[axis]))
@@ -541,15 +705,62 @@ def _main_native(argv: Sequence[str] | None = None) -> int:
         patch_extent = tuple(item[1] for item in patch_spec)
         patch_centers = tuple(item[2] for item in patch_spec)
         coarse_centers = tuple(
-            patch_centers[axis] // int(args.mg_grid[axis])
+            patch_centers[axis] // _asset_coarse_step(args.mg_grid, axis)
             for axis in range(4))
+        local_coarse = tuple(
+            fine_odd[axis] // int(args.mg_grid[axis])
+            for axis in range(4))
+        output = Path(comm.bcast(
+            str(resolve_path(args.output, args.output.expanduser()))
+            if rank == 0 else None, root=0))
+        report_path = Path(comm.bcast(
+            str(
+                resolve_path(args.report, args.report.expanduser())
+                if args.report is not None
+                else output.with_suffix(".json"))
+            if rank == 0 else None, root=0))
+
+        gauge_path = resolve_path(args.gauge, Path(args.gauge).expanduser())
+        hdf5_gauge = gauge_path.suffix.lower() in (".h5", ".hdf5")
+        gauge_canonical_sha: str | None = None
+        global_gauge: np.ndarray | None = None
+        if hdf5_gauge:
+            if rank == 0:
+                gauge_canonical_sha = _hdf5_gauge_canonical_sha256(gauge_path)
+            gauge_canonical_sha = str(comm.bcast(gauge_canonical_sha, root=0))
+        else:
+            global_gauge = _global_gauge(local_gauge, lattice, grid, comm)
+
+        lonv_patch_starts = tuple(
+            patch_starts[axis] // _asset_coarse_step(args.mg_grid, axis)
+            for axis in range(4))
+        lonv_patch_extent = tuple(
+            patch_extent[axis] // _asset_coarse_step(args.mg_grid, axis)
+            for axis in range(4))
+        coarse_starts = tuple(
+            coordinate[axis] * local_coarse[axis] for axis in range(4))
+        stage = time.perf_counter()
+        if args.reuse_lonv is None:
+            assert local_lonv is not None
+            _create_distributed_lonv(
+                output, local_lonv, shapes["lonv"], coarse_starts, comm)
+            del local_lonv
+        else:
+            reused_source = Path(comm.bcast(
+                str(resolve_path(
+                    args.reuse_lonv, args.reuse_lonv.expanduser()))
+                if rank == 0 else None, root=0))
+            _validate_lonv_source(reused_source, shapes["lonv"], dtype)
+            _stage_reused_lonv(output, reused_source, comm)
+        lonv_patch = _hdf5_asset_patch(
+            output, "lonv", lonv_patch_starts, lonv_patch_extent, dtype,
+            comm=comm, max_first_axis_extent=4)
+        lonv_exchange_seconds = time.perf_counter() - stage
 
         gauge_patches = None
-        lonv_patches = None
-        if rank == 0:
-            assert global_gauge is not None and global_lonv is not None
+        if rank == 0 and not hdf5_gauge:
+            assert global_gauge is not None
             gauge_patches = []
-            lonv_patches = []
             for source_rank in range(size):
                 source_local, _, source_coordinate = local_geometry(
                     lattice, grid, source_rank)
@@ -562,32 +773,22 @@ def _main_native(argv: Sequence[str] | None = None) -> int:
                     global_gauge,
                     tuple(item[0] for item in source_spec),
                     tuple(item[1] for item in source_spec)))
-                lonv_starts = tuple(
-                    item[0] // (
-                        int(args.mg_grid[axis]) *
-                        (2 if axis == 3 else 1))
-                    for axis, item in enumerate(source_spec))
-                lonv_extent = tuple(
-                    item[1] // (
-                        int(args.mg_grid[axis]) *
-                        (2 if axis == 3 else 1))
-                    for axis, item in enumerate(source_spec))
-                lonv_patches.append(_periodic_asset_patch(
-                    global_lonv, "lonv", lonv_starts, lonv_extent))
-        gauge_patch = comm.scatter(gauge_patches, root=0)
-        lonv_patch = comm.scatter(lonv_patches, root=0)
+        gauge_patch = (
+            _hdf5_gauge_patch(gauge_path, patch_starts, patch_extent, dtype)
+            if hdf5_gauge else comm.scatter(gauge_patches, root=0))
         patch_lattice = tuple(int(value) for value in patch_extent)
         stencil_stats: dict[str, Any] = {}
         stage = time.perf_counter()
-        # A multi-rank CUDA LatticeSet always uses MPI_COMM_WORLD for its
-        # Clover/dslash collectives, even when the overlap patch grid is
-        # 1x1x1x1. Different ranks can therefore enter incompatible CUDA halo
-        # and Python collectives. Keep distributed null-vector generation on
-        # the GPUs, but execute the independent patch stencil on CPU unless
-        # the whole job is one rank.
-        stencil_device = (
-            f"cuda:{_cuda_local_rank(comm)}"
-            if args.build_device == "cuda" and size == 1 else "cpu")
+        # The overlap patch is an independent serial geometry: grid=1x1x1x1
+        # and no halo path. The CUDA local-stencil entry checks that geometry
+        # rather than MPI_COMM_WORLD size, so every rank can build its patch on
+        # its own GPU without entering CUDA halo collectives.
+        if args.build_device == "cuda":
+            cuda_local_rank = _cuda_local_rank(comm)
+            os.environ["PYQCU_MPI_DEVICE_ID"] = str(cuda_local_rank)
+            stencil_device = f"cuda:{cuda_local_rank}"
+        else:
+            stencil_device = "cpu"
         patch_assets = build_coarse_assets(
             gauge_patch, patch_lattice, args.mass,
             1.0 / (2.0 * args.mass + 8.0), args.csw, dtype, 2,
@@ -599,95 +800,95 @@ def _main_native(argv: Sequence[str] | None = None) -> int:
             validate_galerkin=False)
         stencil_seconds = time.perf_counter() - stage
         patch_coarse = tuple(
-            patch_extent[axis] // int(args.mg_grid[axis])
+            patch_extent[axis] // _asset_coarse_step(args.mg_grid, axis)
             for axis in range(4))
-        local_coarse = tuple(
-            (fine_odd[axis]) // int(args.mg_grid[axis])
-            for axis in range(4))
+        # build_coarse_assets has copied the supplied vectors; release the large
+        # fine-gauge and lonv staging patches before allocating rank-local slabs.
+        del lonv_patch, gauge_patch
         local_assets = {
             name: _asset_patch(
                 patch_assets[index][0], name, coarse_centers, local_coarse)
             for index, name in enumerate(LEGACY_MG_ASSET_NAMES)
         }
-        global_assets = _global_assets(
-            local_assets, shapes, lattice, grid, args.mg_grid, comm)
-
+        stage = time.perf_counter()
+        _write_distributed_asset_slabs(
+            output, local_assets, shapes, coarse_starts, comm)
+        asset_write_seconds = time.perf_counter() - stage
+        del patch_assets
+        rank_records = comm.gather({
+            "rank": rank,
+            "coordinate": list(coordinate),
+            "local": list(local),
+            "local_coarse": list(local_coarse),
+            "patch_start": list(patch_starts),
+            "patch_extent": list(patch_extent),
+            "patch_coarse": list(patch_coarse),
+            "null_timings": null_timings,
+            "stencil_seconds": stencil_seconds,
+            "lonv_exchange_seconds": lonv_exchange_seconds,
+            "asset_write_seconds": asset_write_seconds,
+        }, root=0)
         status = 0
-        output = Path(comm.bcast(
-            str(resolve_path(args.output, args.output.expanduser()))
-            if rank == 0 else None, root=0))
-        report_path = (
-            resolve_path(args.report, args.report.expanduser())
-            if args.report is not None else output.with_suffix(".json"))
         if rank == 0:
-            assert global_gauge is not None and global_assets is not None
-            gauge_canonical_sha = logical_array_sha256(global_gauge)
-            identity = legacy_mg_cache_identity(
-                gauge_canonical_sha256=gauge_canonical_sha,
-                gauge_file_sha256=file_sha256(
-                    resolve_path(args.gauge, Path(args.gauge).expanduser())),
-                lattice=lattice, dtype=dtype, mass=args.mass, csw=args.csw,
-                dof=args.dof[:2], mg_grid=args.mg_grid,
-                nv_iters=args.nv_iters, seed=args.seed)
-            rank_records = comm.gather({
-                "rank": rank,
-                "coordinate": list(coordinate),
-                "local": list(local),
-                "local_coarse": list(local_coarse),
-                "patch_start": list(patch_starts),
-                "patch_extent": list(patch_extent),
-                "patch_coarse": list(patch_coarse),
-                "null_timings": null_timings,
-                "stencil_seconds": stencil_seconds,
-            }, root=0)
-            report = save_legacy_mg_cache(
-                output, global_assets, identity=identity,
-                setup_method="mpi-distributed-null-vector+overlap-local-stencil",
-                setup_backend=(
-                    "cuda-qcu-mpi-cxx" if args.build_device == "cuda"
-                    else "kupl-qcu-mpi-cxx"),
-                setup_validation={
-                    "ranks": size,
-                    "grid": list(grid),
-                    "local": list(local),
-                    "patch_extent": list(patch_extent),
-                    "patch_coarse": list(patch_coarse),
-                    "rank_records": rank_records or [],
-                    "gauge_input_format": input_format,
-                    "stencil_device": stencil_device,
-                    "stencil": stencil_stats,
-                    "loading_seconds": loading_seconds,
-                    "distributed_null_vector_seconds": setup_seconds,
-                    "stencil_seconds": stencil_seconds,
-                },
-                source_metadata=metadata, setup_seconds=loading_seconds + setup_seconds + stencil_seconds)
-            validate_legacy_mg_cache(
-                output, identity, verify_file_sha256=True,
-                verify_dataset_sha256=True)
-            report.update({
-                "gauge": str(resolve_path(
-                    args.gauge, Path(args.gauge).expanduser())),
-                "build_device": args.build_device,
-                "output": str(output),
-                "distributed": True,
-                "global_asset_sha256": {
-                    name: logical_array_sha256(global_assets[name])
-                    for name in LEGACY_MG_ASSET_NAMES},
-            })
-        else:
-            comm.gather({
-                "rank": rank,
-                "coordinate": list(coordinate),
-                "local": list(local),
-                "local_coarse": list(local_coarse),
-                "patch_start": list(patch_starts),
-                "patch_extent": list(patch_extent),
-                "patch_coarse": list(patch_coarse),
-                "null_timings": null_timings,
-                "stencil_seconds": stencil_seconds,
-            }, root=0)
+            try:
+                assert gauge_canonical_sha is not None
+                identity = legacy_mg_cache_identity(
+                    gauge_canonical_sha256=gauge_canonical_sha,
+                    gauge_file_sha256=file_sha256(gauge_path),
+                    lattice=lattice, dtype=dtype, mass=args.mass, csw=args.csw,
+                    dof=args.dof[:2], mg_grid=args.mg_grid,
+                    nv_iters=args.nv_iters, seed=args.seed)
+                write_legacy_mg_asset_subset(
+                    output, {}, identity=identity)
+                report = build_legacy_mg_cache_manifest(
+                    output, identity, datasets=None,
+                    setup_method=(
+                        "mpi-distributed-null-vector+overlap-local-stencil"),
+                    setup_backend=(
+                        "cuda-qcu-mpi-cxx" if args.build_device == "cuda"
+                        else "kupl-qcu-mpi-cxx"),
+                    setup_validation={
+                        "ranks": size,
+                        "grid": list(grid),
+                        "local": list(local),
+                        "patch_extent": list(patch_extent),
+                        "patch_coarse": list(patch_coarse),
+                        "rank_records": rank_records or [],
+                        "gauge_input_format": input_format,
+                        "stencil_device": stencil_device,
+                        "stencil": stencil_stats,
+                        "loading_seconds": loading_seconds,
+                        "distributed_null_vector_seconds": setup_seconds,
+                        "lonv_hdf5_mpi_seconds": lonv_exchange_seconds,
+                        "stencil_seconds": stencil_seconds,
+                        "asset_hdf5_mpi_seconds": asset_write_seconds,
+                    },
+                    source_metadata=metadata,
+                    setup_seconds=(
+                        loading_seconds + setup_seconds +
+                        lonv_exchange_seconds + stencil_seconds +
+                        asset_write_seconds))
+                write_legacy_mg_cache_manifest(output, report)
+                validate_legacy_mg_cache(
+                    output, identity, verify_file_sha256=False,
+                    verify_dataset_sha256=False)
+                report.update({
+                    "gauge": str(gauge_path),
+                    "build_device": args.build_device,
+                    "output": str(output),
+                    "distributed": True,
+                    "global_asset_sha256": {
+                        name: report["assets"][name]["sha256"]
+                        for name in LEGACY_MG_ASSET_NAMES},
+                })
+            except BaseException:
+                import traceback
+
+                print(traceback.format_exc(), file=os.sys.stderr)
+                status = 1
         status = int(comm.bcast(status, root=0))
-        comm.Barrier()
+        if status != 0:
+            return status
 
         reconstructed = True
         try:

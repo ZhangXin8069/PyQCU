@@ -26,8 +26,8 @@
 入口级速度优势；CUDA Strict-MG 已完成统一的 \(8^3\times16\) 1/2/4-rank
 缓存测量，并在 L32 上完成 2/4-rank full-coarse solve；L32 单 rank 因 40 GiB
 显存容量 OOM。KUPL Strict-MG 已完成小格 MPI 测量并可直接复用 CUDA Legacy cache。
-真实 L48 输入已准备，但当前多 rank builder 的 CPU stencil 阶段空占 4 张 GPU，
-按资源门在 5m36s 主动取消，未发布 L48 性能。
+真实 L48 输入已准备；修复前的 CPU-stencil/root-gather 阻塞已由 private singleton
+communicator、GPU patch 与 \code{lonv} MPI-IO 消除，L48 新构建按资源门实时审计。
 辅助 BiCGStab 仍未在全部 rank 上快于 QUDA，且 KUPL 的真实鲲鹏生产扩展仍待目标
 平台验证。所有数字均来自本工作区 JSON、日志和已生成图表，不作 tag 后永久承诺。
 \end{abstract}
@@ -79,16 +79,21 @@ file SHA 变化本身不得强制重建物理粗资产。
 
 Legacy cache 的规范多 MPI 入口为
 \code{python -m pyqcu.testing.simple.mpi.build_full_mg_cache}。每个 rank 生成
-local null-vector，只计算自己的 coarse slab；周期 overlap patch 仅承担 halos，
-全局 \code{lonv/hnn/hdg/sit} 汇总后由所有 rank 回读 slab 验签。真实 L24 前缀
+local null-vector，只计算自己的 coarse slab；周期 overlap patch 仅承担 halos。
+\code{lonv} 的多 GiB owned slab 通过 HDF5 MPI-IO 写入并由各 rank 周期直接读取，
+禁止 root gather/scatter；rank 0 只追加较小的 \code{hnn/hdg/sit} 并流式构造
+manifest，最终由所有 rank 回读 slab 验签。真实 L24 前缀
 \code{8x8x8x16}、c64、\code{dof=[12,2]}、\code{mg_grid=2^4} 的 1/2/4-rank
 builder 均 PASS，2/4-rank 相对 1-rank 的 tensor Frobenius 差约
 \(1.3\times10^{-5}\) 到 \(2.4\times10^{-5}\)。这是功能等价证据，不是生产并行效率。
-CUDA builder 的 1/2/4 MPI cache 也分别由对应 rank 数的 KUPL solve 直接加载，
-\code{verify_status} 均为 0，independent true residual 分别为
-\(2.016388/2.018354/2.020363\times10^{-7}\)。多 rank CUDA 使用 GPU 分布式
-null-vector 和 CPU overlap stencil，报告以 \code{stencil_device=cpu} 显式记录；
-该混合 setup 不作为纯 GPU 性能倍率。
+CUDA builder 的历史 1/2/4 MPI cache 也分别由对应 rank 数的 KUPL solve 直接加载，
+\code{verify_status} 均为 0。现行 private singleton communicator 修复后，多 rank
+CUDA patch stencil 恢复为 GPU：4-rank、grid \code{2x2x1x1} 的四个 tensor 均使用
+HDF5 MPI-IO；\code{lonv} I/O 为 \code{0.354144 s}、GPU stencil 为
+\code{0.137035 s}、其余三张量 I/O 为 \code{0.884016 s}、总 setup 为
+\code{3.040447 s}，4/4 slab 验签通过并记录 \code{stencil_device=cuda:0}。同一
+cache 由 KUPL 直接加载后 independent true residual 为
+\(4.110297\times10^{-7}\)。
 
 \section{CUDA native BiCGStab}
 
@@ -350,14 +355,20 @@ PASS，但后续 ABBA 在 4m59s 因一次 candidate segfault 失败；baseline
 
 L48 尝试使用真实 \(48^3\times96\) LIME、4 MPI/4 A100、32 CPU 和 10 min 上限。
 Slurm 1603908/1603909/1603916 因输出目录在提交时不存在而 0 秒 JobLaunchFailure；
-预创建目录后 Slurm 1603917 正常启动。其在 5m36s 时显示 4 rank 各约 98\% CPU、
-4 张 A100 均 0\% 且各驻留约 8.7 GiB，处于已知的 CPU overlap-stencil 阶段；因
-GPU 空占超过 5 min，主动取消。未生成 cache，也没有 L48 solve 或残差结果。
+预创建目录后 Slurm 1603917 正常启动；它是修复前的 CPU-stencil 历史记录，在
+5m36s 因 GPU 空占主动取消。private singleton communicator 修复后，Slurm 1604062
+在 5/8 分钟审计中保持四张 A100 均 100\% util、每卡约 27 GiB，GPU patch stencil
+完成后因 root 汇总 \code{hnn/hdg/sit} 于 54,976 MiB cgroup OOM，\code{rc=137}。
+因此当前阻塞是全局粗算子主机内存，不是 GPU patch 或 \code{MPI_COMM_WORLD}。
+现行 builder 已把四个 tensor 全部改为 HDF5 MPI-IO owned slab，并支持复用已生成的
+\code{lonv} scratch；提前释放 staging patch 的 \code{1604161} 仍在 8m32s 因
+54,976 MiB cgroup limit OOM。L48 在失败作业中仍没有已发布 cache、solve 或残差结果。
 
 当前验证快照：Python \code{122 passed, 4 skipped}，KUPL \code{43 passed}，simple
-\code{81 passed}，单 NUMA cpuset 下 KUPL CTest \code{34/34 PASS}，QCU ABI
-\code{PASS}，\code{git diff --check PASS}。docs audit 仍报告 44 个既有归档链接
-缺失，form audit 仍有 29 个既有 finding；本轮新增证据没有伪造或改写这些历史链接。
+\code{86 passed}，QCU ABI \code{PASS}，tag-chain \code{PASS}，定向 shell 语法与
+\code{git diff --check PASS}。本环境没有 \code{xelatex/lualatex/pdflatex}，因此
+LaTeX 源码已更新但不能在本次会话生成 PDF。form audit 仍报告既有历史资产布局
+finding；本轮新增证据没有伪造或改写这些历史链接。
 
 \section{结论与下一步}
 
@@ -370,8 +381,9 @@ CUDA Legacy-MG & L32 真实 coarse 路径与独立残差通过；对 QUDA GCR-MG
 CUDA Strict-MG & \(8^3\times16\) 的 1/2/4-rank 与小格固定开销均通过；L32
 2/4-rank 也通过，但 1-rank OOM，且 2/4-rank 均慢于 Legacy/QUDA。保留为显式备选。 \\
 CUDA BiCGStab & 2-rank 尚未超过 QUDA；继续定位每轮开销，不能保留无收益候选。 \\
-L48 & 真实输入与 HDF5 已准备；多 rank builder 的 CPU stencil 阶段空占 GPU，
-5m36s 主动取消。下一步需 GPU-native multi-rank overlap stencil 或已验证 cache。 \\
+L48 & 真实输入与 HDF5 已准备；旧 CPU-stencil 与 root-gather 阻塞已由
+private singleton communicator、GPU patch 和 \code{lonv} MPI-IO 修复。
+L8 4-rank GPU+KUPL 消费门已通过；L48 新构建按 job id 实时审计。 \\
 KUPL MG & Legacy cache 已直接复用；Strict-MG 的 1/2/4-rank 小格
 median 为 \(1.222731/1.101605/1.658620\) s，独立残差均低于 \(10^{-6}\)；
 真实鲲鹏 HMPI/NUMA/片上内存扩展仍待目标平台验证。 \\

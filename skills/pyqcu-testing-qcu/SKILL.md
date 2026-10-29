@@ -201,9 +201,22 @@ capability，再选择两侧相同的 coarse spin/nvec 语义。
 
 多 MPI CUDA Legacy cache builder 不要把 overlap patch 交给仍绑定
 `MPI_COMM_WORLD` 的 CUDA Clover halo。此类调用会在 patch `Sendrecv`、Python
-`Bcast` 和全局 `Gather` 之间形成 collective 顺序错位。当前 builder 在 rank 1 使用
-GPU patch stencil，多 rank 使用 GPU distributed null-vector + CPU patch stencil，
-并记录 `stencil_device=cpu`。
+`Bcast` 和全局 `Gather` 之间形成 collective 顺序错位。现行 LatticeSet 在
+`NODE_SIZE=1`、grid product 为 1、world size 大于 1 时创建私有 singleton
+communicator，并把 `set_ptr->comm` 传给 Clover/coarse halo；因此所有 rank 都可使用
+本地 GPU patch stencil，报告应记录 `stencil_device=cuda:*`。
+
+多 MiB/GiB `lonv` 不得再经 `comm.gather(root=0)` 和 `scatter`。按 canonical
+`[E,12,Cx,bx,Cy,by,Cz,bz,Ct,bt]` 轴 `(2,4,6,8)`，各 rank 应通过 HDF5 MPI-IO
+写入 owned coarse hyperslab，再按周期连续 slice 读取本 rank patch；时间 stride 是
+`2*mg_grid[t]`。四个张量都应由各 rank 经 MPI-IO 写 owned slab；L48 `1604062`
+已证明只去掉 `lonv` gather 后，root 汇总 `hnn/hdg/sit` 仍会 cgroup OOM。写入后
+立即释放 patch/local 副本，rank 0 只用固定上限（当前 64 MiB）的多维 dataset
+streaming SHA 构造 manifest；只按第一维
+读取会让单个 L48 组件切片膨胀到数 GiB。验证证据：`8x8x8x16` 4-rank、
+`2x2x1x1`、E2 的 `lonv` MPI-IO `0.354144 s`、GPU stencil `0.137035 s`、其余三张量
+MPI-IO `0.884016 s`、总 setup `3.040447 s`，4/4 rank slab 回读通过；同 cache 由 KUPL 求解得到
+`verify_status=0` 和独立真残差 `4.110297e-7`。
 
 Strict-MG 性能 benchmark 必须使用合法 4D process grid：每个 rank-local coarse
 extent 必须为偶数。`8x8x8x16` 的 4-rank 应使用 `2x2x1x1`，不能使用 y-only

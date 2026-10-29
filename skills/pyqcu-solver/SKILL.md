@@ -280,11 +280,15 @@ A100-40GB、`32x32x32x64` c64、两层、`nvec=12`、`coarse_spin=2`、
 ### 2026-10-29 L48 builder 资源门
 
 真实 `48x48x48x96` Legacy E12 cache 的 4-rank CUDA builder 已实测：null-vector 后
-多 rank overlap stencil 按当前实现切换到 CPU。5 分钟审计时 4 个 rank 各约
-98% CPU，而 4 张 A100 均为 0%、每卡驻留约 8.7 GiB；作业因 GPU 空占被主动取消，
-没有 cache 或 solve 结果。按 L32 单 rank GPU stencil `153.889 s × 5.0625`
-仅得约 779 秒的量级估计，不能作为 L48 实测。后续必须实现 GPU-native 多 rank
-overlap stencil/独立 Clover halo communicator，或复用已验证 cache，才可重启 L48。
+早期实现曾因 overlap stencil 走 CPU 而空占 GPU；根因是 patch LatticeSet halo
+固定使用 `MPI_COMM_WORLD`，并与 Python collective 串序。现行实现为 patch 创建
+private singleton communicator，并把多 GiB `lonv` 改为 HDF5 MPI-IO。
+`8x8x8x16` 4-rank E2 已记录 `stencil_device=cuda:*`、4/4 slab 验签通过，并由 KUPL
+直接消费得到独立真残差 `4.110297e-7`。L48 的 5/8 分钟审计、GPU util、输出增长和
+独立残差必须按新 job id 重新记录。`1604062` 已在 5/8 分钟看到四卡 100%，但最终
+因 root 汇总 `hnn/hdg/sit` 触发 54,976 MiB cgroup OOM；后续四个张量全部使用
+MPI-IO owned slab，`1604161` 并提前释放 staging patch，但仍在 `8m32s` OOM。
+不能再把历史 CPU-stencil 诊断当作当前根因；L48 当前受单节点主机内存门阻塞。
 
 ## 口径与容差语义（2026-08-24）
 

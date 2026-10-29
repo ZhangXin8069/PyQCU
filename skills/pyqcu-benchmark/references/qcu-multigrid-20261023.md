@@ -212,11 +212,15 @@ cache 的 `lonv` 重构，不重新生成 null-space。
 
 ### 2026-10-29 L48 builder 审计
 
-真实 L48 `48x48x48x96`、c64、mass `-0.277`、csw `1.160920225783` 的 4-rank
-Legacy cache builder 在 Slurm `1603917` 上运行到 `5m36s` 后主动取消。5 分钟审计
-明确记录：4 rank 各约 98% CPU，4 张 A100 均 0% 且各驻留约 8.7 GiB；null-vector
-后的 CPU overlap-stencil 阶段不符合 GPU 资源效率门。没有 cache、solve、迭代或
-残差结果，不能写成 L48 性能。
+真实 L48 `48x48x48x96`、c64、mass `-0.277`、csw `1.160920225783` 的早期
+4-rank builder `1603917` 曾因 CPU overlap stencil 空占 GPU 在 `5m36s` 后取消。
+private singleton communicator 修复后，`1604062` 从约 1 分钟起四张 A100 均持续
+100% util、每卡约 27 GiB，host peak RSS `35,000,128 KiB`；stencil 完成后 root 汇总
+`hnn/hdg/sit` 触发 54,976 MiB cgroup OOM（`rc=137`）。因此当前阻塞不是 GPU patch
+或 `MPI_COMM_WORLD`，而是 root 全局粗算子物化。四个张量必须全部走 MPI-IO owned
+slab；`1604133/1604161` 在改为 MPI-IO 并提前释放 staging patch 后仍分别在
+`8m36s/8m32s` OOM。L48 仍没有已发布 cache、solve、迭代或残差结果，不能写成 L48
+性能；4 卡分区也禁止超过 54,976 MiB 的 memory 申请。
 
 同一组的 `1603908/1603909/1603916` 均因输出目录在提交时尚不存在而在 0 秒报
 `JobLaunchFailure`。Slurm 会在执行脚本正文前打开 `--output/--error`，因此新批次
