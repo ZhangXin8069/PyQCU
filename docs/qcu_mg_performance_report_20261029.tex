@@ -383,6 +383,9 @@ L48 同 cache 的规模补测为：1-rank 在加载 \code{hdg} 时 GPU OOM；2-r
 \code{2.243621e-7}；4-rank 为 20 iterations、\code{0.740402 s}、native full
 residual \code{2.243699e-7}。4 对 2 rank 的 solve 加速为 \code{1.245x}。
 没有 L48 QUDA 同窗，不能计算相对 QUDA 加速比。
+额外 2-rank independent-residual 作业 \code{1604536} 在 1m55s、约 52.68 GiB
+host RSS 后仍触发同一 54,976 MiB cgroup OOM；因此 L48 independent residual
+在当前单节点资源下不可完成，native full residual 不得改写成 independent PASS。
 
 当前验证快照：Python \code{122 passed, 4 skipped}，KUPL \code{43 passed}，simple
 \code{86 passed}，QCU ABI \code{PASS}，tag-chain \code{PASS}，定向 shell 语法与
