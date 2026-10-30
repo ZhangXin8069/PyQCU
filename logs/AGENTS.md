@@ -899,3 +899,11 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 >>>>>>> Stashed changes
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
+## AGENTS 规则补齐 - final - 2026-10-30 21:11:35 +0800
+- 主任务: 为 cpp/kupl 生成容器级 AGENTS.md
+- 日志文件: logs/v2026103021.txt
+- 文件大小: 4941 bytes
+- 触发原因: 任务完成
+- 关键内容: 新增 KUPL 容器规则，明确目录职责、ABI/布局/MPI-OpenMP/NUMA 边界、构建验证和文档权威入口。
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
