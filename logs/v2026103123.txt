@@ -1,0 +1,105 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-31 23:27:32 +0800
+批次: configure-init-dev107-20261031
+主任务: PyQCU configure init, verification, commit, main push, and tag-chain audit
+触发原因: 任务完成
+摘要: 完成仓库 AGENTS 初始化、验证与 main 推送；dev107 因既有 tag 链祖先断裂按安全规则停止。
+Git 根目录: /root/PyQCU
+
+## 关键日志
+
+### S1 - 初始 diff 与边界确认
+- 目标: 记录工作区、暂存区、HEAD、upstream 和四类标签的初始状态。
+- 命令/操作: `git status --porcelain=v2 --branch`、`git diff`、`git diff --cached`、`git submodule status`、四类 tag 统计。
+- 关键输出: `main...origin/main`，ahead/behind `0/0`；HEAD `0b37896f716b191655197488fc7f721a376bb643`；工作区和暂存区均为空；`refer/git-rep` 五个子模块未进入。
+- 退出码: 0。
+- 证据与判断: 初始工作区干净。四类有效标签计数为 stab 84、dev 121、bug 45、test 50；各类最新为 `stab62_1`、`dev106`、`bug45`、`test34_4`，全局版本排序基线为 `test34_4`。
+
+### S2 - init 只读盘点与写入
+- 目标: 为受维护目录补齐或校正 `AGENTS.md`，归档旧 agent 配置，并检查散落 skill。
+- 命令/操作: 排除 `.git`、`data/`、`refer/git-rep`、`refer/huzc`、`refer/kunpeng`、`.opencode`、缓存和构建目录后盘点；读取父级 AGENTS、实际文件清单和命名规则。
+- 关键输出: 20 个受维护目录缺少 `AGENTS.md`；未发现 `CLAUDE.md`、`CODEX.md`、`GEMINI.md`、`AGENT.md` 或 agent 配置目录；35 个 `SKILL.md` 均属于既有规范技能库 `skills/pyqcu-*`；`.opencode` 被 `.gitignore` 的 `.*` 规则忽略。
+- 退出码: 0。
+- 证据与判断: 新增 20 个局部 AGENTS；就地更新 4 个 AGENTS；未做归档重命名；未 force-add `.opencode`；未访问子模块内部。
+
+### S3 - 快速验证
+- 目标: 验证初始化产物、格式和仓库治理门禁。
+- 命令/操作: 目录幂等复扫、旧 agent/冲突扫描、`git diff --cached --check`、form 审计、大文件闸门、docs/skills 审计。
+- 关键输出: `maintained_missing_agents=0`；`agent_conflict_files=0`；`legacy_agent_candidates=0`；staged diff 为 25 files、`+217/-8`；form 审计通过并豁免 8 项既有 finding；大文件门禁检查 25 个变更文件、上限 10,000,000 bytes。
+- 退出码: 目录、冲突、diff、form、大文件检查均为 0；docs/skills 审计为 1，报告 27 个既有失效本地链接。
+- 证据与判断: 本次未修改 `docs/**`，失效链接位于既有文档，未扩大范围修复。由于 form 审计把新增的 KUPL 测试目录元配置识别为测试位置，添加了仅匹配 `cpp/kupl/qcu/tests/AGENTS.md` 的精确例外并复验通过。
+
+### S4 - init 提交与 main push
+- 目标: 只提交本次初始化产物并同步 main。
+- 命令/操作: 显式 `git add -- <25 paths>`；提交；`git push origin main`。
+- 关键输出: 提交 `53b0522ea899edb74163a9ffc370b8c3a968a6c9`；推送 `0b37896..53b0522 main -> main`。
+- 退出码: 0。
+- 证据与判断: 非 force push 成功，提交后 upstream ahead/behind 为 `0/0`。
+
+### S5 - tag 链检查与停止
+- 目标: 在安全通过后创建并推送下一个 dev 主版本。
+- 命令/操作: `bash /root/configure/skills/tag/tag-chain.sh --check --remote origin`。
+- 关键输出: 检查 300 个 managed tags，发现 7 个问题，其中 `dev37` 不是 `dev38` 的祖先、`dev72` 不是 `bug30` 的祖先、`bug45` 不是 `dev106` 的祖先；另有 2 个可修正 follow 和 2 个重复引用。
+- 退出码: 1。
+- 证据与判断: 存在必须改写既有标签才能消除的祖先关系断裂。按任务安全规则停止 tag 部分，未执行 repair、未创建 `dev107`、未删除或改写任何标签。
+
+## 验证与证据
+- `git status --porcelain=v2 --branch`: 初始与 main push 后均为 clean，退出码 0。
+- 受维护目录幂等复扫: `maintained_missing_agents=0`，退出码 0。
+- agent 冲突与旧文件扫描: 均为 0，退出码 0。
+- `git diff --cached --check`: 退出码 0。
+- `bash skills/pyqcu-form/form-audit.sh`: PASS，35 个技能目录与索引一致，豁免 8 项既有 finding，退出码 0。
+- form 大文件门禁: PASS，checked=25，limit=10000000，退出码 0。
+- `python -B skills/pyqcu-docs/scripts/audit-docs-skills.py`: FAIL，27 个既有失效本地链接；本次 `changed_docs=0`，退出码 1。
+- `bash /root/configure/skills/tag/tag-chain.sh --check --remote origin`: FAIL，7 个历史链问题，退出码 1。
+- 未验证项: 未运行 GPU、MPI 或长测试；任务仅修改配置/文档，且用户明确要求不做无必要长测试。
+
+## 变更与产物
+- 文件: 20 个新增 `AGENTS.md`；更新 `cpp/AGENTS.md`、`pyqcu/AGENTS.md`、`pyqcu/cuda/AGENTS.md`、`logs/AGENTS.md`；更新 `skills/pyqcu-form/form-audit.sh`。
+- 产物: init 提交 `53b0522ea899edb74163a9ffc370b8c3a968a6c9` 已推送 `origin/main`。
+- 未改动范围: `data/**`、`refer/huzc/**`、`refer/kunpeng/**`、`refer/git-rep/**` 子模块内部、`.opencode/**`、系统配置和凭据。
+- 标签候选: 根据 `dev106` 与 tag 规则计算下一个主版本为 `dev107`，但因链检查失败未创建。
+
+## 风险、限制与下一步
+- 风险: 全库 docs/skills 审计有 27 个既有失效链接，可能影响文档导航质量。
+- 阻塞: tag 链包含 3 个 peeled commit 祖先关系断裂，不能仅修正注释；自动或人工改写已推送标签属于破坏性操作。
+- 下一步: 由具备明确授权的维护者审计并重建受影响的 `dev37/dev38`、`dev72/bug30`、`bug45/dev106` 历史链，再重新执行 `tag-chain.sh --check` 后创建 `dev107`。
+
+## 用户输入指令
+【派发任务】
+身份：{代码}。你是 PyQCU 仓库维护代理，唯一工作范围是 /root/PyQCU，不得访问或修改其他项目仓库。
+开始前完整读取 /root/PyQCU/AGENTS.md、相关子目录最近的 AGENTS.md，以及 /root/configure/skills/diff/SKILL.md、init/SKILL.md、tag/SKILL.md、log/SKILL.md；tag 的 references/tag-operations.md 按需读取。遵守仓库安全边界，不读取无关文件。
+目标：在 /root/PyQCU 完成 diff → init → 验证 → 提交本次 init 产物 → push main → 创建并 push dev tag → final log。
+强制步骤：
+1. diff：记录 status、工作区 diff、暂存区 diff、HEAD、upstream 领先/落后、当前四类 tag。初始工作区当前应为干净，但以实测为准。
+2. init：先只读盘点再 apply。不得进入或修改 refer/git-rep 下任何子模块；外部拷贝、构建/测试产物、缓存不属于受维护初始化范围。已有 AGENTS.md 就地校正，缺失的受维护目录按 init 规则生成；不臆造命令或测试路径。检查散落 SKILL.md 与 .opencode/skills 归集规则；该仓库 .opencode 被隐藏文件规则忽略，不得 force-add。
+3. 验证：至少 git diff --check；运行 init 幂等复查。由于目标是配置/文档初始化，不做无必要 GPU 或 MPI 长测试；仅运行与改动直接相关且可快速完成的检查。
+4. 提交：只显式暂存本次 init 产生的文件，禁止 git add -A、git add .、git commit -a；提交消息写明原因、改动、验证。
+5. push：先 git push origin main，禁止 force。若远端不可 fast-forward 或认证失败，保留本地提交并如实报告。
+6. tag：分支 push 成功后运行 bash /root/configure/skills/tag/tag-chain.sh --check --remote origin。不得删除或改写已推送标签。若检查安全通过，按 tag 技能计算任意类型最新基线和下一个 dev 主版本（当前候选 dev107，但必须实测确认），从本次 init 的 diff/commit 生成合规中文变更清单，创建注释标签并 git push origin <tag>。
+7. log：全部完成后按 log 技能 final 模式写入并验证 /root/PyQCU/logs；显式暂存该日志和 logs/AGENTS.md，普通提交并 push origin main，禁止 force。
+安全：不删除文件，不修改系统配置，不触碰子模块内部，不泄露凭据。若 init 没有产生变更，如实说明，不得伪造变更。若 tag 链需要改写，停止该部分并报告。
+返回格式：状态 finished/blocked/failed；初始 diff；init 新建/更新/归档统计；验证命令与退出码；提交 SHA；branch push 与 tag push 结果；dev tag 名和完整消息；日志绝对路径；任何脏项或遗留。
+
+## Agent 全文报告
+--- report begin ---
+状态: blocked
+初始 diff: 工作区与暂存区均空；HEAD `0b37896f716b191655197488fc7f721a376bb643`；`main...origin/main` 领先/落后 `0/0`；四类标签计数 stab 84、dev 121、bug 45、test 50，全局基线 `test34_4`。
+init 统计: 新建 20 个 `AGENTS.md`，更新 4 个既有 `AGENTS.md` 和 1 个 form 审计脚本；归档 agent 文件 0；删除 0；子模块改动 0；`.opencode` force-add 0。
+验证命令与退出码:
+- `git diff --cached --check`: 0。
+- 受维护目录幂等复扫 `maintained_missing_agents=0`: 0。
+- agent 冲突/旧文件扫描，冲突 0、旧候选 0: 0。
+- `bash skills/pyqcu-form/form-audit.sh`: 0，PASS，35/35 技能索引一致，豁免 8 项既有 finding。
+- form 大文件门禁: 0，25 files，10,000,000-byte limit。
+- `python -B skills/pyqcu-docs/scripts/audit-docs-skills.py`: 1，27 个既有失效链接；本任务 changed_docs=0。
+- tag-chain `--check --remote origin`: 1，7 个历史链问题，包含 3 个祖先关系断裂。
+提交 SHA: `53b0522ea899edb74163a9ffc370b8c3a968a6c9`。
+branch push: `git push origin main` 成功，`0b37896..53b0522 main -> main`，非 force。
+tag push: 未执行；历史链检查不通过，按安全规则停止。
+dev tag 名: 候选为 `dev107`，未创建。
+拟用完整消息（未创建）: `follow test34_4, 1. 新增20个受维护目录的本地 AGENTS.md 规则; 2. 修复日志索引冲突及过时构建与 params 说明; 3. 精确登记 KUPL 测试目录元配置审计例外; 4. 验证目录覆盖、form 与大文件门禁; [codex].`
+日志绝对路径: 本文件，由 write-log 脚本输出后确定。
+脏项或遗留: init 提交和 main 已同步；全库 docs/skills 审计保留 27 个既有失效链接；tag 链需维护者处理祖先断裂后才能创建 `dev107`。
+--- report end ---
