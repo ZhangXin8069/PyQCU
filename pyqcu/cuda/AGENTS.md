@@ -54,7 +54,7 @@ from pyqcu.cuda import QcuRuntime  # 简化后的生命周期安全调用入口
 
 ## 参数协议
 
-- **`params`**（int32, 54）— 格点维度（`_LAT_X_`…`_LAT_XYZT_`）、网格大小（`_GRID_X_`…）、数据类型（`_DATA_TYPE_`）、迭代次数（`_MAX_ITER_`）、计划选择（`_SET_PLAN_`）、verbosity（`_VERBOSE_`）、奇偶（`_PARITY_`）、MG 层级配置（`_MG_LEVEL1_X_`…、`_MG_NUM_LEVEL_`）
+- **`params`**（int32, 58）— 格点维度（`_LAT_X_`…`_LAT_XYZT_`）、网格大小（`_GRID_X_`…）、数据类型（`_DATA_TYPE_`）、迭代次数（`_MAX_ITER_`）、计划选择（`_SET_PLAN_`）、verbosity（`_VERBOSE_`）、奇偶（`_PARITY_`）、MG 层级配置（`_MG_LEVEL1_X_`…、`_MG_NUM_LEVEL_`）及 55–57 的 MG 控制项
 - **`argv`**（float, 8）— `_MASS_`(0)、`_ATOL_`(1)、`_SIGMA_`(2)、各层 MG 容差(3–6)、
   `_CSW_`(7)。Clover onsite 项使用 `-kappa*csw/8`；`csw=0` 是合法的纯 Wilson 请求。
 - **`set_ptrs`**（int64, 100）— C++ 运行时管理的 scratch 指针

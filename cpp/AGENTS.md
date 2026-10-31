@@ -17,7 +17,9 @@ PyQCU 的 C++ 后端。每个子目录对应一种 GPU 架构。
 
 ## 构建
 
-每个后端自带 `env.sh`（编译器/链接路径）与 `make.sh` 或 CMake 构建脚本。活跃 CUDA 后端用 `CMakeLists-nv.txt`（symlink 为 `CMakeLists.txt`）cmake + make 链。
+从仓库根执行 `bash ./build-nv.sh` 构建活跃 CUDA 后端。DCU/DTK 使用
+`QCU_DCU_CUDA_COMPILER=/path/to/dtk/nvcc bash ./install.sh dcu`。独立 KUPL CPU
+后端在 `cpp/kupl/qcu` 使用 `bash make.sh`；不要假定所有占位后端都有统一构建脚本。
 
 ## 关键约定
 

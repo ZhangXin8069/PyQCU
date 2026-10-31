@@ -51,7 +51,7 @@ PyQCU 顶层 Python 包：CUDA 加速格点 QCD 库。实现 Wilson/Clover Dirac
 
 ```bash
 source ./env.sh                # LD_LIBRARY_PATH、PYTHONPATH、MPI 标志
-bash ./build.sh                # 构建 libqcu.so（C++ CUDA 后端）
+bash ./build-nv.sh             # 构建 libqcu.so（C++ CUDA 后端）
 bash ./install.sh              # 就地构建 Cython 扩展
 
 # 测试
