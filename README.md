@@ -1,3 +1,2 @@
-# PyQCU By ZhangXin
->
-> referring to PyQCU/docs
+# PyQCU
+PyQCU By ZhangXin
