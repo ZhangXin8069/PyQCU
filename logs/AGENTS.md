@@ -922,3 +922,11 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: 基于 dev107 创建本地 dev108，记录 KUPL dslash 优化、mempolicy 与线程绑核修复、rank-local slab 读取与鲲鹏 STREAM 归档；未推送远程
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
+## resume-run-20261105T080514.gnF1tz - final - 2026-11-06 00:24:03 +0800
+- 主任务: 导出 run 20261105T080514.gnF1tz，并注入相关日志形成跨平台 resume 引导
+- 日志文件: logs/resume-20261105T080514.gnF1tz.txt
+- 文件大小: 25647 bytes
+- 触发原因: 任务完成
+- 关键内容: 固化 run/session 身份、Linux/macOS/PowerShell 恢复命令、KUPL QCU-MG 性能与失败路线、y76 检修断点、源码变体风险和 SHA-256 清单
+- 验证: path, size, section anchors, UTF-8/LF, git diff --check
+- 批次状态: complete
