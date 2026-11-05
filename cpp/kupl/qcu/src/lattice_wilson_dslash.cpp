@@ -82,24 +82,45 @@ void accumulate_hopping(const VectorView<Real> &source,
                         Complex<Real> result[kVector]) {
   using C = Complex<Real>;
   C transported[kVector];
-  for (int spin = 0; spin < kSpin; ++spin) {
-    for (int row = 0; row < kColor; ++row) {
-      Real real = Real(0);
-      Real imag = Real(0);
-      for (int column = 0; column < kColor; ++column) {
-        const int gauge_component =
-            Dagger ? column * kColor + row : row * kColor + column;
-        const C &entry =
-            gauge.data[static_cast<int64_t>(gauge_component) *
-                       gauge.matrix_stride];
-        const C &vector = source[spin * kColor + column];
-        const Real entry_imag = Dagger ? -entry.imag() : entry.imag();
-        real += entry.real() * vector.real() - entry_imag * vector.imag();
-        imag += entry.real() * vector.imag() + entry_imag * vector.real();
-      }
-      transported[spin * kColor + row] = C(real, imag);
-    }
+#define KUPL_ACC(S, R, CO)                                                  \
+  {                                                                         \
+    const C &e = gauge.data[static_cast<int64_t>(                           \
+        Dagger ? (CO) * kColor + (R) : (R) * kColor + (CO)) *               \
+        gauge.matrix_stride];                                               \
+    const C &v = source[(S) * kColor + (CO)];                               \
+    const Real ei = Dagger ? -e.imag() : e.imag();                          \
+    r##S##R += e.real() * v.real() - ei * v.imag();                         \
+    i##S##R += e.real() * v.imag() + ei * v.real();                         \
   }
+  Real r00 = 0, r01 = 0, r02 = 0, r10 = 0, r11 = 0, r12 = 0;
+  Real r20 = 0, r21 = 0, r22 = 0, r30 = 0, r31 = 0, r32 = 0;
+  Real i00 = 0, i01 = 0, i02 = 0, i10 = 0, i11 = 0, i12 = 0;
+  Real i20 = 0, i21 = 0, i22 = 0, i30 = 0, i31 = 0, i32 = 0;
+  KUPL_ACC(0, 0, 0) KUPL_ACC(0, 0, 1) KUPL_ACC(0, 0, 2)
+  KUPL_ACC(0, 1, 0) KUPL_ACC(0, 1, 1) KUPL_ACC(0, 1, 2)
+  KUPL_ACC(0, 2, 0) KUPL_ACC(0, 2, 1) KUPL_ACC(0, 2, 2)
+  KUPL_ACC(1, 0, 0) KUPL_ACC(1, 0, 1) KUPL_ACC(1, 0, 2)
+  KUPL_ACC(1, 1, 0) KUPL_ACC(1, 1, 1) KUPL_ACC(1, 1, 2)
+  KUPL_ACC(1, 2, 0) KUPL_ACC(1, 2, 1) KUPL_ACC(1, 2, 2)
+  KUPL_ACC(2, 0, 0) KUPL_ACC(2, 0, 1) KUPL_ACC(2, 0, 2)
+  KUPL_ACC(2, 1, 0) KUPL_ACC(2, 1, 1) KUPL_ACC(2, 1, 2)
+  KUPL_ACC(2, 2, 0) KUPL_ACC(2, 2, 1) KUPL_ACC(2, 2, 2)
+  KUPL_ACC(3, 0, 0) KUPL_ACC(3, 0, 1) KUPL_ACC(3, 0, 2)
+  KUPL_ACC(3, 1, 0) KUPL_ACC(3, 1, 1) KUPL_ACC(3, 1, 2)
+  KUPL_ACC(3, 2, 0) KUPL_ACC(3, 2, 1) KUPL_ACC(3, 2, 2)
+#undef KUPL_ACC
+  transported[0] = C(r00, i00);
+  transported[1] = C(r01, i01);
+  transported[2] = C(r02, i02);
+  transported[3] = C(r10, i10);
+  transported[4] = C(r11, i11);
+  transported[5] = C(r12, i12);
+  transported[6] = C(r20, i20);
+  transported[7] = C(r21, i21);
+  transported[8] = C(r22, i22);
+  transported[9] = C(r30, i30);
+  transported[10] = C(r31, i31);
+  transported[11] = C(r32, i32);
 
   for (int color = 0; color < kColor; ++color) {
     const C v0 = transported[color];
@@ -646,12 +667,44 @@ void LatticeSet<Real>::compute_dslash_boundary(
 }
 
 template <typename Real>
+void LatticeSet<Real>::compute_dslash_boundary_part(
+    const Complex<Real> *local_source, Complex<Real> *output, int target,
+    int part) {
+  const int64_t count = static_cast<int64_t>(boundary_sites_.size());
+  const int64_t chunk = omp_chunk<Real>(count);
+#pragma omp parallel for schedule(static, chunk)
+  for (int64_t index = 0; index < count; ++index) {
+    const int64_t linear = boundary_sites_[static_cast<std::size_t>(index)];
+    int x = 0;
+    int y = 0;
+    int z = 0;
+    int t2 = 0;
+    geometry_.decode_half(linear, x, y, z, t2);
+    if (use_block_dslash(geometry_.half_sites) &&
+        is_periodic_face_site(geometry_.local, geometry_.grid, x, y, z,
+                              t2)) {
+      continue;
+    }
+    if (index + 8 < count) {
+      const int64_t ahead =
+          boundary_sites_[static_cast<std::size_t>(index + 8)];
+      const Complex<Real> *future = local_source + ahead * kVector;
+      __builtin_prefetch(future, 0, 1);
+      __builtin_prefetch(future + 32, 0, 1);
+      __builtin_prefetch(future + 64, 0, 1);
+    }
+    compute_dslash_site(local_source, output, x, y, z, t2, target, part);
+  }
+}
+
+template <typename Real>
 void LatticeSet<Real>::compute_dslash_site(
     const Complex<Real> *local_source, Complex<Real> *output, int x, int y,
-    int z, int t2, int target) {
+    int z, int t2, int target, int part) {
   using C = Complex<Real>;
   C result[kVector];
   std::fill(std::begin(result), std::end(result), C(0));
+  if (part != 2) {
   accumulate_direction<Real, 0>(
       source_at_delta(local_source, x, y, z, t2, 0, 1, target),
       local_gauge(target, 0, x, y, z, t2),
@@ -667,12 +720,25 @@ void LatticeSet<Real>::compute_dslash_site(
       local_gauge(target, 2, x, y, z, t2),
       source_at_delta(local_source, x, y, z, t2, 2, -1, target),
       backward_gauge(x, y, z, t2, 2, target), result);
+  }
+  if (part != 1) {
   accumulate_direction<Real, 3>(
       source_at_delta(local_source, x, y, z, t2, 3, 1, target),
       local_gauge(target, 3, x, y, z, t2),
       source_at_delta(local_source, x, y, z, t2, 3, -1, target),
       backward_gauge(x, y, z, t2, 3, target), result);
-  scatter_vector(result, output, site_linear(x, y, z, t2));
+  }
+  const int64_t site = site_linear(x, y, z, t2);
+  if (part == 2) {
+    C existing[kVector];
+    gather_vector(compact_view(output, site), existing);
+    for (int i = 0; i < kVector; ++i) {
+      existing[i] += result[i];
+    }
+    scatter_vector(existing, output, site);
+  } else {
+    scatter_vector(result, output, site);
+  }
 }
 
 template <typename Real>
@@ -728,12 +794,37 @@ void LatticeSet<Real>::compute_dslash_dagger_boundary(
 }
 
 template <typename Real>
+void LatticeSet<Real>::compute_dslash_dagger_boundary_part(
+    const Complex<Real> *local_source, Complex<Real> *output, int target,
+    int part) {
+  const int64_t count = static_cast<int64_t>(boundary_sites_.size());
+  const int64_t chunk = omp_chunk<Real>(count);
+#pragma omp parallel for schedule(static, chunk)
+  for (int64_t index = 0; index < count; ++index) {
+    const int64_t linear = boundary_sites_[static_cast<std::size_t>(index)];
+    int x = 0;
+    int y = 0;
+    int z = 0;
+    int t2 = 0;
+    geometry_.decode_half(linear, x, y, z, t2);
+    if (use_block_dslash(geometry_.half_sites) &&
+        is_periodic_face_site(geometry_.local, geometry_.grid, x, y, z,
+                              t2)) {
+      continue;
+    }
+    compute_dslash_dagger_site(local_source, output, x, y, z, t2, target,
+                               part);
+  }
+}
+
+template <typename Real>
 void LatticeSet<Real>::compute_dslash_dagger_site(
     const Complex<Real> *local_source, Complex<Real> *output, int x, int y,
-    int z, int t2, int target) {
+    int z, int t2, int target, int part) {
   using C = Complex<Real>;
   C result[kVector];
   std::fill(std::begin(result), std::end(result), C(0));
+  if (part != 2) {
   accumulate_hopping<Real, 0, true, 1>(
       source_at_delta(local_source, x, y, z, t2, 0, -1, target),
       backward_gauge(x, y, z, t2, 0, target), result);
@@ -752,13 +843,26 @@ void LatticeSet<Real>::compute_dslash_dagger_site(
   accumulate_hopping<Real, 2, false, -1>(
       source_at_delta(local_source, x, y, z, t2, 2, 1, target),
       local_gauge(target, 2, x, y, z, t2), result);
+  }
+  if (part != 1) {
   accumulate_hopping<Real, 3, true, 1>(
       source_at_delta(local_source, x, y, z, t2, 3, -1, target),
       backward_gauge(x, y, z, t2, 3, target), result);
   accumulate_hopping<Real, 3, false, -1>(
       source_at_delta(local_source, x, y, z, t2, 3, 1, target),
       local_gauge(target, 3, x, y, z, t2), result);
-  scatter_vector(result, output, site_linear(x, y, z, t2));
+  }
+  const int64_t site = site_linear(x, y, z, t2);
+  if (part == 2) {
+    C existing[kVector];
+    gather_vector(compact_view(output, site), existing);
+    for (int i = 0; i < kVector; ++i) {
+      existing[i] += result[i];
+    }
+    scatter_vector(existing, output, site);
+  } else {
+    scatter_vector(result, output, site);
+  }
 }
 
 template <typename Real>
@@ -768,6 +872,18 @@ void LatticeSet<Real>::bare_dslash(Complex<Real> *output,
       std::getenv("KUPL_PROFILE_DSLASH") != nullptr;
   const int source_parity = 1 - target;
   if (!profile) {
+    if (geometry_.grid[0] == 1 && geometry_.grid[1] == 1 &&
+        geometry_.grid[2] == 1 && geometry_.local[3] == 2) {
+      post_fermion_halo(input, source_parity);
+      compute_dslash_boundary_part(input, output, target, 1);
+      if (!fermion_requests_.empty()) {
+        MPI_Waitall(static_cast<int>(fermion_requests_.size()),
+                    fermion_requests_.data(), MPI_STATUSES_IGNORE);
+        fermion_requests_.clear();
+      }
+      compute_dslash_boundary_part(input, output, target, 2);
+      return;
+    }
     post_fermion_halo(input, source_parity);
     compute_dslash_interior(input, output, target);
     if (!fermion_requests_.empty()) {
@@ -806,6 +922,18 @@ void LatticeSet<Real>::bare_dslash_dagger(Complex<Real> *output,
                                           const Complex<Real> *input,
                                           int target) {
   const int source_parity = 1 - target;
+  if (geometry_.grid[0] == 1 && geometry_.grid[1] == 1 &&
+      geometry_.grid[2] == 1 && geometry_.local[3] == 2) {
+    post_fermion_halo(input, source_parity);
+    compute_dslash_dagger_boundary_part(input, output, target, 1);
+    if (!fermion_requests_.empty()) {
+      MPI_Waitall(static_cast<int>(fermion_requests_.size()),
+                  fermion_requests_.data(), MPI_STATUSES_IGNORE);
+      fermion_requests_.clear();
+    }
+    compute_dslash_dagger_boundary_part(input, output, target, 2);
+    return;
+  }
   post_fermion_halo(input, source_parity);
   compute_dslash_dagger_interior(input, output, target);
   if (!fermion_requests_.empty()) {

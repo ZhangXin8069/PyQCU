@@ -309,16 +309,22 @@ private:
                                Complex<Real> *output, int target);
   void compute_dslash_boundary(const Complex<Real> *local_source,
                                Complex<Real> *output, int target);
+  void compute_dslash_boundary_part(const Complex<Real> *local_source,
+                                    Complex<Real> *output, int target,
+                                    int part);
   void compute_dslash_site(const Complex<Real> *local_source,
                            Complex<Real> *output, int x, int y, int z,
-                           int t2, int target);
+                           int t2, int target, int part = 0);
   void compute_dslash_dagger_interior(const Complex<Real> *source,
                                       Complex<Real> *output, int target);
   void compute_dslash_dagger_boundary(const Complex<Real> *local_source,
                                       Complex<Real> *output, int target);
+  void compute_dslash_dagger_boundary_part(
+      const Complex<Real> *local_source, Complex<Real> *output, int target,
+      int part);
   void compute_dslash_dagger_site(const Complex<Real> *local_source,
                                   Complex<Real> *output, int x, int y, int z,
-                                  int t2, int target);
+                                  int t2, int target, int part = 0);
   void bare_dslash(Complex<Real> *output, const Complex<Real> *input,
                    int target);
   void bare_dslash_dagger(Complex<Real> *output, const Complex<Real> *input,
