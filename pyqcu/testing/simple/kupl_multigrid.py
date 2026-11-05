@@ -640,6 +640,7 @@ def main(argv=None) -> int:
             args.atol, float(args.csw if args.csw is not None else 1.0), dtype,
             args.max_iter, grid, rank, size)
         input_prebind_seconds = time.perf_counter() - started
+    gauge_full = None
     gauge_local = _read_local_slab(args.gauge, local_starts, local_lattice)
     if gauge_local is None:
         gauge_full, metadata = load_gauge(args.gauge, lattice, dtype)
@@ -701,7 +702,9 @@ def main(argv=None) -> int:
             if comm is not None:
                 gauge_file_digest = comm.bcast(gauge_file_digest, root=0)
         cache_identity = legacy_mg_cache_identity(
-            gauge_canonical_sha256=logical_array_sha256(gauge_full),
+            gauge_canonical_sha256=(
+                logical_array_sha256(gauge_full) if gauge_full is not None
+                else gauge_file_digest),
             **({
                 "gauge_file_sha256": gauge_file_digest
             } if gauge_file_digest is not None else {}),
@@ -744,7 +747,7 @@ def main(argv=None) -> int:
             coarse_source = str(cache_path)
         else:
             null_vectors, hop_nn, hop_diag, sitting = build_coarse_assets(
-                gauge_full, lattice, mass, kappa, csw, dtype, args.levels,
+                gauge_local, lattice, mass, kappa, csw, dtype, args.levels,
                 list(args.dof), list(args.mg_grid), args.nv_iters,
                 args.seed, verbose=args.verbose or args.verbose_build,
                 local_stencil=args.local_stencil,
