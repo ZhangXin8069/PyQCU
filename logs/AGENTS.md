@@ -914,3 +914,11 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: 完成仓库 AGENTS 初始化、验证与 main 推送；dev107 因既有 tag 链祖先断裂按安全规则停止。
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
+## tag-dev108 - final - 2026-11-05 21:46:12 +0800
+- 主任务: 创建本地 dev108 标签
+- 日志文件: logs/v2026110521.txt
+- 文件大小: 5345 bytes
+- 触发原因: 任务完成
+- 关键内容: 基于 dev107 创建本地 dev108，记录 KUPL dslash 优化、mempolicy 与线程绑核修复、rank-local slab 读取与鲲鹏 STREAM 归档；未推送远程
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete

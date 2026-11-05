@@ -1,0 +1,90 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-11-05 21:46:12 +0800
+批次: tag-dev108
+主任务: 创建本地 dev108 标签
+触发原因: 任务完成
+摘要: 基于 dev107 创建本地 dev108，记录 KUPL dslash 优化、mempolicy 与线程绑核修复、rank-local slab 读取与鲲鹏 STREAM 归档；未推送远程
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — 技能加载与身份判定
+- 目标: 按用户 `~tag` 创建 Git 标签
+- 命令/操作: 读取 /root/configure/skills/tag/SKILL.md、log/SKILL.md、skills/pyqcu-tag/SKILL.md
+- 关键输出: 三类技能全部加载；用户未指定类型，按推断规则默认 dev
+- 退出码: 0
+- 证据与判断: 无 "stab/bug/test/子版本" 信号 → dev
+
+### S2 — 基线与变更分析
+- 目标: 确定基线与 dev108 的变更清单
+- 命令/操作: git for-each-ref --sort=-taggerdate; git log dev107..HEAD; git diff dev107..HEAD --stat
+- 关键输出: 基线 dev107 (2026-10-31 23:43:44 +0800)；5 个提交；20 文件 +1518/-36
+- 退出码: 0
+- 证据与判断: 改动集中在 KUPL C++ 后端、KUPL 测试脚本、LX2 STREAM 参考源码、KUPL 性能文档
+
+### S3 — 历史链自检
+- 目标: 校验全部历史 stab/dev/bug/test 标签 follow 链
+- 命令/操作: bash skills/pyqcu-tag/tag-chain.sh --check --remote origin
+- 关键输出: 301 个受管标签；4 条 [BRANCH] 合法并行分叉；1 条 [BLOCK] bug45 peeled commit 非 dev106 祖先且无共同 follow 祖先；FAIL 可安全修正候选 0
+- 退出码: 1
+- 证据与判断: 唯一问题位于既有历史 (bug45/dev106)，不可自动修正，不属于本次创建范围；不阻断本次打标
+
+### S4 — init 覆盖检查
+- 目标: 打标前确认仓库整洁
+- 命令/操作: ls AGENT.md/CLAUDE.md/CODEX.md/.claude; find 缺 AGENTS.md 目录
+- 关键输出: 无散落 agent init 文件；缺 AGENTS.md 的为 refer/huzc、refer/git-rep、refer/kunpeng、refer/kunpeng/lx2-stream-source、data
+- 退出码: 0
+- 证据与判断: 均为外部移植/上游 vendored 或数据目录，按 form 既有豁免惯例不新增 AGENTS.md，仅登记
+
+### S5 — 变更验证
+- 目标: 对本次变更执行可行检查
+- 命令/操作: mpicxx -fsyntax-only 两文件；python3 -m py_compile；bash -n 三脚本；git diff --check；form-large-files-check
+- 关键输出: lattice_wilson_dslash.cpp EXIT=0、lattice_cpu.cpp EXIT=0（仅 2 条 OpenMPI 头文件 warning）；PY_COMPILE_OK；BASH_OK ×3；DIFF_CHECK_OK；大文件门禁 已检查=0 通过
+- 退出码: 全部 0
+- 证据与判断: 本机为 x86_64/8 核，未做鲲鹏全量构建与 MPI 运行；KUPL 运行时性能结论不可在本机复现
+
+### S6 — 创建标签
+- 目标: 创建 dev108 附注标签
+- 命令/操作: git tag -a dev108 -m "follow dev107, ...; [commandcode]."
+- 关键输出: dev108 创建成功；peeled commit 82cc633 == HEAD 82cc633
+- 退出码: 0
+- 证据与判断: 链前缀 follow dev107 与 tag-chain 语法一致；未推送远程（用户未授权同步）
+
+## 验证与证据
+- 测试/检查: tag-chain --check、-fsyntax-only、py_compile、bash -n、git diff --check、large-files-check、form-audit
+- 结果: 新增标签链正确；变更文件语法通过；form 审计 PASS（35 技能目录一致，豁免 8 项既有 finding）
+- 未验证项: 未在鲲鹏节点做 KUPL 全量构建与 MPI 运行；未复测 HBM 性能数字；本机 x86_64 无法验证 AArch64 快路径
+
+## 变更与产物
+- 文件: 无工作区文件改动（仅新增本地标签 refs/tags/dev108）
+- 产物: dev108 附注标签
+- 未改动范围: 源码、文档、logs 均未修改
+
+## 风险、限制与下一步
+- 风险: 标签仅存在于本地，其他机器需 git fetch --tags 同步
+- 阻塞: 无
+- 下一步: 如需同步远程，执行 git push origin main && git push origin dev108；既有 [BLOCK] bug45/dev106 需人工判定是否修正
+
+## 用户输入指令
+~tag
+
+## Agent 全文报告
+--- report begin ---
+已创建本地标签 **dev108**（不推送，用户未要求同步远程）。
+
+**类型判定**：`~tag` 未给出 stab/bug/test/子版本信号，按推断规则默认 `dev`；自动编号取 dev107 → dev108。
+
+**变更清单（dev107..HEAD，5 提交 / 20 文件 +1518-36）**
+1. KUPL Wilson dslash：12 分量手写累加展开、`#pragma omp simd`、t 全拆时边界双段 halo 重叠快路径
+2. KUPL 修复：`set_mempolicy` 的 maxnode 改 `words*bits` 64 位对齐；OpenMP 逐线程绑定独立 CPU
+3. KUPL 测试：HDF5 rank-local slab 读取、`KUPL_SKIP_INPUT_PREBIND` 跳过输入预绑定
+4. 归档：鲲鹏 LX2 STREAM 探测源码/报告、KUPL HBM 性能参考
+
+**验证结果**
+- `tag-chain.sh --check`：dev108 正确接 dev107；另有 1 条既有 `[BLOCK]`（bug45 peeled commit 非 dev106 祖先），不可自动修正，未处理
+- `mpicxx -fsyntax-only`：`lattice_wilson_dslash.cpp`、`lattice_cpu.cpp` 均 exit 0（2 条 warning 来自 OpenMPI 头文件）
+- `py_compile` / `bash -n` ×3 / `git diff --check` / 大文件门禁 / form 审计 全部通过
+- 未验证：本机 x86_64，无鲲鹏全量构建与 MPI 运行，HBM 与 dslash 性能数字未复现
+
+**后续步骤**：需要远程同步时执行 `git push origin main && git push origin dev108`；`refer/kunpeng/**` 缺 AGENTS.md 已登记未新建（外部移植内容）。
+--- report end ---
