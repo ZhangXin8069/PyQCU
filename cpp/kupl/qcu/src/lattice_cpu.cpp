@@ -368,7 +368,7 @@ bool apply_memory_policy(int node, const std::string &policy,
     error = "KUPL_MEMORY_POLICY must be preferred or bind";
     return false;
   }
-  if (syscall(SYS_set_mempolicy, mode, mask.data(), node + 1) != 0) {
+  if (syscall(SYS_set_mempolicy, mode, mask.data(), static_cast<unsigned long>(words * bits)) != 0) {
     error = std::string("set_mempolicy failed: ") + std::strerror(errno);
     return false;
   }
@@ -662,9 +662,13 @@ void bind_logical_numa() {
     }
     std::atomic<int> thread_bind_failure{0};
     std::atomic<int> bound_thread_count{0};
-#pragma omp parallel num_threads(state.threads) shared(bound, thread_bind_failure, bound_thread_count)
+#pragma omp parallel num_threads(state.threads) shared(state, thread_bind_failure, bound_thread_count)
     {
-      if (sched_setaffinity(0, sizeof(bound), &bound) == 0) {
+      const int thread = omp_get_thread_num();
+      cpu_set_t single;
+      CPU_ZERO(&single);
+      CPU_SET(state.cpus[static_cast<std::size_t>(thread) % state.cpus.size()], &single);
+      if (sched_setaffinity(0, sizeof(single), &single) == 0) {
         bound_thread_count.fetch_add(1, std::memory_order_relaxed);
       } else {
         int expected = 0;

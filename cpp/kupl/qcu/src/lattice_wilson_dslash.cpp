@@ -139,6 +139,7 @@ void accumulate_hopping_block(const Complex<Real> *source,
         const C *vectors =
             source + static_cast<int64_t>(spin * kColor + column) *
                          source_stride;
+#pragma omp simd
         for (int lane = 0; lane < lanes; ++lane) {
           const Real entry_imag = Dagger ? -entries[lane].imag()
                                          : entries[lane].imag();
@@ -160,6 +161,7 @@ void accumulate_hopping_block(const Complex<Real> *source,
     C h1[kSiteLanes];
     C h2[kSiteLanes];
     C h3[kSiteLanes];
+#pragma omp simd
     for (int lane = 0; lane < lanes; ++lane) {
       transform_gamma<Real, Direction, GammaSign>(
           transported[color][lane], transported[kColor + color][lane],

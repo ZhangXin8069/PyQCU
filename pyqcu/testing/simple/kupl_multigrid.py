@@ -32,7 +32,8 @@ try:
     from ._common import (DATA_DIR, DEFAULT_ATOL, DEFAULT_BLOCK, DEFAULT_MASS,
                           convergence_status, json_safe, kupl_fermion_to_qcu,
                           qcu_fermion_to_kupl, qcu_gauge_to_kupl,
-                          resolve_csw, resolve_path, write_h5, write_json)
+                          read_h5_metadata, resolve_csw, resolve_path,
+                          write_h5, write_json)
     from ._layouts import qcu_gauge_to_kupl as gauge_to_parity
     from .kupl_bistabcg import (NumpyTensor, PLAN_CLOVER, PLAN_SOLVER,
                                 PARITY, SET_PLAN, cpu_memory_snapshot,
@@ -45,7 +46,8 @@ except ImportError:
     from _common import (DATA_DIR, DEFAULT_ATOL, DEFAULT_BLOCK, DEFAULT_MASS,
                          convergence_status, json_safe, kupl_fermion_to_qcu,
                          qcu_fermion_to_kupl, qcu_gauge_to_kupl,
-                         resolve_csw, resolve_path, write_h5, write_json)
+                         read_h5_metadata, resolve_csw, resolve_path,
+                         write_h5, write_json)
     from _layouts import qcu_gauge_to_kupl as gauge_to_parity
     from kupl_bistabcg import (NumpyTensor, PLAN_CLOVER, PLAN_SOLVER,
                                PARITY, SET_PLAN, cpu_memory_snapshot,
@@ -525,6 +527,23 @@ def _slice_last4(array: np.ndarray, starts: tuple[int, int, int, int],
     return np.ascontiguousarray(values[tuple(slices)])
 
 
+def _read_local_slab(path_value, starts: tuple[int, int, int, int],
+                     local_shape: tuple[int, int, int, int]):
+    """Read only this rank's HDF5 hyperslab (dataset ``data``, last four axes)."""
+    if path_value is None:
+        return None
+    path = resolve_path(path_value, resolve_path(None, path_value))
+    if path.suffix not in (".h5", ".hdf5"):
+        return None
+    import h5py
+
+    selection = (Ellipsis,) + tuple(
+        slice(int(start), int(start) + int(count))
+        for start, count in zip(starts, local_shape))
+    with h5py.File(path, "r") as handle:
+        return np.ascontiguousarray(handle["data"][selection])
+
+
 def _rank_geometry(lattice: tuple[int, int, int, int],
                    grid: tuple[int, int, int, int], rank: int):
     if int(np.prod(grid)) < rank + 1:
@@ -612,7 +631,8 @@ def main(argv=None) -> int:
         parser.error("multi-rank coarse-cache export is not implemented")
     dtype = np.dtype(np.complex64 if args.dtype == "c64" else np.complex128)
     input_prebind_seconds = 0.0
-    if _environment_enabled("KUPL_NUMA_BIND"):
+    if (_environment_enabled("KUPL_NUMA_BIND")
+            and not _environment_enabled("KUPL_SKIP_INPUT_PREBIND")):
         started = time.perf_counter()
         prebind_kupl_inputs(
             qcu, local_lattice,
@@ -620,11 +640,21 @@ def main(argv=None) -> int:
             args.atol, float(args.csw if args.csw is not None else 1.0), dtype,
             args.max_iter, grid, rank, size)
         input_prebind_seconds = time.perf_counter() - started
-    gauge_full, metadata = load_gauge(args.gauge, lattice, dtype)
-    gauge_local = _slice_last4(gauge_full, local_starts, local_lattice)
+    gauge_local = _read_local_slab(args.gauge, local_starts, local_lattice)
+    if gauge_local is None:
+        gauge_full, metadata = load_gauge(args.gauge, lattice, dtype)
+        gauge_local = _slice_last4(gauge_full, local_starts, local_lattice)
+    else:
+        gauge_local = gauge_local.astype(dtype, copy=False)
+        metadata = read_h5_metadata(
+            resolve_path(args.gauge, resolve_path(None, args.gauge)))
     gauge = qcu_gauge_to_kupl(gauge_local)
-    source_full = load_source(args.source, lattice, args.seed, dtype)
-    source_local = _slice_last4(source_full, local_starts, local_lattice)
+    source_local = _read_local_slab(args.source, local_starts, local_lattice)
+    if source_local is None:
+        source_full = load_source(args.source, lattice, args.seed, dtype)
+        source_local = _slice_last4(source_full, local_starts, local_lattice)
+    else:
+        source_local = source_local.astype(dtype, copy=False)
     source = qcu_fermion_to_kupl(source_local)
     solution = np.zeros_like(source)
     clover_shape = (4, 3, 4, 3, *local_lattice[:3], local_lattice[3] // 2)
