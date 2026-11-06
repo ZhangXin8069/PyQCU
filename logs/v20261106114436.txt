@@ -1,0 +1,39 @@
+[日志元数据]
+日志类型: general
+生成时间: 2026-11-06 11:44:36 +0800
+批次: kupl-hbm-20261106
+主任务: KUPL QCU-MG 24^3x64 c64 性能优化与 MG/BiCG 加速比验证
+触发原因: 一般记录
+摘要: restart=50 初始 deflation 达到 L24 登录节点最低绝对耗时 0.947332 s，独立真残差 PASS；计算节点 pre-hook 仍阻塞
+Git 根目录: /Users/zhangxin/PyQCU
+
+## 关键日志
+### S1 — restart=20/50 参数收尾
+- restart=20 同窗 A/B: BiCGStab 中位 1.2307832352 s，true-MG 中位 0.7051456925 s，比值 1.7454311192x；fine_calls=29，coarse_calls=9。
+- restart=50 同窗 A/B: BiCGStab 中位 1.0918660681 s，true-MG 中位 0.7042407769 s，比值 1.5504158575x；fine_calls=29，coarse_calls=9。
+- restart=50 实际只执行一次 coarse correction，属于 initial deflation + fine BiCGStab，不是周期性 V-cycle，报告中必须如实标注。
+
+### S2 — restart=50 独立真残差
+- full-residual run: wall=0.9473317482 s，verify_status=0，独立 distributed NumPy full Wilson-Clover residual=5.5308248713e-5，acceptance=2.44140625e-4，status=PASS。
+- profile: fine_apply=0.508240 s，coarse_apply=0.023494 s，coarse_correction=0.086834 s，full_residual=0.016477 s。
+- 这是当前 L24 登录节点最低绝对耗时，但距 0.1 s 仍约 9.5x。
+
+### S3 — 计算节点
+- dsub 使用 CLI `-q q_hpcapp` 可以提交，但 32-rank 作业 2048816 超过 10 分钟仍停留在 host pre-hook，无 case stdout/report。
+- 官方 CLI 未提供 cancel 子命令；ddel、djob -k 均无效，直接 SSH cn10579 被 host-key 校验拒绝，未绕过安全边界。
+- 后续 16-rank 提交未出现在活动作业查询中；计算节点性能证据仍 blocked。
+
+## 验证与证据
+- 测试/检查: restart=20/50 A/B gate 全部 PASS；restart=50 full residual PASS；此前 KUPL CTest 35/35、MPI contract 28/28。
+- 未验证项: 计算节点 HBM/STREAM、计算节点 r20/r50 A/B、L32 MG/BiCG。
+- 风险: restart=50 仅一次 deflation，不应与完整 V-cycle MG 混报；短窗口负载漂移仍存在。
+
+## 变更与产物
+- 产物: data/kupl_hbm_opt_20261106/l24_true_mg_vs_bicg_r20_v1/results.json、l24_true_mg_vs_bicg_r50_v1/results.json、l24_true_mg_r50_full_v1/report.json。
+- 文档: skills/pyqcu-kupl/SKILL.md、skills/pyqcu-benchmark/SKILL.md、logs/kupl_hbm_opt_20261106.md。
+- 未改动范围: 未绕过 scheduler/host-key，未终止其他用户进程。
+
+## 风险、限制与下一步
+- 计算节点 pre-hook 阻塞未解除，不能把登录节点结果当作最终 HBM 验收。
+- 下一步应先用最小、短时、可写输出的 dsub probe 验证 pre-hook，再在计算节点重跑 r20/r50 与 BiCGStab，并补 STREAM/算力/页分布。
+- L32 cache setup 仍超过登录节点门限，需降低 null-vector/stencil 成本或使用合格的分布式构建。

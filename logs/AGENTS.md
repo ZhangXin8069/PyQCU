@@ -938,3 +938,43 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: 修复 Legacy-MG cache C-order 摘要并建立 true-MG fail-closed/阻尼修正检查点
 - 验证: path, size, required sections, conflict markers
 - 批次状态: in-progress
+## kupl-hbm-20261106 - stage - 2026-11-06 10:35:51 +0800
+- 主任务: KUPL QCU-MG 24^3x64 c64 性能优化与 MG/BiCG 加速比验证
+- 日志文件: logs/v202611061035.txt
+- 文件大小: 5869 bytes
+- 触发原因: 阶段成果
+- 关键内容: true-MG 阻尼修正通过；完成 grid/MG 参数/L8-L16/L32 尝试；L24 MG 对 BiCGStab 未显示加速
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## kupl-hbm-20261106 - general - 2026-11-06 10:47:04 +0800
+- 主任务: KUPL QCU-MG 24^3x64 c64 性能优化与 MG/BiCG 加速比验证
+- 日志文件: logs/v20261106104704.txt
+- 文件大小: 3176 bytes
+- 触发原因: 一般记录
+- 关键内容: L24 restart=10 true-MG 获得约 1.77x 同窗加速，独立真残差 PASS；全量 CTest 35/35
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## kupl-hbm-20261106 - general - 2026-11-06 11:44:36 +0800
+- 主任务: KUPL QCU-MG 24^3x64 c64 性能优化与 MG/BiCG 加速比验证
+- 日志文件: logs/v20261106114436.txt
+- 文件大小: 2849 bytes
+- 触发原因: 一般记录
+- 关键内容: restart=50 初始 deflation 达到 L24 登录节点最低绝对耗时 0.947332 s，独立真残差 PASS；计算节点 pre-hook 仍阻塞
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## kupl-hbm-20261106 - stage - 2026-11-06 14:46:16 +0800
+- 主任务: KUPL QCU-MG 24^3x64 c64 性能优化与 MG/BiCGStab 加速比验证
+- 日志文件: logs/v202611061446.txt
+- 文件大小: 11835 bytes
+- 触发原因: 阶段成果
+- 关键内容: 阶段性能简报：登录节点 true-MG 最低 0.947 s 且真残差 PASS，计算节点初始化异常仍阻断最终验收，L32 未验证
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## kupl-hbm-20261106 - stage - 2026-11-06 15:50:43 +0800
+- 主任务: KUPL QCU-MG 24^3x64 c64 性能优化与 MG/BiCGStab 加速比验证
+- 日志文件: logs/v202611061550.txt
+- 文件大小: 6542 bytes
+- 触发原因: 阶段成果
+- 关键内容: HMPI Cartesian 拓扑挂起已由周期手工几何修复；计算节点 BiCGStab 213.44 s/PASS，MG 10 分钟无报告已终止
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress

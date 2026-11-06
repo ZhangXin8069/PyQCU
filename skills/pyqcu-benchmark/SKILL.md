@@ -506,3 +506,109 @@ per-worker-scratch parallel build reduced L8/L16/L24 setup by 12.9x/17.6x/>31x w
 preserving gram/Galerkin checks. Report `builder_seconds`, cache-hit solve, and
 cache size independently, and enable the parallel builder in targeted regressions so
 the serial fallback does not hide setup-only correctness failures.
+
+## 2026-11-06 KUPL true-MG acceptance and A/B correction
+
+The Legacy-MG cache validator must stream logical tensors in strict C order. The
+blocked `lonv=[E,e,X,bx,Y,by,Z,bz,T/2,bt]` shape is vulnerable to a Cartesian
+multi-axis chunk walk: fixing only the chunk byte budget can hash non-adjacent
+axis blocks and produce a false manifest mismatch. Fix prefix coordinates and
+split one axis while keeping all trailing axes complete. A regression must compare
+`logical_dataset_sha256` with `logical_array_sha256` on the blocked shape, not only
+on a small contiguous fixture.
+
+Formal KUPL MG runs must set `KUPL_REQUIRE_MG_CORRECTION=1`. A `levels=2` report
+with `fallback=fine_bicgstab`, `coarse_calls=0`, or no accepted correction is a
+BiCGStab result and must not enter a MG speedup table. The same gate must be
+disabled only for the explicit `levels=1,restart=0` BiCGStab control.
+
+Coarse correction needs a damping line search because a full additive correction
+can increase the fine true residual even when the coarse solve itself converges.
+Build the coarse correction once, try dampings `1, 0.5, 0.25, 0.125`, and accept
+only a decrease. A failed search restores the previous fine solution and residual
+before declaring fallback.
+
+Current 2026-11-06 L24 c64 result, 16 ranks x 8 threads and `grid=1 1 1 16`:
+BiCGStab median `1.2545952125 s` (16 iterations), true-MG median
+`1.3541084125 s` (`fine_calls=37`, `coarse_calls=29`), giving a BiCGStab/MG
+ratio of `0.926510`. The MG path was about 7.9% slower in this same login-node
+window. The window was contaminated by another user's `mpirun -np 8 ./test` and
+must not be promoted to a compute-node speedup claim. The sign of the result is
+still important: iteration reduction alone does not establish an MG speedup.
+
+L24 true-MG grid screening found the best observed login-node point at 16 ranks
+x 8 threads, `grid=1 1 1 16`, around `1.686 s`; 32-rank grids were slower. L8 and
+L16 scans must reject grids whose `grid_t` exceeds the cache's coarse time extent
+before timing. L32x64 c64 gauge/source were prepared successfully, but the
+one-rank cache build and 32-rank BiCGStab control both exceeded the 10-minute
+login-node gate without a report. L32 results remain blocked until setup is made
+substantially cheaper or a qualified compute-node allocation is available.
+
+A later same-window L24 `restart=10` A/B at the same 16-rank t-split gave
+BiCGStab median `1.39724 s` and true-MG median `0.78976 s`, a `1.7692x`
+median speedup (`fine_calls=32`, `coarse_calls=19`). The full-residual
+companion run passed at `1.04379 s` with independent residual `6.88873e-5`
+against the `2.44140625e-4` c64 acceptance. This supersedes the earlier
+`restart=5` negative screen as the current login-node candidate, but still
+requires compute-node repeats and does not satisfy the `0.1 s` target.
+
+Larger restart intervals showed the correction-count knee: `restart=20`
+gave BiCGStab/MG medians `1.230783/0.705146 s` (`1.7454x`) and `restart=50`
+gave `1.091866/0.704241 s` (`1.5504x`), both with `fine_calls=29` and
+`coarse_calls=9`. At `restart=50` only initial deflation ran, followed by fine
+BiCGStab, so do not label it a periodic V-cycle. Its independent-residual run
+passed at `0.947332 s` with residual `5.5308248713e-5`; this is the lowest
+absolute L24 login-node solve, still roughly 9.5x above the target.
+
+On the recovered LX2 scheduler, `dsub -q q_hpcapp <script>` was accepted even
+though the same script without the CLI queue flag was refused. However, the
+first 32-rank compute-node A/B remained in host pre-hook with no stdout/report
+and no documented cancel command. Do not treat scheduler acceptance as compute
+node health: first run a short writable-output probe, inspect `djob -ll`, and
+only then submit a solver matrix. Never bypass host-key verification or touch
+another user's processes.
+
+### 2026-11-06 rank-slab cache and grid-specific A/B
+
+The current remote `h5py 3.7.0` has no MPI support
+(`h5py.get_config().mpi == False`), so the optional HDF5 MPIO path cannot be
+used there. `prepare_mpi_slab.py` writes contiguous `rank_XXXX.h5` slabs for a
+fixed lattice/grid, and `kupl_multigrid.py` accepts
+`--gauge-slab-dir`/`--source-slab-dir`. Validate the rank file trailing shape;
+never reuse a slab directory after changing the process grid.
+
+On login02 with L24 c64, 16 ranks x 8 threads, the slab cache reduced measured
+gauge/source reads to about `0.096/0.010 s`. It does not prove compute-node
+launch health: 16-rank scheduler jobs still reached the ten-minute gate without
+a report. Keep those runs unclassified until a case report and independent
+residual exist.
+
+The current login-node grid screen is:
+
+| grid | BiCGStab | true-MG restart=20 | interpretation |
+|---|---:|---:|---|
+| `1 1 1 16` | 1.116278 s median | 1.037458 s median | positive but noisy |
+| `1 1 2 8` | 1.844325 s | 1.840493 s | rejected |
+| `1 2 2 4` | 1.084889 s | 1.250455 s | rejected for MG |
+
+The t-only median ratio is `1.076x`, with individual paired ratios spanning
+roughly `0.78–1.59x`; this is not a stable compute-node speedup. The
+restart=20 full-residual run passed at `1.316182 s`, `verify_status=0`, and
+independent residual `5.5308248713e-5` under `2.44140625e-4`. Report setup
+reads, solver wall, correction counts, and residual separately.
+
+An `ht=2` boundary split opt-in reduced the BiCG median from `1.099630` to
+`1.037594 s`, but the true-MG median moved from `0.902746` to `1.041128 s`.
+Because MG is the objective, the split is not a production default; require
+separate MG A/B before enabling it.
+
+After the manual periodic-geometry fix, a compute-node 16×8 t-only HBM
+BiCGStab run measured `wall_seconds=213.4409 s`, 16 iterations, independent
+residual `3.5410827e-6`, and `status=PASS`. HBM-bound initialization reached
+`register=41.75-46.30 s` per rank. Treat input prebind, HDF5 slab read,
+initialization and the `applyCloverMultigridQcu` wall as separate fields; never
+fold setup into the solve wall when comparing against the 0.1 s target.
+
+The paired true-MG case was terminated after the 10-minute gate with no report
+(`jobExitCode=143`). It is a timeout/health result, not a valid MG speedup
+point.

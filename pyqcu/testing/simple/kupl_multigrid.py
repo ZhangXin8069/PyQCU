@@ -80,6 +80,27 @@ def _environment_enabled(name: str) -> bool:
         "0", "false", "no", "off"}
 
 
+def _hdf5_mpio_read_enabled(comm) -> bool:
+    """Return a uniform opt-in decision for collective HDF5 input reads."""
+    requested = int(_environment_enabled("KUPL_HDF5_MPIO_READ"))
+    if comm is None:
+        return bool(requested)
+    votes = comm.allgather(requested)
+    if len(set(votes)) != 1:
+        raise RuntimeError(
+            "KUPL_HDF5_MPIO_READ must be identical on every MPI rank")
+    if not requested:
+        return False
+    import h5py
+
+    supported = int(bool(h5py.get_config().mpi))
+    support = comm.allgather(supported)
+    if not all(support):
+        raise RuntimeError(
+            "KUPL_HDF5_MPIO_READ=1 requires h5py built with MPI support")
+    return True
+
+
 def resolve_legacy_layout(requested: str, use_coarse_assets: bool,
                           null_vectors: tuple[np.ndarray, ...],
                           local_lattice: tuple[int, int, int, int]) -> int:
@@ -530,8 +551,23 @@ def _slice_last4(array: np.ndarray, starts: tuple[int, int, int, int],
 
 
 def _read_local_slab(path_value, starts: tuple[int, int, int, int],
-                     local_shape: tuple[int, int, int, int]):
+                     local_shape: tuple[int, int, int, int], *,
+                     hdf5_mpio: bool = False, comm=None,
+                     slab_dir: Path | None = None, rank: int = 0):
     """Read only this rank's HDF5 hyperslab (dataset ``data``, last four axes)."""
+    if slab_dir is not None:
+        slab_path = Path(slab_dir) / f"rank_{int(rank):04d}.h5"
+        if not slab_path.is_file():
+            raise FileNotFoundError(slab_path)
+        import h5py
+
+        with h5py.File(slab_path, "r") as handle:
+            value = np.ascontiguousarray(handle["data"][...])
+        if tuple(value.shape[-4:]) != tuple(local_shape):
+            raise ValueError(
+                f"slab {slab_path} trailing shape {value.shape[-4:]} != "
+                f"{tuple(local_shape)}")
+        return value
     if path_value is None:
         return None
     path = resolve_path(path_value, resolve_path(None, path_value))
@@ -542,7 +578,12 @@ def _read_local_slab(path_value, starts: tuple[int, int, int, int],
     selection = (Ellipsis,) + tuple(
         slice(int(start), int(start) + int(count))
         for start, count in zip(starts, local_shape))
-    with h5py.File(path, "r") as handle:
+    open_kwargs = {}
+    if hdf5_mpio:
+        if comm is None:
+            raise ValueError("collective HDF5 read requires an MPI communicator")
+        open_kwargs = {"driver": "mpio", "comm": comm}
+    with h5py.File(path, "r", **open_kwargs) as handle:
         return np.ascontiguousarray(handle["data"][selection])
 
 
@@ -595,6 +636,10 @@ def main(argv=None) -> int:
         help="canonical input layout used by the KUPL Legacy MG ABI")
     parser.add_argument("--gauge", default=None)
     parser.add_argument("--source", default=None)
+    parser.add_argument("--gauge-slab-dir", type=Path, default=None,
+                        help="directory of contiguous rank_XXXX.h5 gauge slabs")
+    parser.add_argument("--source-slab-dir", type=Path, default=None,
+                        help="directory of contiguous rank_XXXX.h5 source slabs")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument(
         "--skip-independent-residual", action="store_true",
@@ -632,6 +677,7 @@ def main(argv=None) -> int:
     if size > 1 and args.write_coarse_cache is not None:
         parser.error("multi-rank coarse-cache export is not implemented")
     dtype = np.dtype(np.complex64 if args.dtype == "c64" else np.complex128)
+    hdf5_mpio_read = _hdf5_mpio_read_enabled(comm)
     input_prebind_seconds = 0.0
     if (_environment_enabled("KUPL_NUMA_BIND")
             and not _environment_enabled("KUPL_SKIP_INPUT_PREBIND")):
@@ -642,8 +688,14 @@ def main(argv=None) -> int:
             args.atol, float(args.csw if args.csw is not None else 1.0), dtype,
             args.max_iter, grid, rank, size)
         input_prebind_seconds = time.perf_counter() - started
+    input_read_started = time.perf_counter()
     gauge_full = None
-    gauge_local = _read_local_slab(args.gauge, local_starts, local_lattice)
+    gauge_local = _read_local_slab(
+        args.gauge, local_starts, local_lattice,
+        hdf5_mpio=hdf5_mpio_read, comm=comm,
+        slab_dir=(resolve_path(args.gauge_slab_dir, args.gauge_slab_dir)
+                  if args.gauge_slab_dir is not None else None),
+        rank=rank)
     if gauge_local is None:
         gauge_full, metadata = load_gauge(args.gauge, lattice, dtype)
         gauge_local = _slice_last4(gauge_full, local_starts, local_lattice)
@@ -651,13 +703,21 @@ def main(argv=None) -> int:
         gauge_local = gauge_local.astype(dtype, copy=False)
         metadata = read_h5_metadata(
             resolve_path(args.gauge, resolve_path(None, args.gauge)))
+    gauge_read_seconds = time.perf_counter() - input_read_started
     gauge = qcu_gauge_to_kupl(gauge_local)
-    source_local = _read_local_slab(args.source, local_starts, local_lattice)
+    source_read_started = time.perf_counter()
+    source_local = _read_local_slab(
+        args.source, local_starts, local_lattice,
+        hdf5_mpio=hdf5_mpio_read, comm=comm,
+        slab_dir=(resolve_path(args.source_slab_dir, args.source_slab_dir)
+                  if args.source_slab_dir is not None else None),
+        rank=rank)
     if source_local is None:
         source_full = load_source(args.source, lattice, args.seed, dtype)
         source_local = _slice_last4(source_full, local_starts, local_lattice)
     else:
         source_local = source_local.astype(dtype, copy=False)
+    source_read_seconds = time.perf_counter() - source_read_started
     source = qcu_fermion_to_kupl(source_local)
     solution = np.zeros_like(source)
     clover_shape = (4, 3, 4, 3, *local_lattice[:3], local_lattice[3] // 2)
@@ -877,6 +937,13 @@ def main(argv=None) -> int:
         "coarse_tol_factor": args.coarse_tol_factor,
         "deflate": not args.no_deflate, "builder_seconds": builder_seconds,
         "input_prebind_seconds": input_prebind_seconds,
+        "hdf5_mpio_read": hdf5_mpio_read,
+        "gauge_slab_dir": (str(args.gauge_slab_dir)
+                           if args.gauge_slab_dir is not None else None),
+        "source_slab_dir": (str(args.source_slab_dir)
+                            if args.source_slab_dir is not None else None),
+        "gauge_read_seconds": gauge_read_seconds,
+        "source_read_seconds": source_read_seconds,
         "coarse_source": coarse_source,
         "wall_seconds": wall_seconds, "iterations": iterations,
         "residual_seconds": residual_seconds,

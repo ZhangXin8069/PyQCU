@@ -14,6 +14,7 @@ namespace kupl::qcu {
 
 void initialize_mpi();
 int configured_threads();
+bool init_profile_enabled();
 void bind_logical_numa();
 bool fused_bicg_dots_enabled();
 std::string runtime_topology_report();

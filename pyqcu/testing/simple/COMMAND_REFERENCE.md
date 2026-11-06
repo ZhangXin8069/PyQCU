@@ -209,6 +209,8 @@ mpirun [OpenMPI options] -np <ranks> \
 | `--local-stencil` | 关闭 | local stencil builder |
 | `--local-stencil-batch` | `4` | local builder batch |
 | `--gauge` / `--source` | 自动 | 输入 |
+| `--gauge-slab-dir` | 无 | `prepare_mpi_slab.py` 生成的 gauge rank slab 目录 |
+| `--source-slab-dir` | 无 | `prepare_mpi_slab.py` 生成的 source rank slab 目录 |
 | `--seed` | `42` | source/随机 gauge |
 | `--skip-independent-residual` | 关闭 | 跳过 NumPy 真残差 |
 | `--output` / `--report` | 解/报告路径 | 输出 |
@@ -218,6 +220,26 @@ mpirun [OpenMPI options] -np <ranks> \
 - `grid` 乘积等于 MPI rank 数。
 - 每维 local extent 必须为偶数。
 - `levels>1, restart!=0` 时多 rank 必须提供 `--coarse-cache`。
+
+固定 `(lattice, grid)` 的多 rank 计时可用连续 slab 缓存，避免所有 rank 同时解析
+一个全局 HDF5 的非连续 hyperslab：
+
+```bash
+python pyqcu/testing/simple/prepare_mpi_slab.py \
+  --input data/production_L24/gauge_24x24x24x64_c64.h5 \
+  --lat 24 24 24 64 --grid 1 1 1 16 \
+  --output-dir data/production_L24/gauge_slabs_11116 \
+  --kind gauge --dtype c64
+
+python pyqcu/testing/simple/prepare_mpi_slab.py \
+  --input data/production_L24/source_24x24x24x64_c64.h5 \
+  --lat 24 24 24 64 --grid 1 1 1 16 \
+  --output-dir data/production_L24/source_slabs_11116 \
+  --kind source --dtype c64
+```
+
+随后给 `kupl_multigrid.py` 同时传 `--gauge-slab-dir` 和 `--source-slab-dir`。
+slab 目录绑定 process grid；改变 rank 数或 `grid` 后必须重新生成，不能复用。
 - 多 rank 不支持 `--write-coarse-cache`。
 
 推荐生产编排使用 `mpi/solve_case.py`，它会自动构建/校验全局 cache、记录每 rank

@@ -549,6 +549,12 @@ mpirun --allow-run-as-root --oversubscribe --bind-to none -np 4 \
 `pyqcu.testing.simple.mpi.build_full_mg_cache` 全 rank 构建；小的单 rank 调试可
 使用 `kupl_multigrid.py --write-coarse-cache`，但不能替代 MPI 生产 cache builder。
 
+若固定 rank/grid 后反复测量且共享文件系统上的全局 HDF5 hyperslab 读取成为瓶颈，
+可先用 `prepare_mpi_slab.py` 生成 `rank_XXXX.h5` 连续 slab，再向
+`kupl_multigrid.py` 传 `--gauge-slab-dir` 和 `--source-slab-dir`。slab 目录必须与
+同一 `(lattice, grid)` 绑定；改变 rank 数或 grid 后要重新生成。该优化只改变输入
+读取，不改变 solve 计时口径。
+
 直接 `mpirun` 入口需要用户自己维护全局 cache identity 和每 rank 输出；正式生产优先
 使用前面自动化的 `mpi/solve_case.py`。任何 `solve_case.py` 入口都在内部启动
 `mpirun`，外层不能再次嵌套。

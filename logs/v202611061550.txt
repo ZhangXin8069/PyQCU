@@ -1,0 +1,74 @@
+[日志元数据]
+日志类型: stage
+生成时间: 2026-11-06 15:50:43 +0800
+批次: kupl-hbm-20261106
+主任务: KUPL QCU-MG 24^3x64 c64 性能优化与 MG/BiCGStab 加速比验证
+触发原因: 阶段成果
+摘要: HMPI Cartesian 拓扑挂起已由周期手工几何修复；计算节点 BiCGStab 213.44 s/PASS，MG 10 分钟无报告已终止
+Git 根目录: /Users/zhangxin/PyQCU
+
+## 关键日志
+
+### S1 - HMPI 初始化挂起与根因
+- 计算节点 profile 作业 `2050689` 在 240 s 内部 timeout 后以 `END rc=124` 退出，stderr 只有 `INIT_PROFILE` 到 `topology-report`，没有 `GEOMETRY_PROFILE` 或 `LATTICE_SET_PROFILE`。
+- 根因范围定位在 `make_geometry()` 的 `MPI_Cart_create` / `MPI_Cart_shift` 路径，不是 solver 数值失败。
+- `KUPL_PROFILE_INIT` 与 `PYQCU_KUPL_PROFILE_INIT` 已统一为同一初始化计时开关。
+- 新增 `geometry`、`threads`、`comm-duplicate`、`coordinates`、`halo-scratch`、`boundary-sites`、`register`、`erase` 阶段。
+
+### S2 - 周期手工几何修复
+- `make_geometry()` 改为 `MPI_Comm_dup` 加显式行主序坐标和邻居 rank 计算，避免 HMPI Cartesian 拓扑创建。
+- 进程网格使用全周期边界，边缘邻居必须回绕；误用 `MPI_PROC_NULL` 会破坏 2/4-rank Wilson 与 Laplacian halo。
+- `LatticeGeometry::cartesian_rank()` 统一 diagonal Clover 与 coarse-MG peer 的 rank 计算，禁止在非拓扑 duplicate communicator 上调用 `MPI_Cart_rank`。
+- 本地定向回归 `18/18` PASS，覆盖 1/2/4-rank Wilson/Clover、2-rank Laplacian、MG、Strict-MG 和 Legacy-MG。
+
+### S3 - 计算节点 profile
+- 作业 `2050850` 完成 16 ranks，`END rc=0`，总墙钟 124 s。
+- 15 个 rank 的 `applyInit/applyEnd` 为 `6.02-7.43 s`，rank 2 为 `34.81 s`。
+- 最慢 rank 的 `register=19.48 s`；`erase=0.002-0.237 s`；`MPI_Comm_dup` 约 `1.55 s`。
+- 该结果证明修复后初始化不再挂起，但 rank-local 首次触页仍有明显离群。
+
+### S4 - 计算节点 BiCGStab 正式基线
+- 配置：16 ranks x 8 threads、`grid=1 1 1 16`、t-only slab、`KUPL_MEMORY_POLICY=bind`、`KUPL_MEMORY_NODE=local+16`、`KUPL_HUGEPAGE=1`。
+- `wall_seconds=213.44090568200045 s`，16 iterations，独立残差 `3.5410827126526993e-6 < 2.44140625e-4`，`status=PASS`。
+- `wall_seconds` 只包住 `applyCloverMultigridQcu`，不含 input prebind、HDF5 读取和独立残差；本结果仍距 0.1 s 约 2134x。
+- 该 case 的 HBM-bound `register` 达 `41.75-46.30 s`，一个 `erase=7.80 s`，说明 setup 和 solve 必须分开报告。
+
+### S5 - 计算节点 MG 超时审查
+- 同 job 的 `mg_1` 在 10 分钟门限后仍无 `report.json`，`stderr.txt=32540 bytes`，最后一行只到初始化 profile。
+- 5 分钟审查时 `cpuUtil=936/1124`，约 83%，说明进程仍在计算而非静态挂起。
+- 作业 `2050917` 在 787 s 时由同队列 TERM kill-job `2051058` 终止，`jobExitCode=143`。
+- MG case 不是有效性能结果，不能写成 true-MG 加速比或 PASS。
+
+## 验证与证据
+- 本地构建：`cmake --build cpp/kupl/qcu/build -j 8` 成功生成 `libqcu.dylib` 和测试程序。
+- 定向回归：`ctest -R 'kupl_qcu_(1rank|2rank|4rank_diagonal|laplacian_1rank|laplacian_2rank|python_multigrid|python_strict|python_legacy_mg)'` 为 `18/18` PASS。
+- 远端源文件：6 个文件与本地 SHA-256 逐项一致；压缩归档 SHA-256 为 `2f2e8add48fe5bbf80f257e85e27e2ebc48f63c92bb45af512831b3baa37d067`。
+- 远端 profile 库：`[100%] Built target kupl_qcu`，库 SHA-256 为 `d6a3075bfd8788eb525467edd241933e3240e11c2b8fc70ddd7dad212f0cc9da`。
+- 未验证项：计算节点同窗 true-MG、32 ranks x 12 threads 的新手工几何 A/B、L32 true-MG/BiCG、当前代码的 live `numastat/numa_maps` 细粒度页分布。
+
+## 变更与产物
+- 代码：`cpp/kupl/qcu/src/lattice_geometry.cpp`、`include/kupl/lattice_geometry.h`、`src/lattice_clover_dslash.cpp`、`src/lattice_multigrid.cpp`、`src/backend.cpp`、`src/apply_init.cpp`。
+- 文档/技能：`logs/kupl_hbm_opt_20261106.md`、`skills/pyqcu-kupl/SKILL.md`、`skills/pyqcu-benchmark/SKILL.md`。
+- 计算节点结果：`data/kupl_hbm_opt_20261106/compute_y101_init_profile_v4`、`compute_y91_slab16_manualgeom_v1/bicgstab_1/report.json`。
+- 终止证据：`compute_y91_slab16_manualgeom_v1/mg_1/stderr.txt`，job `2050917`，exit 143。
+
+## 风险、限制与下一步
+- 风险：把 `wall_seconds` 与 setup/HDF5 混在一起；把 MG timeout 误写成性能结果；把 16x8 t-only 与历史 32x12 y76 直接拼接。
+- 下一步 1：用同一手工周期几何重跑 `32 ranks x 12 threads`、`grid=1 1 1 32` 的 BiCGStab，和历史 `0.43456 s` 点做同配置对照。
+- 下一步 2：为 HBM bind + HUGEPAGE 的 `register` 做首次触页优化，避免 41-46 s setup 成本。
+- 下一步 3：在 32x12 配置上重跑 true-MG restart=10/20，要求 `coarse_calls>0`、无 fallback、独立真残差 PASS，并设置 5/10 分钟健康门。
+- 下一步 4：L32 仍保持未验证，先降低 cache builder 成本再启动。
+
+## Agent 全文报告
+
+--- report begin ---
+本轮完成了计算节点初始化阻塞的根因修复。原 `MPI_Cart_create` / `MPI_Cart_shift` 路径在 HMPI 上会停在 topology 阶段；改为 `MPI_Comm_dup` 加显式周期行主序坐标和邻居 rank 后，16-rank profile 作业 `2050850` 正常完成 `END rc=0`。本地 18/18 定向回归通过，覆盖 1/2/4-rank Wilson/Clover、Laplacian、MG、Strict-MG 和 Legacy-MG。
+
+计算节点 profile 中，15 个 rank 的初始化/析构为 `6.02-7.43 s`，一个 rank 为 `34.81 s`，`register` 最高 `19.48 s`。修复解决了挂起，但 HBM bind 加 HugePage 的真实 solver setup 仍会达到 `41.75-46.30 s`，需要单独优化。
+
+首个正式计算节点 BiCGStab 基线为 `213.4409 s / 16 it / PASS`，独立残差 `3.5410827e-6`，仍距 0.1 s 目标约 2134x。该 `wall_seconds` 仅包含 solver 调用，不含输入预绑定、HDF5 slab 读取和独立残差；setup 与 solve 必须分开报告。
+
+同 job 的 true-MG case 在 10 分钟门限后仍无 report，stderr 停在初始化 profile。5 分钟时 CPU 利用率约 83%，说明仍在计算；787 s 时通过同队列 kill-job 终止，退出码 143。该 MG case 不计入性能结果，也不能声称加速。
+
+后续应以同一手工周期几何重跑 32 ranks x 12 threads、`grid=1 1 1 32` 的 BiCGStab，与历史 `0.43456 s` 同配置对照；同时优化 HBM 首次触页，再在 32x12 配置上做 restart=10/20 的 true-MG 正式 A/B。
+--- report end ---

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <cerrno>
 #include <cctype>
 #include <cstdio>
@@ -435,12 +436,32 @@ int configured_threads() {
   return std::max(1, requested);
 }
 
+bool init_profile_enabled() {
+  return env_enabled("KUPL_PROFILE_INIT") ||
+         env_enabled("PYQCU_KUPL_PROFILE_INIT");
+}
+
 bool fused_bicg_dots_enabled() {
   return runtime_state().fused_bicg_dots;
 }
 
 void bind_logical_numa() {
   RuntimeState &state = runtime_state();
+  const bool profile_init = init_profile_enabled();
+  const auto profile_start = std::chrono::steady_clock::now();
+  int profile_rank = 0;
+  MPI_Comm_rank(MPI_COMM_WORLD, &profile_rank);
+  const auto profile_mark = [&](const char *stage) {
+    if (!profile_init) {
+      return;
+    }
+    const double elapsed = std::chrono::duration<double>(
+        std::chrono::steady_clock::now() - profile_start).count();
+    std::fprintf(stderr,
+                 "PYQCU::KUPL::INIT_PROFILE rank=%d stage=%s elapsed=%.6f\n",
+                 profile_rank, stage, elapsed);
+  };
+  profile_mark("start");
   const int profile_code =
       uniform_world_value(requested_profile_code(), "PYQCU_KUPL_PROFILE");
   const bool topology_report_requested =
@@ -478,6 +499,7 @@ void bind_logical_numa() {
           : 0;
   state.fused_bicg_dots =
       uniform_world_value(fused_requested, "KUPL_FUSED_BICG_DOTS") != 0;
+  profile_mark("uniform-config");
   if (!bind_requested && !memory_requested && !topology_report_requested &&
       !state.topology_required) {
 #if defined(__linux__)
@@ -489,15 +511,18 @@ void bind_logical_numa() {
           "threads or set KUPL_ALLOW_OVERSUBSCRIBE=1");
     }
 #endif
+    profile_mark("early-return");
     return;
   }
 
   const auto [local_rank, local_size] = local_rank_and_size();
   state.local_rank = local_rank;
   state.local_size = local_size;
+  profile_mark("local-rank");
 
 #if defined(__linux__)
   const std::vector<CpuNode> all_nodes = read_numa_nodes();
+  profile_mark("read-numa");
   state.topology_nodes = static_cast<int>(all_nodes.size());
   if (!all_nodes.empty()) {
     state.topology_source = "sysfs";
@@ -534,6 +559,7 @@ void bind_logical_numa() {
 
   const std::vector<int> explicit_requests =
       gather_local_integers(explicit_cpu_node ? explicit_node : -1);
+  profile_mark("gather-local");
   if (bind_requested && explicit_requests.empty()) {
     throw std::runtime_error("unable to gather local NUMA rank assignment");
   }
@@ -660,6 +686,7 @@ void bind_logical_numa() {
           std::string("KUPL_NUMA_BIND failed to set CPU affinity: ") +
           std::strerror(errno));
     }
+    profile_mark("process-affinity");
     std::atomic<int> thread_bind_failure{0};
     std::atomic<int> bound_thread_count{0};
 #pragma omp parallel num_threads(state.threads) shared(state, thread_bind_failure, bound_thread_count)
@@ -687,6 +714,7 @@ void bind_logical_numa() {
           "KUPL_NUMA_BIND expected " + std::to_string(state.threads) +
           " OpenMP threads but bound " + std::to_string(state.bound_threads));
     }
+    profile_mark("omp-team-affinity");
   }
 #else
   if (state.topology_required || bind_requested || memory_requested) {
@@ -756,11 +784,13 @@ void bind_logical_numa() {
       }
     }
   }
+  profile_mark("memory-policy");
 
   if (topology_report_requested) {
     std::fprintf(stderr, "PYQCU::KUPL::TOPOLOGY:\n %s\n",
                  runtime_topology_report().c_str());
   }
+  profile_mark("topology-report");
 }
 
 std::string runtime_topology_report() {

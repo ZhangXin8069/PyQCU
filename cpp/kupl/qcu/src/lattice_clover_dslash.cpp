@@ -151,7 +151,6 @@ void LatticeSet<Real>::ensure_gauge_halo(const Complex<Real> *gauge) {
       }
       for (int sign0 : {-1, 1}) {
         for (int sign1 : {-1, 1}) {
-          int diagonal = MPI_PROC_NULL;
           std::array<int, kDim> coordinates = geometry_.coord;
           coordinates[dim0] =
               (coordinates[dim0] + sign0 + geometry_.grid[dim0]) %
@@ -159,7 +158,7 @@ void LatticeSet<Real>::ensure_gauge_halo(const Complex<Real> *gauge) {
           coordinates[dim1] =
               (coordinates[dim1] + sign1 + geometry_.grid[dim1]) %
               geometry_.grid[dim1];
-          MPI_Cart_rank(geometry_.comm, coordinates.data(), &diagonal);
+          const int diagonal = geometry_.cartesian_rank(coordinates);
 
           const int boundary0 =
               sign0 > 0 ? geometry_.last_half_coordinate(dim0) : 0;

@@ -248,6 +248,7 @@ mpirun --bind-to numa --map-by ppr:1:numa -np 4 ...
 | 路径 | 职责 |
 |---|---|
 | `prepare_case.py` | LIME/HDF5 输入准备、子体积切片、共享 source、manifest |
+| `prepare_mpi_slab.py` | 固定 lattice/grid 的连续 rank-local gauge/source slab 缓存 |
 | `solve_case.py` | 生产单次冷求解入口 |
 | `qcu_bistabcg.py` / `qcu_multigrid.py` | CUDA QCU 直接示例 |
 | `kupl_bistabcg.py` / `kupl_multigrid.py` | KUPL CPU 直接示例 |
