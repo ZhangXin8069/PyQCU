@@ -94,6 +94,16 @@ def child_multigrid_unsupported_mode(library: ctypes.CDLL) -> None:
         pointer(params))
 
 
+def child_multigrid_require_correction(library: ctypes.CDLL) -> None:
+    params, argv, set_ptrs, _ = make_state()
+    dummy = np.zeros(1, dtype=np.complex64)
+    library.applyInitQcu(pointer(set_ptrs), pointer(params), pointer(argv))
+    library.applyCloverMultigridQcu(
+        pointer(dummy), pointer(dummy), pointer(dummy), pointer(dummy),
+        pointer(dummy), pointer(dummy), pointer(dummy), pointer(set_ptrs),
+        pointer(params))
+
+
 def run_child(library_path: Path, mode: str) -> subprocess.CompletedProcess[str]:
     environment = os.environ.copy()
     environment.update({
@@ -102,6 +112,8 @@ def run_child(library_path: Path, mode: str) -> subprocess.CompletedProcess[str]
         "KUPL_OMP_THREADS": "1",
         "OMP_NUM_THREADS": "1",
     })
+    if mode == "multigrid-require-correction":
+        environment["KUPL_REQUIRE_MG_CORRECTION"] = "1"
     return subprocess.run(
         [sys.executable, "-B", __file__, "--child", mode,
          "--library", str(library_path)],
@@ -114,7 +126,8 @@ def main() -> int:
     parser.add_argument("--library", type=Path, required=True)
     parser.add_argument(
         "--child",
-        choices=("clover", "multigrid-null", "multigrid-mode"))
+        choices=("clover", "multigrid-null", "multigrid-mode",
+                 "multigrid-require-correction"))
     args = parser.parse_args()
     library = bind_library(args.library)
     if args.child == "clover":
@@ -125,6 +138,9 @@ def main() -> int:
         return 0
     if args.child == "multigrid-mode":
         child_multigrid_unsupported_mode(library)
+        return 0
+    if args.child == "multigrid-require-correction":
+        child_multigrid_require_correction(library)
         return 0
 
     status = library.applyMultigridStrictInitQcu(0, 0, 0, None)
@@ -153,9 +169,17 @@ def main() -> int:
             "Clover-MG unsupported CUDA mode did not fail explicitly: "
             f"returncode={mode_mg.returncode} "
             f"stderr={mode_mg.stderr[-2000:]}")
+    correction_mg = run_child(args.library, "multigrid-require-correction")
+    if (correction_mg.returncode == 0 or
+            "requires levels>1 and restart>0" not in correction_mg.stderr):
+        raise AssertionError(
+            "Clover-MG correction requirement did not fail explicitly: "
+            f"returncode={correction_mg.returncode} "
+            f"stderr={correction_mg.stderr[-2000:]}")
     print(
         "status=PASS clover_nonconvergence=abort "
-        "multigrid_null=abort multigrid_mode=abort status_error=1")
+        "multigrid_null=abort multigrid_mode=abort "
+        "multigrid_require_correction=abort status_error=1")
     return 0
 
 

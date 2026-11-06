@@ -1,0 +1,54 @@
+ICAgICAgd2hvbGUgPSBsb2dpY2FsX2FycmF5X3NoYTI1NihucC5hc2FycmF5KGRhdGFzZXQpKQogICAgIC' >>
+/home/share/nsls_yangyb/b64/inspect_mg_cache_digest.py.b64
+(base) nsls_yangyb@login03:/home/share/nsls_yangyb/PyQCU-main$ printf '%s' 'AgIGV4cGVjd
+GVkID0gbWFuaWZlc3RbImFzc2V0cyJdW25hbWVdWyJzaGEyNTYiXQogICAgICAgIHByaW50KGpzb24uZHVtcHMo
+ewogICAgICAgICAgICAibmFtZSI6IG5hbWUsCiAgICAgICAgICAgICJzaGFwZSI6IGxpc3QoZGF0YXNldC5zaGF
+wZSksCiAgICAgICAgICAgICJtYW5pZmVzdCI6IGV4cGVjdGVkLAogICAgICAgICAgICAic3RyZWFtaW5nIjogc3
+RyZWFtaW5nLAogICAgICAgICAgICAid2hvbGUiOiB3aG9sZSwKICAgICAgICAgICAgIm1hbmlmZXN0X2VxX3N0c
+mVhbWluZyI6IGV4cGVjdGVkID09IHN0cmVhbWluZywKICAgICAgICAgICAgInN0cmVhbWluZ19lcV93aG9' >>
+/home/share/nsls_yangyb/b64/inspect_mg_cache_digest.py.b64
+(base) nsls_yangyb@login03:/home/share/nsls_yangyb/PyQCU-main$ printf '%s' 'sZSI6IHN0cm
+VhbWluZyA9PSB3aG9sZSwKICAgICAgICB9LCBzb3J0X2tleXM9VHJ1ZSkpCg==' >> /home/share/nsls_yan
+gyb/b64/inspect_mg_cache_digest.py.b64
+(base) nsls_yangyb@login03:/home/share/nsls_yangyb/PyQCU-main$ base64 -d /home/share/ns
+ls_yangyb/b64/inspect_mg_cache_digest.py.b64 > /home/share/nsls_yangyb/py/inspect_mg_ca
+che_digest.py
+(base) nsls_yangyb@login03:/home/share/nsls_yangyb/PyQCU-main$ chmod 750 /home/share/ns
+ls_yangyb/py/inspect_mg_cache_digest.py
+(base) nsls_yangyb@login03:/home/share/nsls_yangyb/PyQCU-main$ cd /home/share/nsls_yang
+yb/PyQCU-main
+(base) nsls_yangyb@login03:/home/share/nsls_yangyb/PyQCU-main$ source /home/share/nsls_
+yangyb/PyQCU/env.sh
+###env.sh in /home/share/nsls_yangyb/PyQCU is sourcing...:2026-11-06-02-48-39###
+###env.sh in /home/share/nsls_yangyb/PyQCU is done......:2026-11-06-02-48-39###
+(base) nsls_yangyb@login03:/home/share/nsls_yangyb/PyQCU-main$ python3 -B /home/share/n
+sls_yangyb/py/inspect_mg_cache_digest.py /home/share/nsls_yangyb/PyQCU-main/data/kupl_h
+bm_opt_20261106/mg_e4_tblock1_L24_v1/cache_E4_mg2x2x2x1.h5
+[ROCE] roce3_user_log_init: [ERR]Failed to open libroce log file
+[ROCE] roce3_user_log_init: [ERR]Failed to open libroce log file
+[ROCE] roce3_user_log_init: [ERR]Failed to open libroce log file
+SDMA ERROR (sdma_constructor|75): [login03] Open SDMA fail:No such file or directory
+/home/share/nsls_yangyb/PyQCU/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang is un
+available; TileLang-specific acceleration and tests will be skipped (ModuleNotFoundErro
+r: No module named 'tilelang')
+  _tilelang = import_tilelang()
+{"manifest": "29c47145db6a2cca56ed5a9b95bd3a6c76c0d289d8eca8a81d12c9aabed3ae16", "manif
+est_eq_streaming": false, "name": "lonv", "shape": [4, 12, 12, 2, 12, 2, 12, 2, 32, 1],
+ "streaming": "12b61cf60d100230af10c0a8dae9831ebf6265e53c737b93e69c5ab9fdb0d723", "stre
+aming_eq_whole": false, "whole": "29c47145db6a2cca56ed5a9b95bd3a6c76c0d289d8eca8a81d12c
+9aabed3ae16"}
+{"manifest": "0b8de9e1153947d39c174c26d3ebaeca110e31007b98681de93dc64cd510884b", "manif
+est_eq_streaming": true, "name": "hnn", "shape": [2, 4, 4, 4, 12, 12, 12, 32], "streami
+ng": "0b8de9e1153947d39c174c26d3ebaeca110e31007b98681de93dc64cd510884b", "streaming_eq_
+whole": true, "whole": "0b8de9e1153947d39c174c26d3ebaeca110e31007b98681de93dc64cd510884
+b"}
+{"manifest": "61b82007afc6dd54551f3a83b43a8003cc5eea1b7ca42dd9f7e31b53fa03ac96", "manif
+est_eq_streaming": true, "name": "hdg", "shape": [2, 2, 6, 4, 4, 12, 12, 12, 32], "stre
+aming": "61b82007afc6dd54551f3a83b43a8003cc5eea1b7ca42dd9f7e31b53fa03ac96", "streaming_
+eq_whole": true, "whole": "61b82007afc6dd54551f3a83b43a8003cc5eea1b7ca42dd9f7e31b53fa03
+ac96"}
+{"manifest": "2b247c76a4cf4dc1555939ad045dd1b1a6236766f964163778d6283bb04679cb", "manif
+est_eq_streaming": true, "name": "sit", "shape": [4, 4, 12, 12, 12, 32], "streaming": "
+2b247c76a4cf4dc1555939ad045dd1b1a6236766f964163778d6283bb04679cb", "streaming_eq_whole"
+: true, "whole": "2b247c76a4cf4dc1555939ad045dd1b1a6236766f964163778d6283bb04679cb"}
+(base) nsls_yangyb@login03:/home/share/nsls_yangyb/PyQCU-main$

@@ -1,0 +1,54 @@
+wohiH6qY4F0uAsrYnYzsVqyHiShiPSbCP0C0M2pxSph/OHuWGbswAWEkirjb/SH4xoSiSRinmGRZdHKtN38tCTW
+MITNJ7qt1DHcICqTe5mxRofnPv9Tt+Pnsj/PGxp1UtqvWW3uW5ll3aJo119U1uAB2SvAvhY9kRdSpD1CtEZQnK3
+4OQtbNoIqC59w1y8HT9BhygdNn95FEvPK5qsSuXCRjVc8tWfINBQDj01xgWbnPKE20xFFUIPDQpyAgnkF+GsckC
+QDw/dlcKJ/0SH1ZTvuJfA7Vax/uPaiYqZwkECDyt7gCFf++' >> /home/share/nsls_yangyb/b64/sync_mg
+_damping_gate_v3_20261106.b64
+ovhniPBLhnoUBdE5G3eH9fkSEFAo3Qet5c6WVkcsq3RqPupiYcK7wtuXc3uqVPn9VSGt4Y/8FLiXnprmGiDRSAN
+ov9orJsR8KyuTs2ta0QJwy5QJfatRQnb7QSO3qaCijsm0Sl9TbV3Y4zUfh8iDdqZmitfZJXpRS9Z10oMIZRf0d8
+UWqNLat1q4Fqm6VY9tNzJ7ke6ryjHXHxVWoaNi5Oup/N1cYbJcXX/PoeJozv71WE399caGbumArEXAjm4UnZSYU
+dD0plv9YVoJWq3DuEtQFtvRWk4fNaKpdbKKvXfCPcS4aRT5YUH1oEnSlNc9h1ofAp5IAiStPMwxyEhlmkWZwtFR
+mkGyprIyyna6NlHU1QtIDDLkJGJXliqoawloiWyls0DVeQSnCS4astL16Jn+CkgyJOptQtpVureuzFmpdhamZ2k
+P+a+DKXO3JKu82updeoYhb16chRavg1jTpIUGPoihvyjs4oa+YgxrQ3Gl6JcKs3gQ73TUk64rtpwEFU0o7Xkkou
+tKhUqnhn+3zenr0aVbvdK21hnnHLGQ0aAqvn4nUqMGEEHoOoyjbd0tRWQh+0i21tZq8W3vLJ7Mpr639b7Tguinm
+9xnxm3T9MJlOzd+hWtGDRiTjn4tq1C+jvnYbyXirRTOjJMAyELplmsgA0aAqmNug' >> /home/share/nsls_y
+angyb/b64/sync_mg_damping_gate_v3_20261106.b64
+printf '%s' 'jJyilMhd5V1nyXdepHkda8o8L8ghV0EHSkHNpeVtr5sTbdqn3Uq5GdcWntNCdhFVZFRUeT/W/e
+Uiu8ErtNblBhwjcg7pCTDVShsNrNZDQxtdRQ/ZJvq2JdnYAW9L/GdXNSvb0N+D/K2hFIUOVTu81r7C12bKpE21P
+uesOrQu50mt6lYmA6B6r/GL+IAU9tMkkB1QER41TGH33WVv1ICvYFJNUgPe4NUXgfkkwgISFVflt7X2EqQuoiRi
+4sscI4lP2yIuQeoiXuALcXfCl01tMpvdYwLMPQ3aS86MOlyZEOvPV1ihg0hGfBGwKs7hM24yrd3Yb97oyCr7UPn
+sVu0jhz6L6/7RtF4ZXPo6k1SWBXmcySyTkSO7dnnJuY6JvkHGD0lxyWVM9rwX4BxyED/Tk25n4b7YRTk/6Em977
+bbBgyhVQYSxvKDA2OVLhjLxhnj4j5mJATg6sQFjb1jKHtu2Vabnf/2fwN9GV/Gl/F/OP4NmiVYAgAYAAA=' >>
+/home/share/nsls_yangyb/b64/sync_mg_damping_gate_v3_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'Fm0y18rynp0g0waCcgFVecDhnomovhniPBLhnoUBdE5G
+3eH9fkSEFAo3Qet5c6WVkcsq3RqPupiYcK7wtuXc3uqVPn9VSGt4Y/8FLiXnprmGiDRSANov9orJsR8KyuTs2ta
+0QJwy5QJfatRQnb7QSO3qaCijsm0Sl9TbV3Y4zUfh8iDdqZmitfZJXpRS9Z10oMIZRf0d8UWqNLat1q4Fqm6VY9
+tNzJ7ke6ryjHXHxVWoaNi5Oup/N1cYbJcXX/PoeJozv71WE399caGbumArEXAjm4UnZSYUdD0plv9YVoJWq3DuE
+tQFtvRWk4fNaKpdbKKvXfCPcS4aRT5YUH1oEnSlNc9h1ofAp5IAiStPMwxyEhlmkWZwtFRmkGyprIyyna6NlHU1
+QtIDDLkJGJXliqoawloiWyls0DVeQSnCS4astL16Jn+CkgyJOptQtpVureuzFmpdhamZ2kP+a+DKXO3JKu82upd
+eoYhb16chRavg1jTpIUGPoihvyjs4oa+YgxrQ3Gl6JcKs3gQ73TUk64rtpwEFU0o7XkkoutKhUqnhn+3zenr0aV
+bvdK21hnnHLGQ0aAqvn4nUqMGEEHoOoyjbd0tRWQh+0i21tZq8W3vLJ7Mpr639b7Tguinm9xnxm3T9MJlOzd+hW
+tGDRiTjn4tq1C+jvnYbyXirRTOjJMAyELplmsgA0aAqmNug' >> /home/share/nsls_yangyb/b64/sync_mg
+_damping_gate_v3_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'jJyilMhd5V1nyXdepHkda8o8L8ghV0EHSkHNpeVtr5sT
+bdqn3Uq5GdcWntNCdhFVZFRUeT/W/eUiu8ErtNblBhwjcg7pCTDVShsNrNZDQxtdRQ/ZJvq2JdnYAW9L/GdXNSv
+b0N+D/K2hFIUOVTu81r7C12bKpE21PuesOrQu50mt6lYmA6B6r/GL+IAU9tMkkB1QER41TGH33WVv1ICvYFJNUg
+Pe4NUXgfkkwgISFVflt7X2EqQuoiRi4sscI4lP2yIuQeoiXuALcXfCl01tMpvdYwLMPQ3aS86MOlyZEOvPV1ihg
+0hGfBGwKs7hM24yrd3Yb97oyCr7UPnsVu0jhz6L6/7RtF4ZXPo6k1SWBXmcySyTkSO7dnnJuY6JvkHGD0lxyWVM
+9rwX4BxyED/Tk25n4b7YRTk/6Em977bbBgyhVQYSxvKDA2OVLhjLxhnj4j5mJATg6sQFjb1jKHtu2Vabnf/2fwN
+9GV/Gl/F/OP4NmiVYAgAYAAA=' >> /home/share/nsls_yangyb/b64/sync_mg_damping_gate_v3_20261
+106.b64
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/b64/sync_mg_damping_gat
+e_v3_20261106.b64 > /home/share/nsls_yangyb/b64/sync_mg_damping_gate_v3_20261106.tgz
+(base) nsls_yangyb@login02:~$ tar -xzf /home/share/nsls_yangyb/b64/sync_mg_damping_gate
+_v3_20261106.tgz -C /home/share/nsls_yangyb/py
+(base) nsls_yangyb@login02:~$ env PYQCU_MG_GATE_OUT=mg_damping_gate_L24_full_v1 PYQCU_M
+G_SKIP_RESIDUAL=0 python3 -B /home/share/nsls_yangyb/py/logs/run_mg_damping_gate_L24_v2
+.py
+{"coarse_calls": 168, "converged": null, "final_true_residual": null, "fine_calls": 49,
+ "process_seconds": 181.11961001716554, "residual_acceptance": null, "returncode": 1, "
+status": null, "timed_out": true, "true_mg_gate": "FAIL", "verify_status": null, "wall_
+seconds": null}
+(base) nsls_yangyb@login02:~$ tail -n 50 /home/share/nsls_yangyb/PyQCU-main/data/kupl_h
+bm_opt_20261106/mg_damping_gate_L24_full_v1/stdout.txt
+SDMA ERROR (sdma_constructor|75): [login02] Open SDMA fail:No such file or directory
+(base) nsls_yangyb@login02:~$

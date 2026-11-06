@@ -1,0 +1,54 @@
+QydYWr8Kw7BcGDoSlFGapHfs0HZ8jp4z9F3LAOJJnZA+ZWEorc48t17ywO+Q+stb0liVTf3EccrwJIwqPgXii6O
+u3kpmuN81jiQG29UL3/kt03gaSr1V/U3nVuNL5teaL2pkxRFHROwOeXryLSBlJIEiukEwW6K/n0XXxCtK1RDyKf
+Dyu' >> /home/share/nsls_yangyb/b64/sync_true_mg_factor_v2.b64
+printf '%s' '4Rfuijm8IVlzICrcoIYHxhe5BBd6t7dUmIfTeqC9wPfSCccKSQVWJzx8aAFRufbkJxhehcEWbl
+sZshLWTVFX2cFmWNsVuBUGfg+PbMDJpcIOJ0fMbzUzc5tkMnuYenvikAyKvqmccZ3HGS8QICGB7+EnutelX7UQO
+d/pjaI2dRkG23GoWFwX00oYvOHKmyhUGcxzLfQBGf9KigKvvsbibaX0Fv4pu4liCTos+JRIKkzk0cPBqo/I85D6
+HDCQrOaygTqglIbS2fLxtHFyJK+DHCrSOtAfwRnGsruEL2bJF2PZLWFs6H6GkRAQ53suaOy/hrLDkr2U1fh//z/
+C9/F9fB9/vvEfzSSwUQAWAAA=' >> /home/share/nsls_yangyb/b64/sync_true_mg_factor_v2.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'wzaayMgMqyQLCBgQJAJKmczbms8bcCG2daItVYi8IwOI
+I31oy0JnHFmkcQzGkg+p2MaIs5C+0kBK1ErkfOGqdQvKNJSFVG4SsIMSWVdsBb+uGVmG8qFKZXsI5LagXITJts2
+hXEZUF7g4j0S4ZeEa+rxDmJeitFoREZI5FLXa3OtqoSSpXHWqk5S5zismnCsix3YvLzV5wF8Ujd3pOT9BkXV7b+
+mISCOFRFvFpWuxz9T7g4MYEX2mkeJ+5mJGZZsnSuFAlG0puFudOm/J1+lGQRS8uC95boWCsvdu1F0SGCtqaXczV
+FUz9cZSLJ4pW6WcviVWtbkgUHVb4+s6XJzrKv3WXsXFqgsoUFXboFloRyzO9eYtC/4UZi1wNZpRmBIh1ReucxKd
+SPpYrpRmqXRj2ZXZGWUbHKR5Aso5CQtwdvA4jXfs52z49DAr1xdBUZUpeFl70pGrp5BtvUoPUSMimWo9IbtludA
+JpYIg6OvZY3gF0HgXjnMEHB9CI5Lx956LWgd1lPjmaR7QydYWr8Kw7BcGDoSlFGapHfs0HZ8jp4z9F3LAOJJnZA
++ZWEorc48t17ywO+Q+stb0liVTf3EccrwJIwqPgXii6Ou3kpmuN81jiQG29UL3/kt03gaSr1V/U3nVuNL5teaL2
+pkxRFHROwOeXryLSBlJIEiukEwW6K/n0XXxCtK1RDyKfDyu' >> /home/share/nsls_yangyb/b64/sync_tr
+ue_mg_factor_v2.b64
+(base) nsls_yangyb@login02:~$ printf '%s' '4Rfuijm8IVlzICrcoIYHxhe5BBd6t7dUmIfTeqC9wPfS
+CccKSQVWJzx8aAFRufbkJxhehcEWblsZshLWTVFX2cFmWNsVuBUGfg+PbMDJpcIOJ0fMbzUzc5tkMnuYenvikAy
+KvqmccZ3HGS8QICGB7+EnutelX7UQOd/pjaI2dRkG23GoWFwX00oYvOHKmyhUGcxzLfQBGf9KigKvvsbibaX0Fv
+4pu4liCTos+JRIKkzk0cPBqo/I85D6HDCQrOaygTqglIbS2fLxtHFyJK+DHCrSOtAfwRnGsruEL2bJF2PZLWFs6
+H6GkRAQ53suaOy/hrLDkr2U1fh//z/C9/F9fB9/vvEfzSSwUQAWAAA=' >> /home/share/nsls_yangyb/b64
+/sync_true_mg_factor_v2.b64
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/b64/sync_true_mg_factor
+_v2.b64 > /home/share/nsls_yangyb/b64/sync_true_mg_factor_v2.tgz
+(base) nsls_yangyb@login02:~$ tar -xzf /home/share/nsls_yangyb/b64/sync_true_mg_factor_
+v2.tgz -C /home/share/nsls_yangyb/py
+(base) nsls_yangyb@login02:~$ python3 -B /home/share/nsls_yangyb/py/logs/run_mg_true_fa
+ctor_sweep_L24_E4.py
+{"candidate_after": 3666.03, "candidate_before": 3723.37, "coarse_tol_factor": 0.001, "
+coarse_tolerance": 1.0000000000000001e-07, "fallback": false, "label": "factor_0p001",
+"process_seconds": 49.0152295648586, "returncode": 2, "status": null, "wall_seconds": n
+ull}
+{"candidate_after": 3666.03, "candidate_before": 3723.37, "coarse_tol_factor": 0.01, "c
+oarse_tolerance": 1.0000000000000002e-06, "fallback": false, "label": "factor_0p01", "p
+rocess_seconds": 38.235961275873706, "returncode": 2, "status": null, "wall_seconds": n
+ull}
+{"candidate_after": 3666.03, "candidate_before": 3723.37, "coarse_tol_factor": 0.1, "co
+arse_tolerance": 1e-05, "fallback": false, "label": "factor_0p1", "process_seconds": 16
+.447638242971152, "returncode": 2, "status": null, "wall_seconds": null}
+{"candidate_after": 3666.03, "candidate_before": 3723.37, "coarse_tol_factor": 1.0, "co
+arse_tolerance": 0.0001, "fallback": false, "label": "factor_1", "process_seconds": 13.
+65630191587843, "returncode": 2, "status": null, "wall_seconds": null}
+{"candidate_after": 3666.03, "candidate_before": 3723.37, "coarse_tol_factor": 10.0, "c
+oarse_tolerance": 0.001, "fallback": false, "label": "factor_10", "process_seconds": 13
+.665632328018546, "returncode": 2, "status": null, "wall_seconds": null}
+{"candidate_after": 3666.01, "candidate_before": 3723.37, "coarse_tol_factor": 100.0, "
+coarse_tolerance": 0.01, "fallback": false, "label": "factor_100", "process_seconds": 1
+2.238036833005026, "returncode": 2, "status": null, "wall_seconds": null}
+{"candidate_after": 3723.37, "candidate_before": 3723.37, "coarse_tol_factor": 10000.0,
+ "coarse_tolerance": 1.0, "fallback": false, "label": "factor_10000", "process_seconds"
+: 10.75017147907056, "returncode": 2, "status": null, "wall_seconds": null}
+(base) nsls_yangyb@login02:~$

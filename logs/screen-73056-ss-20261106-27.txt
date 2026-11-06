@@ -1,0 +1,54 @@
+/FyceKBytR+HCPRQvFDjwTlLumFF9NjjeVtAVHVJ0gd/woaLKInAqoo4u+EY6WTrPebFf4Euobsn+I604j5VE8A
+EHdMdoVg4D0SBxP5Qkbh/MEpA4uqysk5FUTCUlg/a4FHTKG' >> /home/share/nsls_yangyb/b64/sync_mg
+_damping_20261106_v2.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'EXWriK2flaUFwx4xwcpkNn5R3s3unXe3V+RdxENDJnJx
+WGniFDIf2ibOmkheFc0Ka9c1Eu/IQUwBcRaeqoUcoduGk+a23oQ41mMOvh69R5uxXoqabBAnLM9JFp4TdjXMnFx
+SFzyUBRNNcNGq06LY0o8m9w0iI4nFR9rd5ktkMYPO4JZplMI62DyFPqnH5tRmIakO1rXk/1Wd8Feg/bXKulngNK
+468vx3rTHy/DNUF2hrQDU+ibvQRa9O//0vW3CEn9X0/ILKejUdcicNUmeCC9O32j5uokRoTrTVFVUjG6bGIGk+k
+hWNE7k6EyYe9RoJ/SHT/0ql5z/yW+urqfE7upkry9StvjGbmgWXKT8q9YUuaIizyBVlx9RUADL/HCR12dZ734tp
+z2t2rVX3Vt8S0xmrlXtVB8SrB9V5qtVqLMN5z6yHxUeuD9AkXtmwRuoli7Lc3taetPNJGjcPaoEKHc+6ZVOpzKg
+dnNUVM5PR9OUqNY847O6wdFMuOLBR9HMnmlHfNWFFxbRCpk6JTz/HVmfmEjm06s+lUsoqyQ/jYeMV8svXkF/1ZK
+81wXf7jhT0hGQHjMCeH/ARHm06Sg7h58mQ92E+8Wcj06nMnLqbZv7XAWtNcc0HIvwc2ndz9xqZo+dLvapfNJkTg
+lVJDCTgsgwGSqFHZ7QTInGB0qjFlAX+fc1phJrU/iYaTWyj' >> /home/share/nsls_yangyb/b64/sync_mg
+_damping_20261106_v2.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'N7GVUuE1BJHKpldI5UKytgo4hdwOQonpbljtFYCQ7xOI
+LVcL6eRAUEXV+nm4rp6Ha474raNCo54p+KzpoxH5i8L4DR3VY22EoFQqS9KrzZJVtvoLYEo2/Yvl6Pa/Uds8a9S
+xpboL5pb81EZt+E/hQ3PU2FmL1Uj+CzuUXSfCEG3upPZWZIOkZAhA7cQ4W3ONq6vtmPvIVCaxp9OU4Ycb59uiD/
+4UZRVySOOlKSJ13d8+JhVauAcQeGG8HIl8DhqbKmPl6X+/8yP27lJ7HZntSGw5hU1Eti+HuC83kSQKv/FTuzTKg
+qtwTFNZKnhmlRGNBJjwepGK/oyD2SLioUl5uMg+4qci9fTJtDw6mddjc9kn1z24uS3QMYUO9Gu1Q46uViWXEt0v
+1WXqvVRm1dsL9hJN9qbtmUWA1mR/Tta70lfN1KCakpoxSUWo7pQmVI1WZ3eiCehXpjLiRWyccN7Ktm9aP/Rkm1/
+Lv+g4ZHwLufW9jCQVriJSvmzzf5LH42P0IceQl++t+lBPA0AEyz6PpUr95GbSv71n7tr+GblLZvOURMlJ1hJjB9
+SBJDBnW2/250AKNtvKXp/mBu/K8Xnpr5wuo9qzTLayVGKNCh+ns7RU6TEs411lzNAGPD7wOAZX8wPQgF+aA9b9m
+iZaJIsEP1yGaWELaam+0F8V/ekn3+eebblU9rU4+Vl7zK1u' >> /home/share/nsls_yangyb/b64/sync_mg
+_damping_20261106_v2.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'nVTkiZTARpong8F4KRw7mrO9n/4UuIKe7oisYNqP6BOG
+7q6L8+1e/SVULvSwb0cPdp5cMHOwRdwbeSjSr+EyBL+7y+hRF1FYGTimDKmu7DpR1I5mF4WlBSUKWGHPBWAFU8r
+ugLNsKlSXCaBEJTylIkdP0wLhI0ukI546pWeP7HMLijP0d7Qx15zn6BAR9eWHkZrB9p0+cqAXThl0KiE6pw5caG
+7oejUwO5S9ZNyetfFKgy+smYt9tr9D681X79SpyBOP8uZVkEO/wndh/jXPt/uQB9Dzl6hwKmO90a1eG+5NU5yJ0
+0VMZ8pz39MDRbWl+CGjZqD4UaRG4KoLkgRTdiHzvflHHHvwNPOCAZTu9UFfPZIS2S6Dn7YnGxnyo/WIZaorKHLF
+S/UdSveFdTav8JZ8eNp+4f+ytC4jtUKZKFHUQYt55YKvYIHFfYVczq1o0cORfog2X/nK2EzmK+HnNFVSH9T3H8L
+0lfLIRG85R9J5y9gCrKq5ghRShUUERpoGN4ce47PDHh8ru/PTrS5f4sxwzh82Li7PCR5sQAsbt/yc5TyYhRmQeb
+ixkYdQCxdo+c0i5C/Qkj7eEFuygs/N2SDxxXNhTBeFYId5voXuFwcdYjMRQdcpE0jeFyB/inAcKVZWUbwTT5UEo
+sAcwSMsP24nYj9J6lJuLpI27TfKnNbNllfkHaqpXCxC8it6' >> /home/share/nsls_yangyb/b64/sync_mg
+_damping_20261106_v2.b64
+(base) nsls_yangyb@login02:~$ printf '%s' '66qRObXEmDz5V++QfRWN6zDdlGqSLu8/Xr6efMjCF6PU
+NqPrnYb4qRuZ94lhozx9b8ZOPjz7ajuZxzfsxcnpLjrw2AxMdXYe5ZndBVhFhKCjVMRexcdzNon3gvT8m+UMefa
+Mh1f0DPr4O3zRgxKnIRrrZ/YXIhsOsOJTZqhWMikkjnuYlysVbR13zUCBqb/iGk98rG0ageGRjqYy+ewS2JMfwU
+4W0ANYtI3VQet3YITAmpHzdMrAVJmGqYCVT4M5VpktR1OWxckPUGA5X2C+zzEmdg7H5KT339IboAvQ58lipzDza
++CPLMtU2Sbf2fI7gwSeKz1CpRFnmwaVCrsH8nCghUO1j/xv5xNKwH+FL8uV5EeVB8mtI+Ll4UdEArpCxD1S3qZu
+E0UwQhsJbn6txLt0iQiCaBkR4u3aKl1Q46Cj1UJXkgN2UzS9I9SMhShFByBHXs6BAoP4xTLMMkkPoNwqdBmmUXF
+VmfwSzP9bXYZ5cNtkeAeFhxGSC/qAV9Qj0pfTV+QmEmXmnIEcVxJZCBzrZpAW9GFHk01eOK3IvfiOjkfWaA/p1p
+Ypbn/1h4M+x++lsEuY+bfQ7gmac0gDW2yf51PRdc1eLI7i47ko1BUSC78YTJ/39HPjT6Dv+yX19s6chCESkz0jV
+erYFwk7+pUYWOV5lX3Y0d9b+hIGO+DDoIxaYWQe4keWjv38' >> /home/share/nsls_yangyb/b64/sync_mg
+_damping_20261106_v2.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'qYjdZojKuwJvVde1n2oGgjE26rzy7H2+va+QiZ8/6qs6
+/9mi3ll7scvlIh4Mvh8tN/70x++P3x+/P36/u9//AWH9EYkAwAAA' >> /home/share/nsls_yangyb/b64/sy
+nc_mg_damping_20261106_v2.b64
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/b64/sync_mg_damping_202
+61106_v2.b64 > /home/share/nsls_yangyb/b64/sync_mg_damping_20261106_v2.tgz
+(base) nsls_yangyb@login02:~$ tar -xzf /home/share/nsls_yangyb/b64/sync_mg_damping_2026
+1106_v2.tgz -C /home/share/nsls_yangyb/PyQCU-main
+(base) nsls_yangyb@login02:~$ cmake --build /home/share/nsls_yangyb/PyQCU-main/data/kup
+l_hbm_opt_20261106/build-t2zblock-generic -j 8
+[  2%] Building CXX object CMakeFiles/kupl_qcu.dir/src/lattice_clover_multigrid.cpp.o
+

@@ -4,10 +4,13 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <limits>
 #include <stdexcept>
 #include <string>
@@ -15,6 +18,32 @@
 
 namespace kupl::qcu {
 namespace {
+
+using MgProfileClock = std::chrono::steady_clock;
+
+bool mg_env_enabled(const char *name) {
+  const char *value = std::getenv(name);
+  return value != nullptr && *value != '\0' &&
+         std::strcmp(value, "0") != 0 && std::strcmp(value, "false") != 0 &&
+         std::strcmp(value, "no") != 0 && std::strcmp(value, "off") != 0;
+}
+
+struct MgProfileTimer {
+  MgProfileTimer(bool enabled, double &target)
+      : enabled_(enabled), target_(target),
+        start_(enabled ? MgProfileClock::now() : MgProfileClock::time_point{}) {}
+
+  ~MgProfileTimer() {
+    if (enabled_) {
+      target_ += std::chrono::duration<double>(MgProfileClock::now() - start_)
+                     .count();
+    }
+  }
+
+  bool enabled_;
+  double &target_;
+  MgProfileClock::time_point start_;
+};
 
 template <typename Real>
 Complex<Real> mg_dot(const std::vector<Complex<Real>> &left,
@@ -276,14 +305,20 @@ public:
                                  params_[kLatY] * params_[kLatZ] *
                                  (params_[kLatT] / 2)));
     canonical_output_.resize(canonical_input_.size());
+    profile_ = mg_env_enabled("PYQCU_KUPL_MG_PROFILE");
+    require_correction_ = mg_env_enabled("KUPL_REQUIRE_MG_CORRECTION");
   }
 
   void solve(void *fermion_out, bool keep_initial) {
+    const auto profile_start = MgProfileClock::now();
     if (fermion_out == nullptr) {
       throw std::runtime_error("legacy Clover-MG output is null");
     }
     if (compact_fine_) {
-      prepare_target_rhs(levels_[0].rhs, fermion_in_);
+      {
+        MgProfileTimer timer(profile_, prof_prepare_seconds_);
+        prepare_target_rhs(levels_[0].rhs, fermion_in_);
+      }
       if (keep_initial) {
         load_target_solution(
             levels_[0].x, static_cast<const Complex<Real> *>(fermion_out));
@@ -309,6 +344,7 @@ public:
     if (rhs_norm == Real(0)) {
       std::fill(levels_[0].x.begin(), levels_[0].x.end(), Complex<Real>(0));
       store_solution(fermion_out);
+      print_profile(profile_start);
       return;
     }
     const Real target = levels_[0].tolerance * rhs_norm;
@@ -316,14 +352,8 @@ public:
     int total_iterations = 0;
     bool corrections_enabled =
         num_levels_ > 1 && levels_[0].correction_interval > 0;
-    const auto reject_correction = [&](int level) {
-      LegacyMgLevel<Real> &state = levels_[level];
-      for (std::size_t i = 0; i < state.x.size(); ++i) {
-        state.x[i] -= state.correction[i];
-      }
-      return true_residual(level);
-    };
     bool fallback_to_fine = false;
+    int accepted_corrections = 0;
     int since_correction = 0;
     if (corrections_enabled && deflate_ && residual > target) {
       const Real before = residual;
@@ -338,11 +368,11 @@ public:
       }
       if (!std::isfinite(static_cast<double>(candidate)) ||
           candidate >= before) {
-        reject_correction(0);
         corrections_enabled = false;
         fallback_to_fine = true;
       } else {
         residual = candidate;
+        ++accepted_corrections;
       }
       if (params_[kVerbose] != 0) {
         std::fprintf(stdout,
@@ -385,12 +415,12 @@ public:
         since_correction = 0;
         if (!std::isfinite(static_cast<double>(candidate)) ||
             candidate >= before) {
-          reject_correction(0);
           corrections_enabled = false;
           fallback_to_fine = true;
           break;
         } else {
           residual = candidate;
+          ++accepted_corrections;
         }
         if (params_[kVerbose] != 0) {
           std::fprintf(stdout,
@@ -403,6 +433,10 @@ public:
       }
     }
     if (fallback_to_fine) {
+      if (require_correction_) {
+        throw std::runtime_error(
+            "KUPL_REQUIRE_MG_CORRECTION=1 rejected fine BiCGStab fallback");
+      }
       set_.clover_bistabcg(
           fermion_out, fermion_in_, gauge_, clover_even_, clover_odd_,
           clover_even_inv_, clover_odd_inv_);
@@ -415,6 +449,7 @@ public:
             "relative=accepted-by-fine-fallback fallback=fine_bicgstab\n",
             total_iterations);
       }
+      print_profile(profile_start);
       return;
     }
     if (params_[kVerbose] != 0) {
@@ -431,9 +466,21 @@ public:
       throw std::runtime_error(
           "legacy Clover-MG did not reach the full true residual");
     }
-    store_solution(fermion_out);
+    if (require_correction_ && accepted_corrections == 0) {
+      throw std::runtime_error(
+          "KUPL_REQUIRE_MG_CORRECTION=1 completed without an accepted coarse "
+          "correction");
+    }
+    {
+      MgProfileTimer timer(profile_, prof_store_seconds_);
+      store_solution(fermion_out);
+    }
     if (compact_fine_) {
-      const Real full_residual = checked_full_residual(fermion_out);
+      Real full_residual = 0;
+      {
+        MgProfileTimer timer(profile_, prof_full_residual_seconds_);
+        full_residual = checked_full_residual(fermion_out);
+      }
       const Real full_rhs_norm = std::sqrt(mg_norm2(
           static_cast<const Complex<Real> *>(fermion_in_),
           static_cast<int64_t>(canonical_input_.size()), distributed_));
@@ -454,6 +501,7 @@ public:
             "legacy Clover-MG full true residual exceeds tolerance");
       }
     }
+    print_profile(profile_start);
   }
 
   bool verify() {
@@ -665,6 +713,9 @@ private:
 
   void apply_level(int level, std::vector<Complex<Real>> &out,
                    const std::vector<Complex<Real>> &in) {
+    MgProfileTimer timer(profile_, level == 0 ? prof_fine_apply_seconds_
+                                              : prof_coarse_apply_seconds_);
+    ++(level == 0 ? prof_fine_apply_calls_ : prof_coarse_apply_calls_);
     if (level == 0) {
       if (compact_fine_) {
         set_.clover_bistabcg_dslash(
@@ -689,6 +740,8 @@ private:
 
   void restrict(int parent, std::vector<Complex<Real>> &coarse,
                 const std::vector<Complex<Real>> &fine) {
+    MgProfileTimer timer(profile_, prof_restrict_seconds_);
+    ++prof_restrict_calls_;
     LegacyMgLevel<Real> &p = levels_[parent];
     LegacyMgLevel<Real> &c = levels_[parent + 1];
     set_.multigrid_restrict(
@@ -699,6 +752,8 @@ private:
 
   void prolong(int parent, std::vector<Complex<Real>> &fine,
                const std::vector<Complex<Real>> &coarse) {
+    MgProfileTimer timer(profile_, prof_prolong_seconds_);
+    ++prof_prolong_calls_;
     LegacyMgLevel<Real> &p = levels_[parent];
     LegacyMgLevel<Real> &c = levels_[parent + 1];
     set_.multigrid_prolong(
@@ -899,6 +954,8 @@ private:
   }
 
   Real apply_coarse_correction(int level) {
+    MgProfileTimer timer(profile_, prof_coarse_correction_seconds_);
+    ++prof_coarse_correction_calls_;
     if (level + 1 >= num_levels_) {
       return Real(0);
     }
@@ -922,16 +979,39 @@ private:
     std::vector<Complex<Real>> coarse_correction(child.x.size());
     cycle(level + 1, child.rhs, coarse_correction);
     prolong(level, parent.correction, coarse_correction);
-    for (std::size_t i = 0; i < parent.x.size(); ++i) {
-      parent.x[i] += parent.correction[i];
+    const Real before = std::sqrt(mg_norm2(parent.r, distributed_));
+    const std::vector<Complex<Real>> saved_residual = parent.r;
+    static constexpr Real damping_steps[] = {
+        Real(1), Real(0.5), Real(0.25), Real(0.125)};
+    for (const Real damping : damping_steps) {
+      for (std::size_t i = 0; i < parent.x.size(); ++i) {
+        parent.x[i] += multiply_complex(
+            Complex<Real>(damping), parent.correction[i]);
+      }
+      apply_level(level, parent.v, parent.x);
+      for (std::size_t i = 0; i < parent.r.size(); ++i) {
+        parent.r[i] = parent.rhs[i] - parent.v[i];
+      }
+      const Real candidate = std::sqrt(mg_norm2(parent.r, distributed_));
+      if (std::isfinite(static_cast<double>(candidate)) &&
+          candidate < before) {
+        if (params_[kVerbose] != 0) {
+          std::fprintf(
+              stdout,
+              "PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:\n "
+              "correction damping=%g before=%g candidate=%g\n",
+              static_cast<double>(damping), static_cast<double>(before),
+              static_cast<double>(candidate));
+        }
+        return candidate;
+      }
+      for (std::size_t i = 0; i < parent.x.size(); ++i) {
+        parent.x[i] -= multiply_complex(
+            Complex<Real>(damping), parent.correction[i]);
+      }
     }
-    apply_level(level, parent.v, parent.x);
-    for (std::size_t i = 0; i < parent.r.size(); ++i) {
-      parent.r[i] = parent.rhs[i] - parent.v[i];
-    }
-    // The caller used to immediately recompute this same fine-level true
-    // residual with true_residual(); return it from the freshly formed r.
-    return std::sqrt(mg_norm2(parent.r, distributed_));
+    parent.r = saved_residual;
+    return before;
   }
 
   Real true_residual(int level) {
@@ -945,6 +1025,31 @@ private:
       state.r[index] = state.rhs[index] - state.v[index];
     }
     return std::sqrt(mg_norm2(state.r, distributed_));
+  }
+
+  void print_profile(MgProfileClock::time_point start) const {
+    if (!profile_ || params_[kNodeRank] != 0) {
+      return;
+    }
+    const double total =
+        std::chrono::duration<double>(MgProfileClock::now() - start).count();
+    std::fprintf(
+        stderr,
+        "PYQCU::KUPL::MG_PROFILE:\n total=%.6f fine_apply=%.6f "
+        "fine_calls=%lld coarse_apply=%.6f coarse_calls=%lld "
+        "restrict=%.6f restrict_calls=%lld prolong=%.6f prolong_calls=%lld "
+        "coarse_correction=%.6f coarse_correction_calls=%lld "
+        "prepare=%.6f store=%.6f full_residual=%.6f\n",
+        total, prof_fine_apply_seconds_,
+        static_cast<long long>(prof_fine_apply_calls_),
+        prof_coarse_apply_seconds_,
+        static_cast<long long>(prof_coarse_apply_calls_),
+        prof_restrict_seconds_, static_cast<long long>(prof_restrict_calls_),
+        prof_prolong_seconds_, static_cast<long long>(prof_prolong_calls_),
+        prof_coarse_correction_seconds_,
+        static_cast<long long>(prof_coarse_correction_calls_),
+        prof_prepare_seconds_, prof_store_seconds_,
+        prof_full_residual_seconds_);
   }
 
   LatticeSetBase &set_;
@@ -962,6 +1067,21 @@ private:
   bool distributed_ = false;
   bool deflate_ = false;
   bool compact_fine_ = false;
+  bool profile_ = false;
+  bool require_correction_ = false;
+  double prof_fine_apply_seconds_ = 0;
+  double prof_coarse_apply_seconds_ = 0;
+  double prof_restrict_seconds_ = 0;
+  double prof_prolong_seconds_ = 0;
+  double prof_coarse_correction_seconds_ = 0;
+  double prof_prepare_seconds_ = 0;
+  double prof_store_seconds_ = 0;
+  double prof_full_residual_seconds_ = 0;
+  int64_t prof_fine_apply_calls_ = 0;
+  int64_t prof_coarse_apply_calls_ = 0;
+  int64_t prof_restrict_calls_ = 0;
+  int64_t prof_prolong_calls_ = 0;
+  int64_t prof_coarse_correction_calls_ = 0;
   std::array<LegacyMgLevel<Real>, 5> levels_{};
   std::vector<Complex<Real>> canonical_input_;
   std::vector<Complex<Real>> canonical_output_;
@@ -984,6 +1104,11 @@ void clover_multigrid_solve(
   if (params[kMgUseGcr] != 0) {
     throw std::runtime_error(
         "KUPL legacy MG rejects CUDA-only GCR/cycle mode bits");
+  }
+  if (mg_env_enabled("KUPL_REQUIRE_MG_CORRECTION") &&
+      (params[kMgNumLevel] <= 1 || params[kMgLevel1NumRestart] == 0)) {
+    throw std::runtime_error(
+        "KUPL_REQUIRE_MG_CORRECTION=1 requires levels>1 and restart>0");
   }
   // A disabled hierarchy must use the optimized parity-Schur solver rather
   // than the much slower unpreconditioned full-site Krylov loop.

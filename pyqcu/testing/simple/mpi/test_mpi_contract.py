@@ -180,6 +180,25 @@ def test_chunked_dataset_digest_matches_array_digest(tmp_path):
             value, max_chunk_bytes=97) == logical_array_sha256(value)
 
 
+def test_chunked_digest_keeps_c_order_for_blocked_lonv_shape(tmp_path):
+    # A Cartesian chunk grid can hash axis-1 blocks after axis-0 advances,
+    # which is not C order.  This scaled E4 lonv shape exercises that boundary.
+    shape = (4, 12, 12, 2, 12, 2, 12, 2, 8, 1)
+    value = np.arange(
+        int(np.prod(shape)), dtype=np.float32).reshape(shape).astype(
+            np.complex64)
+    expected = logical_array_sha256(value)
+    max_chunk_bytes = 16 << 20
+    assert logical_array_sha256_chunked(
+        value, max_chunk_bytes=max_chunk_bytes) == expected
+
+    path = tmp_path / "blocked-lonv.h5"
+    with h5py.File(path, "w") as handle:
+        dataset = handle.create_dataset("lonv", data=value)
+        assert logical_dataset_sha256(
+            dataset, max_chunk_bytes=max_chunk_bytes) == expected
+
+
 def test_solve_case_builds_coarse_cache_with_requested_mpi_grid(
         tmp_path, monkeypatch):
     cache = tmp_path / "coarse.h5"

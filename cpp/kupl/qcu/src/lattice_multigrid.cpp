@@ -4,12 +4,17 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <chrono>
+#include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <limits>
 #include <stdexcept>
 #include <utility>
 #include <vector>
+
+#include <omp.h>
 
 namespace kupl::qcu {
 
@@ -768,9 +773,40 @@ void LatticeSet<Real>::multigrid_build_stencil_local(
   auto *sit = static_cast<C *>(sitting);
   auto *hnn = static_cast<C *>(hop_nn);
   auto *hdg = static_cast<C *>(hop_diag);
-  std::vector<C> source(static_cast<std::size_t>(fine_vectors));
-  std::vector<C> even(static_cast<std::size_t>(fine_vectors));
-  std::vector<C> schur(static_cast<std::size_t>(fine_vectors));
+  const auto env_enabled = [](const char *name) {
+    const char *value = std::getenv(name);
+    return value != nullptr && *value != '\0' && std::strcmp(value, "0") != 0 &&
+           std::strcmp(value, "false") != 0 &&
+           std::strcmp(value, "no") != 0 &&
+           std::strcmp(value, "off") != 0;
+  };
+  const bool parallel_stencil =
+      env_enabled("KUPL_ENABLE_MG_STENCIL_PARALLEL");
+  int stencil_threads = parallel_stencil ? omp_get_max_threads() : 1;
+  if (const char *text = std::getenv("KUPL_MG_STENCIL_THREADS");
+      parallel_stencil && text != nullptr && *text != '\0') {
+    char *end = nullptr;
+    const long requested = std::strtol(text, &end, 10);
+    if (end == text || *end != '\0' || requested < 1) {
+      throw std::invalid_argument(
+          "KUPL_MG_STENCIL_THREADS must be a positive integer");
+    }
+    stencil_threads = std::min<int>(omp_get_max_threads(), requested);
+  }
+  std::vector<std::vector<C>> source_buffers(
+      static_cast<std::size_t>(stencil_threads));
+  std::vector<std::vector<C>> even_buffers(
+      static_cast<std::size_t>(stencil_threads));
+  std::vector<std::vector<C>> schur_buffers(
+      static_cast<std::size_t>(stencil_threads));
+  for (int thread = 0; thread < stencil_threads; ++thread) {
+    source_buffers[static_cast<std::size_t>(thread)].resize(
+        static_cast<std::size_t>(fine_vectors));
+    even_buffers[static_cast<std::size_t>(thread)].resize(
+        static_cast<std::size_t>(fine_vectors));
+    schur_buffers[static_cast<std::size_t>(thread)].resize(
+        static_cast<std::size_t>(fine_vectors));
+  }
 
   const auto multiply_onsite_site = [](const C *input, const C *matrix,
                                        int64_t site, int64_t half_sites,
@@ -820,23 +856,20 @@ void LatticeSet<Real>::multigrid_build_stencil_local(
   static constexpr int pair_second[6] = {1, 2, 3, 2, 3, 3};
   const auto progress_start = std::chrono::steady_clock::now();
   const int64_t progress_step = std::max<int64_t>(1, coarse_count / 20);
-  int64_t next_progress = 0;
+  std::atomic<int64_t> next_progress{0};
+  std::atomic<int64_t> completed_sites{0};
   const bool progress =
       std::getenv("PYQCU_MG_BUILD_PROGRESS") != nullptr;
 
+  #pragma omp parallel for schedule(dynamic, 1) num_threads(stencil_threads)
   for (int64_t c_linear = 0; c_linear < coarse_count; ++c_linear) {
-    if (progress && c_linear >= next_progress) {
-      const double elapsed = std::chrono::duration<double>(
-          std::chrono::steady_clock::now() - progress_start).count();
-      std::fprintf(
-          stderr,
-          "PYQCU::KUPL::MG_BUILD:\n stencil coarse=%lld/%lld elapsed=%.3fs "
-          "window=%d\n",
-          static_cast<long long>(c_linear),
-          static_cast<long long>(coarse_count), elapsed, window);
-      std::fflush(stderr);
-      next_progress = std::min(coarse_count, c_linear + progress_step);
-    }
+    const int thread = omp_get_thread_num();
+    std::vector<C> &source =
+        source_buffers[static_cast<std::size_t>(thread)];
+    std::vector<C> &even =
+        even_buffers[static_cast<std::size_t>(thread)];
+    std::vector<C> &schur =
+        schur_buffers[static_cast<std::size_t>(thread)];
     std::array<int, kDim> center{};
     decode_coarse_site(c_linear, coarse, center[0], center[1], center[2],
                        center[3]);
@@ -1116,6 +1149,32 @@ void LatticeSet<Real>::multigrid_build_stencil_local(
               }
             }
           }
+        }
+      }
+    }
+
+    if (progress) {
+      const int64_t completed =
+          completed_sites.fetch_add(1, std::memory_order_relaxed) + 1;
+      int64_t observed = next_progress.load(std::memory_order_relaxed);
+      while (completed >= observed) {
+        const int64_t next =
+            std::min(coarse_count, completed + progress_step);
+        if (next_progress.compare_exchange_weak(
+                observed, next, std::memory_order_relaxed)) {
+          const double elapsed = std::chrono::duration<double>(
+              std::chrono::steady_clock::now() - progress_start).count();
+          #pragma omp critical(kupl_mg_build_progress)
+          {
+            std::fprintf(
+                stderr,
+                "PYQCU::KUPL::MG_BUILD:\n "
+                "stencil coarse=%lld/%lld elapsed=%.3fs window=%d\n",
+                static_cast<long long>(completed),
+                static_cast<long long>(coarse_count), elapsed, window);
+            std::fflush(stderr);
+          }
+          break;
         }
       }
     }

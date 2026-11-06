@@ -930,3 +930,11 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: 固化 run/session 身份、Linux/macOS/PowerShell 恢复命令、KUPL QCU-MG 性能与失败路线、y76 检修断点、源码变体风险和 SHA-256 清单
 - 验证: path, size, section anchors, UTF-8/LF, git diff --check
 - 批次状态: complete
+## kupl-hbm-20261106 - general - 2026-11-06 09:14:27 +0800
+- 主任务: KUPL QCU-MG 24^3x64 c64 性能优化
+- 日志文件: logs/v20261106091427.txt
+- 文件大小: 4317 bytes
+- 触发原因: 一般记录
+- 关键内容: 修复 Legacy-MG cache C-order 摘要并建立 true-MG fail-closed/阻尼修正检查点
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress

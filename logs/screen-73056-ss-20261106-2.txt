@@ -1,0 +1,54 @@
+* kutacc setvars
+* hio setvars
+
+* HPCKit environment variables inited
+Conda Env: CONDA_SH=/work_ssd/software/soft/tool/anaconda3/2023.3/etc/profile.d/conda.s
+h
+Enable conda: source ${CONDA_SH}
+Conda Env: CONDARC=/work_ssd/software/soft/tool/anaconda3/2023.3/conda_config.yaml
+Conda Env: CONDA_CFG=/work_ssd/software/soft/tool/anaconda3/2023.3/conda_config.yaml
+HPCKIT_ENV: HPCKIT_BASEDIR=/work_ssd/software/soft/tool/hpckit/2026.1.RC1/HPCKit/26.1.R
+C1
+HPCKIT_ENV: HPCKIT_COM_BS=/work_ssd/software/soft/tool/hpckit/2026.1.RC1/HPCKit/26.1.RC
+1/compiler/bisheng
+HPCKIT_ENV: HPCKIT_COM_KGCC=/work_ssd/software/soft/tool/hpckit/2026.1.RC1/HPCKit/26.1.
+RC1/compiler/gcc
+HPCKIT_ENV: HPCKIT_HMPI=/work_ssd/software/soft/tool/hpckit/2026.1.RC1/HPCKit/26.1.RC1/
+hmpi
+HPCKIT_ENV: HPCKIT_KML=/work_ssd/software/soft/tool/hpckit/2026.1.RC1/HPCKit/26.1.RC1/k
+ml
+
+Loading cmake/2026.1.RC1
+  Loading requirement: hpckit/2026.1.RC1 bisheng/compiler5.2.0/bishengmodule
+    bisheng/hmpi26.1.RC1/release
+Currently Loaded Modulefiles:
+ 1) anaconda3/2023.3    3) bisheng/compiler5.2.0/bishengmodule   5) cmake/2026.1.RC1
+ 2) hpckit/2026.1.RC1   4) bisheng/hmpi26.1.RC1/release
+
+Key:
+auto-loaded
+###env.sh in /home/share/nsls_yangyb/PyQCU is sourcing...:2026-11-06-08-55-26###
+###env.sh in /home/share/nsls_yangyb/PyQCU is done......:2026-11-06-08-55-26###
+(base) nsls_yangyb@login02:~$ ll
+total 25M
+drwxr-x---  2 nsls_yangyb eapp  16K Nov  6 02:48 b64
+drwxr-x---  2 nsls_yangyb eapp 4.0K Oct 30 01:49 bin
+drwxr-x--- 12 nsls_yangyb eapp 4.0K Oct 27 16:06 configure
+drwxr-x---  2 nsls_yangyb eapp 4.0K Oct 27 16:12 data
+lrwxrwxrwx  1 nsls_yangyb eapp   11 Nov  5 23:14 env.sh -> ./sh/env.sh
+drwxr-x---  2 nsls_yangyb eapp  16K Nov  5 23:13 err
+drwxr-x--x  2 nsls_yangyb eapp 4.0K Oct 26 21:54 Job_Output
+-rw-r-----  1 nsls_yangyb eapp  302 Nov  6 01:04 job_probe_y79.sh
+-rw-r-----  1 nsls_yangyb eapp  975 Nov  5 21:59 jobs_mg.tgz
+drwxr-x---  4 nsls_yangyb eapp 4.0K Nov  4 19:03 lib
+drwxr-x---  2 nsls_yangyb eapp  16K Nov  6 01:05 out
+drwxr-x---  3 nsls_yangyb eapp 8.0K Nov  6 02:48 py
+lrwxrwxrwx  1 nsls_yangyb eapp   12 Oct 30 06:27 PyQCU -> ./PyQCU-main
+drwxr-x---  9 nsls_yangyb eapp 4.0K Nov  5 08:02 PyQCU-main
+-rw-r--r--  1 nsls_yangyb eapp  25M Nov  5 07:53 PyQCU-main.zip
+drwxr-x---  2 nsls_yangyb eapp  20K Nov  6 02:28 sh
+lrwxrwxrwx  1 nsls_yangyb eapp   13 Nov  5 23:14 sleep.sh -> ./sh/sleep.sh
+drwxr-x---  2 nsls_yangyb eapp 4.0K Nov  5 23:14 txt
+(base) nsls_yangyb@login02:~$ hostname
+login02
+(base) nsls_yangyb@login02:~$

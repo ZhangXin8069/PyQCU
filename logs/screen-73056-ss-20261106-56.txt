@@ -1,0 +1,54 @@
+tol_factor": 10.0, "converged": true, "deflate": true, "dof": 4, "fine_calls": 37, "gri
+d": [1, 1, 1, 16], "label": "r5_tol10_t16", "mg_grid": [2, 2, 2, 1], "process_seconds":
+ 13.529197694035247, "ranks": 16, "restart": 5, "returncode": 0, "status": "PASS", "thr
+eads_per_rank": 8, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wal
+l_seconds": 4.223287110216916}
+{"cache": "cache_E4_mg2x2x2x1.h5", "coarse_calls": 23, "coarse_max_iter": 200, "coarse_
+tol_factor": 30.0, "converged": true, "deflate": true, "dof": 4, "fine_calls": 37, "gri
+d": [1, 1, 1, 16], "label": "r5_tol30_t16", "mg_grid": [2, 2, 2, 1], "process_seconds":
+ 12.942950837081298, "ranks": 16, "restart": 5, "returncode": 0, "status": "PASS", "thr
+eads_per_rank": 8, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wal
+l_seconds": 3.7238004580140114}
+{"cache": "cache_E4_mg2x2x2x1.h5", "coarse_calls": 29, "coarse_max_iter": 200, "coarse_
+tol_factor": 10.0, "converged": true, "deflate": true, "dof": 4, "fine_calls": 37, "gri
+d": [1, 1, 1, 8], "label": "r5_tol10_t8", "mg_grid": [2, 2, 2, 1], "process_seconds": 1
+3.616533057997003, "ranks": 8, "restart": 5, "returncode": 0, "status": "PASS", "thread
+s_per_rank": 16, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wall_
+seconds": 3.5849076379090548}
+{"cache": "cache_E4_mg2x2x2x1.h5", "coarse_calls": 29, "coarse_max_iter": 200, "coarse_
+tol_factor": 10.0, "converged": true, "deflate": true, "dof": 4, "fine_calls": 37, "gri
+d": [1, 1, 2, 8], "label": "r5_tol10_zt16", "mg_grid": [2, 2, 2, 1], "process_seconds":
+ 14.795276194112375, "ranks": 16, "restart": 5, "returncode": 0, "status": "PASS", "thr
+eads_per_rank": 8, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wal
+l_seconds": 4.223097709007561}
+{"cache": "cache_E4_mg2x2x2x1.h5", "coarse_calls": 29, "coarse_max_iter": 200, "coarse_
+tol_factor": 10.0, "converged": true, "deflate": true, "dof": 4, "fine_calls": 37, "gri
+d": [1, 1, 2, 16], "label": "r5_tol10_zt32", "mg_grid": [2, 2, 2, 1], "process_seconds"
+: 15.269489082042128, "ranks": 32, "restart": 5, "returncode": 0, "status": "PASS", "th
+reads_per_rank": 4, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wa
+ll_seconds": 4.716018282808363}
+{"cache": "cache_E4_mg2x2x2x1.h5", "coarse_calls": 29, "coarse_max_iter": 200, "coarse_
+tol_factor": 10.0, "converged": true, "deflate": true, "dof": 4, "fine_calls": 37, "gri
+d": [1, 1, 4, 8], "label": "r5_tol10_z4t32", "mg_grid": [2, 2, 2, 1], "process_seconds"
+: 14.970065656118095, "ranks": 32, "restart": 5, "returncode": 0, "status": "PASS", "th
+reads_per_rank": 4, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wa
+ll_seconds": 4.1040181699208915}
+{"cache": "cache_E4_mg2x2x2x1.h5", "coarse_calls": 19, "coarse_max_iter": 200, "coarse_
+tol_factor": 10.0, "converged": true, "deflate": true, "dof": 4, "fine_calls": 34, "gri
+d": [1, 1, 1, 16], "label": "r8_tol10_t16", "mg_grid": [2, 2, 2, 1], "process_seconds":
+ 12.866519978968427, "ranks": 16, "restart": 8, "returncode": 0, "status": "PASS", "thr
+eads_per_rank": 8, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wal
+l_seconds": 3.0389112229458988}
+{"cache": "cache_E4_mg2x2x2x1.h5", "coarse_calls": 19, "coarse_max_iter": 200, "coarse_
+tol_factor": 10.0, "converged": true, "deflate": true, "dof": 4, "fine_calls": 34, "gri
+d": [1, 1, 2, 16], "label": "r8_tol10_zt32", "mg_grid": [2, 2, 2, 1], "process_seconds"
+: 13.758630241034552, "ranks": 32, "restart": 8, "returncode": 0, "status": "PASS", "th
+reads_per_rank": 4, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wa
+ll_seconds": 3.515992762055248}
+{"cache": "cache_E4_mg2x2x2x1.h5", "coarse_calls": 19, "coarse_max_iter": 200, "coarse_
+tol_factor": 10.0, "converged": true, "deflate": true, "dof": 4, "fine_calls": 32, "gri
+d": [1, 1, 1, 16], "label": "r10_tol10_t16", "mg_grid": [2, 2, 2, 1], "process_seconds"
+: 12.162673748098314, "ranks": 16, "restart": 10, "returncode": 0, "status": "PASS", "t
+hreads_per_rank": 8, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "w
+all_seconds": 3.307285060873255}
+

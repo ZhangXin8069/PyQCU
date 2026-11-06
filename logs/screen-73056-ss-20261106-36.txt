@@ -1,0 +1,54 @@
+printf '%s' 'AZVGyeAvNqxCHprf8cSoZR0cFFxnXF+utbxTeRXkcSbzSqrRP8wS4Tom+g4Zv8mfMsqlTDYEZ+
+Acsg4/0oO+66EwbaKc7/Sk2pTYTTv70EfAEsayG4Pfc9LLGMuuAmND9xOMhABcHrigsbcPZUMiew6z9V//2H0ez
++N5PI/ncRx/A7D4RJgAFgAA' >> /home/share/nsls_yangyb/b64/sync_mg_damping_gate_20261106.b
+64
+(base) nsls_yangyb@login02:~$ printf '%s' 'hHOFty3n6kpz+vyjQlr9S/t7uCCcyzoPEWmkALRb6ArE
+IVPb9UvtEX2ikZLs1JkZlR2KqHgt3h5tdeqPhq1BulGrilboSZ66oaDsnCYdSnAeUXdDfJEyibGtQmtBjcleCVD
+8tl2XsCX5lqoMYO1RcUmpNewM9vr/coBhz/JKqh8PT3PmN3n14peZC9vU1XcUAXel2dEelDFarOtJwf6hpUML/E
+tlyMp+wsoo2+gSQlnbLIMaQkxjTl2IBX3zqVwUgd9B/sfAlZHakZXJrd24QCSZaoTSXGS50Il2FCHovlhSlgDGf
+WXbHd1m6SysXgg0Ihn/nN2oW+5LYdtFvkJtArGW2AvDtD4yOEkstbaPO7Q0wmxyQUX7Atex5mXkEKVE2iXLgiW/
+eeF3i1ESaF7TlMWxWA45lpUbzIYkoGVh1HUc5DQK+3m10HamTGqtFFJdWv00oFAbT2yn5UoYFaeKOchJAllMCwd
+XMOBSkUtSsUdrS0W7XK3G5EeoxxVJNXiNVmWCsk8iLCAAMGR9GOQkavKeg1RFlIuYQM+eCZL4tCniHKQq4gmazc
+0Bn99qnVi/iBIgbmnQZDkRKvCXL/VZlpeTjhuuw7mWVP84MuS6yD4i5F1z9jAkTDWMRg2r1ZaWVe7ODrJN9ENDs
+rEB2ppA9qkreR36W5C/NtSlDn1YM20q2anD8b2hzirWHb/x' >> /home/share/nsls_yangyb/b64/sync_mg
+_damping_gate_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'AZVGyeAvNqxCHprf8cSoZR0cFFxnXF+utbxTeRXkcSbz
+SqrRP8wS4Tom+g4Zv8mfMsqlTDYEZ+Acsg4/0oO+66EwbaKc7/Sk2pTYTTv70EfAEsayG4Pfc9LLGMuuAmND9xO
+MhABcHrigsbcPZUMiew6z9V//2H0ez+N5PI/ncRx/A7D4RJgAFgAA' >> /home/share/nsls_yangyb/b64/s
+ync_mg_damping_gate_20261106.b64
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/b64/sync_mg_damping_gat
+e_20261106.b64 > /home/share/nsls_yangyb/b64/sync_mg_damping_gate_20261106.tgz
+(base) nsls_yangyb@login02:~$ tar -xzf /home/share/nsls_yangyb/b64/sync_mg_damping_gate
+_20261106.tgz -C /home/share/nsls_yangyb/py
+(base) nsls_yangyb@login02:~$ python3 -B /home/share/nsls_yangyb/py/logs/run_mg_damping
+_gate_L24.py
+Traceback (most recent call last):
+  File "/home/share/nsls_yangyb/py/logs/run_mg_damping_gate_L24.py", line 111, in <modu
+le>
+    raise SystemExit(main())
+  File "/home/share/nsls_yangyb/py/logs/run_mg_damping_gate_L24.py", line 78, in main
+    completed = subprocess.run(
+  File "/work_ssd/software/soft/tool/anaconda3/2023.3/lib/python3.10/subprocess.py", li
+ne 505, in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+  File "/work_ssd/software/soft/tool/anaconda3/2023.3/lib/python3.10/subprocess.py", li
+ne 1154, in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+  File "/work_ssd/software/soft/tool/anaconda3/2023.3/lib/python3.10/subprocess.py", li
+ne 2006, in _communicate
+    self._check_timeout(endtime, orig_timeout, stdout, stderr)
+  File "/work_ssd/software/soft/tool/anaconda3/2023.3/lib/python3.10/subprocess.py", li
+ne 1198, in _check_timeout
+    raise TimeoutExpired(
+subprocess.TimeoutExpired: Command '['mpiexec', '-n', '1', '--bind-to', 'none', 'python
+3', '-B', '/home/share/nsls_yangyb/PyQCU-main/pyqcu/testing/simple/kupl_multigrid.py',
+'--lat', '24', '24', '24', '64', '--grid', '1', '1', '1', '1', '--mass', '-0.277', '--c
+sw', '1.160920226', '--atol', '1e-4', '--dtype', 'c64', '--levels', '2', '--restart', '
+1', '--mg-grid', '2', '2', '2', '1', '--dof', '12', '4', '--nv-iters', '2', '--coarse-t
+ol-factor', '0.1', '--coarse-max-iter', '200', '--gauge', '/home/share/nsls_yangyb/PyQC
+U-main/data/production_L24/gauge_24x24x24x64_c64.h5', '--source', '/home/share/nsls_yan
+gyb/PyQCU-main/data/production_L24/source_24x24x24x64_c64.h5', '--coarse-cache', '/home
+/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/mg_e4_tblock1_L24_v1/cache_E4_
+mg2x2x2x1.h5', '--report', '/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_202611
+06/mg_damping_gate_L24_v1/report.json']' timed out after 300 seconds
+(base) nsls_yangyb@login02:~$

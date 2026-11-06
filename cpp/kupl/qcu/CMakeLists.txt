@@ -393,6 +393,15 @@ if(KUPL_BUILD_TESTS)
         ${KUPL_PYTHON_TEST_DIR}/test_legacy_mg.py
         --library $<TARGET_FILE:kupl_qcu>
       )
+      set_tests_properties(
+        kupl_qcu_python_multigrid_1rank
+        kupl_qcu_python_multigrid_2rank
+        kupl_qcu_python_legacy_mg_1rank
+        kupl_qcu_python_legacy_mg_2rank
+        kupl_qcu_python_legacy_mg_4rank
+        PROPERTIES ENVIRONMENT
+          "KUPL_ENABLE_MG_STENCIL_PARALLEL=1;KUPL_MG_STENCIL_THREADS=2"
+      )
       add_test(NAME kupl_qcu_python_failure_modes COMMAND
         ${Python3_EXECUTABLE}
         ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_failure_modes.py

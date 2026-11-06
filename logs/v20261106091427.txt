@@ -1,0 +1,50 @@
+[日志元数据]
+日志类型: general
+生成时间: 2026-11-06 09:14:27 +0800
+批次: kupl-hbm-20261106
+主任务: KUPL QCU-MG 24^3x64 c64 性能优化
+触发原因: 一般记录
+摘要: 修复 Legacy-MG cache C-order 摘要并建立 true-MG fail-closed/阻尼修正检查点
+Git 根目录: /Users/zhangxin/PyQCU
+
+## 关键日志
+### S1 - 基线、硬件上限与目标差距
+- 目标: 在 Kunpeng 计算节点把 KUPL QCU-MG 的 24^3x64 c64 求解段压到约 0.1 s，并验证 HBM 实际利用。
+- 最近有效计算节点基线: 0.434562751 s，16 iterations，PASS，独立真残差 3.5412238955e-6；32 ranks x 12 threads，grid 1 1 1 32。
+- Roofline 模型: 当前约 149.5 GB/s、199.4 GFLOP/s；约为保守 HBM 上限的 2.8%-3.4%、FP32 SVE 理论峰值的 0.4%-0.5%。
+- 0.1 s 模型需求: 约 650 GB/s 与 0.867 TFLOP/s，低于硬件上限；当前主瓶颈仍是 ht=1 scalar kernel、集合归约和同步，而不是 HBM 物理上限。
+- 证据: data/kupl_roofline_20261106.json。
+
+### S2 - E4 cache 摘要误判修复
+- 根因: 原多维 Cartesian chunk 在拆分前导轴后按非连续 C-order 组合块，导致 manifest 的整数组摘要与流式摘要不一致。
+- 修复: pyqcu/tools/_legacy_mg_cache.py 改为固定前缀坐标、仅拆分单一轴、保留完整尾轴，按严格 C-order 生成有界 chunk。
+- 回归: pyqcu/testing/simple/mpi/test_mpi_contract.py 新增 blocked lonv 形状测试；本地直接回归 PASS。
+- 远端 E4 cache 实测: lonv/hnn/hdg/sit 四个 manifest_eq_streaming 与 streaming_eq_whole 全部 true。
+- E4 cache 路径: data/kupl_hbm_opt_20261106/mg_e4_tblock1_L24_v1/cache_E4_mg2x2x2x1.h5。
+
+### S3 - true-MG fail-closed 与 coarse correction 诊断
+- 新增 KUPL_REQUIRE_MG_CORRECTION=1：levels<=1/restart=0、fine-BiCG fallback、或成功结束但没有任何 accepted coarse correction 时直接失败。
+- E4/L24 单 rank 因子扫描覆盖 0.001、0.01、0.1、1、10、100、1e4；coarse solve 均实际运行，首次 correction 把 fine residual 从 3723.37 降到约 3666.03，但后续全步长 correction 会增大 residual，随后被回退门拒绝。
+- 结论: 之前把 fallback 结果记作 MG 的结论作废；当前 E4 coarse space 的全步长 additive correction 不足以稳定推进。
+- 新候选: 在同一个 coarse solve 结果上做 damping line search，依次尝试 1、0.5、0.25、0.125，只接受使 fine true residual 下降的步长，避免重复 coarse solve。
+- 远端 build-t2zblock-generic 已完成 C++ 重编译；一次编译错误已修正为 Complex<Real>(damping)，后续构建通过，但存在文件时间戳超前 0.6 s 的 clock-skew 警告。
+
+### S4 - 调度与运行状态
+- 计算节点官方查询: djob 返回 no matches；此前最小 dsub 探针被 job hook 拒绝，未绕过 hook。
+- 当前阻尼 true-MG gate 正在登录节点运行，设置 300 s 子进程超时；尚无最终 PASS 结果，不能据此宣称性能改善。
+- 运行规则: 计算作业满 5 分钟检查日志，满 10 分钟且不能证明健康则终止并全面审查。
+
+## 验证与证据
+- 测试/检查: blocked lonv C-order 摘要回归 PASS；远端 E4 四张量摘要全一致；远端 CMake/C++ 构建通过。
+- 未验证项: damping gate 最终结果、计算节点 HBM 页分布、更多 grid/MG 参数/格子尺寸矩阵、完整 CTest。
+- 本机限制: 当前 Python 环境缺少 pytest，因此 pytest 项转到远端真实构建环境执行。
+
+## 变更与产物
+- 文件: pyqcu/tools/_legacy_mg_cache.py、pyqcu/testing/simple/mpi/test_mpi_contract.py、cpp/kupl/qcu/src/lattice_clover_multigrid.cpp、cpp/kupl/qcu/tests/test_failure_modes.py。
+- 产物: data/kupl_roofline_20261106.json、远端 E4 cache、远端 build-t2zblock-generic。
+- 未改动范围: 未修改系统配置，未绕过调度 hook，未把 fallback 结果标成 true MG。
+
+## 风险、限制与下一步
+- 风险: E4 coarse space 可能仍不足；阻尼线搜索若全部失败，将转 E8/E12、nv_iters 和 mg-grid/time-block 扫描。
+- 阻塞: 新计算节点作业仍被 job hook 拒绝。
+- 下一步: 完成阻尼 gate 的 5 分钟审查；通过后运行更多 L24 grid、restart/coarse-max-iter/coarse-tol 参数和 L8/L16/L24 格子尺寸矩阵，并在计算节点恢复后补 HBM/算力证据。

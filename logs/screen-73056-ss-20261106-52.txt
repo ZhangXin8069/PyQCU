@@ -1,0 +1,54 @@
+gzip: stdin: not in gzip format
+tar: Child returned status 1
+tar: Error is not recoverable: exiting now
+(base) nsls_yangyb@login02:~$ env PYQCU_MG_PARAM_STAGE=3 PYQCU_MG_PARAM_OUT=mg_true_par
+am_sweep_L24_v3 python3 -B /home/share/nsls_yangyb/py/logs/run_true_mg_param_sweep_L24.
+py
+{"cache": "cache_E4_mg2x2x2x1.h5", "coarse_calls": 168, "coarse_max_iter": 200, "coarse
+_tol_factor": 0.1, "converged": true, "deflate": true, "dof": 4, "fine_calls": 49, "gri
+d": [1, 1, 1, 16], "label": "base_e4_r1", "mg_grid": [2, 2, 2, 1], "process_seconds": 2
+2.502336526988074, "ranks": 16, "restart": 1, "returncode": 0, "status": "PASS", "threa
+ds_per_rank": 8, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wall_
+seconds": 12.982013853034005}
+{"cache": "cache_E4_mg2x2x2x1.h5", "coarse_calls": 103, "coarse_max_iter": 200, "coarse
+_tol_factor": 0.1, "converged": true, "deflate": true, "dof": 4, "fine_calls": 41, "gri
+d": [1, 1, 1, 16], "label": "restart2", "mg_grid": [2, 2, 2, 1], "process_seconds": 16.
+802371978992596, "ranks": 16, "restart": 2, "returncode": 0, "status": "PASS", "threads
+_per_rank": 8, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wall_se
+conds": 7.627774337073788}
+{"cache": "cache_E4_mg2x2x2x1.h5", "coarse_calls": 71, "coarse_max_iter": 200, "coarse_
+tol_factor": 0.1, "converged": true, "deflate": true, "dof": 4, "fine_calls": 36, "grid
+": [1, 1, 1, 16], "label": "restart3", "mg_grid": [2, 2, 2, 1], "process_seconds": 15.3
+71526967035607, "ranks": 16, "restart": 3, "returncode": 0, "status": "PASS", "threads_
+per_rank": 8, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wall_sec
+onds": 5.89504925115034}
+{"cache": "cache_E4_mg2x2x2x1.h5", "coarse_calls": 54, "coarse_max_iter": 200, "coarse_
+tol_factor": 0.1, "converged": true, "deflate": true, "dof": 4, "fine_calls": 37, "grid
+": [1, 1, 1, 16], "label": "restart5", "mg_grid": [2, 2, 2, 1], "process_seconds": 15.4
+79606523178518, "ranks": 16, "restart": 5, "returncode": 0, "status": "PASS", "threads_
+per_rank": 8, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wall_sec
+onds": 6.196169374044985}
+^CTraceback (most recent call last):
+  File "/home/share/nsls_yangyb/py/logs/run_true_mg_param_sweep_L24.py", line 219, in <
+module>
+    raise SystemExit(main())
+  File "/home/share/nsls_yangyb/py/logs/run_true_mg_param_sweep_L24.py", line 163, in m
+ain
+    completed = subprocess.run(
+  File "/work_ssd/software/soft/tool/anaconda3/2023.3/lib/python3.10/subprocess.py", li
+ne 505, in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+  File "/work_ssd/software/soft/tool/anaconda3/2023.3/lib/python3.10/subprocess.py", li
+ne 1154, in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+  File "/work_ssd/software/soft/tool/anaconda3/2023.3/lib/python3.10/subprocess.py", li
+ne 2005, in _communicate
+    ready = selector.select(timeout)
+  File "/work_ssd/software/soft/tool/anaconda3/2023.3/lib/python3.10/selectors.py", lin
+e 416, in select
+    fd_event_list = self._selector.poll(timeout)
+KeyboardInterrupt
+
+(base) nsls_yangyb@login02:~$ pgrep -af "kupl_multigrid|mpiexec|mpirun"
+2931373 mpirun -np 8 ./test
+(base) nsls_yangyb@login02:~$

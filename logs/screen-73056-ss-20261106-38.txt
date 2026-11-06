@@ -1,0 +1,54 @@
+damping_gate_v2_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' '661rtSvqh9VsjCXkMllS7p8mg8fR0LMeBuOFf0b812C0
+xLPpeDR88qzZYLEYfeufs198GM3waDJbAXLu340m957VOwf5k8Hd2MdLF393N54OP+D7xXiweO9ZjoGcPUEsYIV
+/fAfMpg+jsX+B2dz/ZjWa+xI0nM7n/nA5mk7quNnT8v10sprcrR4e/Ll/f06tBI1Hdx44v6mjAI4V4vjfQWHzzG
+rpDdr3m4yhlCQURSk6ed9SPMD/AywNN0RoyqP/OJ0/4cn03v8UTXv3I2plo0adc5eHAw4aXiaMB0N/Ya6+k8vD2
+QoPHh5Gk9GyLg9oZ+ut24osgy7P8qY0vo0mWUq1QxiFCpNKchndkH2bKKY4gNokeJOLkDJ2KyP7LNajVJSxnhAR
+7CDaGbU5JSzYnTzLrE2UAjMSx9xr/hB+2YJSSBinmOR5fPDsN/88LhgYS2aSlKt1jDYIyp4Wc7Ko1PyXX007fjn
+54yTYupXKNtV+e8uyIm/2Wi3DdaYGF8DuEfxr6SNZ53TqA1RrBEXKTp7DiDVzqI3gOW/JCvA03Udc4OzZeyAxr3
+yu6qsnN8lY1XNbFnJLAcD4rBBY1uMTSi/aYi8qEHjoYxAsnkBBliQkDQHw/clcqJ50TwPwstVJ5bOnXjtwm0HFz
+OQkhQCRv+XFpuh3RrTJXDsW7fwAmdYVlAsoyl0Ot0dMdb1P' >> /home/share/nsls_yangyb/b64/sync_mg
+_damping_gate_v2_20261106.b64
+ntf '%s' 'ilhEWxaF0A9ZpsM7nZgIyRTq+9nzuq+Vkdsq3WoPk01COFd4x3ZvbvTOgL8qpN27dr6Cq8a9ru8hI
+osVgHZKWQnZdyJBmZxdOXotFIdcuSCQGtVUpy80VlJdDWVUNkPiknrbyg63/ihdHmYbNVNrZ3LSF6WUKUkHKpxR
+3NmQQGRKY8c+k1qiTKtcx6ljtqTYUpVnrDksr0K1ht3+Xv+77mOwXV589aPjWcGC87168bc3l7qpC7ZiATdyq/S
+kzIRyXU/OZD9HeQfClOYUHqmQvo/CgsSldT+WqQHHQWXUy+bGzinb6HpGWVOnoFwPMeQTYFRmqlXVmhnJZ2cgpm
+m9Wi1E+JEgq2PbzL6PUJIgUadadWzwPKP/smdqX4Ux0rWNgtfQk/nVlpXZq3Uc7VIRz9SnxkWr4BmatJGge1GWJ
+OUdnNJXzEENaLP0esWiVb0JdritcdZVNshCCqYc7XglkWhKh0qlev9wTvvpPqC52XPaSw3z93nEaFhnbp6J1KhG
+hCbqOYrjfNs8ssoj8JNubu3F6N3Snz+26vzOtf+dFlzV2fwxI36Xrh9G43HrD6hW9o0xyfmnohp1jlFv3CAy3ox
+oZpSEWAZCyVAHiAZVwXwOyskhzoiUKu8nW77zMjVNbEve0uVyxFXQgVJQJ+nxhtYNhTbt4w7jKIxrC09pIW/+Kj
+KqVXmnmf7ykFOj' >> /home/share/nsls_yangyb/b64/sync_mg_damping_gate_v2_20261106.b64
+printf '%s' 'lVrbWyqacCkSUXBIT4Cp9teqYbUeGlrrBNrIaaGvzzhbG6CtSfDsqQZjHQVb4L+2lKLQVWqHGy
+0nfPdlTNpk9CYn1aHdOE2MUleZDIDq3aCX8QEpHGRpKLuWMjwMTGn37WVvGMBXMMngVIPXaOYmMJ/EWECi4qoIn
++29BDFZHBcxCWSOkTSg5ywuQUwWL/BVtzngy6bWifWOLwXilobnW04EE65MSPQXJ+zQQSQjvgxYFefw6TUaG7fs
+mzc6so69o3w2q5aPQ2/Edc/Xsl8ZXNQ6k1SWhUWSyyyTkSM7bXnVeW4LfYmsH+QXtsoVJvvUC3AOOYif6UG3oHB
+fbOKC7/TE7JWdcwN60N7CEsbyIwFjlS4Yy2YXY0uXOUYiAC4OXNDE30eyT5atcKvxv/4Pmc/j8/g8Po+/aPwHXe
+Q/NgAYAAA=' >> /home/share/nsls_yangyb/b64/sync_mg_damping_gate_v2_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'ilhEWxaF0A9ZpsM7nZgIyRTq+9nzuq+Vkdsq3WoPk01C
+OFd4x3ZvbvTOgL8qpN27dr6Cq8a9ru8hIosVgHZKWQnZdyJBmZxdOXotFIdcuSCQGtVUpy80VlJdDWVUNkPiknr
+byg63/ihdHmYbNVNrZ3LSF6WUKUkHKpxR3NmQQGRKY8c+k1qiTKtcx6ljtqTYUpVnrDksr0K1ht3+Xv+77mOwXV
+589aPjWcGC87168bc3l7qpC7ZiATdyq/SkzIRyXU/OZD9HeQfClOYUHqmQvo/CgsSldT+WqQHHQWXUy+bGzinb6
+HpGWVOnoFwPMeQTYFRmqlXVmhnJZ2cgpmm9Wi1E+JEgq2PbzL6PUJIgUadadWzwPKP/smdqX4Ux0rWNgtfQk/nV
+lpXZq3Uc7VIRz9SnxkWr4BmatJGge1GWJOUdnNJXzEENaLP0esWiVb0JdritcdZVNshCCqYc7XglkWhKh0qlev9
+wTvvpPqC52XPaSw3z93nEaFhnbp6J1KhGhCbqOYrjfNs8ssoj8JNubu3F6N3Snz+26vzOtf+dFlzV2fwxI36Xrh
+9G43HrD6hW9o0xyfmnohp1jlFv3CAy3oxoZpSEWAZCyVAHiAZVwXwOyskhzoiUKu8nW77zMjVNbEve0uVyxFXQg
+VJQJ+nxhtYNhTbt4w7jKIxrC09pIW/+KjKqVXmnmf7ykFOj' >> /home/share/nsls_yangyb/b64/sync_mg
+_damping_gate_v2_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'lVrbWyqacCkSUXBIT4Cp9teqYbUeGlrrBNrIaaGvzzhb
+G6CtSfDsqQZjHQVb4L+2lKLQVWqHGy0nfPdlTNpk9CYn1aHdOE2MUleZDIDq3aCX8QEpHGRpKLuWMjwMTGn37WV
+vGMBXMMngVIPXaOYmMJ/EWECi4qoIn+29BDFZHBcxCWSOkTSg5ywuQUwWL/BVtzngy6bWifWOLwXilobnW04EE6
+5MSPQXJ+zQQSQjvgxYFefw6TUaG7fsmzc6so69o3w2q5aPQ2/Edc/Xsl8ZXNQ6k1SWhUWSyyyTkSM7bXnVeW4Lf
+YmsH+QXtsoVJvvUC3AOOYif6UG3oHBfbOKC7/TE7JWdcwN60N7CEsbyIwFjlS4Yy2YXY0uXOUYiAC4OXNDE30ey
+T5atcKvxv/4Pmc/j8/g8Po+/aPwHXeQ/NgAYAAA=' >> /home/share/nsls_yangyb/b64/sync_mg_dampin
+g_gate_v2_20261106.b64
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/b64/sync_mg_damping_gat
+e_v2_20261106.b64 > /home/share/nsls_yangyb/b64/sync_mg_damping_gate_v2_20261106.tgz
+(base) nsls_yangyb@login02:~$ tar -xzf /home/share/nsls_yangyb/b64/sync_mg_damping_gate
+_v2_20261106.tgz -C /home/share/nsls_yangyb/py
+(base) nsls_yangyb@login02:~$ python3 -B /home/share/nsls_yangyb/py/logs/run_mg_damping
+_gate_L24_v2.py
+{"coarse_calls": 168, "converged": true, "final_true_residual": null, "fine_calls": 49,
+ "process_seconds": 14.339377492899075, "residual_acceptance": 0.0001, "returncode": 0,
+ "status": "PASS", "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wal
+l_seconds": 7.52818155894056}
+(base) nsls_yangyb@login02:~$

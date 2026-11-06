@@ -1,0 +1,54 @@
+aMf9yAuaUzhK8zQO/xlXlvgyywjcvB+5kRR8uF9ja3IFAYk' >> /home/share/nsls_yangyb/b64/sync_tr
+ue_mg_param_sweep_v5_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'd2DaxnmNegW2TD3M3ygmFKznGzFNVny9odUEhX1LEuWY
+o1j2LHuSXUMupALOsnwfZCR52K7hKjrCjvfL0sHM0sXVz6lu+4pRFnVm2RUYGzdm765AvzjPRLbP6PP+FrSHPsc
+a4dllQz2xBNQ5daRct+TD3Y/H4E0yCpZGGQVNNRRfEL1oSWvIsrncGjx7NK6+RzPuuO6T59hPwKZuipi6xauTgw
+NWjwPIxAiMJUWhsGqCJ/mpH4IPhB5tl4iutthBau9ouEvXmvNWIjVIP7reMB03ioDBwysiAfFGkchYIbJmYcsel
+AYN3Dg95N5ar3D/Pb5dXYGFubLnTO8YXxJIRQS9qs3bOweJcMAqov0uCq/Y3QWRi5rhCm/gfSoShIGuzqk6zGKi
+2U8J7gfbwkhiu4UX3yECL+WWsSo05daoGxjTyd6Laj2416ga19HMRr8YCT9EgkGzPNU77ASIhxy9gee6cXhtu9f
+VzI72g0KCvoL+hQtxy3aSC99bg5yFzhSHdU+KzOrGCrd3MN7fajwPvcFjfeVbvMaqLCFV7/QOLGBqSukN38H1U6
+Iu3/c11gBZTvH2r740GezoITFlLwRr2wEJUb4ebOwzZBOKl4XSBlRCiZROICgJIioE+2wvkUjy1cL37spexBYPs
+vDC3fHNZXEv74V5DiYpeFHI3nGKdCLhhM+/V0eCBP4Crlzh' >> /home/share/nsls_yangyb/b64/sync_tr
+ue_mg_param_sweep_v5_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'WCOp9cmETzTxVzuiFlbvlEmBIQDWdCmTlR0ySfF/Rmvu
+aDyUMReJFMIykH4xns6kHeK7dzy+y9avUjimxZ6EP1ayU4LHPZYOl/k2TgUA9k6Q/cgj3fGTHGysVkGebvgDo27
+z4xZGKpw+Un5oqqXfvZAG+xTPz7jrcuyO9r2m/xzqtfO4iaOGiRHwz3XTPJSJju3FRcaBpCS4i2RtwXkV+BCCoU
+cIoyIET6+EiDpZ4voAvN2lGd1Onn08+OLZttP6o//56M/rz+vP6w+9/gMTZyXKACoAAA==' >> /home/share/
+nsls_yangyb/b64/sync_true_mg_param_sweep_v5_20261106.b64
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/b64/sync_true_mg_param_
+sweep_v5_20261106.b64 > /home/share/nsls_yangyb/b64/sync_true_mg_param_sweep_v5_2026110
+6.tgz
+(base) nsls_yangyb@login02:~$ tar -xzf /home/share/nsls_yangyb/b64/sync_true_mg_param_s
+weep_v5_20261106.tgz -C /home/share/nsls_yangyb/py
+(base) nsls_yangyb@login02:~$ sha256sum /home/share/nsls_yangyb/b64/sync_true_mg_param_
+sweep_v5_20261106.tgz
+703ef8dc5089ef2518ca38d72b00c72ce94769f71db9cf1a83fed10f656f7a44  /home/share/nsls_yang
+yb/b64/sync_true_mg_param_sweep_v5_20261106.tgz
+(base) nsls_yangyb@login02:~$ env PYQCU_MG_PARAM_STAGE=3 PYQCU_MG_PARAM_OUT=mg_true_par
+am_sweep_L24_stage3_v1 python3 -B /home/share/nsls_yangyb/py/logs/run_true_mg_param_swe
+ep_L24.py
+{"cache": "cache_E4_mg2x2x2x1.h5", "coarse_calls": 33, "coarse_max_iter": 200, "coarse_
+tol_factor": 3.0, "converged": true, "deflate": true, "dof": 4, "fine_calls": 37, "grid
+": [1, 1, 1, 16], "label": "r5_tol3_t16", "mg_grid": [2, 2, 2, 1], "process_seconds": 1
+3.799161619041115, "ranks": 16, "restart": 5, "returncode": 0, "status": "PASS", "threa
+ds_per_rank": 8, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wall_
+seconds": 4.086967418901622}
+{"cache": "cache_E4_mg2x2x2x1.h5", "coarse_calls": 29, "coarse_max_iter": 200, "coarse_
+tol_factor": 10.0, "converged": true, "deflate": true, "dof": 4, "fine_calls": 37, "gri
+d": [1, 1, 1, 16], "label": "r5_tol10_t16", "mg_grid": [2, 2, 2, 1], "process_seconds":
+ 13.529197694035247, "ranks": 16, "restart": 5, "returncode": 0, "status": "PASS", "thr
+eads_per_rank": 8, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wal
+l_seconds": 4.223287110216916}
+{"cache": "cache_E4_mg2x2x2x1.h5", "coarse_calls": 23, "coarse_max_iter": 200, "coarse_
+tol_factor": 30.0, "converged": true, "deflate": true, "dof": 4, "fine_calls": 37, "gri
+d": [1, 1, 1, 16], "label": "r5_tol30_t16", "mg_grid": [2, 2, 2, 1], "process_seconds":
+ 12.942950837081298, "ranks": 16, "restart": 5, "returncode": 0, "status": "PASS", "thr
+eads_per_rank": 8, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wal
+l_seconds": 3.7238004580140114}
+{"cache": "cache_E4_mg2x2x2x1.h5", "coarse_calls": 29, "coarse_max_iter": 200, "coarse_
+tol_factor": 10.0, "converged": true, "deflate": true, "dof": 4, "fine_calls": 37, "gri
+d": [1, 1, 1, 8], "label": "r5_tol10_t8", "mg_grid": [2, 2, 2, 1], "process_seconds": 1
+3.616533057997003, "ranks": 8, "restart": 5, "returncode": 0, "status": "PASS", "thread
+s_per_rank": 16, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wall_
+seconds": 3.5849076379090548}
+

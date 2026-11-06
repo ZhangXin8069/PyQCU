@@ -12,7 +12,7 @@ import hashlib
 import json
 import math
 import os
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from itertools import product
 from pathlib import Path
 from typing import Any
@@ -128,6 +128,40 @@ def logical_array_sha256(array: np.ndarray) -> str:
     return digest.hexdigest()
 
 
+def _logical_chunk_selections(
+        shape: Sequence[int], target_elements: int) -> Iterator[tuple[Any, ...]]:
+    """Yield bounded selections in strict C-order without reordering blocks.
+
+    Splitting multiple leading axes into a Cartesian grid interleaves blocks
+    that are not adjacent in C order.  Keep every prefix coordinate fixed and
+    split only one axis, leaving all trailing axes complete.
+    """
+    extents = tuple(int(extent) for extent in shape)
+    if any(extent == 0 for extent in extents):
+        return
+
+    trailing = 1
+    split_axis = len(extents) - 1
+    split_trailing = 1
+    for axis in range(len(extents) - 1, -1, -1):
+        if trailing > target_elements:
+            break
+        split_axis = axis
+        split_trailing = trailing
+        trailing *= extents[axis]
+
+    chunk_extent = min(
+        extents[split_axis], max(1, target_elements // split_trailing))
+    prefix_ranges = tuple(range(extent) for extent in extents[:split_axis])
+    for prefix in product(*prefix_ranges):
+        for start in range(0, extents[split_axis], chunk_extent):
+            selection: list[Any] = [int(index) for index in prefix]
+            selection.append(slice(
+                start, min(start + chunk_extent, extents[split_axis])))
+            selection.extend(slice(None) for _ in extents[split_axis + 1:])
+            yield tuple(selection)
+
+
 def logical_array_sha256_chunked(
         array: np.ndarray, *, max_chunk_bytes: int = 64 << 20) -> str:
     """Hash an array view in C order without contiguous full-array copies."""
@@ -145,27 +179,9 @@ def logical_array_sha256_chunked(
         digest.update(np.ascontiguousarray(value[()]).tobytes())
         return digest.hexdigest()
     shape = tuple(int(item) for item in value.shape)
-    chunk = list(shape)
     target_elements = max(
         1, int(max_chunk_bytes) // int(value.dtype.itemsize))
-    while math.prod(chunk) > target_elements:
-        oversized = math.ceil(math.prod(chunk) / target_elements)
-        changed = False
-        for axis, extent in enumerate(chunk):
-            if extent <= 1:
-                continue
-            chunk[axis] = max(1, math.ceil(extent / oversized))
-            changed = True
-            if math.prod(chunk) <= target_elements:
-                break
-        if not changed:
-            break
-    starts = [range(0, shape[axis], chunk[axis]) for axis in range(len(shape))]
-    for origin in product(*starts):
-        selection = tuple(
-            slice(origin[axis], min(
-                origin[axis] + chunk[axis], shape[axis]))
-            for axis in range(len(shape)))
+    for selection in _logical_chunk_selections(shape, target_elements):
         digest.update(np.ascontiguousarray(value[selection]).tobytes())
     return digest.hexdigest()
 
@@ -187,27 +203,9 @@ def logical_dataset_sha256(
         return digest.hexdigest()
 
     shape = tuple(int(value) for value in dataset.shape)
-    chunk = list(shape)
     element_bytes = int(np.dtype(dataset.dtype).itemsize)
     target_elements = max(1, int(max_chunk_bytes) // element_bytes)
-    while math.prod(chunk) > target_elements:
-        changed = False
-        oversized = math.ceil(math.prod(chunk) / target_elements)
-        for axis, extent in enumerate(chunk):
-            if extent <= 1:
-                continue
-            chunk[axis] = max(1, math.ceil(extent / oversized))
-            changed = True
-            if math.prod(chunk) <= target_elements:
-                break
-        if not changed:
-            break
-    starts = [range(0, shape[axis], chunk[axis]) for axis in range(len(shape))]
-    for origin in product(*starts):
-        selection = tuple(
-            slice(origin[axis], min(
-                origin[axis] + chunk[axis], shape[axis]))
-            for axis in range(len(shape)))
+    for selection in _logical_chunk_selections(shape, target_elements):
         digest.update(np.ascontiguousarray(dataset[selection]).tobytes())
     return digest.hexdigest()
 

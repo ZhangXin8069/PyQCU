@@ -1,0 +1,54 @@
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/mg_true_factor_sweep_L24_
+E4_v2/results.json:10:    "fallback": false,
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/mg_true_factor_sweep_L24_
+E4_v2/results.json:22:    "fallback": false,
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/mg_true_factor_sweep_L24_
+E4_v2/results.json:34:    "fallback": false,
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/mg_true_factor_sweep_L24_
+E4_v2/results.json:46:    "fallback": false,
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/mg_true_factor_sweep_L24_
+E4_v2/results.json:58:    "fallback": false,
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/mg_true_factor_sweep_L24_
+E4_v2/results.json:70:    "fallback": false,
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/mg_true_factor_sweep_L24_
+E4_v2/results.json:82:    "fallback": false,
+(base) nsls_yangyb@login02:~$ grep -n -E "breakdown|failed|MG_PROFILE|fallback|correcti
+on|coarse" /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/mg_true_factor
+_sweep_L24_E4_v2/factor_0p1/stderr.txt
+226: Legacy-MultiGrid levels=2, coarsest=[12,12,12,1], next=[6,6,6,1], volume=1728. Leg
+acy defaults to 2 levels; deep or small coarse hierarchies are experimental.
+228: Legacy-MultiGrid levels=2, coarsest=[12,12,12,1], next=[6,6,6,1], volume=1728. Leg
+acy defaults to 2 levels; deep or small coarse hierarchies are experimental.
+230: KUPL_REQUIRE_MG_CORRECTION=1 rejected fine BiCGStab fallback
+232: KUPL_REQUIRE_MG_CORRECTION=1 rejected fine BiCGStab fallback
+234: KUPL_REQUIRE_MG_CORRECTION=1 rejected fine BiCGStab fallback
+236: KUPL_REQUIRE_MG_CORRECTION=1 rejected fine BiCGStab fallback
+238: KUPL_REQUIRE_MG_CORRECTION=1 rejected fine BiCGStab fallback
+240: KUPL_REQUIRE_MG_CORRECTION=1 rejected fine BiCGStab fallback
+242: KUPL_REQUIRE_MG_CORRECTION=1 rejected fine BiCGStab fallback
+244: KUPL_REQUIRE_MG_CORRECTION=1 rejected fine BiCGStab fallback
+246: KUPL_REQUIRE_MG_CORRECTION=1 rejected fine BiCGStab fallback
+248: KUPL_REQUIRE_MG_CORRECTION=1 rejected fine BiCGStab fallback
+250: KUPL_REQUIRE_MG_CORRECTION=1 rejected fine BiCGStab fallback
+252: KUPL_REQUIRE_MG_CORRECTION=1 rejected fine BiCGStab fallback
+254: KUPL_REQUIRE_MG_CORRECTION=1 rejected fine BiCGStab fallback
+256: KUPL_REQUIRE_MG_CORRECTION=1 rejected fine BiCGStab fallback
+258: KUPL_REQUIRE_MG_CORRECTION=1 rejected fine BiCGStab fallback
+260: KUPL_REQUIRE_MG_CORRECTION=1 rejected fine BiCGStab fallback
+262: KUPL_REQUIRE_MG_CORRECTION=1 rejected fine BiCGStab fallback
+264: KUPL_REQUIRE_MG_CORRECTION=1 rejected fine BiCGStab fallback
+266: KUPL_REQUIRE_MG_CORRECTION=1 rejected fine BiCGStab fallback
+268: KUPL_REQUIRE_MG_CORRECTION=1 rejected fine BiCGStab fallback
+270: KUPL_REQUIRE_MG_CORRECTION=1 rejected fine BiCGStab fallback
+280: KUPL_REQUIRE_MG_CORRECTION=1 rejected fine BiCGStab fallback
+282: KUPL_REQUIRE_MG_CORRECTION=1 rejected fine BiCGStab fallback
+284: KUPL_REQUIRE_MG_CORRECTION=1 rejected fine BiCGStab fallback
+286: KUPL_REQUIRE_MG_CORRECTION=1 rejected fine BiCGStab fallback
+316: KUPL_REQUIRE_MG_CORRECTION=1 rejected fine BiCGStab fallback
+318: KUPL_REQUIRE_MG_CORRECTION=1 rejected fine BiCGStab fallback
+320: KUPL_REQUIRE_MG_CORRECTION=1 rejected fine BiCGStab fallback
+322: KUPL_REQUIRE_MG_CORRECTION=1 rejected fine BiCGStab fallback
+324: KUPL_REQUIRE_MG_CORRECTION=1 rejected fine BiCGStab fallback
+326: KUPL_REQUIRE_MG_CORRECTION=1 rejected fine BiCGStab fallback
+328: KUPL_REQUIRE_MG_CORRECTION=1 rejected fine BiCGStab fallback
+(base) nsls_yangyb@login02:~$

@@ -1,0 +1,54 @@
+klLJRSleiyg1VDlK3QCAD1su2Hq0CfBGhZcmq/H//rfy9/F9fB9/gfE7i4qRTAAcAAA=' >> /home/share/ns
+ls_yangyb/b64/sync_true_mg_lattice_sweep_20261106.b64
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/b64/sync_true_mg_lattic
+e_sweep_20261106.b64 > /home/share/nsls_yangyb/b64/sync_true_mg_lattice_sweep_20261106.
+tgz
+(base) nsls_yangyb@login02:~$ tar -xzf /home/share/nsls_yangyb/b64/sync_true_mg_lattice
+_sweep_20261106.tgz -C /home/share/nsls_yangyb/py
+(base) nsls_yangyb@login02:~$ python3 -B /home/share/nsls_yangyb/py/logs/run_true_mg_la
+ttice_sweep.py
+{"coarse_calls": 24, "converged": true, "fine_calls": 30, "grid": [1, 1, 1, 4], "label"
+: "L8_r4_t", "lattice": [8, 8, 8, 16], "process_seconds": 6.413314116885886, "ranks": 4
+, "returncode": 0, "status": "PASS", "threads_per_rank": 32, "timed_out": false, "true_
+mg_gate": "PASS", "verify_status": 0, "wall_seconds": 3.424026074120775}
+{"converged": null, "grid": [1, 1, 1, 8], "label": "L8_r8_t", "lattice": [8, 8, 8, 16],
+ "process_seconds": 2.6636727249715477, "ranks": 8, "returncode": 1, "status": null, "t
+hreads_per_rank": 16, "timed_out": false, "true_mg_gate": "FAIL", "verify_status": null
+, "wall_seconds": null}
+{"coarse_calls": 24, "converged": true, "fine_calls": 30, "grid": [1, 2, 2, 2], "label"
+: "L8_r8_yzt", "lattice": [8, 8, 8, 16], "process_seconds": 7.396079520927742, "ranks":
+ 8, "returncode": 0, "status": "PASS", "threads_per_rank": 16, "timed_out": false, "tru
+e_mg_gate": "PASS", "verify_status": 0, "wall_seconds": 4.327848982997239}
+{"converged": null, "grid": [1, 1, 2, 8], "label": "L8_r16_zt", "lattice": [8, 8, 8, 16
+], "process_seconds": 3.1144767510704696, "ranks": 16, "returncode": 1, "status": null,
+ "threads_per_rank": 8, "timed_out": false, "true_mg_gate": "FAIL", "verify_status": nu
+ll, "wall_seconds": null}
+{"coarse_calls": 24, "converged": true, "fine_calls": 30, "grid": [1, 2, 2, 4], "label"
+: "L8_r16_yzt", "lattice": [8, 8, 8, 16], "process_seconds": 7.122244079830125, "ranks"
+: 16, "returncode": 0, "status": "PASS", "threads_per_rank": 8, "timed_out": false, "tr
+ue_mg_gate": "PASS", "verify_status": 0, "wall_seconds": 3.460023069055751}
+{"converged": null, "grid": [1, 1, 4, 8], "label": "L8_r32_zt", "lattice": [8, 8, 8, 16
+], "process_seconds": 5.734142099972814, "ranks": 32, "returncode": 1, "status": null,
+"threads_per_rank": 4, "timed_out": false, "true_mg_gate": "FAIL", "verify_status": nul
+l, "wall_seconds": null}
+{"converged": null, "grid": [1, 2, 2, 8], "label": "L8_r32_yzt", "lattice": [8, 8, 8, 1
+6], "process_seconds": 5.93642023880966, "ranks": 32, "returncode": 1, "status": null,
+"threads_per_rank": 4, "timed_out": false, "true_mg_gate": "FAIL", "verify_status": nul
+l, "wall_seconds": null}
+{"coarse_calls": 21, "converged": true, "fine_calls": 33, "grid": [1, 1, 1, 4], "label"
+: "L16_r4_t", "lattice": [16, 16, 16, 32], "process_seconds": 5.758828627876937, "ranks
+": 4, "returncode": 0, "status": "PASS", "threads_per_rank": 32, "timed_out": false, "t
+rue_mg_gate": "PASS", "verify_status": 0, "wall_seconds": 2.4242551899515092}
+{"coarse_calls": 21, "converged": true, "fine_calls": 33, "grid": [1, 1, 1, 8], "label"
+: "L16_r8_t", "lattice": [16, 16, 16, 32], "process_seconds": 6.235110220033675, "ranks
+": 8, "returncode": 0, "status": "PASS", "threads_per_rank": 16, "timed_out": false, "t
+rue_mg_gate": "PASS", "verify_status": 0, "wall_seconds": 2.850193860940635}
+{"converged": null, "grid": [1, 1, 1, 16], "label": "L16_r16_t", "lattice": [16, 16, 16
+, 32], "process_seconds": 3.3726282571442425, "ranks": 16, "returncode": 1, "status": n
+ull, "threads_per_rank": 8, "timed_out": false, "true_mg_gate": "FAIL", "verify_status"
+: null, "wall_seconds": null}
+{"coarse_calls": 21, "converged": true, "fine_calls": 33, "grid": [1, 1, 2, 8], "label"
+: "L16_r16_zt", "lattice": [16, 16, 16, 32], "process_seconds": 7.503732461947948, "ran
+ks": 16, "returncode": 0, "status": "PASS", "threads_per_rank": 8, "timed_out": false,
+"true_mg_gate": "PASS", "verify_status": 0, "wall_seconds": 3.6780280580278486}
+

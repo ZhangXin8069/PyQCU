@@ -1,0 +1,54 @@
+tol_factor": 10.0, "converged": true, "deflate": true, "dof": 4, "fine_calls": 37, "gri
+d": [1, 1, 2, 16], "label": "r5_tol10_zt32", "mg_grid": [2, 2, 2, 1], "process_seconds"
+: 15.269489082042128, "ranks": 32, "restart": 5, "returncode": 0, "status": "PASS", "th
+reads_per_rank": 4, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wa
+ll_seconds": 4.716018282808363}
+{"cache": "cache_E4_mg2x2x2x1.h5", "coarse_calls": 29, "coarse_max_iter": 200, "coarse_
+tol_factor": 10.0, "converged": true, "deflate": true, "dof": 4, "fine_calls": 37, "gri
+d": [1, 1, 4, 8], "label": "r5_tol10_z4t32", "mg_grid": [2, 2, 2, 1], "process_seconds"
+: 14.970065656118095, "ranks": 32, "restart": 5, "returncode": 0, "status": "PASS", "th
+reads_per_rank": 4, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wa
+ll_seconds": 4.1040181699208915}
+{"cache": "cache_E4_mg2x2x2x1.h5", "coarse_calls": 19, "coarse_max_iter": 200, "coarse_
+tol_factor": 10.0, "converged": true, "deflate": true, "dof": 4, "fine_calls": 34, "gri
+d": [1, 1, 1, 16], "label": "r8_tol10_t16", "mg_grid": [2, 2, 2, 1], "process_seconds":
+ 12.866519978968427, "ranks": 16, "restart": 8, "returncode": 0, "status": "PASS", "thr
+eads_per_rank": 8, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wal
+l_seconds": 3.0389112229458988}
+{"cache": "cache_E4_mg2x2x2x1.h5", "coarse_calls": 19, "coarse_max_iter": 200, "coarse_
+tol_factor": 10.0, "converged": true, "deflate": true, "dof": 4, "fine_calls": 34, "gri
+d": [1, 1, 2, 16], "label": "r8_tol10_zt32", "mg_grid": [2, 2, 2, 1], "process_seconds"
+: 13.758630241034552, "ranks": 32, "restart": 8, "returncode": 0, "status": "PASS", "th
+reads_per_rank": 4, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wa
+ll_seconds": 3.515992762055248}
+{"cache": "cache_E4_mg2x2x2x1.h5", "coarse_calls": 19, "coarse_max_iter": 200, "coarse_
+tol_factor": 10.0, "converged": true, "deflate": true, "dof": 4, "fine_calls": 32, "gri
+d": [1, 1, 1, 16], "label": "r10_tol10_t16", "mg_grid": [2, 2, 2, 1], "process_seconds"
+: 12.162673748098314, "ranks": 16, "restart": 10, "returncode": 0, "status": "PASS", "t
+hreads_per_rank": 8, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "w
+all_seconds": 3.307285060873255}
+{"cache": "cache_E4_mg2x2x2x1.h5", "coarse_calls": 29, "coarse_max_iter": 20, "coarse_t
+ol_factor": 10.0, "converged": true, "deflate": true, "dof": 4, "fine_calls": 37, "grid
+": [1, 1, 1, 16], "label": "r5_tol10_cmax20_t16", "mg_grid": [2, 2, 2, 1], "process_sec
+onds": 13.335015511140227, "ranks": 16, "restart": 5, "returncode": 0, "status": "PASS"
+, "threads_per_rank": 8, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0
+, "wall_seconds": 3.608019311912358}
+{"cache": "cache_E4_mg2x2x2x1.h5", "coarse_calls": 29, "coarse_max_iter": 100, "coarse_
+tol_factor": 10.0, "converged": true, "deflate": true, "dof": 4, "fine_calls": 37, "gri
+d": [1, 1, 1, 16], "label": "r5_tol10_cmax100_t16", "mg_grid": [2, 2, 2, 1], "process_s
+econds": 13.836816981900483, "ranks": 16, "restart": 5, "returncode": 0, "status": "PAS
+S", "threads_per_rank": 8, "timed_out": false, "true_mg_gate": "PASS", "verify_status":
+ 0, "wall_seconds": 4.579976061126217}
+{"cache": "cache_tblock1.h5", "coarse_calls": 33, "coarse_max_iter": 200, "coarse_tol_f
+actor": 10.0, "converged": true, "deflate": true, "dof": 2, "fine_calls": 43, "grid": [
+1, 1, 1, 16], "label": "r5_tol10_e2_t16", "mg_grid": [2, 2, 2, 1], "process_seconds": 1
+2.517423091921955, "ranks": 16, "restart": 5, "returncode": 0, "status": "PASS", "threa
+ds_per_rank": 8, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wall_
+seconds": 4.655862544896081}
+{"cache": "cache_tblock1.h5", "coarse_calls": 33, "coarse_max_iter": 200, "coarse_tol_f
+actor": 10.0, "converged": true, "deflate": true, "dof": 2, "fine_calls": 43, "grid": [
+1, 1, 2, 16], "label": "r5_tol10_e2_zt32", "mg_grid": [2, 2, 2, 1], "process_seconds":
+13.799608111847192, "ranks": 32, "restart": 5, "returncode": 0, "status": "PASS", "thre
+ads_per_rank": 4, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wall
+_seconds": 5.131481557851657}
+(base) nsls_yangyb@login02:~$

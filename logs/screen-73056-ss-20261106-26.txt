@@ -1,0 +1,54 @@
+ 1126 |   solver.solve(fermion_out, params[kUseInitialGuess] != 0);
+      |          ^
+/home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/include/kupl/lattice_linalg.h:43:22: no
+te: candidate template ignored: could not match 'const Complex<Real>' (aka 'const compl
+ex<type-parameter-0-0>') against 'const float'
+   43 | inline Complex<Real> multiply_complex(const Complex<Real> &left,
+      |                      ^
+/home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/lattice_clover_multigrid.cpp:1008:2
+4: error: no matching function for call to 'multiply_complex'
+ 1008 |         parent.x[i] -= multiply_complex(damping, parent.correction[i]);
+      |                        ^~~~~~~~~~~~~~~~
+/home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/include/kupl/lattice_linalg.h:43:22: no
+te: candidate template ignored: could not match 'const Complex<Real>' (aka 'const compl
+ex<type-parameter-0-0>') against 'const float'
+   43 | inline Complex<Real> multiply_complex(const Complex<Real> &left,
+      |                      ^
+/home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/lattice_clover_multigrid.cpp:988:24
+: error: no matching function for call to 'multiply_complex'
+  988 |         parent.x[i] += multiply_complex(damping, parent.correction[i]);
+      |                        ^~~~~~~~~~~~~~~~
+/home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/lattice_clover_multigrid.cpp:360:30
+: note: in instantiation of member function 'kupl::qcu::(anonymous namespace)::LegacyCl
+overMultigrid<double>::apply_coarse_correction' requested here
+  360 |       const Real candidate = apply_coarse_correction(0);
+      |                              ^
+/home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/lattice_clover_multigrid.cpp:1126:1
+0: note: in instantiation of member function 'kupl::qcu::(anonymous namespace)::LegacyC
+loverMultigrid<double>::solve' requested here
+ 1126 |   solver.solve(fermion_out, params[kUseInitialGuess] != 0);
+      |          ^
+/home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/include/kupl/lattice_linalg.h:43:22: no
+te: candidate template ignored: could not match 'const Complex<Real>' (aka 'const compl
+ex<type-parameter-0-0>') against 'const double'
+   43 | inline Complex<Real> multiply_complex(const Complex<Real> &left,
+      |                      ^
+/home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/lattice_clover_multigrid.cpp:1008:2
+4: error: no matching function for call to 'multiply_complex'
+ 1008 |         parent.x[i] -= multiply_complex(damping, parent.correction[i]);
+      |                        ^~~~~~~~~~~~~~~~
+/home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/include/kupl/lattice_linalg.h:43:22: no
+te: candidate template ignored: could not match 'const Complex<Real>' (aka 'const compl
+ex<type-parameter-0-0>') against 'const double'
+   43 | inline Complex<Real> multiply_complex(const Complex<Real> &left,
+      |                      ^
+4 errors generated.
+gmake[2]: *** [CMakeFiles/kupl_qcu.dir/build.make:384: CMakeFiles/kupl_qcu.dir/src/latt
+ice_clover_multigrid.cpp.o] Error 1
+gmake[1]: *** [CMakeFiles/Makefile2:87: CMakeFiles/kupl_qcu.dir/all] Error 2
+gmake: *** [Makefile:101: all] Error 2
+(base) nsls_yangyb@login02:~$ sha256sum /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu
+/src/lattice_clover_multigrid.cpp
+439eccf6d1c3246011299d0ab1df8499bf4fb7e5ae7294305f7ee3f3863a2ec4  /home/share/nsls_yang
+yb/PyQCU-main/cpp/kupl/qcu/src/lattice_clover_multigrid.cpp
+(base) nsls_yangyb@login02:~$

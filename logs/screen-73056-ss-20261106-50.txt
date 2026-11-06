@@ -1,0 +1,54 @@
+oqtdRSHtVAsN0C3cP06ilR9Q4kV5mKXtNFvSJHmP7i4FAISECICtm3kb' >> /home/share/nsls_yangyb/b6
+4/sync_true_mg_param_sweep_v4_20261106.b64\nprintf '%s' 'CIGEGil1E29TjjDRV34IzNwgSJ32z8
+vvO0WiceM42DnGu78XDRWMjuGFcrmOEOBhlHEx5YiKEsnXAwWTUrDO4rfN6I11EuVx2+pUgkivaqAA2wX4q7ARV
+gXbzBwA5RrN7++M7ePST9qxm0DqSEWZiD77aUaiR3FoF7p6UbJMwWKfH/be4UXhyl+jf7BkVI6TFXwAywGfRSHo
+Yd+PyZ2AYIBgXbHPCRrdQrtOxX6sJuqUDPpYTcJGA2uueski2m7dcIn6lssB2m0b+/SZelia7IVs0pJ2oSav3Tx
+0sK+HSaGXRQgMwfUqbsv4iMoy43MqdSLPopga7yC2+hksWn647qf+Ng4or8Nu8yDzce0x4p3ekdj3eoGbIXN7IH
+8PB7IuvR6rIHW1d20U/eQGOe2wGWK3OEHFEBnwoSlt66YpG4tp2Ccn7K7npV/wxjKsofk327TtYVOwC4svA9Heg
+FPBLqHHKnfwdGw2KZbZLsbKkO4NBUVAn2CVYwNswotaoTRTolU1kvXbrVEU8hRssO6H47IlydguPCR8YgM9pDmP
+UHChoCeqk3VOzeqlQg3BpGJUBYt9sVTBYO3mayrIzkRRmrURe/DMP8MBgbnAInSTPI3yxJPpeePbGIgB8PKqpD1
+rE8bkUSwQ/EGhzaMf9yAuaUzhK8zQO/xlXlvgyywjcvB+5kRR8uF9ja3IFAYk' >> /home/share/nsls_yang
+yb/b64/sync_true_mg_param_sweep_v4_20261106.b64\nprintf '%s' 'd2DaxnmNegW2TD3M3ygmFKznG
+zFNVny9odUEhX1LEuWYo1j2LHuSXUMupALOsnwfZCR52K7hKjrCjvfL0sHM0sXVz6lu+4pRFnVm2RUYGzdm765A
+vzjPRLbP6PP+FrSHPsca4dllQz2xBNQ5daRct+TD3Y/H4E0yCpZGGQVNNRRfEL1oSWvIsrncGjx7NK6+RzPuuO6
+T59hPwKZuipi6xauTgwNWjwPIxAiMJUWhsGqCJ/mpH4IPhB5tl4iutthBau9ouEvXmvNWIjVIP7reMB03ioDBwy
+siAfFGkchYIbJmYcselAYN3Dg95N5ar3D/Pb5dXYGFubLnTO8YXxJIRQS9qs3bOweJcMAqov0uCq/Y3QWRi5rhC
+m/gfSoShIGuzqk6zGKi2U8J7gfbwkhiu4UX3yECL+WWsSo05daoGxjTyd6Laj2416ga19HMRr8YCT9EgkGzPNU7
+7ASIhxy9gee6cXhtu9fVzI72g0KCvoL+hQtxy3aSC99bg5yFzhSHdU+KzOrGCrd3MN7fajwPvcFjfeVbvMaqLCF
+V7/QOLGBqSukN38H1U6Iu3/c11gBZTvH2r740GezoITFlLwRr2wEJUb4ebOwzZBOKl4XSBlRCiZROICgJIioE+2
+wvkUjy1cL37spexBYPsvDC3fHNZXEv74V5DiYpeFHI3nGKdCLhhM+/V0eCBP4Crlzh' >> /home/share/nsls
+_yangyb/b64/sync_true_mg_param_sweep_v4_20261106.b64\nprintf '%s' 'WCOp9cmETzTxVzuiFlbv
+lEmBIQDWdCmTlR0ySfF/RmvuaDyUMReJFMIykH4xns6kHeK7dzy+y9avUjimxZ6EP1ayU4LHPZYOl/k2TgUA9k6
+Q/cgj3fGTHGysVkGebvgDo27z4xZGKpw+Un5oqqXfvZAG+xTPz7jrcuyO9r2m/xzqtfO4iaOGiRHwz3XTPJSJju
+3FRcaBpCS4i2RtwXkV+BCCoUcIoyIET6+EiDpZ4voAvN2lGd1Onn08+OLZttP6o//56M/rz+vP6w+9/gMTZyXKA
+CoAAA==' >> /home/share/nsls_yangyb/b64/sync_true_mg_param_sweep_v4_20261106.b64\nbase6
+4 -d /home/share/nsls_yangyb/b64/sync_true_mg_param_sweep_v4_20261106.b64 > /home/share
+/nsls_yangyb/b64/sync_true_mg_param_sweep_v4_20261106.tgz
+(base) nsls_yangyb@login02:~$ tar -xzf /home/share/nsls_yangyb/b64/sync_true_mg_param_s
+weep_v4_20261106.tgz -C /home/share/nsls_yangyb/py
+
+gzip: stdin: not in gzip format
+tar: Child returned status 1
+tar: Error is not recoverable: exiting now
+(base) nsls_yangyb@login02:~$ env PYQCU_MG_PARAM_STAGE=3 PYQCU_MG_PARAM_OUT=mg_true_par
+am_sweep_L24_v3 python3 -B /home/share/nsls_yangyb/py/logs/run_true_mg_param_sweep_L24.
+py
+{"cache": "cache_E4_mg2x2x2x1.h5", "coarse_calls": 168, "coarse_max_iter": 200, "coarse
+_tol_factor": 0.1, "converged": true, "deflate": true, "dof": 4, "fine_calls": 49, "gri
+d": [1, 1, 1, 16], "label": "base_e4_r1", "mg_grid": [2, 2, 2, 1], "process_seconds": 2
+2.502336526988074, "ranks": 16, "restart": 1, "returncode": 0, "status": "PASS", "threa
+ds_per_rank": 8, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wall_
+seconds": 12.982013853034005}
+{"cache": "cache_E4_mg2x2x2x1.h5", "coarse_calls": 103, "coarse_max_iter": 200, "coarse
+_tol_factor": 0.1, "converged": true, "deflate": true, "dof": 4, "fine_calls": 41, "gri
+d": [1, 1, 1, 16], "label": "restart2", "mg_grid": [2, 2, 2, 1], "process_seconds": 16.
+802371978992596, "ranks": 16, "restart": 2, "returncode": 0, "status": "PASS", "threads
+_per_rank": 8, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wall_se
+conds": 7.627774337073788}
+{"cache": "cache_E4_mg2x2x2x1.h5", "coarse_calls": 71, "coarse_max_iter": 200, "coarse_
+tol_factor": 0.1, "converged": true, "deflate": true, "dof": 4, "fine_calls": 36, "grid
+": [1, 1, 1, 16], "label": "restart3", "mg_grid": [2, 2, 2, 1], "process_seconds": 15.3
+71526967035607, "ranks": 16, "restart": 3, "returncode": 0, "status": "PASS", "threads_
+per_rank": 8, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wall_sec
+onds": 5.89504925115034}
+

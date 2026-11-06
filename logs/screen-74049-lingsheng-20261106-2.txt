@@ -1,0 +1,54 @@
+(base) nsls_yangyb@login03:/home/share/nsls_yangyb/PyQCU-main$ cd /home/share/nsls_yang
+yb/PyQCU-main
+(base) nsls_yangyb@login03:/home/share/nsls_yangyb/PyQCU-main$ source /home/share/nsls_
+yangyb/PyQCU/env.sh
+###env.sh in /home/share/nsls_yangyb/PyQCU is sourcing...:2026-11-06-01-22-03###
+###env.sh in /home/share/nsls_yangyb/PyQCU is done......:2026-11-06-01-22-03###
+(base) nsls_yangyb@login03:/home/share/nsls_yangyb/PyQCU-main$ export OMP_NUM_THREADS=4
+ KUPL_OMP_THREADS=4 OMP_DYNAMIC=FALSE OMP_WAIT_POLICY=PASSIVE
+(base) nsls_yangyb@login03:/home/share/nsls_yangyb/PyQCU-main$ export KUPL_NUMA_BIND=1
+KUPL_MEMORY_NODE=local KUPL_MEMORY_POLICY=bind KUPL_REQUIRE_MEMORY_BIND=1 KUPL_HUGEPAGE
+=1
+(base) nsls_yangyb@login03:/home/share/nsls_yangyb/PyQCU-main$ export PYQCU_KUPL_LIB=/h
+ome/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/build-t2zblock-generic/libq
+cu.so
+(base) nsls_yangyb@login03:/home/share/nsls_yangyb/PyQCU-main$ unset OMP_PROC_BIND OMP_
+PLACES GOMP_CPU_AFFINITY KMP_AFFINITY
+(base) nsls_yangyb@login03:/home/share/nsls_yangyb/PyQCU-main$ OUT=/home/share/nsls_yan
+gyb/PyQCU-main/data/kupl_hbm_opt_20261106/t2zblock_ab_login.txt
+(base) nsls_yangyb@login03:/home/share/nsls_yangyb/PyQCU-main$ : > "$OUT"
+(base) nsls_yangyb@login03:/home/share/nsls_yangyb/PyQCU-main$ for mode in 0 1 1 0; do
+>   export KUPL_ENABLE_T2_ZBLOCK_DSLASH=$mode
+>   printf "MODE=%s\n" "$mode" | tee -a "$OUT"
+>   mpiexec -n 32 --bind-to none /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_2
+0261106/build-t2zblock-generic/kupl_qcu_bench --lattice 24 24 24 2 --grid 1 1 1 32 --it
+erations 20 --precision c64 --operator schur 2>/root/dev/null | tee -a "$OUT"
+> done
+MODE=0
+-bash: /root/dev/null: Permission denied
+MODE=1
+-bash: /root/dev/null: Permission denied
+MODE=1
+-bash: /root/dev/null: Permission denied
+MODE=0
+-bash: /root/dev/null: Permission denied
+(base) nsls_yangyb@login03:/home/share/nsls_yangyb/PyQCU-main$ printf "AB_DONE\n"
+AB_DONE
+(base) nsls_yangyb@login03:/home/share/nsls_yangyb/PyQCU-main$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

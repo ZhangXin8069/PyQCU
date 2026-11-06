@@ -312,6 +312,10 @@ private:
   void compute_dslash_boundary_part(const Complex<Real> *local_source,
                                     Complex<Real> *output, int target,
                                     int part);
+  void compute_dslash_t2_spatial_zblocks(
+      const Complex<Real> *local_source, Complex<Real> *output, int target);
+  void compute_dslash_t2_time_zblocks(
+      const Complex<Real> *local_source, Complex<Real> *output, int target);
   void compute_dslash_site(const Complex<Real> *local_source,
                            Complex<Real> *output, int x, int y, int z,
                            int t2, int target, int part = 0);

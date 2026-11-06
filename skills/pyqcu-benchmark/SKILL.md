@@ -469,3 +469,40 @@ preamble 的完整 `Dirac.invert` 墙钟混在同一比值中。
 GPU util/显存/功耗、阶段日志、缓存文件、stderr。若 GPU 长期 0% 且无阶段进展，
 应立即停止并改测试路径；总 GPU 预算按 `sum(ElapsedRaw * gres/gpu)` 从
 `sacct` 记账，默认硬上限 20 卡时。
+
+## 2026-11-06 Kunpeng hardware bandwidth and compute accounting
+
+Kunpeng CPU performance conclusions must report the measured machine ceiling on
+the same compute-node class, not just solver wall time or an HBM topology flag.
+For the 16-domain LX2/HBM profile, record:
+
+- effective HBM bandwidth from the unchanged `refer/kunpeng/lx2-stream-source`
+  SVE2 FP64 `Copy`/`Scale`/`Add`/`Triad` probe, with per-domain scaling and a
+  synchronized aggregate at the production rank/thread shape;
+- live `numactl --hardware`, `numastat -m`, affinity/cpuset and per-rank memory
+  node evidence, including the sampled process page distribution;
+- measured SVE2 floating-point throughput from a dedicated compute probe, plus a
+  separately labelled theoretical FP64 ceiling derived from frequency, physical
+  cores and SVE lane width.
+
+The solver report must state the fraction of measured HBM and compute throughput
+actually reached. `KUPL_TOPOLOGY_REPORT=1` with `memory_bound=true` proves only
+that the memory-policy call succeeded; it does not prove bandwidth saturation.
+A single-domain `STREAM` result must not be multiplied by 16 and presented as an
+aggregate without running the domains concurrently. Keep raw per-rank samples and
+aggregate medians/MAD, and do not compare runs on different node classes or under
+different co-tenant contention.
+
+For KUPL BiCGStab versus Legacy-MG, run separate grid matrices. Iteration count is
+the MG advantage, but coarse transfer/operator synchronization can erase it at high
+rank counts. Also screen MG cache-build time and cache size separately from steady
+solve: E/nv_iters and local-stencil batching may leave solve time unchanged while
+multiplying setup cost. Login-node grids are only elimination screens; HBM placement
+and compute-node medians remain the acceptance authority.
+
+When a cache builder is the blocker, decompose setup separately from steady solve.
+The KUPL local-stencil coarse-site loop was serial and dominated build time; a
+per-worker-scratch parallel build reduced L8/L16/L24 setup by 12.9x/17.6x/>31x while
+preserving gram/Galerkin checks. Report `builder_seconds`, cache-hit solve, and
+cache size independently, and enable the parallel builder in targeted regressions so
+the serial fallback does not hide setup-only correctness failures.

@@ -1,0 +1,54 @@
+{"converged": null, "grid": [1, 1, 4, 8], "label": "L8_r32_zt", "lattice": [8, 8, 8, 16
+], "process_seconds": 5.734142099972814, "ranks": 32, "returncode": 1, "status": null,
+"threads_per_rank": 4, "timed_out": false, "true_mg_gate": "FAIL", "verify_status": nul
+l, "wall_seconds": null}
+{"converged": null, "grid": [1, 2, 2, 8], "label": "L8_r32_yzt", "lattice": [8, 8, 8, 1
+6], "process_seconds": 5.93642023880966, "ranks": 32, "returncode": 1, "status": null,
+"threads_per_rank": 4, "timed_out": false, "true_mg_gate": "FAIL", "verify_status": nul
+l, "wall_seconds": null}
+{"coarse_calls": 21, "converged": true, "fine_calls": 33, "grid": [1, 1, 1, 4], "label"
+: "L16_r4_t", "lattice": [16, 16, 16, 32], "process_seconds": 5.758828627876937, "ranks
+": 4, "returncode": 0, "status": "PASS", "threads_per_rank": 32, "timed_out": false, "t
+rue_mg_gate": "PASS", "verify_status": 0, "wall_seconds": 2.4242551899515092}
+{"coarse_calls": 21, "converged": true, "fine_calls": 33, "grid": [1, 1, 1, 8], "label"
+: "L16_r8_t", "lattice": [16, 16, 16, 32], "process_seconds": 6.235110220033675, "ranks
+": 8, "returncode": 0, "status": "PASS", "threads_per_rank": 16, "timed_out": false, "t
+rue_mg_gate": "PASS", "verify_status": 0, "wall_seconds": 2.850193860940635}
+{"converged": null, "grid": [1, 1, 1, 16], "label": "L16_r16_t", "lattice": [16, 16, 16
+, 32], "process_seconds": 3.3726282571442425, "ranks": 16, "returncode": 1, "status": n
+ull, "threads_per_rank": 8, "timed_out": false, "true_mg_gate": "FAIL", "verify_status"
+: null, "wall_seconds": null}
+{"coarse_calls": 21, "converged": true, "fine_calls": 33, "grid": [1, 1, 2, 8], "label"
+: "L16_r16_zt", "lattice": [16, 16, 16, 32], "process_seconds": 7.503732461947948, "ran
+ks": 16, "returncode": 0, "status": "PASS", "threads_per_rank": 8, "timed_out": false,
+"true_mg_gate": "PASS", "verify_status": 0, "wall_seconds": 3.6780280580278486}
+{"coarse_calls": 21, "converged": true, "fine_calls": 33, "grid": [1, 2, 2, 4], "label"
+: "L16_r16_yzt", "lattice": [16, 16, 16, 32], "process_seconds": 7.027846531942487, "ra
+nks": 16, "returncode": 0, "status": "PASS", "threads_per_rank": 8, "timed_out": false,
+ "true_mg_gate": "PASS", "verify_status": 0, "wall_seconds": 2.8480286018457264}
+{"coarse_calls": 21, "converged": true, "fine_calls": 33, "grid": [1, 1, 4, 8], "label"
+: "L16_r32_zt", "lattice": [16, 16, 16, 32], "process_seconds": 7.820069351000711, "ran
+ks": 32, "returncode": 0, "status": "PASS", "threads_per_rank": 4, "timed_out": false,
+"true_mg_gate": "PASS", "verify_status": 0, "wall_seconds": 2.7398902969434857}
+{"coarse_calls": 21, "converged": true, "fine_calls": 33, "grid": [1, 2, 2, 8], "label"
+: "L16_r32_yzt", "lattice": [16, 16, 16, 32], "process_seconds": 9.322890991112217, "ra
+nks": 32, "returncode": 0, "status": "PASS", "threads_per_rank": 4, "timed_out": false,
+ "true_mg_gate": "PASS", "verify_status": 0, "wall_seconds": 4.304015188012272}
+(base) nsls_yangyb@login02:~$ find /home/share/nsls_yangyb/data -maxdepth 3 -type f \(
+-iname "*32*.lime" -o -iname "*32*.h5" -o -iname "*32*.hdf5" \) -print
+/home/share/nsls_yangyb/data/beta6.20_mu-0.2770_ms-0.2400_L32x64_cfg_11000.lime
+(base) nsls_yangyb@login02:~$ ls -lh /home/share/nsls_yangyb/data/beta6.20_mu-0.2770_ms
+-0.2400_L32x64_cfg_11000.lime
+-rw-r----- 1 nsls_yangyb eapp 1.2G Oct 29 22:28 /home/share/nsls_yangyb/data/beta6.20_m
+u-0.2770_ms-0.2400_L32x64_cfg_11000.lime
+(base) nsls_yangyb@login02:~$ python3 -B -c "from pyqcu.testing.simple._common import l
+ime_metadata; import json; print(json.dumps(lime_metadata("/home/share/nsls_yangyb/data
+/beta6.20_mu-0.2770_ms-0.2400_L32x64_cfg_11000.lime"), sort_keys=True))"
+  File "<string>", line 1
+    from pyqcu.testing.simple._common import lime_metadata; import json; print(json.dum
+ps(lime_metadata(/home/share/nsls_yangyb/data/beta6.20_mu-0.2770_ms-0.2400_L32x64_cfg_1
+1000.lime), sort_keys=True))
+
+                                                      ^
+SyntaxError: invalid decimal literal
+(base) nsls_yangyb@login02:~$

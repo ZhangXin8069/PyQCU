@@ -1,0 +1,54 @@
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/mg_true_factor_sweep_L24_
+E4_v2/factor_10000/stderr.txt:315:[login02:2758498] PMIX ERROR: UNREACHABLE in file ser
+ver/pmix_server.c at line 2198
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/mg_true_factor_sweep_L24_
+E4_v2/factor_10000/stderr.txt:316:[login02:2758498] PMIX ERROR: UNREACHABLE in file ser
+ver/pmix_server.c at line 2198
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/mg_true_factor_sweep_L24_
+E4_v2/factor_10000/stderr.txt:317:[login02:2758498] PMIX ERROR: UNREACHABLE in file ser
+ver/pmix_server.c at line 2198
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/mg_true_factor_sweep_L24_
+E4_v2/factor_10000/stderr.txt:318:[login02:2758498] PMIX ERROR: UNREACHABLE in file ser
+ver/pmix_server.c at line 2198
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/mg_true_factor_sweep_L24_
+E4_v2/factor_10000/stderr.txt:319:[login02:2758498] PMIX ERROR: UNREACHABLE in file ser
+ver/pmix_server.c at line 2198
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/mg_true_factor_sweep_L24_
+E4_v2/factor_10000/stderr.txt:320:[login02:2758498] PMIX ERROR: UNREACHABLE in file ser
+ver/pmix_server.c at line 2198
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/mg_true_factor_sweep_L24_
+E4_v2/factor_10000/stderr.txt:321:[login02:2758498] PMIX ERROR: UNREACHABLE in file ser
+ver/pmix_server.c at line 2198
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/mg_true_factor_sweep_L24_
+E4_v2/factor_10000/stderr.txt:322:[login02:2758498] PMIX ERROR: UNREACHABLE in file ser
+ver/pmix_server.c at line 2198
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/mg_true_factor_sweep_L24_
+E4_v2/factor_10000/stderr.txt:324: KUPL_REQUIRE_MG_CORRECTION=1 rejected fine BiCGStabf
+allback
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/mg_true_factor_sweep_L24_
+E4_v2/factor_10000/stderr.txt:326: KUPL_REQUIRE_MG_CORRECTION=1 rejected fine BiCGStabf
+allback
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/mg_true_factor_sweep_L24_
+E4_v2/factor_10000/stderr.txt:328: KUPL_REQUIRE_MG_CORRECTION=1 rejected fine BiCGStabf
+allback
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/mg_true_factor_sweep_L24_
+E4_v2/factor_10000/stderr.txt:330: KUPL_REQUIRE_MG_CORRECTION=1 rejected fine BiCGStabf
+allback
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/mg_true_factor_sweep_L24_
+E4_v2/factor_10000/stderr.txt:332:[login02:2758498] Set MCA parameter "orte_base_help_a
+ggregate" to 0 to see all help / error messages
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/mg_true_factor_sweep_L24_
+E4_v2/results.json:10:    "fallback": false,
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/mg_true_factor_sweep_L24_
+E4_v2/results.json:22:    "fallback": false,
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/mg_true_factor_sweep_L24_
+E4_v2/results.json:34:    "fallback": false,
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/mg_true_factor_sweep_L24_
+E4_v2/results.json:46:    "fallback": false,
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/mg_true_factor_sweep_L24_
+E4_v2/results.json:58:    "fallback": false,
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/mg_true_factor_sweep_L24_
+E4_v2/results.json:70:    "fallback": false,
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/mg_true_factor_sweep_L24_
+E4_v2/results.json:82:    "fallback": false,
+(base) nsls_yangyb@login02:~$

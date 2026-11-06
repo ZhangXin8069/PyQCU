@@ -1,0 +1,54 @@
+sweep_20261106.b64 > /home/share/nsls_yangyb/b64/sync_true_mg_param_sweep_20261106.tgz
+(base) nsls_yangyb@login02:~$ tar -xzf /home/share/nsls_yangyb/b64/sync_true_mg_param_s
+weep_20261106.tgz -C /home/share/nsls_yangyb/py
+(base) nsls_yangyb@login02:~$ python3 -B /home/share/nsls_yangyb/py/logs/run_true_mg_pa
+ram_sweep_L24.py
+{"cache": "cache_E4_mg2x2x2x1.h5", "coarse_calls": 168, "coarse_max_iter": 200, "coarse
+_tol_factor": 0.1, "converged": true, "deflate": true, "dof": 4, "fine_calls": 49, "gri
+d": [1, 1, 1, 16], "label": "base_e4_r1", "mg_grid": [2, 2, 2, 1], "process_seconds": 8
+.657461263006553, "ranks": 16, "restart": 1, "returncode": 0, "status": "PASS", "thread
+s_per_rank": 8, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wall_s
+econds": 2.075364015996456}
+{"cache": "cache_E4_mg2x2x2x1.h5", "coarse_calls": 103, "coarse_max_iter": 200, "coarse
+_tol_factor": 0.1, "converged": true, "deflate": true, "dof": 4, "fine_calls": 41, "gri
+d": [1, 1, 1, 16], "label": "restart2", "mg_grid": [2, 2, 2, 1], "process_seconds": 7.9
+59213613998145, "ranks": 16, "restart": 2, "returncode": 0, "status": "PASS", "threads_
+per_rank": 8, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wall_sec
+onds": 1.3469466771930456}
+{"cache": "cache_E4_mg2x2x2x1.h5", "coarse_calls": 71, "coarse_max_iter": 200, "coarse_
+tol_factor": 0.1, "converged": true, "deflate": true, "dof": 4, "fine_calls": 36, "grid
+": [1, 1, 1, 16], "label": "restart3", "mg_grid": [2, 2, 2, 1], "process_seconds": 7.92
+3517867922783, "ranks": 16, "restart": 3, "returncode": 0, "status": "PASS", "threads_p
+er_rank": 8, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wall_seco
+nds": 1.4853768339380622}
+{"cache": "cache_E4_mg2x2x2x1.h5", "coarse_calls": 54, "coarse_max_iter": 200, "coarse_
+tol_factor": 0.1, "converged": true, "deflate": true, "dof": 4, "fine_calls": 37, "grid
+": [1, 1, 1, 16], "label": "restart5", "mg_grid": [2, 2, 2, 1], "process_seconds": 7.50
+2984112128615, "ranks": 16, "restart": 5, "returncode": 0, "status": "PASS", "threads_p
+er_rank": 8, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wall_seco
+nds": 0.9885149099864066}
+{"cache": "cache_E4_mg2x2x2x1.h5", "coarse_calls": 36, "coarse_max_iter": 200, "coarse_
+tol_factor": 0.1, "converged": true, "deflate": true, "dof": 4, "fine_calls": 32, "grid
+": [1, 1, 1, 16], "label": "restart10", "mg_grid": [2, 2, 2, 1], "process_seconds": 7.4
+88946991041303, "ranks": 16, "restart": 10, "returncode": 0, "status": "PASS", "threads
+_per_rank": 8, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wall_se
+conds": 1.1508304150775075}
+{"cache": "cache_E4_mg2x2x2x1.h5", "coarse_calls": 152, "coarse_max_iter": 200, "coarse
+_tol_factor": 0.1, "converged": true, "deflate": false, "dof": 4, "fine_calls": 49, "gr
+id": [1, 1, 1, 16], "label": "no_deflate", "mg_grid": [2, 2, 2, 1], "process_seconds":
+8.128940640948713, "ranks": 16, "restart": 1, "returncode": 0, "status": "PASS", "threa
+ds_per_rank": 8, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wall_
+seconds": 1.6913112979382277}
+{"cache": "cache_E4_mg2x2x2x1.h5", "coarse_calls": 168, "coarse_max_iter": 20, "coarse_
+tol_factor": 0.1, "converged": true, "deflate": true, "dof": 4, "fine_calls": 49, "grid
+": [1, 1, 1, 16], "label": "coarse_max20", "mg_grid": [2, 2, 2, 1], "process_seconds":
+8.365667584817857, "ranks": 16, "restart": 1, "returncode": 0, "status": "PASS", "threa
+ds_per_rank": 8, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wall_
+seconds": 1.9961949181742966}
+{"cache": "cache_E4_mg2x2x2x1.h5", "coarse_calls": 168, "coarse_max_iter": 50, "coarse_
+tol_factor": 0.1, "converged": true, "deflate": true, "dof": 4, "fine_calls": 49, "grid
+": [1, 1, 1, 16], "label": "coarse_max50", "mg_grid": [2, 2, 2, 1], "process_seconds":
+8.349199671065435, "ranks": 16, "restart": 1, "returncode": 0, "status": "PASS", "threa
+ds_per_rank": 8, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wall_
+seconds": 2.029862079070881}
+

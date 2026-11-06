@@ -192,6 +192,7 @@ def build_coarse_assets(gauge: np.ndarray, lattice: tuple[int, int, int, int],
         fine_odd[index] // mg_grid[index] for index in range(4))
     block = tuple(
         fine_odd[index] // coarse_lattice[index] for index in range(4))
+    local_stencil_window = max(3 * extent + 2 for extent in block)
     E, e = int(dof[1]), 12
     null_shape = (
         E, e, coarse_lattice[0], block[0], coarse_lattice[1], block[1],
@@ -411,7 +412,8 @@ def build_coarse_assets(gauge: np.ndarray, lattice: tuple[int, int, int, int],
                 sitting_arg, hop_nn_arg, hop_diag_arg, null_arg, gauge_arg,
                 clover_even_arg, clover_odd_arg, clover_even_inv_arg,
                 clover_odd_inv_arg, set_ptrs_arg, params_arg, E, e,
-                *fine_odd, *coarse_lattice, 8, local_stencil_batch_size)
+                *fine_odd, *coarse_lattice, local_stencil_window,
+                local_stencil_batch_size)
             if status != 0:
                 raise RuntimeError(f"KUPL stencil setup failed: {status}")
             timings["stencil_seconds"] = time.perf_counter() - stage

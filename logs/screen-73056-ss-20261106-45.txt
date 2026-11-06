@@ -1,0 +1,54 @@
+SLfFRu+/rI8gq1Iwv6ee6706OMicQdcwP1lQ5HnIKaFkKs7tt1dUmLB8IjJuWBKqGjvjAK8t0vBSiasjx0I/H9F
+gbF8PPVU954G/Aj1zQ9VfSI3VozniErq4wSq/lqNFFSgorrrOlWmqfABNF78yLXdiDL6FJR1g2+JYBqqUd66yd1
+X8bl+Bfmy7K/g85jCHpcQLaVju5xVcfgTnxw+mAn6GnS1ILLGUaFXGJ3i3XG7wcWVlYpUVBAJgRRdVtj2hyrL7r
+QneWYBLe5YMiNx7VRjAm8ZgWMnoHz5od9vPfqv4BLeh54NEaerHQmAw2XGpmFxkUcpzAOReCEH8SDe6mYI8tgwz
+vtYP+rVONz9wwhw6BK5bmFI22Ck5EM9lCyuztuda6Edk/CZ/YdDWqlbSkauGg8nhn8tb82Ufd6p7yN0eYiSXnme
+MFrSMIAdj2XhjrLgwlg0kxobu5xgJADjdcEGj/ksge0/ZXlq1v/sHqPfxPt7H+3gff8v4L6FvYg4AGgAA' >> /
+home/share/nsls_yangyb/b64/sync_true_mg_grid_sweep_20261106.b64
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/b64/sync_true_mg_grid_s
+weep_20261106.b64 > /home/share/nsls_yangyb/b64/sync_true_mg_grid_sweep_20261106.tgz
+(base) nsls_yangyb@login02:~$ tar -xzf /home/share/nsls_yangyb/b64/sync_true_mg_grid_sw
+eep_20261106.tgz -C /home/share/nsls_yangyb/py
+(base) nsls_yangyb@login02:~$ python3 -B /home/share/nsls_yangyb/py/logs/run_true_mg_gr
+id_sweep_L24.py
+{"coarse_calls": 168, "converged": true, "fine_calls": 49, "grid": [1, 1, 1, 8], "label
+": "r8_t", "process_seconds": 8.815870872000232, "ranks": 8, "returncode": 0, "status":
+ "PASS", "threads_per_rank": 16, "true_mg_gate": "PASS", "verify_status": 0, "wall_seco
+nds": 2.0796782821416855}
+{"coarse_calls": 168, "converged": true, "fine_calls": 49, "grid": [1, 2, 2, 2], "label
+": "r8_yzt", "process_seconds": 10.092291076900437, "ranks": 8, "returncode": 0, "statu
+s": "PASS", "threads_per_rank": 16, "true_mg_gate": "PASS", "verify_status": 0, "wall_s
+econds": 3.2021711168345064}
+{"coarse_calls": 168, "converged": true, "fine_calls": 49, "grid": [1, 1, 1, 16], "labe
+l": "r16_t", "process_seconds": 8.554361938033253, "ranks": 16, "returncode": 0, "statu
+s": "PASS", "threads_per_rank": 8, "true_mg_gate": "PASS", "verify_status": 0, "wall_se
+conds": 1.686342053115368}
+{"coarse_calls": 168, "converged": true, "fine_calls": 49, "grid": [1, 1, 2, 8], "label
+": "r16_zt", "process_seconds": 9.003484355052933, "ranks": 16, "returncode": 0, "statu
+s": "PASS", "threads_per_rank": 8, "true_mg_gate": "PASS", "verify_status": 0, "wall_se
+conds": 1.8621354061178863}
+{"coarse_calls": 168, "converged": true, "fine_calls": 49, "grid": [1, 2, 2, 4], "label
+": "r16_yzt", "process_seconds": 9.310845195082948, "ranks": 16, "returncode": 0, "stat
+us": "PASS", "threads_per_rank": 8, "true_mg_gate": "PASS", "verify_status": 0, "wall_s
+econds": 2.3710678389761597}
+{"coarse_calls": 168, "converged": true, "fine_calls": 49, "grid": [1, 1, 1, 32], "labe
+l": "r32_t", "process_seconds": 9.955195387126878, "ranks": 32, "returncode": 0, "statu
+s": "PASS", "threads_per_rank": 4, "true_mg_gate": "PASS", "verify_status": 0, "wall_se
+conds": 2.1042264050338417}
+{"coarse_calls": 168, "converged": true, "fine_calls": 49, "grid": [1, 1, 2, 16], "labe
+l": "r32_zt", "process_seconds": 9.773657345911488, "ranks": 32, "returncode": 0, "stat
+us": "PASS", "threads_per_rank": 4, "true_mg_gate": "PASS", "verify_status": 0, "wall_s
+econds": 1.945269383955747}
+{"coarse_calls": 168, "converged": true, "fine_calls": 49, "grid": [1, 1, 4, 8], "label
+": "r32_z4t", "process_seconds": 10.114550855010748, "ranks": 32, "returncode": 0, "sta
+tus": "PASS", "threads_per_rank": 4, "true_mg_gate": "PASS", "verify_status": 0, "wall_
+seconds": 2.013891811016947}
+{"coarse_calls": 168, "converged": true, "fine_calls": 49, "grid": [1, 2, 2, 8], "label
+": "r32_yzt", "process_seconds": 10.202554045943543, "ranks": 32, "returncode": 0, "sta
+tus": "PASS", "threads_per_rank": 4, "true_mg_gate": "PASS", "verify_status": 0, "wall_
+seconds": 2.0326252540107816}
+{"coarse_calls": 168, "converged": true, "fine_calls": 49, "grid": [2, 2, 2, 4], "label
+": "r32_2224", "process_seconds": 9.395515479147434, "ranks": 32, "returncode": 0, "sta
+tus": "PASS", "threads_per_rank": 4, "true_mg_gate": "PASS", "verify_status": 0, "wall_
+seconds": 2.122540138894692}
+(base) nsls_yangyb@login02:~$

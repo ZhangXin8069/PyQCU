@@ -1,0 +1,54 @@
+(qcu) zhangxin@ZhangXin-MacBook
+2026/11/06 Friday 00:16:43
+œ /Users/zhangxin scl
+There is a screen on:
+        72848.ss        (Attached)
+1 Socket in /var/folders/t6/gz76dvhj29z9wb84d4jvmf9c0000gn/T/.screen.
+
+(qcu) zhangxin@ZhangXin-MacBook
+2026/11/06 Friday 00:16:45
+œ /Users/zhangxin scr 72848.ss
+Attaching from inside of screen?
+(qcu) zhangxin@ZhangXin-MacBook
+2026/11/06 Friday 00:16:56
+œ /Users/zhangxin
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

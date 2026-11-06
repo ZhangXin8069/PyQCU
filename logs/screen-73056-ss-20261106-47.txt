@@ -1,0 +1,54 @@
+tol_factor": 0.1, "converged": true, "deflate": true, "dof": 4, "fine_calls": 49, "grid
+": [1, 1, 1, 16], "label": "coarse_max50", "mg_grid": [2, 2, 2, 1], "process_seconds":
+8.349199671065435, "ranks": 16, "restart": 1, "returncode": 0, "status": "PASS", "threa
+ds_per_rank": 8, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wall_
+seconds": 2.029862079070881}
+{"cache": "cache_E4_mg2x2x2x1.h5", "coarse_calls": 168, "coarse_max_iter": 100, "coarse
+_tol_factor": 0.1, "converged": true, "deflate": true, "dof": 4, "fine_calls": 49, "gri
+d": [1, 1, 1, 16], "label": "coarse_max100", "mg_grid": [2, 2, 2, 1], "process_seconds"
+: 8.072952514048666, "ranks": 16, "restart": 1, "returncode": 0, "status": "PASS", "thr
+eads_per_rank": 8, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wal
+l_seconds": 1.7102055188734084}
+{"cache": "cache_E4_mg2x2x2x1.h5", "coarse_calls": 204, "coarse_max_iter": 200, "coarse
+_tol_factor": 0.01, "converged": true, "deflate": true, "dof": 4, "fine_calls": 49, "gr
+id": [1, 1, 1, 16], "label": "coarse_tol001", "mg_grid": [2, 2, 2, 1], "process_seconds
+": 8.153099437011406, "ranks": 16, "restart": 1, "returncode": 0, "status": "PASS", "th
+reads_per_rank": 8, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wa
+ll_seconds": 1.8095074440352619}
+{"cache": "cache_E4_mg2x2x2x1.h5", "coarse_calls": 129, "coarse_max_iter": 200, "coarse
+_tol_factor": 1.0, "converged": true, "deflate": true, "dof": 4, "fine_calls": 49, "gri
+d": [1, 1, 1, 16], "label": "coarse_tol1", "mg_grid": [2, 2, 2, 1], "process_seconds":
+8.096765757771209, "ranks": 16, "restart": 1, "returncode": 0, "status": "PASS", "threa
+ds_per_rank": 8, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wall_
+seconds": 1.8761912318877876}
+{"cache": "cache_E4_mg2x2x2x1.h5", "coarse_calls": 90, "coarse_max_iter": 200, "coarse_
+tol_factor": 10.0, "converged": true, "deflate": true, "dof": 4, "fine_calls": 49, "gri
+d": [1, 1, 1, 16], "label": "coarse_tol10", "mg_grid": [2, 2, 2, 1], "process_seconds":
+ 8.108838632004336, "ranks": 16, "restart": 1, "returncode": 0, "status": "PASS", "thre
+ads_per_rank": 8, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wall
+_seconds": 1.7182526369579136}
+{"cache": "cache_E4_mg2x2x2x1.h5", "coarse_calls": 59, "coarse_max_iter": 200, "coarse_
+tol_factor": 100.0, "converged": true, "deflate": true, "dof": 4, "fine_calls": 49, "gr
+id": [1, 1, 1, 16], "label": "coarse_tol100", "mg_grid": [2, 2, 2, 1], "process_seconds
+": 8.325632041087374, "ranks": 16, "restart": 1, "returncode": 0, "status": "PASS", "th
+reads_per_rank": 8, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wa
+ll_seconds": 1.9934903758112341}
+{"cache": "cache_tblock1.h5", "coarse_calls": 158, "coarse_max_iter": 200, "coarse_tol_
+factor": 0.1, "converged": true, "deflate": true, "dof": 2, "fine_calls": 54, "grid": [
+1, 1, 1, 16], "label": "e2_tblock1", "mg_grid": [2, 2, 2, 1], "process_seconds": 6.9300
+64303101972, "ranks": 16, "restart": 1, "returncode": 0, "status": "PASS", "threads_per
+_rank": 8, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wall_second
+s": 1.5042296070605516}
+{"cache": "cache_tblock4.h5", "coarse_calls": 156, "coarse_max_iter": 200, "coarse_tol_
+factor": 0.1, "converged": true, "deflate": true, "dof": 2, "fine_calls": 54, "grid": [
+1, 1, 1, 8], "label": "e2_tblock4", "mg_grid": [2, 2, 2, 4], "process_seconds": 7.17660
+75568739325, "ranks": 8, "restart": 1, "returncode": 0, "status": "PASS", "threads_per_
+rank": 16, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wall_second
+s": 2.4539186058100313}
+{"cache": "cache_tblock8.h5", "coarse_calls": 156, "coarse_max_iter": 200, "coarse_tol_
+factor": 0.1, "converged": true, "deflate": true, "dof": 2, "fine_calls": 54, "grid": [
+1, 1, 1, 4], "label": "e2_tblock8", "mg_grid": [2, 2, 2, 8], "process_seconds": 6.91213
+3074132726, "ranks": 4, "restart": 1, "returncode": 0, "status": "PASS", "threads_per_r
+ank": 32, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wall_seconds
+": 2.2640936069656163}
+(base) nsls_yangyb@login02:~$

@@ -6,6 +6,7 @@
 #include <array>
 #include <chrono>
 #include <cstdlib>
+#include <cstring>
 #include <type_traits>
 #include <vector>
 
@@ -27,6 +28,17 @@ inline bool use_block_dslash(int64_t half_sites) {
                : int64_t{65536};
   }();
   return allowed && half_sites >= minimum_half_sites;
+}
+
+inline bool use_t2_zblock_dslash() {
+  static const bool enabled = [] {
+    const char *text = std::getenv("KUPL_ENABLE_T2_ZBLOCK_DSLASH");
+    return text != nullptr && *text != '\0' && std::strcmp(text, "0") != 0 &&
+           std::strcmp(text, "false") != 0 &&
+           std::strcmp(text, "no") != 0 &&
+           std::strcmp(text, "off") != 0;
+  }();
+  return enabled;
 }
 
 template <typename Real, int Direction, int GammaSign>
@@ -698,6 +710,228 @@ void LatticeSet<Real>::compute_dslash_boundary_part(
 }
 
 template <typename Real>
+void LatticeSet<Real>::compute_dslash_t2_spatial_zblocks(
+    const Complex<Real> *local_source, Complex<Real> *output, int target) {
+  using C = Complex<Real>;
+  constexpr int kSiteLanes = 64 / sizeof(Real);
+  const int x_dim = geometry_.local[0];
+  const int y_dim = geometry_.local[1];
+  const int z_dim = geometry_.local[2];
+  const int source_parity = 1 - target;
+  const int64_t half_sites = geometry_.half_sites;
+  const int64_t gauge_stride = static_cast<int64_t>(kDim) * half_sites;
+
+#pragma omp parallel for collapse(2) schedule(static)
+  for (int x = 0; x < x_dim; ++x) {
+    for (int y = 0; y < y_dim; ++y) {
+      const int x_forward = x + 1 < x_dim ? x + 1 : 0;
+      const int x_backward = x > 0 ? x - 1 : x_dim - 1;
+      const int y_forward = y + 1 < y_dim ? y + 1 : 0;
+      const int y_backward = y > 0 ? y - 1 : y_dim - 1;
+      for (int z0 = 0; z0 < z_dim; z0 += kSiteLanes) {
+        const int lanes = std::min(kSiteLanes, z_dim - z0);
+        const int64_t site =
+            (static_cast<int64_t>(x) * y_dim + y) * z_dim + z0;
+        C result[kVector][kSiteLanes];
+        for (int component = 0; component < kVector; ++component) {
+#pragma omp simd
+          for (int lane = 0; lane < kSiteLanes; ++lane) {
+            result[component][lane] = C(0);
+          }
+        }
+
+        const int64_t x_forward_site =
+            (static_cast<int64_t>(x_forward) * y_dim + y) * z_dim + z0;
+        const int64_t x_backward_site =
+            (static_cast<int64_t>(x_backward) * y_dim + y) * z_dim + z0;
+        const int64_t y_forward_site =
+            (static_cast<int64_t>(x) * y_dim + y_forward) * z_dim + z0;
+        const int64_t y_backward_site =
+            (static_cast<int64_t>(x) * y_dim + y_backward) * z_dim + z0;
+        accumulate_hopping_block<Real, 0, false, 1>(
+            local_source + x_forward_site,
+            local_gauge(target, 0, x, y, z0, 0).data, half_sites,
+            gauge_stride, lanes, result);
+        accumulate_hopping_block<Real, 0, true, -1>(
+            local_source + x_backward_site,
+            local_gauge(source_parity, 0, x_backward, y, z0, 0).data,
+            half_sites, gauge_stride, lanes, result);
+        accumulate_hopping_block<Real, 1, false, 1>(
+            local_source + y_forward_site,
+            local_gauge(target, 1, x, y, z0, 0).data, half_sites,
+            gauge_stride, lanes, result);
+        accumulate_hopping_block<Real, 1, true, -1>(
+            local_source + y_backward_site,
+            local_gauge(source_parity, 1, x, y_backward, z0, 0).data,
+            half_sites, gauge_stride, lanes, result);
+
+        const int z_interior_begin = std::max(z0, 1);
+        const int z_interior_end = std::min(z0 + lanes, z_dim - 1);
+        if (z_interior_begin < z_interior_end) {
+          const int interior_lanes = z_interior_end - z_interior_begin;
+          const int64_t interior_site =
+              site + (z_interior_begin - z0);
+          accumulate_hopping_block<Real, 2, false, 1>(
+              local_source + interior_site + 1,
+              local_gauge(target, 2, x, y, z_interior_begin, 0).data,
+              half_sites, gauge_stride, interior_lanes, result);
+          accumulate_hopping_block<Real, 2, true, -1>(
+              local_source + interior_site - 1,
+              local_gauge(source_parity, 2, x, y,
+                          z_interior_begin - 1, 0).data,
+              half_sites, gauge_stride, interior_lanes, result);
+        }
+
+        if (z0 == 0) {
+          const int64_t lower_site = site;
+          accumulate_hopping_block<Real, 2, false, 1>(
+              local_source + lower_site + 1,
+              local_gauge(target, 2, x, y, 0, 0).data, half_sites,
+              gauge_stride, 1, result);
+          const int64_t upper_site = site + z_dim - 1;
+          accumulate_hopping_block<Real, 2, true, -1>(
+              local_source + upper_site,
+              local_gauge(source_parity, 2, x, y, z_dim - 1, 0).data,
+              half_sites, gauge_stride, 1, result);
+        }
+        if (z0 + lanes == z_dim) {
+          const int64_t upper_site = site + lanes - 1;
+          const int64_t wrapped_site = site;
+          accumulate_hopping_block<Real, 2, false, 1>(
+              local_source + wrapped_site,
+              local_gauge(target, 2, x, y, z_dim - 1, 0).data,
+              half_sites, gauge_stride, 1, result);
+          accumulate_hopping_block<Real, 2, true, -1>(
+              local_source + upper_site - 1,
+              local_gauge(source_parity, 2, x, y, z_dim - 2, 0).data,
+              half_sites, gauge_stride, 1, result);
+        }
+
+        for (int component = 0; component < kVector; ++component) {
+          C *destination = output + static_cast<int64_t>(component) *
+                                       half_sites + site;
+#pragma omp simd
+          for (int lane = 0; lane < lanes; ++lane) {
+            destination[lane] = result[component][lane];
+          }
+        }
+      }
+    }
+  }
+}
+
+template <typename Real>
+void LatticeSet<Real>::compute_dslash_t2_time_zblocks(
+    const Complex<Real> *local_source, Complex<Real> *output, int target) {
+  using C = Complex<Real>;
+  constexpr int kSiteLanes = 64 / sizeof(Real);
+  const int x_dim = geometry_.local[0];
+  const int y_dim = geometry_.local[1];
+  const int z_dim = geometry_.local[2];
+  const int source_parity = 1 - target;
+  const int64_t half_sites = geometry_.half_sites;
+  const int64_t gauge_stride = static_cast<int64_t>(kDim) * half_sites;
+
+#pragma omp parallel for collapse(2) schedule(static)
+  for (int x = 0; x < x_dim; ++x) {
+    for (int y = 0; y < y_dim; ++y) {
+      for (int z0 = 0; z0 < z_dim; z0 += kSiteLanes) {
+        const int lanes = std::min(kSiteLanes, z_dim - z0);
+        const int64_t site =
+            (static_cast<int64_t>(x) * y_dim + y) * z_dim + z0;
+        C result[kVector][kSiteLanes];
+        C forward_source[kVector][kSiteLanes];
+        C backward_source[kVector][kSiteLanes];
+        C backward_gauge[kGauge][kSiteLanes];
+        for (int component = 0; component < kVector; ++component) {
+#pragma omp simd
+          for (int lane = 0; lane < kSiteLanes; ++lane) {
+            result[component][lane] = C(0);
+            forward_source[component][lane] = C(0);
+            backward_source[component][lane] = C(0);
+          }
+        }
+        for (int component = 0; component < kGauge; ++component) {
+#pragma omp simd
+          for (int lane = 0; lane < kSiteLanes; ++lane) {
+            backward_gauge[component][lane] = C(0);
+          }
+        }
+
+        const auto &forward_halo =
+            fermion_recv_[face_offset(3, 1)];
+        const auto &backward_halo =
+            fermion_recv_[face_offset(3, -1)];
+        const auto &backward_gauge_halo =
+            gauge_halo_.faces[face_offset(3, -1)];
+        const C *local_backward_gauge =
+            local_gauge(source_parity, 3, x, y, z0, 0).data;
+        for (int lane = 0; lane < lanes; ++lane) {
+          const int z = z0 + lane;
+          const int64_t lane_site = site + lane;
+          const int target_time = ((x + y + z) & 1) ^ target;
+          const int64_t face_site =
+              (static_cast<int64_t>(x) * y_dim + y) * z_dim + z;
+          const bool forward_remote = target_time != 0;
+          for (int component = 0; component < kVector; ++component) {
+            const int64_t local_index =
+                static_cast<int64_t>(component) * half_sites + lane_site;
+            forward_source[component][lane] =
+                forward_remote
+                    ? forward_halo[face_site * kVector + component]
+                    : local_source[local_index];
+            backward_source[component][lane] =
+                forward_remote
+                    ? local_source[local_index]
+                    : backward_halo[face_site * kVector + component];
+          }
+          if (forward_remote) {
+            const int64_t face_base =
+                face_site * 2 * kGauge * kDim;
+            const int64_t parity_base =
+                static_cast<int64_t>(source_parity) * kGauge * kDim;
+            for (int row = 0; row < kColor; ++row) {
+              for (int column = 0; column < kColor; ++column) {
+                const int component = row * kColor + column;
+                backward_gauge[component][lane] =
+                    backward_gauge_halo[face_base + parity_base +
+                                        component * kDim + 3];
+              }
+            }
+          } else {
+            for (int row = 0; row < kColor; ++row) {
+              for (int column = 0; column < kColor; ++column) {
+                const int component = row * kColor + column;
+                backward_gauge[component][lane] =
+                    local_backward_gauge[
+                        static_cast<int64_t>(component) * gauge_stride +
+                        lane];
+              }
+            }
+          }
+        }
+
+        accumulate_hopping_block<Real, 3, false, 1>(
+            &forward_source[0][0],
+            local_gauge(target, 3, x, y, z0, 0).data, kSiteLanes,
+            gauge_stride, lanes, result);
+        accumulate_hopping_block<Real, 3, true, -1>(
+            &backward_source[0][0], &backward_gauge[0][0], kSiteLanes,
+            kSiteLanes, lanes, result);
+        for (int component = 0; component < kVector; ++component) {
+          C *destination = output + static_cast<int64_t>(component) *
+                                       half_sites + site;
+#pragma omp simd
+          for (int lane = 0; lane < lanes; ++lane) {
+            destination[lane] += result[component][lane];
+          }
+        }
+      }
+    }
+  }
+}
+
+template <typename Real>
 void LatticeSet<Real>::compute_dslash_site(
     const Complex<Real> *local_source, Complex<Real> *output, int x, int y,
     int z, int t2, int target, int part) {
@@ -871,6 +1105,20 @@ void LatticeSet<Real>::bare_dslash(Complex<Real> *output,
   static const bool profile =
       std::getenv("KUPL_PROFILE_DSLASH") != nullptr;
   const int source_parity = 1 - target;
+  if (!profile && use_t2_zblock_dslash() &&
+      geometry_.grid[0] == 1 && geometry_.grid[1] == 1 &&
+      geometry_.grid[2] == 1 && geometry_.grid[3] > 1 &&
+      geometry_.local[3] == 2) {
+    post_fermion_halo(input, source_parity);
+    compute_dslash_t2_spatial_zblocks(input, output, target);
+    if (!fermion_requests_.empty()) {
+      MPI_Waitall(static_cast<int>(fermion_requests_.size()),
+                  fermion_requests_.data(), MPI_STATUSES_IGNORE);
+      fermion_requests_.clear();
+    }
+    compute_dslash_t2_time_zblocks(input, output, target);
+    return;
+  }
   if (!profile) {
     if (geometry_.grid[0] == 1 && geometry_.grid[1] == 1 &&
         geometry_.grid[2] == 1 && geometry_.local[3] == 2) {

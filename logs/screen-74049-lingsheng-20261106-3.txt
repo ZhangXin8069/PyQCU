@@ -1,0 +1,54 @@
+(qcu) zhangxin@ZhangXin-MacBook
+2026/11/06 Friday 08:49:16
+œ /Users/zhangxin scl
+There are screens on:
+        73056.ss        (Attached)
+        74049.lingsheng (Attached)
+        75192.qcu-mg    (Attached)
+        72848.ss        (Detached)
+        73249.ss        (Attached)
+5 Sockets in /var/folders/t6/gz76dvhj29z9wb84d4jvmf9c0000gn/T/.screen.
+
+(qcu) zhangxin@ZhangXin-MacBook
+2026/11/06 Friday 08:49:18
+œ /Users/zhangxin scr  74049.lingsheng
+Attaching from inside of screen?
+(qcu) zhangxin@ZhangXin-MacBook
+2026/11/06 Friday 08:49:28
+œ /Users/zhangxin
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

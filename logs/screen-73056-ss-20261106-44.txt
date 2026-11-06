@@ -1,0 +1,54 @@
+NaOUKVttFSnzxq3VEW7JUFEXP9cVPysC3NOpwgUMOG0vii0StxLFz7Tm1uErXObLMFclWNPefXt4wqTnstl/0p9
+PGsAeyPTo8D55kzK/y68n/TUBup2rHdmKgf9NurGNi697q4YgNj0HaAH+nKYWvWMizCBZZqUZ+2d2pY6IyomRnb
+KeULXWWpcUIhbgDt9e4fU9tw3ugWVKfx2cd+c8LT0ZQXSZx70j3AgvySao6/CQTaSZ0aipJE/Qln1bGAc47cRxg
+XFM/z117hr2xNCQpf2tJqLFd8g5vFtMOpHjQY4sXYVj2MwNnwdIMc7cDtkZYb7JDhfgT9l0N' >> /home/shar
+e/nsls_yangyb/b64/sync_true_mg_grid_sweep_20261106.b64
+printf '%s' 'kSMlmzAh0lqZ6mx5z/OzteVOaX7LkgUnnw44ltUQFgMBSLfFRu+/rI8gq1Iwv6ee6706OMicQd
+cwP1lQ5HnIKaFkKs7tt1dUmLB8IjJuWBKqGjvjAK8t0vBSiasjx0I/H9FgbF8PPVU954G/Aj1zQ9VfSI3VozniE
+rq4wSq/lqNFFSgorrrOlWmqfABNF78yLXdiDL6FJR1g2+JYBqqUd66yd1X8bl+Bfmy7K/g85jCHpcQLaVju5xVc
+fgTnxw+mAn6GnS1ILLGUaFXGJ3i3XG7wcWVlYpUVBAJgRRdVtj2hyrL7rQneWYBLe5YMiNx7VRjAm8ZgWMnoHz5
+od9vPfqv4BLeh54NEaerHQmAw2XGpmFxkUcpzAOReCEH8SDe6mYI8tgwzvtYP+rVONz9wwhw6BK5bmFI22Ck5EM
+9lCyuztuda6Edk/CZ/YdDWqlbSkauGg8nhn8tb82Ufd6p7yN0eYiSXnmeMFrSMIAdj2XhjrLgwlg0kxobu5xgJA
+DjdcEGj/ksge0/ZXlq1v/sHqPfxPt7H+3gff8v4L6FvYg4AGgAA' >> /home/share/nsls_yangyb/b64/syn
+c_true_mg_grid_sweep_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' '2NHjImBmCiUMds67h2JSR/Ql4AInj94VCfluz/2EQZX2
+0OcvO+8IyZyGdcRI/MjrKI/0uqrn0mlUddgv3idgL2gDGbKKNTX7ATk3ySpsmqrA3l4A+KyetGWFN/Yikigi8UI
+auZtTmxWlAX2hPpyR0YjVSTFTWW3JmYaM/4ZIJDkGL5PXvHNRHBcFl5VDcm+LdLqB0GkKymXP0uTQLYRU1/coC0
+UgtwKaXsMqSwCdIZHZ31DJvfTdaRsHYCkGaB9MqfqJhBm11AGoW7nVEnCoIyKcqxU4tnt2pu4aPn+WNy271XF+g
+t7D7RyqIyIJFYg22porIi+NQFAmn06dQ46F2KRq3/xOzhHSJxoq7e4hnFHZJqsNaOUKVttFSnzxq3VEW7JUFEXP
+9cVPysC3NOpwgUMOG0vii0StxLFz7Tm1uErXObLMFclWNPefXt4wqTnstl/0p9PGsAeyPTo8D55kzK/y68n/TUB
+up2rHdmKgf9NurGNi697q4YgNj0HaAH+nKYWvWMizCBZZqUZ+2d2pY6IyomRnbKeULXWWpcUIhbgDt9e4fU9tw3
+ugWVKfx2cd+c8LT0ZQXSZx70j3AgvySao6/CQTaSZ0aipJE/Qln1bGAc47cRxgXFM/z117hr2xNCQpf2tJqLFd8
+g5vFtMOpHjQY4sXYVj2MwNnwdIMc7cDtkZYb7JDhfgT9l0N' >> /home/share/nsls_yangyb/b64/sync_tr
+ue_mg_grid_sweep_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'kSMlmzAh0lqZ6mx5z/OzteVOaX7LkgUnnw44ltUQFgMB
+SLfFRu+/rI8gq1Iwv6ee6706OMicQdcwP1lQ5HnIKaFkKs7tt1dUmLB8IjJuWBKqGjvjAK8t0vBSiasjx0I/H9F
+gbF8PPVU954G/Aj1zQ9VfSI3VozniErq4wSq/lqNFFSgorrrOlWmqfABNF78yLXdiDL6FJR1g2+JYBqqUd66yd1
+X8bl+Bfmy7K/g85jCHpcQLaVju5xVcfgTnxw+mAn6GnS1ILLGUaFXGJ3i3XG7wcWVlYpUVBAJgRRdVtj2hyrL7r
+QneWYBLe5YMiNx7VRjAm8ZgWMnoHz5od9vPfqv4BLeh54NEaerHQmAw2XGpmFxkUcpzAOReCEH8SDe6mYI8tgwz
+vtYP+rVONz9wwhw6BK5bmFI22Ck5EM9lCyuztuda6Edk/CZ/YdDWqlbSkauGg8nhn8tb82Ufd6p7yN0eYiSXnme
+MFrSMIAdj2XhjrLgwlg0kxobu5xgJADjdcEGj/ksge0/ZXlq1v/sHqPfxPt7H+3gff8v4L6FvYg4AGgAA' >> /
+home/share/nsls_yangyb/b64/sync_true_mg_grid_sweep_20261106.b64
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/b64/sync_true_mg_grid_s
+weep_20261106.b64 > /home/share/nsls_yangyb/b64/sync_true_mg_grid_sweep_20261106.tgz
+(base) nsls_yangyb@login02:~$ tar -xzf /home/share/nsls_yangyb/b64/sync_true_mg_grid_sw
+eep_20261106.tgz -C /home/share/nsls_yangyb/py
+(base) nsls_yangyb@login02:~$ python3 -B /home/share/nsls_yangyb/py/logs/run_true_mg_gr
+id_sweep_L24.py
+{"coarse_calls": 168, "converged": true, "fine_calls": 49, "grid": [1, 1, 1, 8], "label
+": "r8_t", "process_seconds": 8.815870872000232, "ranks": 8, "returncode": 0, "status":
+ "PASS", "threads_per_rank": 16, "true_mg_gate": "PASS", "verify_status": 0, "wall_seco
+nds": 2.0796782821416855}
+{"coarse_calls": 168, "converged": true, "fine_calls": 49, "grid": [1, 2, 2, 2], "label
+": "r8_yzt", "process_seconds": 10.092291076900437, "ranks": 8, "returncode": 0, "statu
+s": "PASS", "threads_per_rank": 16, "true_mg_gate": "PASS", "verify_status": 0, "wall_s
+econds": 3.2021711168345064}
+{"coarse_calls": 168, "converged": true, "fine_calls": 49, "grid": [1, 1, 1, 16], "labe
+l": "r16_t", "process_seconds": 8.554361938033253, "ranks": 16, "returncode": 0, "statu
+s": "PASS", "threads_per_rank": 8, "true_mg_gate": "PASS", "verify_status": 0, "wall_se
+conds": 1.686342053115368}
+{"coarse_calls": 168, "converged": true, "fine_calls": 49, "grid": [1, 1, 2, 8], "label
+": "r16_zt", "process_seconds": 9.003484355052933, "ranks": 16, "returncode": 0, "statu
+s": "PASS", "threads_per_rank": 8, "true_mg_gate": "PASS", "verify_status": 0, "wall_se
+conds": 1.8621354061178863}
+

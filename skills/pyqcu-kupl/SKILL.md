@@ -426,3 +426,96 @@ verifier=0、PASS，已撤销。下一步应分析 scalar boundary 的 rank-face
   shared login-node load average makes the negative 4-rank scaling unsuitable as a
   Kunpeng production claim. Record NUMA/cpuset, MPI ranks/grid, cache load and actual
   correction counts with every result.
+
+## 2026-11-06 Kunpeng remote recovery and submission guardrails
+
+- The remote running tree may be reorganized independently of the Git worktree.
+  On the recovered LX2 environment, `~/PyQCU` pointed to `PyQCU-main` with source,
+  `data`, `logs`, `docs`, `refer`, `skills`, and `pyqcu` present but no `.git`
+  metadata. Inputs were in `~/data`, job scripts in `~/sh`, captured stdout/stderr
+  in `~/out`/`~/err`, and uploaded helper code in `~/py`. Discover the live paths
+  from the authenticated session; do not infer the layout from historical
+  `data/production_L24/yNN` or repository-relative paths.
+- An authenticated interactive screen/SSH session may be the only usable remote
+  control path. In the recovered environment, batch SSH from the workstation was
+  rejected and the external address landed on `login03`; the recorded `login04`
+  host had a different internal address and rejected public-key batch login.
+  Preserve an auditable screen hardcopy, but never claim that a fresh SSH or
+  `screen` survived a host/container restart.
+- `dsub` may reject a syntactically valid job with only `job was refused by hook`.
+  This is an account/submission-policy signal, not permission to bypass the hook.
+  Check the official read-only status path (`dqueue`, `djob`, `duser`, `dacct`) and
+  re-test with a minimal job using the existing short `qcu_yNN` naming convention.
+  Do not read privileged hook configuration, spoof another submit host, reuse
+  another user's credentials, disable host-key checking, or submit through an
+  undocumented scheduler endpoint. If the official path remains blocked, continue
+  login-node builds/tests and mark compute-node execution blocked.
+- Before any remote performance run, verify the source blobs, actual shared-library
+  path and binary identity. Historical reports are context only; the live source
+  and job output are authoritative.
+- Long compute jobs follow the 5/10-minute rule: inspect output, stderr, scheduler
+  state and progress at five minutes; terminate and audit at ten minutes if the job
+  is not demonstrably healthy.
+- Roofline first for the `24^3x64` c64 production case. The `levels=1,restart=0`
+  control is parity-Schur BiCGStab, not multigrid. On the current 32-rank x
+  12-thread t-split layout, local `ht=1`, so every production dslash site goes
+  through the scalar boundary kernels; merely lowering the block-dslash site
+  threshold does not activate the `ht>=3` block path.
+- The recovered 2026-11-06 data measured `0.43456 s / 16 it / PASS` but only
+  modeled about `149.5 GB/s` and `199.4 GFLOP/s`. Against conservative
+  same-shape ceilings this is roughly `2.8-3.4%` of HBM bandwidth and
+  `0.4-0.5%` of FP32 SVE peak. Profile shares were approximately scalar
+  boundary `30%`, MPI wait `22%`, halo `7.5%`, and everything outside dslash
+  `38.5%`. Do not respond to this result by adding bandwidth pressure; attack
+  scalar issue rate, small-message collective latency, and iteration count.
+- A `0.1 s` target in the same traffic model needs only about `650 GB/s` and
+  `0.87 TFLOP/s`. The hardware can support that working point, so an
+  unreachability claim requires a measured post-vectorization/post-collective
+  wall, not a roofline argument.
+- `ht=1` spatial-lane vectorization is not automatically profitable. The
+  first opt-in z-lane implementation passed `2rank_t` and strict one-rank
+  correctness, but a norm-checked `A-B-B-A` login-node test was about `4.8%`
+  slower. Keep such kernels opt-in until compute-node A/B and compiler
+  vectorization evidence both approve them; do not promote the best-looking
+  single sample.
+- BiCGStab and Legacy-MG have different grid optima. On real L16 c64,
+  BiCGStab improved through 32 ranks, while MG was best at 16 ranks
+  (`grid=1 1 2 8`) and was only tied with BiCGStab at 32 ranks because coarse
+  work and synchronization erased the iteration advantage. Screen both modes
+  separately instead of inheriting one grid.
+- For KUPL Legacy-MG, start parameter screens with `restart=1/2`, deflate on,
+  and coarse settings at their defaults. On the real L8 fixture, disabling
+  deflate, reducing coarse max-iter, or loosening coarse tolerance all
+  regressed. E=4/E8 and `nv_iters=4` did not produce a stable runtime gain over
+  E2/nv2 while increasing cache build time and size by 2x-7x.
+- MG cache layout imposes hard geometry: an L8 odd-Schur cache has coarse time
+  extent 8, so `grid_t>4` must fail before launch. Local-stencil block extents
+  must also satisfy `3*block+2 <= fine_extent`; do not label expected geometry
+  rejection as a numerical failure.
+- Cache construction is separate from solve time. The real L16 E2/nv2 cache
+  took about `186.5 s`, and `local-stencil-batch=16` did not improve it. L24
+  extrapolates beyond the 10-minute login-node gate on the current scalar
+  stencil loop. Optimize coarse-site reuse there, not OpenMP oversubscription;
+  binding the OpenMP master before KUPL reads affinity is an anti-pattern.
+- `KUPL_ENABLE_MG_STENCIL_PARALLEL=1` parallelizes the previously serial
+  coarse-site cache-build loop with per-worker `source/even/schur` buffers.
+  Retain the opt-in guard during compute-node qualification. On the 2026-11-06
+  login-node fixtures it reduced L8 `8.617 -> 0.669 s`, L16
+  `186.52 -> 10.62 s`, and L24 to `80.70 s` with unchanged L8/L16
+  gram/Galerkin values. This changes MG setup economics; do not describe the
+  setup-cache solve as a cold-start result.
+- With that cache, real L24 Legacy-MG used `1.60861 s` at 32 ranks x 4 threads,
+  `grid=1 1 2 16`, and passed an independent residual `3.541228e-6`. The solve
+  still needs compute-node/HBM acceptance, but true MG is no longer blocked by
+  a >10-minute L24 setup at the login-node gate.
+- For L24 Legacy-MG, `mg-grid=(2,2,2,1)` keeps coarse time extent 32 and is the
+  only tested setup compatible with the target `grid=1 1 1 32` split. It
+  reduced login-node MG from `1.60861 s` (block-2, z-split) to `1.51917 s` and
+  passed an independent residual `3.54118e-6`. Larger time blocks 4/8 are legal
+  and cheaper to build, but were slower in the 128-thread screen. Derive the
+  local-stencil window from `max(3*block[dim]+2)`; never keep the old hard-coded
+  `8`, which rejects valid block-4/block-8 geometries before launch.
+- A first coarse-tolerance knee screen favors `coarse-tol-factor=1e6` on the
+  L24 tblock1 target grid: paired median `1.418277 -> 1.377149 s` (about 2.9%)
+  with independent residual `3.54117e-6`. Treat this as a candidate requiring
+  compute-node repeats, not a default; factors `1e7/1e8` regressed.

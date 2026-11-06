@@ -1,0 +1,54 @@
+tar: Child returned status 2
+tar: Error is not recoverable: exiting now
+(base) nsls_yangyb@login02:~$ env PYQCU_MG_PARAM_STAGE=2 PYQCU_MG_PARAM_OUT=mg_true_par
+am_sweep_L24_v2 python3 -B /home/share/nsls_yangyb/py/logs/run_true_mg_param_sweep_L24.
+py
+{"cache": "cache_E4_mg2x2x2x1.h5", "coarse_calls": 73, "coarse_max_iter": 200, "coarse_
+tol_factor": 0.1, "converged": true, "deflate": true, "dof": 4, "fine_calls": 42, "grid
+": [1, 1, 1, 16], "label": "r4_e4_t16", "mg_grid": [2, 2, 2, 1], "process_seconds": 7.9
+69903866993263, "ranks": 16, "restart": 4, "returncode": 0, "status": "PASS", "threads_
+per_rank": 8, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wall_sec
+onds": 1.4977840830106288}
+{"cache": "cache_E4_mg2x2x2x1.h5", "coarse_calls": 54, "coarse_max_iter": 200, "coarse_
+tol_factor": 0.1, "converged": true, "deflate": true, "dof": 4, "fine_calls": 37, "grid
+": [1, 1, 1, 16], "label": "r5_e4_t16", "mg_grid": [2, 2, 2, 1], "process_seconds": 7.5
+20651317201555, "ranks": 16, "restart": 5, "returncode": 0, "status": "PASS", "threads_
+per_rank": 8, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wall_sec
+onds": 1.229508768999949}
+{"cache": "cache_E4_mg2x2x2x1.h5", "coarse_calls": 55, "coarse_max_iter": 200, "coarse_
+tol_factor": 0.1, "converged": true, "deflate": true, "dof": 4, "fine_calls": 37, "grid
+": [1, 1, 1, 16], "label": "r6_e4_t16", "mg_grid": [2, 2, 2, 1], "process_seconds": 7.8
+29966790042818, "ranks": 16, "restart": 6, "returncode": 0, "status": "PASS", "threads_
+per_rank": 8, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wall_sec
+onds": 1.502776482142508}
+{"cache": "cache_E4_mg2x2x2x1.h5", "coarse_calls": 36, "coarse_max_iter": 200, "coarse_
+tol_factor": 0.1, "converged": true, "deflate": true, "dof": 4, "fine_calls": 34, "grid
+": [1, 1, 1, 16], "label": "r8_e4_t16", "mg_grid": [2, 2, 2, 1], "process_seconds": 7.3
+10758130857721, "ranks": 16, "restart": 8, "returncode": 0, "status": "PASS", "threads_
+per_rank": 8, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wall_sec
+onds": 0.957014243118465}
+{"cache": "cache_E4_mg2x2x2x1.h5", "coarse_calls": 54, "coarse_max_iter": 200, "coarse_
+tol_factor": 0.1, "converged": true, "deflate": true, "dof": 4, "fine_calls": 37, "grid
+": [1, 1, 1, 8], "label": "r5_e4_t8", "mg_grid": [2, 2, 2, 1], "process_seconds": 7.352
+3880548309535, "ranks": 8, "restart": 5, "returncode": 0, "status": "PASS", "threads_pe
+r_rank": 16, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wall_seco
+nds": 1.5986829430330545}
+{"cache": "cache_E4_mg2x2x2x1.h5", "coarse_calls": 54, "coarse_max_iter": 200, "coarse_
+tol_factor": 0.1, "converged": true, "deflate": true, "dof": 4, "fine_calls": 37, "grid
+": [1, 1, 2, 8], "label": "r5_e4_zt16", "mg_grid": [2, 2, 2, 1], "process_seconds": 7.8
+30114017939195, "ranks": 16, "restart": 5, "returncode": 0, "status": "PASS", "threads_
+per_rank": 8, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wall_sec
+onds": 1.0604635819327086}
+{"cache": "cache_E4_mg2x2x2x1.h5", "coarse_calls": 54, "coarse_max_iter": 200, "coarse_
+tol_factor": 0.1, "converged": true, "deflate": true, "dof": 4, "fine_calls": 37, "grid
+": [1, 1, 2, 16], "label": "r5_e4_zt32", "mg_grid": [2, 2, 2, 1], "process_seconds": 8.
+609670779900625, "ranks": 32, "restart": 5, "returncode": 0, "status": "PASS", "threads
+_per_rank": 4, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wall_se
+conds": 0.9136753659695387}
+{"cache": "cache_E4_mg2x2x2x1.h5", "coarse_calls": 54, "coarse_max_iter": 200, "coarse_
+tol_factor": 0.1, "converged": true, "deflate": true, "dof": 4, "fine_calls": 37, "grid
+": [1, 1, 4, 8], "label": "r5_e4_z4t32", "mg_grid": [2, 2, 2, 1], "process_seconds": 9.
+356727090198547, "ranks": 32, "restart": 5, "returncode": 0, "status": "PASS", "threads
+_per_rank": 4, "timed_out": false, "true_mg_gate": "PASS", "verify_status": 0, "wall_se
+conds": 1.014559610048309}
+

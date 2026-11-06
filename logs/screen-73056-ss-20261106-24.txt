@@ -1,0 +1,54 @@
+440: iterations=2 residual=211.814 target=0.372337
+442: iterations=2 residual=211.814 target=0.372337
+444: iterations=2 residual=211.814 target=0.372337
+446: iterations=2 residual=211.814 target=0.372337
+448: iterations=2 residual=211.814 target=0.372337
+450: iterations=2 residual=211.814 target=0.372337
+452: iterations=2 residual=211.814 target=0.372337
+454: iterations=2 residual=211.814 target=0.372337
+456: iterations=2 residual=211.814 target=0.372337
+458: iterations=2 residual=211.814 target=0.372337
+460: iterations=2 residual=211.814 target=0.372337
+462: iterations=2 residual=211.814 target=0.372337
+464: iterations=2 residual=211.814 target=0.372337
+466: iterations=2 residual=211.814 target=0.372337
+468: iterations=2 residual=211.814 target=0.372337
+470: iterations=2 residual=211.814 target=0.372337
+472: iterations=2 residual=211.814 target=0.372337
+474: iterations=2 residual=211.814 target=0.372337
+476: iterations=2 residual=211.814 target=0.372337
+478: iterations=2 residual=211.814 target=0.372337
+480: iterations=2 residual=211.814 target=0.372337
+482: coarsest level=1 iterations=9 residual=0.000541698 target=0.000859871
+484: coarsest level=1 iterations=9 residual=0.000541698 target=0.000859871
+486: coarsest level=1 iterations=9 residual=0.000541698 target=0.000859871
+488: coarsest level=1 iterations=9 residual=0.000541698 target=0.000859871
+490: coarsest level=1 iterations=9 residual=0.000541698 target=0.000859871
+492: coarsest level=1 iterations=9 residual=0.000541698 target=0.000859871
+494: coarsest level=1 iterations=9 residual=0.000541698 target=0.000859871
+496: coarsest level=1 iterations=9 residual=0.000541698 target=0.000859871
+498: coarsest level=1 iterations=9 residual=0.000541698 target=0.000859871
+500: coarsest level=1 iterations=9 residual=0.000541698 target=0.000859871
+502: coarsest level=1 iterations=9 residual=0.000541698 target=0.000859871
+504: coarsest level=1 iterations=9 residual=0.000541698 target=0.000859871
+506: coarsest level=1 iterations=9 residual=0.000541698 target=0.000859871
+508: coarsest level=1 iterations=9 residual=0.000541698 target=0.000859871
+510: coarsest level=1 iterations=9 residual=0.000541698 target=0.000859871
+512: coarsest level=1 iterations=9 residual=0.000541698 target=0.000859871
+514: coarsest level=1 iterations=9 residual=0.000541698 target=0.000859871
+516: coarsest level=1 iterations=9 residual=0.000541698 target=0.000859871
+518: coarsest level=1 iterations=9 residual=0.000541698 target=0.000859871
+520: coarsest level=1 iterations=9 residual=0.000541698 target=0.000859871
+522: coarsest level=1 iterations=9 residual=0.000541698 target=0.000859871
+524: coarsest level=1 iterations=9 residual=0.000541698 target=0.000859871
+526: coarsest level=1 iterations=9 residual=0.000541698 target=0.000859871
+528: coarsest level=1 iterations=9 residual=0.000541698 target=0.000859871
+530: coarsest level=1 iterations=9 residual=0.000541698 target=0.000859871
+532: coarsest level=1 iterations=9 residual=0.000541698 target=0.000859871
+534: coarsest level=1 iterations=9 residual=0.000541698 target=0.000859871
+536: coarsest level=1 iterations=9 residual=0.000541698 target=0.000859871
+538: coarsest level=1 iterations=9 residual=0.000541698 target=0.000859871
+540: coarsest level=1 iterations=9 residual=0.000541698 target=0.000859871
+542: coarsest level=1 iterations=9 residual=0.000541698 target=0.000859871
+544: coarsest level=1 iterations=9 residual=0.000541698 target=0.000859871
+(base) nsls_yangyb@login02:~$

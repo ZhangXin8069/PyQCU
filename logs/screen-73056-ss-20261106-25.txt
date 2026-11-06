@@ -1,0 +1,54 @@
+ iterations=1 residual=620.646 target=0.372337
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ coarsest level=1 iterations=8 residual=0.00202051 target=0.00218411
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ coarsest level=1 iterations=8 residual=0.00202051 target=0.00218411
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ coarsest level=1 iterations=8 residual=0.00202051 target=0.00218411
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ coarsest level=1 iterations=8 residual=0.00202051 target=0.00218411
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ coarsest level=1 iterations=8 residual=0.00202051 target=0.00218411
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ coarsest level=1 iterations=8 residual=0.00202051 target=0.00218411
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ coarsest level=1 iterations=8 residual=0.00202051 target=0.00218411
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ coarsest level=1 iterations=8 residual=0.00202051 target=0.00218411
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ coarsest level=1 iterations=8 residual=0.00202051 target=0.00218411
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ coarsest level=1 iterations=8 residual=0.00202051 target=0.00218411
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ coarsest level=1 iterations=8 residual=0.00202051 target=0.00218411
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ coarsest level=1 iterations=8 residual=0.00202051 target=0.00218411
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ coarsest level=1 iterations=8 residual=0.00202051 target=0.00218411
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ coarsest level=1 iterations=8 residual=0.00202051 target=0.00218411
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ coarsest level=1 iterations=8 residual=0.00202051 target=0.00218411
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ coarsest level=1 iterations=8 residual=0.00202051 target=0.00218411
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ coarsest level=1 iterations=8 residual=0.00202051 target=0.00218411
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ coarsest level=1 iterations=8 residual=0.00202051 target=0.00218411
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ coarsest level=1 iterations=8 residual=0.00202051 target=0.00218411
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ coarsest level=1 iterations=8 residual=0.00202051 target=0.00218411
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ coarsest level=1 iterations=8 residual=0.00202051 target=0.00218411
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ coarsest level=1 iterations=8 residual=0.00202051 target=0.00218411
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ coarsest level=1 iterations=8 residual=0.00202051 target=0.00218411
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ coarsest level=1 iterations=8 residual=0.00202051 target=0.00218411
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ coarsest level=1 iterations=8 residual=0.00202051 target=0.00218411
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ coarsest level=1 iterations=8 residual=0.00202051 target=0.00218411
+(base) nsls_yangyb@login02:~$

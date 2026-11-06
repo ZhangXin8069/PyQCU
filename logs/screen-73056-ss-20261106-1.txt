@@ -1,0 +1,54 @@
+Host key verification failed.
+PS C:\Users\zhang> ssh 10.44.9.4 -l nsls_yangyb
+The authenticity of host '10.44.9.4 (10.44.9.4)' can't be established.
+ED25519 key fingerprint is SHA256:DUcxv6m2GsdQszU1xemf9oRdmk+a8RCSAZJf7Sr9rjw.
+This key is not known by any other names.
+Are you sure you want to continue connecting (yes/no/[fingerprint])? yes
+Warning: Permanently added '10.44.9.4' (ED25519) to the list of known hosts.
+
+Authorized users only. All activities may be monitored and reported.
+nsls_yangyb@10.44.9.4's password:
+
+Authorized users only. All activities may be monitored and reported.
+Activate the web console with: systemctl enable --now cockpit.socket
+
+* HPCKit setting environment variables...
+
+* compiler setvars
+* hmpi setvars
+* kml setvars
+* kudnn setvars
+* kupl setvars
+* kuqcd setvars
+* kutacc setvars
+* hio setvars
+
+* HPCKit environment variables inited
+Conda Env: CONDA_SH=/work_ssd/software/soft/tool/anaconda3/2023.3/etc/profile.d/conda.s
+h
+Enable conda: source ${CONDA_SH}
+Conda Env: CONDARC=/work_ssd/software/soft/tool/anaconda3/2023.3/conda_config.yaml
+Conda Env: CONDA_CFG=/work_ssd/software/soft/tool/anaconda3/2023.3/conda_config.yaml
+HPCKIT_ENV: HPCKIT_BASEDIR=/work_ssd/software/soft/tool/hpckit/2026.1.RC1/HPCKit/26.1.R
+C1
+HPCKIT_ENV: HPCKIT_COM_BS=/work_ssd/software/soft/tool/hpckit/2026.1.RC1/HPCKit/26.1.RC
+1/compiler/bisheng
+HPCKIT_ENV: HPCKIT_COM_KGCC=/work_ssd/software/soft/tool/hpckit/2026.1.RC1/HPCKit/26.1.
+RC1/compiler/gcc
+HPCKIT_ENV: HPCKIT_HMPI=/work_ssd/software/soft/tool/hpckit/2026.1.RC1/HPCKit/26.1.RC1/
+hmpi
+HPCKIT_ENV: HPCKIT_KML=/work_ssd/software/soft/tool/hpckit/2026.1.RC1/HPCKit/26.1.RC1/k
+ml
+
+Loading cmake/2026.1.RC1
+  Loading requirement: hpckit/2026.1.RC1 bisheng/compiler5.2.0/bishengmodule
+    bisheng/hmpi26.1.RC1/release
+Currently Loaded Modulefiles:
+ 1) anaconda3/2023.3    3) bisheng/compiler5.2.0/bishengmodule   5) cmake/2026.1.RC1
+ 2) hpckit/2026.1.RC1   4) bisheng/hmpi26.1.RC1/release
+
+Key:
+auto-loaded
+###env.sh in /home/share/nsls_yangyb/PyQCU is sourcing...:2026-11-06-08-55-26###
+###env.sh in /home/share/nsls_yangyb/PyQCU is done......:2026-11-06-08-55-26###
+(base) nsls_yangyb@login02:~$
