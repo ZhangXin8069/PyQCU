@@ -1,0 +1,56 @@
+[日志元数据]
+日志类型: stage
+生成时间: 2026-11-06 10:35:51 +0800
+批次: kupl-hbm-20261106
+主任务: KUPL QCU-MG 24^3x64 c64 性能优化与 MG/BiCG 加速比验证
+触发原因: 阶段成果
+摘要: true-MG 阻尼修正通过；完成 grid/MG 参数/L8-L16/L32 尝试；L24 MG 对 BiCGStab 未显示加速
+Git 根目录: /Users/zhangxin/PyQCU
+
+## 关键日志
+### S1 — true-MG 阻尼修正
+- 修复 Legacy-MG cache 的 C-order 流式摘要，E4 L24 cache 四个张量远端全部一致。
+- 增加 KUPL_REQUIRE_MG_CORRECTION=1，禁止 levels=1/restart=0、fine-BiCG fallback 和无 accepted correction 的 MG 结果。
+- 增加 coarse correction damping line search：同一 coarse solve 结果依次尝试 1、0.5、0.25、0.125，只接受使 true residual 下降的步长。
+- 单 rank L24 damping gate：status=PASS，wall=7.52818155894056 s，fine_calls=49，coarse_calls=168，verify_status=0；独立真残差未在该 gate 完成，原因是 Python residual 超过 180 s。
+
+### S2 — L24 分格与 MG 参数扫描
+- true-MG L24 十种合法分格全部 PASS；登录节点最佳为 16 ranks x 8 threads，grid 1 1 1 16，wall=1.686342053115368 s；32-rank 最佳约 1.945269 s，未继续加速。
+- 参数扫描中 restart=5 明显优于 restart=1；coarse-tol-factor=10 在较安静窗口得到约 0.895 s，但后续共享登录节点出现外部 `nsls_yuf` 的 `mpirun -np 8 ./test`，同一参数退化到约 3-4 s，不能跨窗口拼接。
+- E2 tblock1 约 1.50 s；tblock4/tblock8 在 L24 更慢。E4 与 E2 未显示稳定的大幅优势。
+- 失败网格包含 L8/L16 的 `grid_t` 超过 coarse time extent，实际错误为 `coarse cache time extent is not divisible by grid_t`，属于几何拒绝，不是数值失败。
+
+### S3 — MG 对 BiCGStab 同窗 A/B
+- L24、24^3x64 c64、16 ranks x 8 threads、grid 1 1 1 16、同 gauge/RHS、atol=1e-4、max_iter=50。
+- BiCGStab wall samples: 2.2581948100、1.3411768670、1.1680135580、1.1376181268 s；中位 1.2545952125 s，16 iterations。
+- true-MG wall samples: 1.4172308461、1.3237245651、1.2846084340、1.3844922599 s；中位 1.3541084125 s，fine_calls=37、coarse_calls=29。
+- 中位加速比 BiCGStab/MG = 0.926510，即 MG 约慢 7.9%。按前后半窗分别计算为 1.31x 和 0.86x，显示共享节点负载漂移；当前证据不支持“MG 已加速”的结论。
+- 该 A/B 只证明 L24 登录节点当前配置无稳定 MG 优势，不能外推到计算节点或更大格子。
+
+### S4 — L32 尝试
+- 已从 `beta6.20_mu-0.2770_ms-0.2400_L32x64_cfg_11000.lime` 准备 32x32x32x64 c64 gauge/source，mass=-0.277、csw=1.160920226。
+- 1-rank L32 E1/tblock8 cache 构建在第 2 个 null-vector/stencil 阶段达到 10 分钟门限后被终止；没有生成 cache 或 report。
+- 32-rank L32 BiCGStab 在 grid 1 2 4 4、4 threads/rank 下运行超过 10 分钟且没有 report，按门限终止；没有把超时写成 PASS 或速度比。
+- 结论：L32 已准备好输入，但 setup/求解均受登录节点资源和共享负载限制，L32 true-MG 与 BiCGStab 比较仍 blocked。
+
+## 验证与证据
+- 测试/检查: cache C-order 回归 PASS；远端 C++ build PASS；true-MG damping gate PASS；L24 10 个合法网格 true-MG PASS；L8/L16 合法网格 true-MG PASS。
+- 未验证项: L32 cache、L32 MG/BiCG 结果、计算节点 HBM 页分布、计算节点 A/B、完整 CTest。
+- 风险: 登录节点有外部 `nsls_yuf` 的 8-rank 测试进程，短窗口样本存在明显漂移；所有性能数字必须带同窗/节点/rank/grid 证据。
+
+## 变更与产物
+- 文件: cpp/kupl/qcu/src/lattice_clover_multigrid.cpp、pyqcu/tools/_legacy_mg_cache.py、pyqcu/testing/simple/mpi/test_mpi_contract.py、cpp/kupl/qcu/tests/test_failure_modes.py。
+- 产物: data/kupl_hbm_opt_20261106/mg_damping_gate_L24_v2/results.json、mg_true_grid_sweep_L24_v1/results.json、mg_true_param_sweep_L24_v2/results.json、mg_true_param_sweep_L24_stage3_v1/results.json、mg_true_lattice_sweep_v1/results.json、l24_true_mg_vs_bicg_v1/results.json；L32 输入位于 data/production_L32_v1。
+- 未改动范围: 未绕过 dsub hook，未把 L32 超时或 fine fallback 记作成功。
+
+## 风险、限制与下一步
+- 计算节点提交仍被 hook 拒绝，当前没有新的 HBM 计算节点 A/B。
+- 下一步优先解决 L32 cache 构建（降低 null-vector 成本、改用分布式构建或更粗时间块），并在计算节点恢复后重跑 L24 A/B、L32 A/B 与独立真残差。
+- 需要继续检查 vectorized scalar-boundary kernel、MPI small-message reduction 和 coarse correction 成本；在得到稳定同窗优势前，不把 MG 设为生产默认。
+
+## Agent 全文报告
+--- report begin ---
+本轮完成了从 cache 摘要修复到 true-MG 验收的关键闭环：E4 cache 四个张量远端摘要一致，阻尼修正使 L24 true-MG 不再回退 fine-BiCG，单 rank gate PASS（wall 7.528 s，coarse_calls=168）。随后完成 L24 十种合法分格、L24 多组 restart/coarse budget/tolerance/E2-E4/time-block、以及 L8/L16 真实格子的 true-MG 扫描；L24 登录节点最佳合法网格为 16 ranks x 8 threads，约 1.686 s，32 ranks 未继续加速。
+
+关键负面结论是：同窗 L24 BiCGStab 中位 1.2546 s，true-MG 中位 1.3541 s，MG 反而慢约 7.9%；ABBA 前后半窗还出现明显负载漂移，因此不能宣称 MG 已获得稳定加速。L32 输入已从 1.2 GB LIME 准备为 32x32x32x64 c64 gauge/source，但 1-rank cache 构建和 32-rank BiCG 均在 10 分钟门限内未完成并已终止，L32 结果仍 blocked。外部 `nsls_yuf` 的 8-rank 测试进程与计算节点 dsub hook 拒绝共同限制了当前登录节点证据质量；下一步必须把 L32 setup、计算节点 A/B、HBM 页分布和独立真残差作为硬门，而不是继续跨窗口拼接短样本。
+--- report end ---

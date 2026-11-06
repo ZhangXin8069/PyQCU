@@ -155,6 +155,14 @@ struct LatticeGeometry {
     }
     return local[dim] - 1;
   }
+
+  int cartesian_rank(const std::array<int, kDim> &coordinate) const {
+    int value = 0;
+    for (int dim = 0; dim < kDim; ++dim) {
+      value = value * grid[dim] + coordinate[dim];
+    }
+    return value;
+  }
 };
 
 template <typename Real> struct GaugeHaloBuffer {

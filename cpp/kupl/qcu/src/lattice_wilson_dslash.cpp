@@ -41,6 +41,17 @@ inline bool use_t2_zblock_dslash() {
   return enabled;
 }
 
+inline bool use_ht2_tboundary_split() {
+  static const bool enabled = [] {
+    const char *text = std::getenv("KUPL_ENABLE_HT2_TBOUNDARY_SPLIT");
+    return text != nullptr && *text != '\0' && std::strcmp(text, "0") != 0 &&
+           std::strcmp(text, "false") != 0 &&
+           std::strcmp(text, "no") != 0 &&
+           std::strcmp(text, "off") != 0;
+  }();
+  return enabled;
+}
+
 template <typename Real, int Direction, int GammaSign>
 inline void transform_gamma(const Complex<Real> &v0,
                             const Complex<Real> &v1,
@@ -1120,8 +1131,12 @@ void LatticeSet<Real>::bare_dslash(Complex<Real> *output,
     return;
   }
   if (!profile) {
-    if (geometry_.grid[0] == 1 && geometry_.grid[1] == 1 &&
-        geometry_.grid[2] == 1 && geometry_.local[3] == 2) {
+    const bool split_t_boundary =
+        geometry_.grid[0] == 1 && geometry_.grid[1] == 1 &&
+        geometry_.grid[2] == 1 && !use_block_dslash(geometry_.half_sites) &&
+        (geometry_.local[3] == 2 ||
+         (geometry_.local[3] == 4 && use_ht2_tboundary_split()));
+    if (split_t_boundary) {
       post_fermion_halo(input, source_parity);
       compute_dslash_boundary_part(input, output, target, 1);
       if (!fermion_requests_.empty()) {
@@ -1171,7 +1186,9 @@ void LatticeSet<Real>::bare_dslash_dagger(Complex<Real> *output,
                                           int target) {
   const int source_parity = 1 - target;
   if (geometry_.grid[0] == 1 && geometry_.grid[1] == 1 &&
-      geometry_.grid[2] == 1 && geometry_.local[3] == 2) {
+      geometry_.grid[2] == 1 && !use_block_dslash(geometry_.half_sites) &&
+      (geometry_.local[3] == 2 ||
+       (geometry_.local[3] == 4 && use_ht2_tboundary_split()))) {
     post_fermion_halo(input, source_parity);
     compute_dslash_dagger_boundary_part(input, output, target, 1);
     if (!fermion_requests_.empty()) {

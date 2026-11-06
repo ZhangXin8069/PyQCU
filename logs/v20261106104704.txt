@@ -1,0 +1,44 @@
+[日志元数据]
+日志类型: general
+生成时间: 2026-11-06 10:47:04 +0800
+批次: kupl-hbm-20261106
+主任务: KUPL QCU-MG 24^3x64 c64 性能优化与 MG/BiCG 加速比验证
+触发原因: 一般记录
+摘要: L24 restart=10 true-MG 获得约 1.77x 同窗加速，独立真残差 PASS；全量 CTest 35/35
+Git 根目录: /Users/zhangxin/PyQCU
+
+## 关键日志
+### S1 — L24 restart=10 同窗 A/B
+- 配置: 24x24x24x64 c64，16 ranks x 8 threads，grid 1 1 1 16，E4 cache，mg-grid 2 2 2 1，coarse-tol-factor 10，coarse-max-iter 20，atol 1e-4，max-iter 50。
+- BiCGStab samples: 1.5286181832、1.2658674112、1.1714725632、1.5592493389 s；中位 1.3972427972 s，16 iterations。
+- true-MG samples: 0.7352904701、1.0648872082、0.7651098620、0.8144016580 s；中位 0.7897557600 s；fine_calls=32，coarse_calls=19。
+- 中位 BiCGStab/MG 加速比 1.7692087452x；均值比 1.6348271017x。MG 的 MAD 约 0.03956 s，仍受共享登录节点负载影响，不能替代计算节点验收。
+
+### S2 — 独立真残差门
+- 同配置 full-residual 运行：wall=1.0437915269 s，verify_status=0，独立 distributed NumPy full Wilson-Clover 真残差=6.8887275716e-5，acceptance=2.44140625e-4，status=PASS。
+- profile: total=1.040930 s，fine_apply=0.510984 s，coarse_apply=0.053131 s，coarse_correction=0.245657 s，full_residual=0.026787 s；fine_calls=32，coarse_calls=19。
+- 该结果证明当前 true-MG 路径不是 fine-BiCG fallback，并且比同窗 BiCGStab 有稳定正向加速；但距离 0.1 s 目标仍约 10x。
+
+### S3 — 全量回归
+- 命令: ctest --test-dir /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/build-t2zblock-generic --output-on-failure
+- 结果: 35/35 tests passed，0 failed，real 89.37 s。
+- 覆盖: KUPL Wilson/Clover、1/2/4-rank、multigrid、legacy-MG、failure modes、runtime benchmark、NUMA/profile contracts。
+
+### S4 — L32 状态
+- 32x32x32x64 c64 gauge/source 已成功准备。
+- 1-rank E1/tblock8 cache 构建和 32-rank BiCGStab 都在 10 分钟门限前未产出 report，已终止并审查；L32 MG/BiCG 比较仍 blocked。
+- 未把 L32 超时、L24 旧 fallback 或跨负载窗口样本写成加速结论。
+
+## 验证与证据
+- 测试/检查: full CTest 35/35；L24 r10 full residual PASS；同窗 A/B gate PASS。
+- 未验证项: 计算节点 HBM/算力实测、L32 cache/solve、计算节点 r10 A/B。
+- 环境: 登录节点存在外部 nsls_yuf 的 mpirun -np 8 ./test；dsub hook 仍拒绝新计算作业。
+
+## 变更与产物
+- 产物: data/kupl_hbm_opt_20261106/l24_true_mg_vs_bicg_r10_v1/results.json；l24_true_mg_r10_full_v1/report.json；build-t2zblock-generic。
+- 文档: skills/pyqcu-kupl/SKILL.md、skills/pyqcu-benchmark/SKILL.md、logs/kupl_hbm_opt_20261106.md 已同步修正。
+
+## 风险、限制与下一步
+- r10 加速是登录节点同窗结果，需在计算节点重复并补 HBM/算力、页分布证据。
+- L32 setup 仍是阻塞；下一步优先降低 null-vector/stencil 成本，或等待计算节点分配。
+- 目标 0.1 s 尚未达到，后续重点转向 scalar-boundary 内核、MPI small-message reduction 与 coarse correction 成本。

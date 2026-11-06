@@ -1,0 +1,114 @@
+[日志元数据]
+日志类型: stage
+生成时间: 2026-11-06 14:46:16 +0800
+批次: kupl-hbm-20261106
+主任务: KUPL QCU-MG 24^3x64 c64 性能优化与 MG/BiCGStab 加速比验证
+触发原因: 阶段成果
+摘要: 阶段性能简报：登录节点 true-MG 最低 0.947 s 且真残差 PASS，计算节点初始化异常仍阻断最终验收，L32 未验证
+Git 根目录: /Users/zhangxin/PyQCU
+
+## 关键日志
+
+### S1 - 目标与验收口径
+- 目标: 在 Kunpeng 计算节点把 KUPL QCU-MG 的真实 L24 c64（24x24x24x64）求解压到约 0.1 s，并确认 HBM 实际参与工作。
+- 对照: `levels=1`、`restart=0` 的 parity-Schur BiCGStab。
+- 正式 MG 门禁: `KUPL_REQUIRE_MG_CORRECTION=1`、`coarse_calls>0`、无 fine fallback、独立全 Wilson-Clover 真残差 PASS。
+- 当前终态: 未达到 0.1 s，不能标记完成；计算节点最终性能仍 blocked，原生 goal 仍为 blocked。
+
+### S2 - 当前性能进度
+- 登录节点当前最低绝对耗时: restart=50 full-residual run `wall=0.9473317482 s`，`verify_status=0`，独立残差 `5.5308248713e-5 < 2.44140625e-4`，PASS。
+- restart=50 只执行一次 coarse correction，应描述为 initial deflation + fine BiCGStab，不能描述为周期 V-cycle。
+- 同窗 restart=10 A/B: BiCGStab 中位 `1.39724 s`，true-MG 中位 `0.78976 s`，中位比值 `1.7692087452x`；full-residual companion `1.0437915269 s`，独立残差 `6.8887275716e-5`，PASS。
+- 同窗 restart=20 A/B: BiCGStab 中位 `1.2307832352 s`，true-MG 中位 `0.7051456925 s`，比值 `1.7454311192x`；`fine_calls=29`、`coarse_calls=9`。
+- 最近一次 t-only 16 ranks x 8 threads、`grid=1 1 1 16` 四样本窗口: BiCGStab 中位 `1.116278 s`，true-MG restart=20 中位 `1.037458 s`，中位比值 `1.075974x`；逐对波动范围 `0.7819-1.5859x`，只作方向性筛选。
+- 该窗口 restart=20 full-residual run: `wall=1.316182 s`，`verify_status=0`，`fine_calls=29`、`coarse_calls=9`，独立残差 `5.5308248713e-5`，PASS。
+- 当前最低绝对耗时距 0.1 s 目标仍约 `9.5x`。
+
+### S3 - 分格与 MG 参数筛选
+- `grid=1 1 1 16` 是当前唯一保留正 MG 信号的 L24 分格，但登录节点负载漂移大，仍需计算节点同窗复验。
+- `grid=1 1 2 8`: BiCGStab `1.844325 s`，true-MG `1.840493 s`，MG/BiCG 仅 `1.0021x`，无实际收益。
+- `grid=1 2 2 4`: BiCGStab `1.084889 s`，true-MG `1.250455 s`，MG 负收益，否决。
+- `grid=1 1 1 8`、8 ranks x 16 threads: BiCGStab `1.877938 s`，true-MG `1.586531 s`，劣于 t-only 16-rank，否决。
+- 16 CPU/rank 会稳定触发 `3.2-3.6 s` 性能悬崖，疑为 cpuset 跨 NUMA，未提升为生产配置。
+- `KUPL_ENABLE_HT2_TBOUNDARY_SPLIT=1` 保持 opt-in。BiCG 中位 `1.099630 -> 1.037594 s`，但 true-MG `0.902746 -> 1.041128 s`，约慢 15%，不得设为默认。
+- `KUPL_PROFILE_DSLASH=1` 的 t-only 16x8 BiCG profile: 70 calls，`halo=0.043621 s`、`interior=0.000038 s`、`wait=0.155443 s`、`boundary=0.325194 s`、总 dslash `0.524296 s`。主矛盾仍是 scalar boundary 与小消息同步，不是 HBM 压力。
+
+### S4 - 硬件带宽、算力与 roofline
+- 同一 608-core/16-domain 节点的标准 STREAM FP64 Triad: 单 domain、24 threads、HBM 为 `278.65 GB/s @1.55 GHz`、`319.23-337.31 GB/s @2.0 GHz`。
+- 全节点、576 threads、HBM 为 `5455.05-5475.92 GB/s @1.55 GHz`、`6790.91-6811.21 GB/s @2.0 GHz`。
+- 16 x 24 threads 的 HBM 汇总为推断值 `4.46-5.40 TB/s`，不是一次同时运行 384 threads 的实测样本。
+- 理论 FP32 SVE 峰值: 384 threads 为 `38.09-49.15 TFLOP/s`，608 threads 为 `60.31-77.82 TFLOP/s`。
+- y76 计算节点历史有效样本 `0.43456 s / 16 iterations / PASS`，按 34 次 Schur apply 模型折算 `60.51 GiB` 流量和 `86.63 GFLOP`，仅约 `149.5 GB/s`、`199.4 GFLOP/s`。
+- 对应硬件利用率约 `2.8-3.4%` HBM 和 `0.4-0.5%` FP32 SVE 上限，说明瓶颈是 scalar 指令/延迟/占用率，而不是带宽饱和。
+- 0.1 s 目标按同一悲观模型只需约 `650 GB/s` 和 `0.87 TFLOP/s`，低于实测 HBM 与理论算力上限，物理上可行；但必须降低 scalar boundary 成本、摊薄小消息同步并减少迭代。
+- 机读数据: `data/kupl_roofline_20261106.json`。
+
+### S5 - 计算节点与 HBM 诊断
+- `cn10579` 有 16 个 CPU NUMA 和 16 个 HBM NUMA，HBM 节点通常为 CPU 节点 `+16`。
+- 16-rank `hostname` 映射探针正常；`MPI_Comm_split_type + allgather` 正常，END `rc=0`，elapsed `0.240081 s`。
+- 16-rank `NUMA_BIND=0` prebind 正常，elapsed `2.846858 s`。
+- `NUMA_BIND=1 + MEMORY_POLICY=default + HUGEPAGE=0 + 8 threads`: `rank_elapsed=123.507486 s`。
+- `NUMA_BIND=1 + HBM bind + HUGEPAGE=0 + 8 threads`: `rank_elapsed=138.330014 s`。
+- `NUMA_BIND=1 + default memory + 4 threads`: `rank_elapsed=12.506517 s`。
+- 最新 init profile 中 `read-numa/gather/process-affinity/omp-team` 各约 `0.09-0.62 s`，主要延迟不在这里，疑似位于 `register_lattice_set()` 构造或 `applyEndQcu()` 析构。
+- 16/32-rank solver 作业多次达到 10 分钟门禁仍无 case report，均通过同队列本账号 kill-job 路径终止，`jobExitCode=143`；未绕过 host-key，未操作其他用户进程。
+- 32 ranks x 4 threads、`grid=1 1 1 32` 作业 `2050223` 在 540 s 内无 report，不能作为性能结果。
+- 计算节点拓扑日志已多次显示唯一 cpuset、`memory_policy=bind` 和对应 HBM node；但当前代码尚未完成一次可计时的计算节点求解，因此不能把拓扑成功等同于端到端 HBM 性能验收。
+- 远端 `h5py 3.7.0` 的 `get_config().mpi == False`；`KUPL_HDF5_MPIO_READ=1` 必须 fail closed，未在远端验证。
+- 连续 rank slab fallback 在登录节点读速为 gauge `0.0962 s`、source `0.0096 s`，证明 slab 路径本身快，但不能证明计算节点 MPI/初始化健康。
+- slab cache 必须绑定固定 `(lattice, grid)`，禁止跨 rank/grid 复用。
+
+### S6 - L32 验证状态
+- 已准备 `32x32x32x64` c64 gauge/source 输入，来源为 `beta6.20_mu-0.2770_ms-0.2400_L32x64_cfg_11000.lime`。
+- 1-rank E1/tblock8 cache build 和 32-rank L32 BiCGStab 均在 10 分钟门禁内无 report 后被终止。
+- L32 true-MG、L32 BiCGStab、L32 MG/BiCG 加速比均未验证，不能形成 L32 性能结论。
+- 下一步必须降低 null-vector/stencil setup 成本，或使用已验证的分布式 cache builder。
+
+### S7 - 本阶段代码与文档变更
+- `cpp/kupl/qcu/src/lattice_wilson_dslash.cpp`: 新增默认关闭的 `KUPL_ENABLE_HT2_TBOUNDARY_SPLIT=1`。
+- `cpp/kupl/qcu/src/lattice_cpu.cpp`: 新增 `KUPL_PROFILE_INIT` 分阶段计时。
+- `cpp/kupl/qcu/src/apply_init.cpp`: 新增 `PYQCU_KUPL_PROFILE_INIT` register 计时。
+- `cpp/kupl/qcu/src/apply_end.cpp`: 新增 erase/析构计时。
+- `pyqcu/testing/simple/kupl_multigrid.py`: 新增 slab 输入、MPIO fail-closed 和 gauge/source 读取计时。
+- `pyqcu/testing/simple/prepare_mpi_slab.py`: 新增固定 lattice/grid 的连续 rank slab 工具。
+- `pyqcu/testing/simple/test_prepare_mpi_slab.py`: 新增契约测试。
+- 文档与技能已同步: `COMMAND_REFERENCE.md`、`USER_GUIDE.md`、`README.md`、`skills/pyqcu-kupl/SKILL.md`、`skills/pyqcu-benchmark/SKILL.md`、`logs/kupl_hbm_opt_20261106.md`。
+
+## 验证与证据
+- 测试/检查: 既有阶段记录中的重建 KUPL CTest 为 `35/35` PASS，覆盖 1/2/4-rank MG、legacy MG、failure modes、runtime benchmark、NUMA/profile contracts。
+- 数值门: restart=10、restart=20、restart=50 的代表性 full-residual run 均有 `verify_status=0`、`coarse_calls>0`、独立残差低于 `2.44140625e-4`。
+- 性能门: 尚未达到 `0.1 s`；最低登录节点绝对耗时为 `0.9473317482 s`。
+- 计算节点门: 当前代码尚无有效、可重复、带独立残差的求解报告，最终 HBM 性能未验收。
+- 未验证项: 计算节点 restart=20/50 与 BiCGStab 同窗 A/B、当前代码的 live `numa_maps/numastat`、远端 HDF5 MPIO、L32 true-MG/BiCG/加速比。
+- 环境限制: 登录节点负载漂移显著；16 CPU/rank 存在性能悬崖；`KUPL_NUMA_BIND=1` 外层与库内绑定冲突可导致挂起。
+
+## 变更与产物
+- 当前阶段报告: `logs/kupl_hbm_opt_20261106.md`。
+- roofline 数据: `data/kupl_roofline_20261106.json`。
+- 关键结果目录: `data/kupl_hbm_opt_20261106/l24_true_mg_vs_bicg_r10_v1`、`l24_true_mg_vs_bicg_r20_v1`、`l24_true_mg_vs_bicg_r50_v1`、`l24_true_mg_r50_full_v1`。
+- 远端控制: screen `73056.ss`，当前在 `login02`；`djob -ll` 是权威作业状态路径。
+- 未改动范围: 未删除用户文件，未执行 force push/历史改写，未修改系统级配置，未绕过 scheduler 或 host-key，未操作其他用户进程。
+
+## 风险、限制与下一步
+- 风险: 把 restart=50 的一次 deflation 误写成周期 MG；把登录节点筛选值误写成计算节点最终值；把拓扑绑定成功误写成 HBM 端到端性能通过。
+- 当前阻塞: `KUPL_NUMA_BIND=1` 在 16-rank x 8-thread 下出现 123-138 s 初始化异常，且构造/析构阶段计时变量尚未统一。
+- 下一步 1: 统一 `KUPL_PROFILE_INIT` 与 `PYQCU_KUPL_PROFILE_INIT` 环境变量，重跑 16x8 prebind，读取 `INIT_APPLY stage=register/erase`，确认耗时位于构造还是析构。
+- 下一步 2: 若 register 慢，继续二分 `geometry/make_geometry`、`allocate_scratch`、`boundary_sites`；若 erase 慢，检查析构释放与页回收。
+- 下一步 3: 修复初始化阻塞后，在计算节点完成 restart=20/50 与 BiCGStab 同窗 A/B、独立真残差、HBM 页分布和标准 STREAM/算力复验。
+- 下一步 4: 最后处理 L32 分布式 cache 构建成本，再补 L32 true-MG、BiCGStab 和加速比。
+
+## Agent 全文报告
+
+--- report begin ---
+当前阶段尚未达到 0.1 s 目标，但已形成可审计的性能方向。
+
+L24 c64 的 true-MG 在登录节点已多次通过正式门禁。当前最低绝对耗时是 restart=50 的 `0.9473317482 s`，独立真残差 `5.5308248713e-5`，低于 `2.44140625e-4`；但它只执行一次 coarse correction，不能当作周期 V-cycle。restart=10 和 restart=20 的同窗 A/B 分别观察到约 `1.77x`、`1.75x` 中位加速，最近一次四样本窗口仍为正向但波动较大。`grid=1 1 1 16` 是唯一保留正信号的 L24 分格，`1 1 2 8`、`1 2 2 4`、8-rank x 16-thread 均被否决。`ht=2` boundary split 对 BiCG 略正向，但使 true-MG 中位慢约 15%，保持 opt-in。
+
+硬件对比表明瓶颈不是 HBM 饱和。y76 的 `0.43456 s` 计算节点样本按同一流量模型仅约 `149.5 GB/s`、`199.4 GFLOP/s`，约为 384-thread HBM 上限的 `2.8-3.4%`、FP32 SVE 上限的 `0.4-0.5%`。0.1 s 目标只需约 `650 GB/s` 和 `0.87 TFLOP/s`，低于实测硬件上限。因此后续必须攻击 scalar boundary、MPI wait 和小消息同步，而不是继续增加带宽压力。
+
+计算节点仍未完成当前代码的有效计时。16-rank 拓扑、cpuset、HBM bind 和短 MPI split probe 正常，但 `KUPL_NUMA_BIND=1` 在 8 threads 下出现 123-138 s 初始化异常；多个 16/32-rank 作业达到 10 分钟门禁仍无 report，已按同队列本账号路径终止并记录 exit 143。连续 rank slab 已把登录节点输入读取降到约 `0.0962/0.0096 s`，但远端 h5py 无 MPI-IO，且 slab 成功不能替代计算节点 MPI/初始化健康证明。
+
+L32 输入已准备，但 cache builder 和 32-rank BiCGStab 均超时终止，因此 L32 true-MG、BiCGStab 和加速比仍未验证。正式记录位于 `logs/kupl_hbm_opt_20261106.md`，机读 roofline 位于 `data/kupl_roofline_20261106.json`。
+
+唯一下一步是先统一 init profile 环境变量，定位 123-138 s 延迟发生在 `register_lattice_set()` 构造还是 `applyEndQcu()` 析构，再恢复计算节点同窗 A/B、HBM 页分布和标准硬件性能复验。
+--- report end ---

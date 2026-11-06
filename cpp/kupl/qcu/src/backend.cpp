@@ -1,9 +1,12 @@
 #include "kupl/lattice_set.h"
 #include "kupl/lattice_halo.h"
+#include "kupl/lattice_cpu.h"
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
+#include <cstdio>
 #include <cstdint>
 #include <limits>
 #include <stdexcept>
@@ -12,14 +15,33 @@ namespace kupl::qcu {
 
 template <typename Real>
 LatticeSet<Real>::LatticeSet(const int32_t *params, const Real *argv)
-    : geometry_(make_geometry(params)), threads_(configured_threads()) {
+    : threads_(1) {
+  const bool profile = init_profile_enabled();
+  const auto started = std::chrono::steady_clock::now();
+  const auto mark = [&](const char *stage) {
+    if (!profile) {
+      return;
+    }
+    const double elapsed = std::chrono::duration<double>(
+        std::chrono::steady_clock::now() - started).count();
+    std::fprintf(stderr,
+                 "PYQCU::KUPL::LATTICE_SET_PROFILE: stage=%s elapsed=%.6f\n",
+                 stage, elapsed);
+  };
+  mark("constructor-start");
+  threads_ = configured_threads();
+  mark("threads");
+  geometry_ = make_geometry(params);
+  mark("geometry");
   std::copy(params, params + kParamsSize, parameters_.ints.begin());
   std::copy(argv, argv + kArgvSize, parameters_.reals.begin());
   const int data_type = parameters_.get(kDataType);
   if (data_type != kLatC64 && data_type != kLatC128) {
     throw std::runtime_error("KUPL supports only c64 and c128");
   }
+  mark("parameters");
   allocate_scratch();
+  mark("allocate-scratch");
   log("INIT",
       "rank=%d size=%d grid=%d,%d,%d,%d local=%d,%d,%d,%d "
       "threads=%d csw=%g",
@@ -279,6 +301,18 @@ void LatticeSet<Real>::laplacian(void *out, const void *in,
 }
 
 template <typename Real> void LatticeSet<Real>::allocate_scratch() {
+  const bool profile = init_profile_enabled();
+  const auto started = std::chrono::steady_clock::now();
+  const auto mark = [&](const char *stage) {
+    if (!profile) {
+      return;
+    }
+    const double elapsed = std::chrono::duration<double>(
+        std::chrono::steady_clock::now() - started).count();
+    std::fprintf(stderr,
+                 "PYQCU::KUPL::SCRATCH_PROFILE: stage=%s elapsed=%.6f\n",
+                 stage, elapsed);
+  };
   const auto advise = [](auto &field) {
     advise_large_pages(field.data(), field.size() * sizeof(field[0]));
   };
@@ -305,6 +339,7 @@ template <typename Real> void LatticeSet<Real>::allocate_scratch() {
         advise(laplacian_gauge_recv_[offset]);
       }
     }
+    mark("halo-scratch");
     return;
   }
   for (int dim = 0; dim < kDim; ++dim) {
@@ -380,6 +415,7 @@ template <typename Real> void LatticeSet<Real>::allocate_scratch() {
       }
     }
   }
+  mark("halo-scratch");
   boundary_sites_.clear();
   boundary_sites_.reserve(static_cast<std::size_t>(geometry_.half_sites / 4));
   for (int64_t linear = 0; linear < geometry_.half_sites; ++linear) {
@@ -395,6 +431,7 @@ template <typename Real> void LatticeSet<Real>::allocate_scratch() {
       boundary_sites_.push_back(linear);
     }
   }
+  mark("boundary-sites");
 }
 
 template <typename Real> void LatticeSet<Real>::ensure_solver_scratch() {

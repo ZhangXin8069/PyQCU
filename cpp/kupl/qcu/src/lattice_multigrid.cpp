@@ -197,9 +197,7 @@ int LatticeSet<Real>::coarse_peer(int direction) const {
           geometry_.grid[dim];
     }
   }
-  int peer = geometry_.rank;
-  MPI_Cart_rank(geometry_.comm, coordinate.data(), &peer);
-  return peer;
+  return geometry_.cartesian_rank(coordinate);
 }
 
 template <typename Real>

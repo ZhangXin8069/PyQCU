@@ -1,12 +1,27 @@
 #include "kupl/lattice_geometry.h"
+#include "kupl/lattice_cpu.h"
 #include "kupl/lattice_set.h"
 
+#include <chrono>
+#include <cstdio>
 #include <stdexcept>
 #include <utility>
 
 namespace kupl::qcu {
 
 LatticeGeometry make_geometry(const int32_t *params) {
+  const bool profile = init_profile_enabled();
+  const auto started = std::chrono::steady_clock::now();
+  const auto mark = [&](const char *stage) {
+    if (!profile) {
+      return;
+    }
+    const double elapsed = std::chrono::duration<double>(
+        std::chrono::steady_clock::now() - started).count();
+    std::fprintf(stderr,
+                 "PYQCU::KUPL::GEOMETRY_PROFILE: stage=%s elapsed=%.6f\n",
+                 stage, elapsed);
+  };
   LatticeGeometry geometry;
   int initialized = 0;
   MPI_Initialized(&initialized);
@@ -49,6 +64,7 @@ LatticeGeometry make_geometry(const int32_t *params) {
     throw std::runtime_error(
         "process-grid product does not equal MPI_COMM_WORLD size");
   }
+  mark("validated");
 
   MPI_Comm base_comm = MPI_COMM_WORLD;
   bool free_base_comm = false;
@@ -63,18 +79,36 @@ LatticeGeometry make_geometry(const int32_t *params) {
     }
     free_base_comm = true;
   }
-  const int periods[kDim] = {1, 1, 1, 1};
-  const int cart_status = MPI_Cart_create(
-      base_comm, kDim, geometry.grid.data(), periods, 0, &geometry.comm);
+  mark("base-comm");
+  const int duplicate_status = MPI_Comm_dup(base_comm, &geometry.comm);
   if (free_base_comm) {
     MPI_Comm_free(&base_comm);
   }
-  if (cart_status != MPI_SUCCESS) {
-    throw std::runtime_error("MPI_Cart_create failed");
+  if (duplicate_status != MPI_SUCCESS) {
+    throw std::runtime_error("MPI_Comm_dup failed for lattice geometry");
   }
   MPI_Comm_size(geometry.comm, &geometry.size);
   MPI_Comm_rank(geometry.comm, &geometry.rank);
-  MPI_Cart_coords(geometry.comm, geometry.rank, kDim, geometry.coord.data());
+  mark("comm-duplicate");
+
+  int64_t stride = 1;
+  for (int dim = kDim - 1; dim >= 0; --dim) {
+    geometry.coord[dim] = static_cast<int>(
+        (geometry.rank / stride) % geometry.grid[dim]);
+    geometry.neighbor_minus[dim] =
+        geometry.rank +
+        (((geometry.coord[dim] + geometry.grid[dim] - 1) %
+          geometry.grid[dim]) -
+         geometry.coord[dim]) *
+            static_cast<int>(stride);
+    geometry.neighbor_plus[dim] =
+        geometry.rank +
+        (((geometry.coord[dim] + 1) % geometry.grid[dim]) -
+         geometry.coord[dim]) *
+            static_cast<int>(stride);
+    stride *= geometry.grid[dim];
+  }
+  mark("coordinates");
 
   const int64_t time_extent =
       geometry.laplacian ? 1 : geometry.local[3] / 2;
@@ -87,8 +121,6 @@ LatticeGeometry make_geometry(const int32_t *params) {
         dim == 3 ? (geometry.laplacian ? 1 : geometry.local[3] / 2)
                  : geometry.local[dim];
     geometry.face_sites[dim] = geometry.half_sites / extent;
-    MPI_Cart_shift(geometry.comm, dim, 1, &geometry.neighbor_minus[dim],
-                   &geometry.neighbor_plus[dim]);
   }
   for (int dim0 = 0; dim0 < kDim; ++dim0) {
     for (int dim1 = dim0 + 1; dim1 < kDim; ++dim1) {
@@ -102,6 +134,7 @@ LatticeGeometry make_geometry(const int32_t *params) {
           geometry.half_sites / (extent0 * extent1);
     }
   }
+  mark("metadata");
   return geometry;
 }
 
