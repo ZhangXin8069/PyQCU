@@ -43,6 +43,7 @@
 # 4. Ignore hidden files and directories
 # ==================================================
 .*
+pyqcu/*.cpp
 
 # ==================================================
 # 5. Keep common files and directories
