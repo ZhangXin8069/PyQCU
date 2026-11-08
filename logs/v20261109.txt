@@ -266,3 +266,7 @@ Solver guide update (2026-11-09)
   docs/skills references now use five pages.
 - docs_examples: 26 ok / 8 skipped / 0 failed; release_check --offline:
   12/12; Sphinx en/zh -W: exit 0; bilingual blocks match.
+- Commit 129d5c2; local, GitLab, Gitee, and GitHub main all point to
+  129d5c2a49c7c39998323bf59d3a57b2f4fd110d.
+- RTD en/latest/solvers.html and zh-cn/latest/solvers.html return HTTP 200;
+  titles are "Solvers — PyQCU 0.1.1" and "求解器 — PyQCU（中文文档） 0.1.1".
