@@ -94,7 +94,7 @@ mpirun -np 4 python pyqcu/testing/python/conftest.py       # single file with MP
 
 ```bash
 python -m pyqcu.testing.release_check --offline      # 本次 12/12
-python -m pyqcu.testing.docs_examples --keep-going   # 18 ok / 2 skipped / 0 failed
+python -m pyqcu.testing.docs_examples --keep-going   # 26 ok / 8 skipped / 0 failed
 python -B -m pytest -q -p no:cacheprovider \
   pyqcu/testing/dcu/test_install_selection.py \
   pyqcu/testing/kupl/test_pure_kupl_install.py       # 打包契约 9 passed

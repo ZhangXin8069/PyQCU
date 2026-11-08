@@ -67,6 +67,7 @@ python -m pyqcu --json
 ## See also
 
 * {doc}`usage` for operators, smearing, solvers, and HDF5 round-trips.
+* {doc}`solvers` for choosing iterative, multigrid, and native solver paths.
 * {doc}`install` for installation, native build variables, and verification.
 * {doc}`performance` for historical cross-platform measurements and their
   reproducibility status.

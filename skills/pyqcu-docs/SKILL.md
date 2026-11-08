@@ -48,7 +48,7 @@ metadata:
   两份配置在 RTD 网页按语言分别指定。
 - `docs/.gitignore` 必须用 `!en/`、`!en/**`、`!zh/`、`!zh/**` 保住源目录；用
   `**/` 把 en/zh 整个忽略，RTD 看到的就是一个没有文档的仓库。
-- 每侧 `index.rst` + `overview.md`/`usage.md`/`performance.md`/`install.md`，正文是
+- 每侧 `index.rst` + `overview.md`/`usage.md`/`solvers.md`/`performance.md`/`install.md`，正文是
   MyST；`conf.py` 不 import `pyqcu`；zh 侧 `language = "zh_CN"`（Sphinx locale）与
   站点 URL 的 `zh-cn`（RTD 翻译 slug）是两个名字，不能互换。
 - 构建门（四条都要过）：
@@ -61,7 +61,8 @@ python -m pyqcu.testing.release_check --offline   # 已包含双站 -W
 ```
 
 - 中英围栏块逐字节一致（`python` 与 `bash` 都比）；每个 python 块要有 `assert` 或
-  `# docs-skip`/`# pseudo-code`；0.1.1 基线 18 ok / 2 skipped / 0 failed。
+  `# docs-skip`/`# pseudo-code`；加入 `solvers.md` 后基线 26 ok / 8 skipped /
+  0 failed。
 - 版本同步点：`docs/{en,zh}/conf.py` 的 `release`、`install.md` 的 `pyqcu==<ver>`
   和两处版本断言、`overview.md` 的版本号随发布版本一起改；漏改 `install.md` 会让
   `docs_examples` 直接失败，不是外观问题。

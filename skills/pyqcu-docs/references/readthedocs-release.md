@@ -4,7 +4,7 @@
 站点结构、本地构建门、`release_check` 联动、版本同步点和远端排障。
 
 来源：`docs/en/.readthedocs.yaml`、`docs/zh/.readthedocs.yaml`、`docs/{en,zh}/conf.py`、
-`docs/{en,zh}/index.rst`、`docs/{en,zh}/{overview,usage,performance,install}.md`、
+`docs/{en,zh}/index.rst`、`docs/{en,zh}/{overview,usage,solvers,performance,install}.md`、
 `docs/.gitignore`、`pyqcu/testing/docs_examples.py`、`pyqcu/testing/release_check.py`、
 `logs/v20261109.txt:145-167`。
 
@@ -80,10 +80,10 @@ git check-ignore -v docs/en/conf.py docs/zh/conf.py   # 期望无输出（exit 1
 
 ## 3. 站点结构
 
-- 每侧一套独立的 Sphinx 源：`index.rst` + `overview.md`、`usage.md`、`performance.md`、
-  `install.md` + `conf.py` + `requirements.txt`。
+- 每侧一套独立的 Sphinx 源：`index.rst` + `overview.md`、`usage.md`、`solvers.md`、
+  `performance.md`、`install.md` + `conf.py` + `requirements.txt`。
 - `index.rst` 只放站点标题、一句定位、`pip install pyqcu` 代码块和
-  `toctree`（`overview → usage → performance → install`，中英顺序一致）。
+  `toctree`（`overview → usage → solvers → performance → install`，中英顺序一致）。
 - 正文用 MyST Markdown；`conf.py` 用 `extensions = ["myst_parser"]`、
   `source_suffix = {".rst": "restructuredtext", ".md": "markdown"}`、
   `master_doc = "index"`、`html_theme = "sphinx_rtd_theme"`、
@@ -126,8 +126,8 @@ python -m pyqcu.testing.docs_examples --keep-going
 
   规则：每个 python 围栏块要么含 `assert `，要么标 `# docs-skip` / `# pseudo-code`。
   同一页的块共享命名空间并按页内顺序执行（前面的 `U`/`src`/`kappa` 供后面的块使用，
-  重命名会连带打断后续块）。0.1.1 基线：**18 ok / 2 skipped / 0 failed**（en+zh 共
-  20 个 python 块）。
+  重命名会连带打断后续块）。加入 `solvers.md` 后的基线：**26 ok / 8 skipped /
+  0 failed**（en+zh 共 34 个 python 块）。
 - 两个容易踩的匹配细节：块必须写成行首的 python 围栏（带 info-string 后缀或缩进就
   不会被收集）；未闭合围栏会让正则吞掉后续内容。`performance.md` 当前只有 bash 块，
   **bash 块从不被执行**，其中的命令路径只能靠人工复核。
@@ -158,7 +158,7 @@ python -m pyqcu.testing.release_check --online    # 追加 PyPI 与 RTD 探针
 
 ```bash
 for lang in en/latest zh-cn/latest; do
-  for page in overview usage performance install; do
+  for page in overview usage solvers performance install; do
     curl -fsS "https://pyqcu.readthedocs.io/$lang/$page.html" \
       | grep -o "<title>[^<]*</title>"            # 页面身份
   done

@@ -13,7 +13,7 @@ PyQCU 参考文档。
 
 `docs/en/` 与 `docs/zh/` 是 PyQCU Read the Docs 双语站点的唯一源文，各含
 `.readthedocs.yaml`、`conf.py`、`index.rst`、`requirements.txt` 与
-`overview.md`、`usage.md`、`performance.md`、`install.md` 四页。沿用 PyQCD 的
+`overview.md`、`usage.md`、`solvers.md`、`performance.md`、`install.md` 五页。沿用 PyQCD 的
 约定：站点根不设 `.readthedocs.yaml`，两份配置分别位于 `docs/en/` 与 `docs/zh/`，
 在 RTD 网页按语言指定；项目 slug 固定为 `pyqcu`。站点视角是已安装的
 `pip install pyqcu` 包，不引用仓库内 `pyqcu/testing` 路径；确需源码仓库的段落必须

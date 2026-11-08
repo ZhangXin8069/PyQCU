@@ -53,7 +53,8 @@ assert residual < 1e-3, residual
 
 纯 Wilson 算子可以传零 Clover 项，或走 Wilson-only 路径。
 `solver.bistabcg` 是 Torch 实现；CUDA/KUPL 的原生整次求解入口通过
-`pyqcu.solver.Krylov` 访问。
+`pyqcu.solver.Krylov` 访问。多重网格、原生 Krylov、cache 与 MPI 求解用法见
+{doc}`solvers`。
 
 ## Stout smearing
 

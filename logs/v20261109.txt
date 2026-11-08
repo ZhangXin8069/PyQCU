@@ -256,3 +256,13 @@ Final delivery (2026-11-09)
   (27 historical logs links + 2 existing skill-size findings);
   release_check --offline 12/12; git diff --check clean.
 - No tag was created; tag creation remains explicit-request only.
+
+Solver guide update (2026-11-09)
+--------------------------------
+- Added docs/en/solvers.md and docs/zh/solvers.md, covering Torch iterative
+  solvers, Torch Legacy/Strict multigrid, native CUDA/KUPL Krylov, native
+  multigrid wrappers, caches, MPI geometry, and acceptance.
+- index.rst toctree, docs_examples PAGES, release_check PAGES, and the
+  docs/skills references now use five pages.
+- docs_examples: 26 ok / 8 skipped / 0 failed; release_check --offline:
+  12/12; Sphinx en/zh -W: exit 0; bilingual blocks match.

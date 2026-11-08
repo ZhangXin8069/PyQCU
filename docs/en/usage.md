@@ -55,6 +55,7 @@ assert residual < 1e-3, residual
 For a pure Wilson operator, pass a zero Clover term or use the Wilson-only
 path. `solver.bistabcg` is the Torch implementation; the native CUDA/KUPL
 whole-solve entry points are reached through `pyqcu.solver.Krylov`.
+See {doc}`solvers` for multigrid, native Krylov, cache, and MPI solver usage.
 
 ## Stout smearing
 

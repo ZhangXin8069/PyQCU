@@ -13,5 +13,6 @@ CUDA/DCU/KUPL 加速的格点 QCD Dirac 算子与多重网格求解器。
 
    overview
    usage
+   solvers
    performance
    install

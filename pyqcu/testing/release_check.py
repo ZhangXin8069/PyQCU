@@ -23,7 +23,7 @@ import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-PAGES = ("overview", "usage", "performance", "install")
+PAGES = ("overview", "usage", "solvers", "performance", "install")
 BLOCK = re.compile(r"```[a-z]*\n(.*?)```", re.S)
 RESULT: list[tuple[str, bool, str]] = []
 
