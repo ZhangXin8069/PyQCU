@@ -1,4 +1,4 @@
-PyQCU 0.1.0 PyPI release log
+PyQCU PyPI release log (0.1.0 → 0.1.1)
 ============================
 
 Date: 2026-11-09
@@ -240,6 +240,19 @@ Local repeated-install matrix:
   KUPL 26 iterations / 2.2856e-7 / 0.1429 s, `pip check` clean.
 
 Offline release gate: 12/12 (adds sdist Chinese README to the previous 11).
-Skills: parallel sub-agents are writing the PyPI/RTD/form/tag/testing
-lessons into skills/; the final commit and dual-remote push follow after
-their audits pass.
+Skills: parallel sub-agents wrote the PyPI/RTD/form/tag/testing lessons into
+skills/; see the skills commit in Final delivery.
+
+Final delivery (2026-11-09)
+---------------------------
+- Release commit c5f63c1 (0.1.1 metadata, README.zh-CN, docs version sync).
+- Skills commit a1f5602 (pyqcu-pypi-release + docs/form/tag/testing lessons).
+- Pushed to GitLab origin and Gitee; Gitee -> GitHub mirror updated in about
+  10 s. Local, GitLab, Gitee, and GitHub main all point to
+  a1f56028e6bf266f71fa8c7fb763e74bb684ea3c.
+- RTD en/latest and zh-cn/latest return HTTP 200 with
+  "PyQCU 0.1.1 documentation" / "PyQCU（中文文档） 0.1.1 文档".
+- Post-commit gates: form audit PASS 36/36; docs/skills audit baseline 29
+  (27 historical logs links + 2 existing skill-size findings);
+  release_check --offline 12/12; git diff --check clean.
+- No tag was created; tag creation remains explicit-request only.
