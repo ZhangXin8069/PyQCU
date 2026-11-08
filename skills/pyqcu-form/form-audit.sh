@@ -63,6 +63,15 @@ while IFS=$'\t' read -r severity rule path message; do
         WARNING:FILE_WHITESPACE:docs/High-Performance*)
             allowed=$((allowed + 1))
             ;;
+        WARNING:DOC_EXTENSION:docs/en/*|\
+        WARNING:DOC_EXTENSION:docs/zh/*)
+            # docs/en and docs/zh are the Read the Docs site sources tracked in
+            # b63e779: conf.py, index.rst, requirements.txt and
+            # .readthedocs.yaml use Sphinx/RTD fixed filenames and cannot be
+            # renamed to .md.  They are site build inputs, not docs/ research
+            # reports; the per-language configs are the RTD convention.
+            allowed=$((allowed + 1))
+            ;;
         WARNING:TEST_LOCATION:skills/pyqcu-tag/tag-chain.test.sh)
             allowed=$((allowed + 1))
             ;;

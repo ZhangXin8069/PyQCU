@@ -24,7 +24,7 @@ PyQCU 项目专用技能库：每个技能一个子目录，内含 `SKILL.md`（
   工作流，不使用“完整生成 skill”一类实现摘要。
 - **篇幅契约**：`SKILL.md` 保持可扫描；达到 500 行前拆分到 `references/`。
   `AGENTS.md` 只做目录导航和硬边界，不复制 SKILL 正文。
-- **技能表同步约定（硬性）**：新增/更改技能必须同步下方技能表行与计数（当前 35/35），
+- **技能表同步约定（硬性）**：新增/更改技能必须同步下方技能表行与计数（当前 36/36），
   避免表格与实际脱节。
 - **命名约定（硬性）**：自用技能目录一律 `pyqcu-` 前缀（2026-10-15 全量改名完成），
   frontmatter `name` 必须与目录名逐字符一致。
@@ -46,7 +46,7 @@ frontmatter：name 与目录名一致 + description 写触发场景（何时使�
 可复现出处；tag 报告用 `git show <tag>:<path>` 引用，不写工作区 `logs/<tag>/...`
 持久路径，不写未验证内容。
 
-## 技能表（35/35）
+## 技能表（36/36）
 
 按域分组；每行用途是领域摘要，实际触发条件以各技能 frontmatter `description` 为准。2026-10-15 全量加 `pyqcu-`
 前缀，`cann.v2`/`cuda.v2`/`dtk`/`maca` 四个占位技能合并为 `pyqcu-cpp-containers`。
@@ -110,3 +110,4 @@ frontmatter：name 与目录名一致 + description 写触发场景（何时使�
 | `pyqcu-tag` | Git stab/dev/bug/test 标签管理、历史 follow 链校验与合法并行分支识别。 |
 | `pyqcu-md-tex-sync` | Markdown 唯一源、LaTeX 派生源与 XeLaTeX PDF 的同源生成；全文源快照、全附件 SHA256 清册、幂等哈希同步与全页渲染闸门。 |
 | `pyqcu-report` | PyQCU 中文科研汇报：横版 16:9 Beamer、竖版完整讲稿、PPTX、报告原图提取、公式/算法/图表编号与全页版式验收。 |
+| `pyqcu-pypi-release` | PyPI 发行链路：只发 sdist 的打包契约、版本同步与原生库落位、发布门与干净环境复验、Project links 与 RTD/三端镜像交接。 |

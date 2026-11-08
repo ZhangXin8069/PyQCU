@@ -311,6 +311,9 @@ mpirun -np 1 python -u conftest.py
 - 正式独立文档写 `docs/**`；当前任务日志和未归档阶段报告写 `logs/**`。
 - 阶段报告先提交并打 tag；后续清理提交再删除工作区副本，历史通过 tag 读取。
 - 数据/构建实体写 `data/**`；测试和可维护脚本写 `pyqcu/testing/**`。
+- 面向用户的发布站点是 `docs/en`、`docs/zh` 两套 Read the Docs 源；配置布局、构建门
+  （双站 `-W`、围栏块一致、`docs_examples` 断言）与版本同步点见
+  [`readthedocs-release.md`](readthedocs-release.md)，不要把站点命令写进本文件重复维护。
 - 技能新增内容前先判断它是否只是 `docs/**` 的完整副本；若是，改为来源映射。
 
 来源：`docs/ORGANIZATION.md:7-53`、`docs/AGENTS.md:8-80`。

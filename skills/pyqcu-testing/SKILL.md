@@ -1,6 +1,6 @@
 ---
 name: pyqcu-testing
-description: 当任务涉及 pyqcu.testing 集成测试、Strict MG 快速闸门、MPI/缓存/QIO 或显存验证时使用。
+description: 当任务涉及 pyqcu.testing 集成测试、发布验证（release gate）、Strict MG 快速闸门、MPI/缓存/QIO 或显存验证时使用。
 ---
 # pyqcu.testing
 
@@ -86,6 +86,100 @@ Null-vector quality diagnostic requires the explicit 10-dim block structure argu
 (cd pyqcu/testing && pytest .)                             # all conftest.py files
 mpirun -np 4 python pyqcu/testing/python/conftest.py       # single file with MPI
 ```
+
+## 发布验证（release gate）
+
+发布（PyPI 上传、RTD 文档、发布日志）前的固定闸门，全部在仓库根执行；任一项失败即停发布，
+不得用上一轮结果替代。本次发布的完整记录见 `logs/v20261109.txt`。
+
+```bash
+python -m pyqcu.testing.release_check --offline      # 本次 12/12
+python -m pyqcu.testing.docs_examples --keep-going   # 18 ok / 2 skipped / 0 failed
+python -B -m pytest -q -p no:cacheprovider \
+  pyqcu/testing/dcu/test_install_selection.py \
+  pyqcu/testing/kupl/test_pure_kupl_install.py       # 打包契约 9 passed
+python -B -m pytest -q -p no:cacheprovider \
+  pyqcu/testing/kupl/test_kupl_python.py \
+  pyqcu/testing/kupl/test_krylov_api.py \
+  pyqcu/testing/python/test_api_contract.py \
+  pyqcu/testing/python/test_krylov_api.py            # KUPL/API 29 passed
+```
+
+`release_check --offline` 的 12 项为 version、sdist exists、sdist no testing、sdist no
+binaries、sdist native sources（KUPL+CUDA 源码）、sdist no home paths、sdist Chinese
+README、twine check、bilingual blocks、docs examples、Sphinx en `-W`、Sphinx zh `-W`。
+检查项随打包契约增长（0.1.0 为 11/11，0.1.1 增加 `sdist Chinese README` 后为 12/12），
+汇报时引用真实输出，不照抄历史分母。前提是先构建 `dist/pyqcu-<ver>.tar.gz` 并装好
+`twine`，否则 sdist/twine 项必然失败；`release_check.py` 以 `parents[2]` 定位仓库根，
+只能在源码 checkout 里跑。`--online` 追加 PyPI JSON/simple 索引与 RTD en/zh-cn 探测；
+网络不可用时只跑 `--offline`，并把 PyPI 传播与 RTD 构建列为未验证项。`--skip-sphinx`
+只用于确认文档未改动的轮次。
+
+`docs_examples` 要求每个 Python 代码块自带 `assert`，否则必须显式标注 `# docs-skip` 或
+`# pseudo-code`；同页代码块共享命名空间并按页内顺序执行。Sphinx 构建通过不等于文档示例
+可执行，两条闸门都要跑。
+
+### 8x8x16x16 complex64 验收
+
+发布基准格点固定为 `8x8x16x16`、`complex64`、`mass=0.17`、`csw=1.0`、`atol=1e-6`、
+Gaussian gauge `sigma=0.1 seed=42`、source `seed=42`：
+
+```bash
+python pyqcu/testing/simple/kupl_bistabcg.py \
+  --lat 8 8 16 16 --dtype c64 \
+  --mass 0.17 --csw 1.0 --atol 1e-6 --max-iter 1000 --seed 42 \
+  --gauge data/release_8x8x16x16/gauge_8x8x16x16_c64.h5 \
+  --report data/release_8x8x16x16/report_kupl.json
+python pyqcu/testing/simple/qcu_bistabcg.py \
+  --lat 8 8 16 16 --mass 0.17 --csw 1.0 --warmup 0 --repeats 1 \
+  --gauge data/release_8x8x16x16/gauge_8x8x16x16_c64.h5 \
+  --device cuda:0 --report data/release_8x8x16x16/report_cuda.json
+```
+
+本次实测（WSL2，i7-13620H，RTX 4060 Laptop 8 GB `sm_89`，CUDA 12.4）：
+
+| 后端 | 迭代 | 独立真残差 | solve wall | 状态 |
+| --- | --- | --- | --- | --- |
+| KUPL（1 rank × 4 OpenMP） | 26 | 2.28e-7 | 0.13 s | PASS |
+| CUDA（1 进程 = 1 rank = 1 设备） | 26 | 2.96e-7 | 0.05 s | PASS |
+
+KUPL 行取安装包公开 API 的结果；仓库驱动的独立 NumPy 全残差在同机为 `2.21e-7` / `0.13 s`。
+验收线是 `final_true_residual <= max(atol, 2048*eps32) ≈ 2.4414e-4`，不是 `atol` 本身；
+同时要求 `status == "PASS"` 且 `0 < iterations <= max_iter`。真残差必须由独立的全格点
+NumPy/Torch 重构给出，不能复用求解器内部递推。跨机型绝对秒数不可比，CPU 与 GPU 不合并
+成单一加速比。
+
+### 干净 venv 复验（用户视角）
+
+发布后在**源码树之外**新建 venv，只从 PyPI 安装：
+
+```bash
+python -m venv /tmp/venv-pypi && . /tmp/venv-pypi/bin/activate
+pip install --no-cache-dir --index-url https://pypi.org/simple pyqcu==<ver>
+cd /tmp    # 必须在源码树之外
+python -c 'import pyqcu; assert "site-packages" in pyqcu.__file__, pyqcu.__file__'
+python -m pyqcu
+pip install --no-cache-dir --force-reinstall --index-url https://pypi.org/simple pyqcu==<ver>
+pip check
+```
+
+- `python -m pyqcu` 必须报出 `site-packages/pyqcu/...` 与包内 KUPL/Cython 库；回落到源码
+  树路径即视为安装验证失败。
+- `--force-reinstall` 复验安装幂等；`pip check` 无输出才算依赖闭合。
+- 在仓库根直接 `python -c 'import pyqcu'` 只会命中源码树（`pyqcu.__file__` 不含
+  `site-packages`），不得当作安装证据。
+- `<ver>` 取 `pyproject.toml` 与 `pyqcu.__version__` 的一致值；venv 也可建在
+  `data/pypi/venv-<name>`（`data/.gitignore` 已忽略），不污染仓库状态。
+
+### 测试入口的边界
+
+- `pyqcu/testing/**` 不进 sdist（`release_check` 的 `sdist no testing` 硬门），安装态用户
+  没有 `pyqcu.testing`；发布后"用户可跑"的检查必须用公开 API 另写。
+- `data/pypi/verify_installed.py` 与 `data/pypi/verify_cuda.py` 只是本地发布操作者的验证
+  脚本（`data/.gitignore` 忽略、不进包、不是包内 API）：不在文档或技能中承诺其存在，也
+  不从包内 import。
+- 打包契约与 KUPL/API 回归必须在源码树运行（`pyqcu/testing/**` 只存在于 checkout）；
+  安装态验证另走上面的 venv 路径，两者不能互相替代。
 
 ## Strict MultiGrid Fast Gates
 

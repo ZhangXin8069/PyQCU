@@ -13,6 +13,11 @@ metadata:
 遵循当前目录 `AGENTS.md`「技能执行公共契约」；仅按需读取技能正文与 reference。
 
 
+## 发布交付（双远端）
+
+发布任务（PyPI/RTD）的提交边界、GitLab → Gitee 推送顺序与「本地 + 三端同 hash」核验见
+[`references/dual-remote-release.md`](references/dual-remote-release.md)；标签仍只在用户显式请求时创建。
+
 ## 核心原则
 
 1. **先看后打**：打标签前先分析基线以来的变更，构建诚实、分组的变更清单，不臆造内容。
