@@ -1,0 +1,47 @@
+# PyQCU source distribution contents.
+#
+# The sdist must be installable on a machine without a pre-built native
+# library, so the KUPL/CUDA sources and the build scripts are shipped. The
+# installer builds KUPL unconditionally (when a toolchain exists) and CUDA/DCU
+# opportunistically; test trees and build products never enter the sdist.
+
+include LICENSE
+include README.md
+include pyproject.toml
+include setup.py
+include MANIFEST.in
+
+include env.sh
+include build-nv.sh
+include build-dcu.sh
+include install.sh
+
+recursive-include pyqcu *.py *.pyi *.pyx *.pxd
+
+recursive-include cpp/kupl/qcu *.txt *.sh *.map *.md *.h *.hpp *.cpp
+prune cpp/kupl/qcu/tests
+prune cpp/kupl/qcu/build
+prune cpp/kupl/qcu/build-lto
+include cpp/cuda/qcu/LICENSE
+include cpp/cuda/qcu/CMakeLists-nv.txt
+include cpp/cuda/qcu/CMakeLists-dcu.txt
+include cpp/cuda/qcu/make-nv.sh
+include cpp/cuda/qcu/make-dcu.sh
+include cpp/cuda/qcu/env.sh
+recursive-include cpp/cuda/qcu/python *.h
+recursive-include cpp/cuda/qcu/include *.h *.hpp
+recursive-include cpp/cuda/qcu/src *.cu *.cpp *.h *.hpp
+
+prune pyqcu/testing
+prune build
+prune dist
+prune data
+prune docs
+prune logs
+prune refer
+prune skills
+
+global-exclude *.so *.so.* *.o *.pyc *.pyo *.pyd
+global-exclude __pycache__ *.egg-info
+global-exclude CMakeCache.txt cmake_install.cmake CTestTestfile.cmake Makefile
+global-exclude AGENTS.md

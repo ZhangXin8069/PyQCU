@@ -9,6 +9,16 @@ PyQCU 参考文档。
 权威级别、唯一主责技能和提取边界见
 [`skills/pyqcu-docs/references/project-docs-map.md`](../skills/pyqcu-docs/references/project-docs-map.md)。
 
+## Read the Docs 源文
+
+`docs/en/` 与 `docs/zh/` 是 PyQCU Read the Docs 双语站点的唯一源文，各含
+`.readthedocs.yaml`、`conf.py`、`index.rst`、`requirements.txt` 与
+`overview.md`、`usage.md`、`performance.md`、`install.md` 四页。沿用 PyQCD 的
+约定：站点根不设 `.readthedocs.yaml`，两份配置分别位于 `docs/en/` 与 `docs/zh/`，
+在 RTD 网页按语言指定；项目 slug 固定为 `pyqcu`。站点视角是已安装的
+`pip install pyqcu` 包，不引用仓库内 `pyqcu/testing` 路径；确需源码仓库的段落必须
+显式标注。`docs/` 根目录的 39 份研究报告与 `.tex` 不在站点源文内。
+
 ## 核心操作规范
 
 | 文件 | 内容 |

@@ -81,3 +81,16 @@ pyqcu/*.cpp
 !README.\*
 !dockerfile
 !makefile
+
+# ==================================================
+# 6. Release / packaging files (must be tracked)
+# ==================================================
+!pyproject.toml
+!MANIFEST.in
+!docs/en/.readthedocs.yaml
+!docs/zh/.readthedocs.yaml
+!docs/en/**
+!docs/zh/**
+*.egg-info/
+build/
+dist/

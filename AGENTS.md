@@ -98,7 +98,7 @@ Wilson/Clover Dirac 算子、BiStabCG 与多重网格求解器、stout smearing�
 - 函数命名：C++ 对外 C API 使用小驼峰（如 `applyInitQcu`），内部 kernel/helper 使用小写下划线；Python 公共函数和私有函数分别使用 `snake_case`、`_snake_case`。
 - 变量命名：宏和编译期常量使用全大写下划线，C++ 宏保留 `_NAME_` 锚点；普通变量使用小写下划线，Python 模块级常量使用全大写下划线。
 - 对象命名：C++/Python 类型使用大驼峰，领域缩写作为完整词保留；绑定的 C API 名称必须与 `qcu.pyx`、`qcu.pxd` 和 `pyqcu.h` 同步。
-- 顶层目录白名单：`cpp/`、`data/`、`docs/`、`logs/`、`pyqcu/`、`refer/`、`skills/`。根入口文件仅允许 `AGENTS.md`、`.gitignore`、`LICENSE`、`README.md`、`build-nv.sh`、`build-dcu.sh`、`env.sh`、`install.sh`、`setup.py`。
+- 顶层目录白名单：`cpp/`、`data/`、`docs/`、`logs/`、`pyqcu/`、`refer/`、`skills/`。根入口文件仅允许 `AGENTS.md`、`.gitignore`、`LICENSE`、`README.md`、`build-nv.sh`、`build-dcu.sh`、`env.sh`、`install.sh`、`setup.py`、`pyproject.toml`、`MANIFEST.in`。
 - 测试入口：主套件为 `cd pyqcu/testing && pytest .`；MPI 入口为 `mpirun -np 4 python pyqcu/testing/python/conftest.py`；技能自带 shell 回归保留在对应技能目录，如 `bash skills/pyqcu-tag/tag-chain.test.sh`。
 - 功能复现：构建使用 `bash ./build-nv.sh`，Cython 扩展使用 `bash ./install.sh`；纯格式/文档改动至少执行 `bash -n`、相关回归、`git diff --check` 和 `bash skills/pyqcu-form/form-audit.sh`。
 - 文档/日志/数据：正式文档在 `docs/**`；当前任务未归档的运行摘要及 `log/json/tsv/csv/txt/stdout/jsonl` 在 `logs/**`。阶段结果先提交并打 tag，随后删除工作区报告副本；历史读取使用 `git show <tag>:<path>`。数据、SVG、构建/安装树和缓存实体在 `data/**`。

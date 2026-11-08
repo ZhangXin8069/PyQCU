@@ -1,0 +1,60 @@
+# PEP 517/518 build configuration and PEP 621 metadata for the `pyqcu`
+# distribution. Build mechanics that PEP 621 cannot express (native KUPL/CUDA
+# staging, optional Cython extension, package_data) stay in setup.py.
+
+[build-system]
+requires = ["setuptools>=77", "wheel", "cython>=3.0", "numpy>=1.23"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyqcu"
+version = "0.1.0"
+description = "CUDA/DCU/KUPL-accelerated lattice-QCD Dirac operators and multigrid solvers."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "ZhangXin8069", email = "zhangxin8069@qq.com" }]
+keywords = [
+  "lattice-qcd",
+  "dirac-operator",
+  "multigrid",
+  "bistabcg",
+  "cuda",
+  "dcu",
+  "kupl",
+  "mpi",
+]
+dependencies = [
+  "numpy>=1.23",
+  "torch>=2.0",
+  "mpi4py>=3.1",
+  "h5py>=3.0",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: C++",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering :: Physics",
+]
+
+[project.optional-dependencies]
+plot = ["matplotlib>=3.6"]
+monitor = ["psutil>=5.9"]
+all = ["matplotlib>=3.6", "psutil>=5.9"]
+
+[project.urls]
+Documentation = "https://pyqcu.readthedocs.io/"
+Homepage = "https://gitlab.itp.ac.cn/ZhangXin8069/PyQCU"
+Issues = "https://gitlab.itp.ac.cn/ZhangXin8069/PyQCU/-/issues"
+
+[tool.setuptools]
+# package_data in setup.py is authoritative; do not silently add files.
+include-package-data = false

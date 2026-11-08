@@ -31,18 +31,33 @@ from pathlib import Path
 from typing import Any
 
 
+_PACKAGE_DIR = Path(__file__).resolve().parent
 _REPO = Path(__file__).resolve().parents[2]
 _DEFAULT_LIB = _REPO / "cpp/kupl/qcu/libqcu.so"
 
 
-def library_path() -> Path:
+def _library_candidates() -> list[Path]:
     requested = os.environ.get("PYQCU_KUPL_LIB")
-    path = Path(requested).expanduser() if requested else _DEFAULT_LIB
-    if not path.is_file():
-        raise FileNotFoundError(
-            f"KUPL QCU library not found at {path}; build "
-            "cpp/kupl/qcu or set PYQCU_KUPL_LIB")
-    return path
+    candidates = [Path(requested).expanduser()] if requested else []
+    candidates.extend([
+        _PACKAGE_DIR / "libqcu.so",
+        _PACKAGE_DIR / "build" / "libqcu.so",
+        _DEFAULT_LIB,
+    ])
+    return candidates
+
+
+def library_path() -> Path:
+    candidates = _library_candidates()
+    for path in candidates:
+        if path.is_file():
+            return path
+    tried = "\n  ".join(str(path) for path in candidates)
+    raise FileNotFoundError(
+        "KUPL QCU library not found; tried:\n  "
+        f"{tried}\n"
+        "build it with `bash install.sh kupl` or set PYQCU_KUPL_LIB")
+
 
 
 _LIBRARY = ctypes.CDLL(str(library_path()), mode=ctypes.RTLD_LOCAL)

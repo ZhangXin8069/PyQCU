@@ -1,0 +1,193 @@
+PyQCU 0.1.0 PyPI release log
+============================
+
+Date: 2026-11-09
+Operator: CommandCode agent (run 20261109T062800.YRwGRU)
+Package: pyqcu 0.1.0
+PyPI project: https://pypi.org/project/pyqcu/0.1.0/
+Upload credential: PYPI_ZHANGXIN8069_API_KEY (name only; value never printed)
+
+Scope
+-----
+- First public PyPI release of `pyqcu` (name was 404 before upload).
+- No core algorithm changes. Changes are packaging/interface layer only:
+  pyproject.toml, MANIFEST.in, setup.py native-build policy, package-local
+  native library lookup, __version__, `python -m pyqcu`, docs sites, release
+  check tooling.
+- Verification lattice: [8, 8, 16, 16], complex64, mass=0.17, csw=1.0,
+  atol=1e-6, Gaussian gauge sigma=0.1 seed=42, source seed=42.
+
+Files changed
+-------------
+- pyproject.toml (new): PEP 621 metadata, dependencies numpy/torch/mpi4py/h5py,
+  extras plot/monitor/all.
+- MANIFEST.in (new): sdist includes pyqcu sources, cpp/kupl and cpp/cuda
+  build trees, build scripts; prunes testing/build/data/docs/logs/refer/skills;
+  excludes .so/object/cache/AGENTS.md.
+- setup.py: KUPL always attempted, CUDA/DCU opportunistic, warnings instead of
+  install failure, PYQCU_REQUIRE_NATIVE=1 hard gate, package-local .so staging,
+  $ORIGIN rpath for the Cython bridge, relative extension paths, _needs_stub
+  fix after late cythonize.
+- pyqcu/__init__.py: __version__ = 0.1.0 (no heavy imports).
+- pyqcu/__main__.py (new): `python -m pyqcu [--json]` diagnostics.
+- pyqcu/kupl/qcu.py: library lookup order env -> package -> package build ->
+  source checkout; error lists all candidates.
+- .gitignore / docs/.gitignore: release files and docs/en|zh tracked; build
+  artifacts ignored.
+- docs/en, docs/zh (new): Read the Docs bilingual sources + configs.
+- README.md: real PyPI description with install, quick start, native backends,
+  historical performance table and reproducibility caveats.
+- pyqcu/testing/docs_examples.py (new): executes docs Python blocks and requires
+  assertions or explicit # docs-skip.
+- pyqcu/testing/release_check.py (new): version/sdist/docs/Sphinx/PyPI/RTD gate.
+- AGENTS.md / docs/AGENTS.md / skills/pyqcu-docs/references/project-docs-map.md:
+  release file whitelist and RTD source index.
+
+Artifact
+--------
+dist/pyqcu-0.1.0.tar.gz
+size: 585 KiB
+sha256: bed98ee7e6d774c69efa8f8752d40fe0d24b79c02df91701d720be9627927ba4
+twine check: PASSED
+sdist contents: 86 Python files; 0 pyqcu/testing; 0 .so; KUPL 34 src entries;
+CUDA 33 src entries; no /home/ absolute path in SOURCES.txt.
+Only the sdist was uploaded; no wheel.
+
+Build / install evidence
+------------------------
+- python -m build --sdist: success.
+- packaging contract tests:
+  pyqcu/testing/dcu/test_install_selection.py
+  pyqcu/testing/kupl/test_pure_kupl_install.py
+  -> 9 passed.
+- No-native install (PYQCU_SKIP_NATIVE_BUILD=1):
+  venv-final-nolib; import OK; `python -m pyqcu` lists the three KUPL
+  candidate paths and exits 0.
+- Native install from sdist (PYQCU_BUILD_BACKEND=cuda):
+  wheel 17,124,441 bytes; site-packages contains
+  pyqcu/kupl/libqcu.so (1,271,416 B),
+  pyqcu/cuda/libqcu.so (28,139,952 B),
+  pyqcu/cuda/qcu.cpython-312-x86_64-linux-gnu.so (475,272 B).
+  Installed KUPL sha256:
+  793970c6c9903cf4fdb649666604437ef5dd19541dfe9335df486f6041963b4a
+  Installed CUDA sha256:
+  9d6139790a852bc347056009c89eee36af0b7647ef4f0f3740b0dcf6b8b5fa8b
+  Installed Cython bridge sha256:
+  b00a84f0a3b73e907e93f6983122694bd3d545f19e876ad6720dd99913e119df
+
+8x8x16x16 complex64 verification
+--------------------------------
+Machine: WSL2, Intel Core i7-13620H (8 logical CPUs, 1 NUMA),
+NVIDIA GeForce RTX 4060 Laptop GPU (8 GB, sm_89, driver 617.42),
+CUDA 12.4, Torch 2.15.0+cu132.
+
+KUPL (installed package, public API):
+  library: site-packages/pyqcu/kupl/libqcu.so
+  iterations: 26
+  true residual: 2.2785098963140626e-07
+  acceptance: 2.44140625e-04
+  solve wall: 0.1313729409885127 s
+  status: PASS
+
+KUPL (repository driver, independent NumPy full residual):
+  iterations: 26
+  true residual: 2.2097147817816596e-07
+  acceptance: 2.44140625e-04
+  wall: 0.134481039000093 s
+  RSS: 180316 KiB
+  status: PASS
+
+CUDA (installed package, RTX 4060 sm_89):
+  iterations: 26
+  true residual: 2.964130771943019e-07
+  acceptance: 2.44140625e-04
+  solve wall: 0.04970771800435614 s
+  status: PASS
+
+The CUDA whole-solve wall was 2.6-3.0x shorter than KUPL on this machine.
+This compares different hardware paths, not kernel-only throughput.
+
+Release gate
+------------
+python -m pyqcu.testing.release_check --offline
+  -> 11/11 checks passed:
+  version, sdist exists, no testing, no binaries, KUPL+CUDA sources,
+  no home paths, twine check, bilingual code blocks, docs examples (18 ok /
+  2 skipped / 0 failed), Sphinx en (-W), Sphinx zh (-W).
+
+Additional regressions:
+  pytest pyqcu/testing/kupl/test_kupl_python.py
+         pyqcu/testing/kupl/test_krylov_api.py
+         pyqcu/testing/python/test_api_contract.py
+         pyqcu/testing/python/test_krylov_api.py
+  -> 29 passed.
+  bash skills/pyqcu-form/form-audit.sh -> PASS (8 existing exemptions).
+  docs/skills audit -> 29 pre-existing findings (broken historical logs links
+  and two skill-size findings); no finding points at docs/en, docs/zh, this
+  release log, or the new project-docs-map row.
+  git diff --check -> exit 0; bash -n on the build/install scripts -> exit 0.
+
+PyPI propagation
+----------------
+- https://pypi.org/pypi/pyqcu/0.1.0/json -> HTTP 200 immediately.
+- https://pypi.org/simple/pyqcu/ contains pyqcu-0.1.0.tar.gz immediately.
+- Clean venv install from PyPI (data/pypi/venv-pypi, --no-cache-dir,
+  --index-url https://pypi.org/simple): Successfully installed pyqcu-0.1.0,
+  torch-2.15.0, numpy-2.5.4, h5py-3.16.0, mpi4py-4.1.2 and the CUDA runtime
+  dependencies. `python -m pyqcu` reported
+  site-packages/pyqcu/__init__.py, the package-local KUPL library, and the
+  Cython CUDA bridge.
+  KUPL: 26 iterations, true residual 2.2776929142764857e-07,
+  solve wall 0.12580834799155127 s, status PASS.
+  CUDA: 26 iterations, true residual 2.964130771943019e-07,
+  solve wall 0.05356313200900331 s, status PASS.
+
+Read the Docs status
+--------------------
+- The RTD project `pyqcu` already exists (public API metadata):
+  name PyQCU, slug pyqcu, language en, default version latest.
+- The slug is intentionally `pyqcu`. The PyQCD site uses `py-qcd` only
+  because `pyqcd` was already taken by another project; that is a historical
+  workaround, not a naming convention for PyQCU.
+- Repository tracked by RTD: https://github.com/ZhangXin8069/PyQCU.git.
+  `git ls-remote` shows its main is still 8847f84, the local pre-release HEAD.
+- Recent builds (35737742, 35737652, 35737585, 35727377, 35726644, 35726643)
+  all have success=false and duration=0: the tracked revision has no
+  `.readthedocs.yaml`, so RTD stops before building.
+- docs/en and docs/zh sources and their .readthedocs.yaml files are ready
+  locally, following the PyQCD convention: no repository-root config; the two
+  per-language files are selected in the RTD web UI.
+  Local Sphinx builds are en exit 0 and zh exit 0 with -W.
+- https://pyqcu.readthedocs.io/en/latest/ is still 404 because no successful
+  build exists.
+- No RTD API token is available in the environment, so the build cannot be
+  triggered from this shell. The remaining external step is to commit and push
+  docs/en, docs/zh and the two .readthedocs.yaml files to the GitHub mirror
+  tracked by RTD (or change the RTD repository to the GitLab origin), then
+  trigger a rebuild. This is the only external blocked step.
+
+Historical performance provenance
+---------------------------------
+- V100 L24 CUDA vs QUDA 1.060x: docs/three_way_benchmark_20261022.md:82-84.
+- Xeon L24 KUPL 8r x 2t 7.532 s: docs/three_way_benchmark_20261022.md:85-86.
+- P100/V100 8x8x16x16: docs/three_way_benchmark_20261022.md:321-323.
+- A100 L32 Legacy-MG 2.2495x/1.4323x/1.3166x:
+  docs/qcu_mg_performance_ledger_20261029.md:92-110.
+- A100 L32 native BiCGStab 0.833x at 2 ranks:
+  docs/qcu_mg_performance_ledger_20261029.md:48-59.
+- DCU gfx906 L24 0.301690/0.461908/1.024669 s:
+  docs/qcu_quda_solver_dcu_l24_20261029.md:99-103.
+Raw JSON for these historical runs is not present in this checkout; the source
+report and tag are the provenance. No historical absolute second is presented
+as a current-machine specification.
+
+Next steps
+----------
+1. Review and commit the release changes; then push the commit to the GitLab
+   origin and to the GitHub mirror tracked by RTD.
+2. In the existing RTD project `pyqcu`, set the per-language configuration
+   files to docs/en/.readthedocs.yaml and docs/zh/.readthedocs.yaml, add the
+   zh-cn translation, and trigger a rebuild. No RTD token is available here.
+3. After the commit exists, create and push an annotated dev110 tag; do not
+   rewrite or delete existing tags.
+4. Keep 0.1.0 immutable. Any fix found after this point uses a new version.

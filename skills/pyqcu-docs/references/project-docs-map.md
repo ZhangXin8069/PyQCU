@@ -21,6 +21,7 @@
 | 文档 | 级别 | Primary | Consumers | 提取内容与边界 |
 |---|---|---|---|---|
 | [`docs/AGENTS.md`](../../../docs/AGENTS.md) | A | `pyqcu-docs` | `pyqcu-form` | 文件索引、正式文档边界、tag 生命周期；新增/迁移文档时先更新此索引。 |
+| [`docs/en/`](../../../docs/en/) / [`docs/zh/`](../../../docs/zh/) | A | `pyqcu-docs` | `pyqcu-form` | Read the Docs 双语源文（overview/usage/performance/install 四页 + `.readthedocs.yaml`/`conf.py`/`index.rst`）；从 `pip install pyqcu` 视角撰写，不含仓库内 `pyqcu/testing` 路径。 |
 | [`docs/ORGANIZATION.md`](../../../docs/ORGANIZATION.md) | A | `pyqcu-form` | — | `docs/data/logs/testing` 的规范位置、跨目录提升、tag 报告两提交生命周期和语义例外。 |
 | [`docs/dims.md`](../../../docs/dims.md) | A | `pyqcu-tools` | `pyqcu-lattice`, `pyqcu-dslash` | `s/c/d/p/x/y/z/t` 轴含义、规范场/费米子/奇偶布局；空间时间始终是最后四轴。 |
 | [`docs/env.md`](../../../docs/env.md) | A | `pyqcu-tools` | `pyqcu-testing` | Python 依赖、当前仓库优先的 `PYTHONPATH`、CUDA/DCU/KUPL 库路径、KUPL 默认变量与环境入口。 |

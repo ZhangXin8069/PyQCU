@@ -1,1 +1,7 @@
+# Keep the Read the Docs sources (docs/en, docs/zh); ignore local build output.
 **/
+!en/
+!en/**
+!zh/
+!zh/**
+_build/
