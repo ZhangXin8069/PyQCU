@@ -150,21 +150,22 @@ Read the Docs status
   because `pyqcd` was already taken by another project; that is a historical
   workaround, not a naming convention for PyQCU.
 - Repository tracked by RTD: https://github.com/ZhangXin8069/PyQCU.git.
-  `git ls-remote` shows its main is still 8847f84, the local pre-release HEAD.
-- Recent builds (35737742, 35737652, 35737585, 35727377, 35726644, 35726643)
-  all have success=false and duration=0: the tracked revision has no
-  `.readthedocs.yaml`, so RTD stops before building.
-- docs/en and docs/zh sources and their .readthedocs.yaml files are ready
-  locally, following the PyQCD convention: no repository-root config; the two
-  per-language files are selected in the RTD web UI.
-  Local Sphinx builds are en exit 0 and zh exit 0 with -W.
-- https://pyqcu.readthedocs.io/en/latest/ is still 404 because no successful
-  build exists.
-- No RTD API token is available in the environment, so the build cannot be
-  triggered from this shell. The remaining external step is to commit and push
-  docs/en, docs/zh and the two .readthedocs.yaml files to the GitHub mirror
-  tracked by RTD (or change the RTD repository to the GitLab origin), then
-  trigger a rebuild. This is the only external blocked step.
+  GitHub is the automatic mirror of Gitee: after pushing b63e779 to Gitee,
+  the mirror advanced to b63e779 in about 10 s and RTD rebuilt automatically.
+  No RTD API token was needed for the push-triggered build.
+- Earlier builds (35737742, 35737652, 35737585, 35727377, 35726644, 35726643)
+  failed with duration=0 because the tracked revision 8847f84 had no
+  `.readthedocs.yaml`; that was a repository-state issue, not a project or
+  token block.
+- docs/en and docs/zh use the PyQCD convention: no repository-root config;
+  the two per-language files are selected in the RTD project.
+- Live pages: https://pyqcu.readthedocs.io/en/latest/ and
+  https://pyqcu.readthedocs.io/zh-cn/latest/ return HTTP 200. Their titles
+  currently show 0.1.0 because b63e779 predates the 0.1.1 docs commit; after
+  the 0.1.1 commit is pushed, RTD should rebuild and the titles must show
+  0.1.1.
+- The RTD build API had intermittent DNS failures during probing; the page
+  probes above are the reliable acceptance check.
 
 Historical performance provenance
 ---------------------------------
@@ -183,11 +184,62 @@ as a current-machine specification.
 
 Next steps
 ----------
-1. Review and commit the release changes; then push the commit to the GitLab
-   origin and to the GitHub mirror tracked by RTD.
-2. In the existing RTD project `pyqcu`, set the per-language configuration
-   files to docs/en/.readthedocs.yaml and docs/zh/.readthedocs.yaml, add the
-   zh-cn translation, and trigger a rebuild. No RTD token is available here.
-3. After the commit exists, create and push an annotated dev110 tag; do not
-   rewrite or delete existing tags.
-4. Keep 0.1.0 immutable. Any fix found after this point uses a new version.
+1. Commit the 0.1.1 metadata/docs changes and the skills updates, then push
+   to the GitLab origin and to Gitee. Gitee automatically updates the GitHub
+   mirror tracked by RTD.
+2. After the push, re-probe https://pyqcu.readthedocs.io/en/latest/ and
+   /zh-cn/latest/ and require the 0.1.1 title. No RTD token or manual rebuild
+   is needed for push-triggered builds.
+3. Create and push a release tag only if explicitly requested; do not rewrite
+   or delete existing tags.
+4. Keep 0.1.0 and 0.1.1 immutable. Any further fix uses a new version.
+
+0.1.1 metadata release (2026-11-09)
+-----------------------------------
+Reason: PyPI "Project links" must match pyqcd's six-link form; 0.1.0 is
+immutable, so the metadata correction is a new version.
+
+Changes:
+- version 0.1.1 in pyproject.toml, pyqcu/__init__.py, docs/*/conf.py,
+  docs/*/overview.md, docs/*/install.md, docs/*/performance.md.
+- [project.urls] now has Documentation, Homepage, 国内开发 (GitLab),
+  国内发布 (Gitee), 国外发布 (GitHub), Issues.
+- README.md: English/中文 switcher + ## Repositories table.
+- README.zh-CN.md: full Chinese README, included in the sdist.
+- MANIFEST.in: include README.zh-CN.md.
+- release_check.py: sdist Chinese README check; PyPI project-link and
+  ## Repositories probes.
+- docs examples/install assertions and Sphinx release updated to 0.1.1.
+
+Artifact:
+dist/pyqcu-0.1.1.tar.gz
+size: 601,420 bytes
+sha256: 0499bedb4e68eaefed90626ff0bab62c703636587b95aec6f84d1381881f8995
+twine check: PASSED
+sdist includes README.md and README.zh-CN.md; no pyqcu/testing; no .so.
+PyPI: https://pypi.org/project/pyqcu/0.1.1/
+PyPI JSON project_urls: all six labels present; description contains
+## Repositories; only the sdist is published.
+
+Local repeated-install matrix:
+- no-native venv: install #1, install #2 (force-reinstall), imports OK,
+  0.1.1, KUPL missing reported gracefully.
+- native venv: install #1, install #2 (force-reinstall), KUPL and CUDA
+  libraries in site-packages.
+  8x8x16x16 c64 KUPL: 26 iterations, true residual 2.2791e-7,
+  wall 0.1237 s; CUDA RTX 4060 sm_89: 26 iterations, 2.9641e-7,
+  wall 0.0389 s.
+- clean PyPI venv: 0.1.0 upgraded to 0.1.1; first attempt hit a CDN edge
+  that still served 0.1.0, retry upgraded correctly (pip uninstalled 0.1.0).
+  KUPL: 26 iterations, 2.2758e-7, 0.1273 s; CUDA: 26 iterations,
+  2.9641e-7, 0.0386 s; pip check clean.
+- extras: `pip install "pyqcu[all]==0.1.1"` installed matplotlib 3.11.2 and
+  psutil 7.2.2; `pyqcu.tools.mpl_cjk_setup` callable.
+- uninstall/reinstall from PyPI: `pip uninstall -y pyqcu` removed 0.1.1,
+  reinstall rebuilt it from the PyPI sdist, diagnostics again 0.1.1,
+  KUPL 26 iterations / 2.2856e-7 / 0.1429 s, `pip check` clean.
+
+Offline release gate: 12/12 (adds sdist Chinese README to the previous 11).
+Skills: parallel sub-agents are writing the PyPI/RTD/form/tag/testing
+lessons into skills/; the final commit and dual-remote push follow after
+their audits pass.

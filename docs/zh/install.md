@@ -80,7 +80,7 @@ report = json.loads(subprocess.run(
     [sys.executable, "-m", "pyqcu", "--json"],
     check=True, capture_output=True, text=True).stdout)
 assert report["package"] == "pyqcu"
-assert report["version"] == "0.1.0"
+assert report["version"] == "0.1.1"
 assert "path" in report["backends"]["kupl"]
 print("pyqcu", report["version"], "at", report["path"])
 ```
@@ -89,7 +89,7 @@ print("pyqcu", report["version"], "at", report["path"])
 import importlib.util
 import pyqcu
 
-assert pyqcu.__version__ == "0.1.0"
+assert pyqcu.__version__ == "0.1.1"
 missing = [
     name for name in
     ("api", "lattice", "tools", "torch", "solver", "cuda", "kupl")

@@ -1,5 +1,7 @@
 # PyQCU
 
+**English** | [中文](https://gitlab.itp.ac.cn/ZhangXin8069/PyQCU/-/blob/main/README.zh-CN.md)
+
 PyQCU is a lattice-QCD operator and solver toolkit with three execution
 paths:
 
@@ -106,11 +108,19 @@ The full table, including the historical tag-only rows and the local
 
 ## Documentation
 
-* English: https://pyqcu.readthedocs.io/en/latest/
-* 中文: https://pyqcu.readthedocs.io/zh-cn/latest/
+* English — https://pyqcu.readthedocs.io/en/latest/
+* 中文 — https://pyqcu.readthedocs.io/zh-cn/latest/
 
 The documentation sources live in `docs/en/` and `docs/zh/`. Both sites are
 built with Sphinx and MyST; the release check builds them with `-W`.
+
+## Repositories
+
+| Platform | Role | URL |
+|---|---|---|
+| GitLab (gitlab.itp.ac.cn) | 国内开发 — primary development | https://gitlab.itp.ac.cn/ZhangXin8069/PyQCU |
+| Gitee | 国内发布 — China release mirror | https://gitee.com/zhangxin8069/PyQCU |
+| GitHub | 国外发布 — global release mirror | https://github.com/zhangxin8069/PyQCU |
 
 ## From a source checkout
 

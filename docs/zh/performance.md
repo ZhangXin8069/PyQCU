@@ -36,24 +36,27 @@ Clover BiStabCG 驱动会独立计算全格点真残差。
 `git diff --stat dev103..HEAD -- cpp/kupl/qcu/src cpp/cuda/qcu/src` 显示
 18 个文件、4,130 行新增、318 行删除，其中包括 HEAD（`8847f84`）的 KUPL
 周期几何修复。用例 A、B 是 `dev103` 时期的数据，只能在对应 tag 上复现，
-不能从 `pyqcu==0.1.0` 直接复现。用例 E、F 的账本写
+不能从 `pyqcu==0.1.1` 直接复现。用例 E、F 的账本写
 `dev106=2c8fccc8`，而本地 tag `dev106` 解析为 `0a632f4`，因此精确 commit
 未核实。用例 H 的 `test27` 报告在 tag `test27` 中存在；对应的 `stab55`
 文档路径缺失，因此以 `test27` 为主要 provenance。
 
 ## 本机验证：8×8×16×16, complex64
 
-本机构建：`pyqcu==0.1.0`，WSL2，Intel Core i7-13620H（8 逻辑 CPU、1 个
+本机构建：`pyqcu==0.1.1`，WSL2，Intel Core i7-13620H（8 逻辑 CPU、1 个
 NUMA 节点），NVIDIA GeForce RTX 4060 Laptop GPU（8 GB、sm_89、驱动
 617.42），CUDA 12.4，Torch 2.15.0+cu132。安装库 SHA256：
 KUPL `793970c6c9903cf4fdb649666604437ef5dd19541dfe9335df486f6041963b4a`，
-CUDA `9d6139790a852bc347056009c89eee36af0b7647ef4f0f3740b0dcf6b8b5fa8b`，
+CUDA `bfd1f8b91be9137c621c4ebb2f30556f07ca9e5b19ad775f0231f9cfe811229e`，
 Cython 桥 `b00a84f0a3b73e907e93f6983122694bd3d545f19e876ad6720dd99913e119df`。
+
+0.1.1 是纯元数据版本，代码与 0.1.0 相同。下表数字从干净的 PyPI 0.1.1 venv
+重新测量；仓库驱动及其自带 NumPy 全格点残差报告 2.21e-7 / 0.134 s。
 
 | 后端 | 设备 | 迭代 | 真残差 | 验收线 | 求解墙钟 | 备注 |
 |---|---|---|---|---|---|---|
-| KUPL | i7-13620H，1 rank × 4 OpenMP 线程 | 26 | 2.21e-7（仓库驱动）/ 2.28e-7（安装包 API） | 2.44e-4 | 0.134 s / 0.118 s | 独立 NumPy 全格点残差 |
-| CUDA | RTX 4060 Laptop，sm_89 | 26 | 2.96e-7 | 2.44e-4 | 0.045 s | 一个进程、一个 rank、一张设备 |
+| KUPL | i7-13620H，1 rank × 4 OpenMP 线程 | 26 | 2.28e-7 | 2.44e-4 | 0.127 s | 干净 PyPI venv；重装 0.143 s |
+| CUDA | RTX 4060 Laptop，sm_89 | 26 | 2.96e-7 | 2.44e-4 | 0.039 s | 干净 PyPI venv；一个进程、一个 rank、一张设备 |
 
 安装包在源码树外验证：KUPL 报告指向
 `site-packages/pyqcu/kupl/libqcu.so`，CUDA 桥从 `site-packages` 导入，

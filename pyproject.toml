@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyqcu"
-version = "0.1.0"
+version = "0.1.1"
 description = "CUDA/DCU/KUPL-accelerated lattice-QCD Dirac operators and multigrid solvers."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -53,6 +53,9 @@ all = ["matplotlib>=3.6", "psutil>=5.9"]
 [project.urls]
 Documentation = "https://pyqcu.readthedocs.io/"
 Homepage = "https://gitlab.itp.ac.cn/ZhangXin8069/PyQCU"
+"国内开发 (GitLab)" = "https://gitlab.itp.ac.cn/ZhangXin8069/PyQCU"
+"国内发布 (Gitee)" = "https://gitee.com/zhangxin8069/PyQCU"
+"国外发布 (GitHub)" = "https://github.com/zhangxin8069/PyQCU"
 Issues = "https://gitlab.itp.ac.cn/ZhangXin8069/PyQCU/-/issues"
 
 [tool.setuptools]

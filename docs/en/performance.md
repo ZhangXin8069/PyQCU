@@ -43,24 +43,28 @@ Two honest restrictions follow from the table:
 18 files changed, 4,130 insertions and 318 deletions, including the KUPL
 periodic-geometry repair at HEAD (`8847f84`). Rows A and B were measured in
 the `dev103` era, so they are reproducible only from that tag, not from
-`pyqcu==0.1.0`. For rows E and F, the ledger records `dev106=2c8fccc8`, while
+`pyqcu==0.1.1`. For rows E and F, the ledger records `dev106=2c8fccc8`, while
 the local tag `dev106` resolves to `0a632f4`; the exact commit is therefore
 unverified. Row H's `test27` report exists at tag `test27`; the corresponding
 `stab55` documentation path is absent, so `test27` is the primary provenance.
 
 ## Local verification: 8×8×16×16, complex64
 
-Local build: `pyqcu==0.1.0`, WSL2, Intel Core i7-13620H (8 logical CPUs, 1
+Local build: `pyqcu==0.1.1`, WSL2, Intel Core i7-13620H (8 logical CPUs, 1
 NUMA node), NVIDIA GeForce RTX 4060 Laptop GPU (8 GB, sm_89, driver 617.42),
 CUDA 12.4, Torch 2.15.0+cu132. Installed library SHA256:
 KUPL `793970c6c9903cf4fdb649666604437ef5dd19541dfe9335df486f6041963b4a`,
-CUDA `9d6139790a852bc347056009c89eee36af0b7647ef4f0f3740b0dcf6b8b5fa8b`,
+CUDA `bfd1f8b91be9137c621c4ebb2f30556f07ca9e5b19ad775f0231f9cfe811229e`,
 Cython bridge `b00a84f0a3b73e907e93f6983122694bd3d545f19e876ad6720dd99913e119df`.
+
+The 0.1.1 release is metadata-only; the code is identical to 0.1.0. The
+numbers below were re-measured from a clean PyPI 0.1.1 venv. The repository
+driver with its own NumPy full-lattice residual reported 2.21e-7 at 0.134 s.
 
 | Backend | Device | Iterations | True residual | Acceptance | Solve wall | Notes |
 |---|---|---|---|---|---|---|
-| KUPL | i7-13620H, 1 rank × 4 OpenMP threads | 26 | 2.21e-7 (repo driver) / 2.28e-7 (installed API) | 2.44e-4 | 0.134 s / 0.118 s | Independent NumPy full-lattice residual |
-| CUDA | RTX 4060 Laptop, sm_89 | 26 | 2.96e-7 | 2.44e-4 | 0.045 s | One process, one rank, one device |
+| KUPL | i7-13620H, 1 rank × 4 OpenMP threads | 26 | 2.28e-7 | 2.44e-4 | 0.127 s | Clean PyPI venv; reinstall 0.143 s |
+| CUDA | RTX 4060 Laptop, sm_89 | 26 | 2.96e-7 | 2.44e-4 | 0.039 s | Clean PyPI venv; one process, one rank, one device |
 
 The installed package was verified from outside the source tree: the KUPL
 report pointed at `site-packages/pyqcu/kupl/libqcu.so`, the CUDA bridge

@@ -7,6 +7,7 @@
 
 include LICENSE
 include README.md
+include README.zh-CN.md
 include pyproject.toml
 include setup.py
 include MANIFEST.in
