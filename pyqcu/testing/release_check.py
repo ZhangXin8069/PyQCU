@@ -129,17 +129,22 @@ def check_pypi(ver: str) -> None:
     status, body = _fetch(f"https://pypi.org/pypi/pyqcu/{ver}/json")
     record("PyPI JSON", status == 200, f"HTTP {status}")
     if status == 200:
-        info = json.loads(body)["info"]
-        expected = {
-            "Documentation", "Homepage", "Issues",
-            "国内开发 (GitLab)", "国内发布 (Gitee)", "国外发布 (GitHub)",
-        }
-        urls = set((info.get("project_urls") or {}).keys())
-        record("PyPI project links", expected <= urls,
-               f"missing={sorted(expected - urls)}")
-        record("PyPI repositories section",
-               "## Repositories" in (info.get("description") or ""),
-               "README.md contains ## Repositories")
+        try:
+            info = json.loads(body)["info"]
+        except Exception as error:
+            record("PyPI JSON parse", False,
+                   f"{type(error).__name__}: {error}")
+        else:
+            expected = {
+                "Documentation", "Homepage", "Issues",
+                "国内开发 (GitLab)", "国内发布 (Gitee)", "国外发布 (GitHub)",
+            }
+            urls = set((info.get("project_urls") or {}).keys())
+            record("PyPI project links", expected <= urls,
+                   f"missing={sorted(expected - urls)}")
+            record("PyPI repositories section",
+                   "## Repositories" in (info.get("description") or ""),
+                   "README.md contains ## Repositories")
     status, body = _fetch("https://pypi.org/simple/pyqcu/")
     record("PyPI simple index", status == 200
            and f"pyqcu-{ver}.tar.gz" in body.decode(errors="ignore"),

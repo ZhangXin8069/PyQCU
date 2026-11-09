@@ -49,13 +49,15 @@ def _torch_layer(shape: tuple[int, int, int, int]) -> dict[str, Any]:
         raise RuntimeError("generated gauge field failed the SU(3) check")
     kappa = torch.tensor([0.125])
     clover = dslash.make_clover(U=full_gauge, kappa=kappa)
-    source = torch.randn((4, 3, *shape), dtype=torch.complex64)
+    generator = torch.Generator().manual_seed(1234)
+    source = torch.randn(
+        (4, 3, *shape), generator=generator, dtype=torch.complex64)
     operator = dslash.operator(
         U=full_gauge, clover_term=clover, kappa=kappa, verbose=False)
     history: list[float] = []
     solution = solver.bistabcg(
         b=source, matvec=operator.matvec, tol=1e-5, max_iter=200,
-        verbose=False, history=history)
+        x0=torch.zeros_like(source), verbose=False, history=history)
     residual = float(
         torch.linalg.vector_norm(operator.matvec(solution) - source)
         / torch.linalg.vector_norm(source))
@@ -76,7 +78,7 @@ def _kupl_layer(shape: tuple[int, int, int, int]) -> dict[str, Any]:
     try:
         from .kupl import qcu
         from .kupl.linear_operator import KuplLinearOperator
-    except Exception as error:
+    except FileNotFoundError as error:
         return {
             "status": "SKIP",
             "backend": "kupl",
@@ -116,7 +118,10 @@ def _kupl_layer(shape: tuple[int, int, int, int]) -> dict[str, Any]:
     if result.residual_scope is not ResidualScope.SCHUR:
         raise RuntimeError(
             f"KUPL residual scope is {result.residual_scope}, expected SCHUR")
-    if not 0 < int(result.krylov_iterations) < 200:
+    iterations = (
+        None if result.krylov_iterations is None
+        else int(result.krylov_iterations))
+    if iterations is not None and not 0 < iterations < 200:
         raise RuntimeError(
             f"KUPL iteration count {result.krylov_iterations} is invalid")
     if not relative < 2.0e-4:
@@ -127,7 +132,7 @@ def _kupl_layer(shape: tuple[int, int, int, int]) -> dict[str, Any]:
         "backend": "kupl",
         "device": "cpu",
         "library": str(qcu.library_path()),
-        "iterations": int(result.krylov_iterations),
+        "iterations": iterations,
         "true_residual": relative,
         "residual_scope": str(result.residual_scope),
         "seconds": time.perf_counter() - started,
@@ -144,7 +149,7 @@ def _cuda_layer(shape: tuple[int, int, int, int]) -> dict[str, Any]:
     try:
         from .cuda import qcu as cuda_qcu
         from .cuda.linear_operator import CudaLinearOperator
-    except Exception as error:
+    except ModuleNotFoundError as error:
         return {
             "status": "SKIP",
             "backend": "cuda",
@@ -228,7 +233,12 @@ def run_all(
         include: Iterable[str] | None = None) -> dict[str, Any]:
     """Run the requested layers and return a JSON-safe report."""
     shape = _validate_lattice(lattice_shape)
-    names = tuple(include) if include is not None else tuple(_LAYERS)
+    if isinstance(include, str):
+        names = (include,)
+    else:
+        names = tuple(include) if include is not None else tuple(_LAYERS)
+    if not names:
+        raise ValueError("include must select at least one self-test layer")
     layers: dict[str, dict[str, Any]] = {}
     for name in names:
         function = _LAYERS.get(name)

@@ -10,7 +10,7 @@ tools_Eexyzt_exyzt2Exyzt = False
 def give_wilson(src: torch.Tensor,
                 U: torch.Tensor, kappa: Optional[torch.Tensor] = torch.Tensor([0.1]),
                 u_0: Optional[torch.Tensor] = torch.Tensor([1.0]), with_I: bool = True, verbose: bool = False) -> torch.Tensor:
-    """
+    r"""
     Apply Wilson-Dirac operator to source field:
     $$
     2*\kappa*a*M_{x,y}=1-\kappa/u_0*\sum_{\mu}[(1-\gamma_{\mu})U_{x,\mu}\delta_{x,y-\mu}+(1+\gamma_{\mu})U_{x-\mu,\mu}^{\dag}\delta_{x,y+\mu}]

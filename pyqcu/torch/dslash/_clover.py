@@ -12,7 +12,7 @@ def make_clover(U: torch.Tensor,
                 u_0: Optional[torch.Tensor] = torch.Tensor([1.0]),
                 support_parallel: bool = False, verbose: bool = False,
                 csw: float = 1.0) -> torch.Tensor:
-    """
+    r"""
     Give the Clover term:
     $$
     \frac{a^2 c_{sw}\kappa}{u_0^4}
@@ -129,7 +129,7 @@ def make_clover(U: torch.Tensor,
     _clover_factor = -0.125 * _coeff
     # Give clover term for each direction
     for ward_ward_key in ward_ward_keys:
-        '''
+        r'''
         \begin{align*}
         F_{\mu \nu} = \frac{1}{a^2*8*i}\gamma_{\mu}\gamma_{\nu}[\\
         & u(x,\mu)u(x+\mu,\nu)u^{\dag}(x+\nu,\mu)u^{\dag}(x,\nu)\\

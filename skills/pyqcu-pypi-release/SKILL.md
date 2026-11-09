@@ -69,12 +69,12 @@ metadata:
 
 版本号有 4 个权威落点，必须同一次改动内一起改：
 
-| 落点 | 现状（0.1.1） | 作用 |
+| 落点 | 发版时取值 | 作用 |
 |---|---|---|
-| `pyproject.toml` `[project].version` | `"0.1.1"` | 唯一权威源，release_check 从这里读 |
-| `pyqcu/__init__.py::__version__` | `"0.1.1"` | `import pyqcu` 与 `python -m pyqcu` 用它 |
-| `docs/en/conf.py` `release` | `"0.1.1"` | 英文站版本 |
-| `docs/zh/conf.py` `release` | `"0.1.1"` | 中文站版本 |
+| `pyproject.toml` `[project].version` | `"<ver>"` | 唯一权威源，release_check 从这里读 |
+| `pyqcu/__init__.py::__version__` | `"<ver>"` | `import pyqcu` 与 `python -m pyqcu` 用它 |
+| `docs/en/conf.py` `release` | `"<ver>"` | 英文站版本 |
+| `docs/zh/conf.py` `release` | `"<ver>"` | 中文站版本 |
 
 - `conf.py` 里的 `version = "0.1"` 是主次版本，不跟补丁号，不要一起改。
 - `docs/en/install.md`、`docs/zh/install.md` 各有两个**会被执行**的字面断言
@@ -216,6 +216,24 @@ site-packages/pyqcu/cuda/qcu.cpython-312-x86_64-linux-gnu.so   # Cython 桥
 - 0.1.2 实测：no-native `torch 78 it/1.246e-6`；native `torch 78 it/1.246e-6`、
   `kupl 17 it/2.48e-7`、`cuda residual 2.199e-7 (iterations None)`；
   `pytest test_cli_selftest.py` 3 passed。
+
+### 0.1.3 bugfix 经验
+
+- `--lattice` 非偶数必须给 argparse 错误或 JSON FAIL，不能 traceback；
+  `run_all(include=())` 必须拒绝，`include="torch"` 要按单层处理。
+- Torch 自检要同时固定 gauge/source 与 x0，否则残差/迭代不可复现。
+- 原生库损坏（dlopen OSError / ImportError）是 **FAIL**，只有
+  `FileNotFoundError`（KUPL 缺失）或 `ModuleNotFoundError`/无 bridge（CUDA）
+  才是 SKIP；否则会把安装缺陷伪装成“未安装”。
+- 原生 C `printf` 的缓冲可能在 fd 恢复后才 flush；捕获 stdout 后要在
+  restore 前 `ctypes.CDLL(None).fflush(None)`。
+- `KUPL_BUILD_TESTS` 在 Python 构建中必须强制 `OFF`：sdist 已 prune
+  `cpp/kupl/qcu/tests`，继承 `ON` 会让 CMake 找不到测试源。
+- LaTeX docstring 的反斜杠用 raw string，避免 fresh/-OO 编译的
+  `SyntaxWarning: invalid escape sequence`。
+- 0.1.3 实测：无 CXX/NVCC 安装 exit 0；`KUPL_BUILD_TESTS=ON` 安装成功；
+  只读 site-packages 全 PASS；损坏 KUPL/CUDA 均 FAIL exit 2；
+  `pytest test_cli_selftest.py` 7 passed。
 
 发布门 12 项（`release_check --offline` 顺序）：version、sdist exists、sdist no
 testing、sdist no binaries、sdist native sources、sdist no home paths、sdist

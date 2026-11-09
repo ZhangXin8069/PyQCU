@@ -140,7 +140,9 @@ def _build_kupl() -> bool:
         return False
     environment = os.environ.copy()
     environment["PYQCU_KUPL_BUILD_DIR"] = str(_kupl_build_directory())
-    environment.setdefault("KUPL_BUILD_TESTS", "OFF")
+    # The sdist prunes cpp/kupl/qcu/tests; an inherited ON would make CMake
+    # fail on a missing test source. Python builds never need the test targets.
+    environment["KUPL_BUILD_TESTS"] = "OFF"
     environment.setdefault("KUPL_ENABLE_NATIVE", "OFF")
     environment.setdefault("KUPL_ENABLE_LTO", "OFF")
     if not _run_build(["bash", "cpp/kupl/qcu/make.sh"], "KUPL", environment):

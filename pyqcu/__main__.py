@@ -125,8 +125,9 @@ def _print_selftest(report: dict) -> None:
     for name, layer in report["layers"].items():
         status = str(layer.get("status", "FAIL"))
         if status == "PASS":
+            iterations = layer.get("iterations")
             detail = (
-                f"iterations={layer.get('iterations')} "
+                f"iterations={'n/a' if iterations is None else iterations} "
                 f"residual={float(layer.get('true_residual', 0.0)):.3e} "
                 f"{layer.get('device', '')}")
         elif status == "SKIP":
@@ -157,10 +158,20 @@ def main(argv=None) -> int:
     if args.selftest:
         from . import _selftest
 
-        with _quiet_optional_warnings(), _capture_native_stdout() as capture:
-            report = _selftest.run_all(tuple(args.lattice))
-            capture.seek(0)
-            native_output = capture.read()
+        try:
+            with _quiet_optional_warnings(), _capture_native_stdout() as capture:
+                report = _selftest.run_all(tuple(args.lattice))
+                capture.seek(0)
+                native_output = capture.read()
+        except ValueError as error:
+            if args.json:
+                print(json.dumps({
+                    "package": "pyqcu",
+                    "status": "FAIL",
+                    "error": str(error),
+                }, indent=2))
+                return 2
+            parser.error(str(error))
         if native_output.strip() and report["status"] == "FAIL":
             report["native_output"] = _one_line(native_output, 2000)
         if args.json:
