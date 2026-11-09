@@ -17,6 +17,7 @@ import re
 import subprocess
 import sys
 import tarfile
+import time
 import tomllib
 import urllib.error
 import urllib.request
@@ -151,10 +152,19 @@ def check_pypi(ver: str) -> None:
             record("PyPI repositories section",
                    "## Repositories" in (info.get("description") or ""),
                    "README.md contains ## Repositories")
-    status, body = _fetch("https://pypi.org/simple/pyqcu/")
+    simple_url = "https://pypi.org/simple/pyqcu/"
+    status, body = _fetch(simple_url)
+    attempt = 1
+    for attempt in range(1, 13):
+        if status == 200 and f"pyqcu-{ver}.tar.gz" in body.decode(
+                errors="ignore"):
+            break
+        if attempt < 12:
+            time.sleep(5)
+            status, body = _fetch(simple_url)
     record("PyPI simple index", status == 200
            and f"pyqcu-{ver}.tar.gz" in body.decode(errors="ignore"),
-           f"HTTP {status}")
+           f"HTTP {status}, attempt={attempt}")
 
 
 def check_rtd(ver: str) -> None:
