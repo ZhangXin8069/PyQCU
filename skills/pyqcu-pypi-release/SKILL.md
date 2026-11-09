@@ -235,6 +235,18 @@ site-packages/pyqcu/cuda/qcu.cpython-312-x86_64-linux-gnu.so   # Cython 桥
   只读 site-packages 全 PASS；损坏 KUPL/CUDA 均 FAIL exit 2；
   `pytest test_cli_selftest.py` 7 passed。
 
+### 0.1.4 MPI-aware CLI 经验
+
+- 自检和诊断在 `mpirun` 下不能每个 rank 各打一份 JSON。做法：`_selftest`
+  在 MPI size>1 时把 KUPL/CUDA 标为 SKIP（reason 写明单 rank 要求），报告带
+  `mpi_size`/`mpi_rank`；`__main__` 只让 rank 0 输出，其他 rank 静默退出。
+- `mpirun -np 2 pyqcu --selftest --json` 实测：一个 JSON 对象、Torch PASS、
+  KUPL/CUDA SKIP、exit 0；`mpirun -np 2 pyqcu --json` 也是一个对象。
+- 无效格点的 JSON 错误也要 rank-0 gating，并补齐 `version`/`lattice`/`layers`
+  字段，避免每 rank 各打一份导致不可解析。
+- `pyqcu --version`/`--help` 仍由 argparse 在每个 rank 输出，属于命令行本身
+  行为；文档明确“自检单进程运行”。
+
 发布门 12 项（`release_check --offline` 顺序）：version、sdist exists、sdist no
 testing、sdist no binaries、sdist native sources、sdist no home paths、sdist
 Chinese README、twine check、bilingual blocks、docs examples、sphinx en、

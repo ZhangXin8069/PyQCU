@@ -169,6 +169,9 @@ pip check
 - `pyqcu --selftest` 是安装态第一命令：Torch 必跑，KUPL/CUDA 缺库为 SKIP，
   整体 PASS 才退出 0；`--json` 可机器读取。CUDA Wilson 的
   `iterations=None` 是合法结果，不是失败。
+- `mpirun -np N pyqcu --selftest --json` 只由 rank 0 输出一个 JSON；native
+  层在 MPI size>1 时 SKIP 并注明需要单 rank。`pyqcu --json` 同样 rank-0
+  only，避免多份 JSON 拼接。
 - `--force-reinstall` 复验安装幂等；`pip check` 无输出才算依赖闭合。
 - 在仓库根直接 `python -c 'import pyqcu'` 只会命中源码树（`pyqcu.__file__` 不含
   `site-packages`），不得当作安装证据。

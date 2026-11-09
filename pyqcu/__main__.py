@@ -65,12 +65,17 @@ def _cuda_status() -> dict:
 def collect() -> dict:
     import pyqcu
 
+    from ._selftest import mpi_info
+
+    mpi_size, mpi_rank = mpi_info()
     return {
         "package": "pyqcu",
         "version": pyqcu.__version__,
         "path": pyqcu.__file__,
         "python": sys.version.split()[0],
         "platform": platform.platform(),
+        "mpi_size": mpi_size,
+        "mpi_rank": mpi_rank,
         "dependencies": {
             name: _module_version(name)
             for name in ("numpy", "torch", "h5py", "mpi4py")
@@ -164,14 +169,21 @@ def main(argv=None) -> int:
                 capture.seek(0)
                 native_output = capture.read()
         except ValueError as error:
+            if _selftest.mpi_info()[1] != 0:
+                return 2
             if args.json:
                 print(json.dumps({
                     "package": "pyqcu",
+                    "version": __version__,
+                    "lattice": list(args.lattice),
+                    "layers": {},
                     "status": "FAIL",
                     "error": str(error),
                 }, indent=2))
                 return 2
             parser.error(str(error))
+        if report.get("mpi_rank", 0) != 0:
+            return 0
         if native_output.strip() and report["status"] == "FAIL":
             report["native_output"] = _one_line(native_output, 2000)
         if args.json:
@@ -185,6 +197,8 @@ def main(argv=None) -> int:
 
     with _quiet_optional_warnings():
         report = collect()
+    if report.get("mpi_rank", 0) != 0:
+        return 0
     if args.json:
         print(json.dumps(report, indent=2))
         return 0

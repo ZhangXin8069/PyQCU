@@ -20,6 +20,30 @@ import torch
 from . import __version__
 
 
+def mpi_info() -> tuple[int, int]:
+    """Return ``(size, rank)`` without requiring an MPI launcher."""
+    try:
+        from mpi4py import MPI
+
+        communicator = MPI.COMM_WORLD
+        return int(communicator.Get_size()), int(communicator.Get_rank())
+    except Exception:
+        return 1, 0
+
+
+def _native_mpi_skip(backend: str) -> dict[str, Any] | None:
+    size, _ = mpi_info()
+    if size == 1:
+        return None
+    return {
+        "status": "SKIP",
+        "backend": backend,
+        "reason": (
+            f"native self-test requires one MPI rank, got size={size}; "
+            "run pyqcu --selftest outside mpirun"),
+    }
+
+
 def _validate_lattice(lattice_shape: Iterable[int]) -> tuple[int, int, int, int]:
     shape = tuple(int(value) for value in lattice_shape)
     if len(shape) != 4 or any(value <= 0 or value % 2 for value in shape):
@@ -75,6 +99,9 @@ def _torch_layer(shape: tuple[int, int, int, int]) -> dict[str, Any]:
 
 
 def _kupl_layer(shape: tuple[int, int, int, int]) -> dict[str, Any]:
+    skipped = _native_mpi_skip("kupl")
+    if skipped is not None:
+        return skipped
     try:
         from .kupl import qcu
         from .kupl.linear_operator import KuplLinearOperator
@@ -140,6 +167,9 @@ def _kupl_layer(shape: tuple[int, int, int, int]) -> dict[str, Any]:
 
 
 def _cuda_layer(shape: tuple[int, int, int, int]) -> dict[str, Any]:
+    skipped = _native_mpi_skip("cuda")
+    if skipped is not None:
+        return skipped
     if not torch.cuda.is_available():
         return {
             "status": "SKIP",
@@ -256,13 +286,16 @@ def run_all(
             }
     status = "FAIL" if any(
         layer["status"] == "FAIL" for layer in layers.values()) else "PASS"
+    mpi_size, mpi_rank = mpi_info()
     return {
         "package": "pyqcu",
         "version": __version__,
         "lattice": list(shape),
+        "mpi_size": mpi_size,
+        "mpi_rank": mpi_rank,
         "layers": layers,
         "status": status,
     }
 
 
-__all__ = ["run_all"]
+__all__ = ["mpi_info", "run_all"]

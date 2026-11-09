@@ -72,6 +72,9 @@ For multigrid details, see {doc}`solvers`. For the low-level native ABI, see
 
 ## MPI and layout
 
+* Run `pyqcu --selftest` as a single process. Under `mpirun`, the native layers
+  are reported as `SKIP` with a one-rank requirement, and only rank 0 prints
+  the report; `pyqcu --json` is also rank-0 only.
 * Each local extent must be even for parity layouts.
 * Parity-split fields compress the **time** axis to `T/2`; do not reshape a
   full field into that layout.

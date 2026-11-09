@@ -358,3 +358,31 @@ Verification:
 - PyPI 0.1.3 upgrade: Torch 75 it/1.597e-6, KUPL 17 it/2.52e-7,
   CUDA residual 2.199e-7 with `n/a` iterations; `pip check` clean.
 - pytest test_cli_selftest.py: 7 passed; release_check --offline: 12/12.
+
+0.1.4 MPI-aware CLI (2026-11-09)
+-------------------------------
+Fixes:
+- `pyqcu --selftest` under `mpirun` no longer fails on a grid mismatch: native
+  layers report SKIP with a one-rank requirement, and only rank 0 prints the
+  report. The report includes `mpi_size` and `mpi_rank`.
+- `pyqcu --json` diagnostics are rank-0 only; the invalid-lattice error is also
+  rank-0 only, so `mpirun -np N pyqcu --json` produces one JSON object.
+- The invalid-lattice JSON error now includes `version`, `lattice`, and an
+  empty `layers` object for schema consistency.
+
+Artifact:
+dist/pyqcu-0.1.4.tar.gz
+size: 605,648 bytes
+sha256: 0565dd1126ba8f7b09b812f38c6fc5adec3413373be6a4790e17f31ffc01a817
+twine check: PASSED
+PyPI: https://pypi.org/project/pyqcu/0.1.4/
+
+Verification:
+- single process: torch 75 it/1.597e-6, KUPL 17 it/2.5e-7, CUDA 2.199e-7
+  (`iterations=n/a`), overall PASS.
+- `mpirun -np 2 pyqcu --selftest --json`: one JSON object, mpi_size=2,
+  mpi_rank=0, Torch PASS, KUPL/CUDA SKIP, exit 0.
+- `mpirun -np 2 pyqcu --json`: one object, mpi_size=2, mpi_rank=0.
+- invalid lattice under 2 ranks: one FAIL object, exit 2.
+- clean PyPI 0.1.4 upgrade and force reinstall: all layers PASS; pip check
+  clean; release_check --offline 12/12; pytest CLI 7 passed.

@@ -71,6 +71,8 @@ rpath，期望 `pyqcu/cuda/libqcu.so` 同目录。
 
 ## MPI 与布局
 
+* `pyqcu --selftest` 应以单进程运行。在 `mpirun` 下，原生层会以单 rank 要求
+  报告 `SKIP`，且只有 rank 0 输出报告；`pyqcu --json` 也只在 rank 0 输出。
 * 奇偶布局要求每个局部维度为偶数。
 * 奇偶分裂场压缩的是 **时间** 轴到 `T/2`；不要把完整场直接 reshape 成该布局。
 * CUDA 生产是一个 Python 进程对应一个 MPI rank 与一张设备。不要在一个进程内
