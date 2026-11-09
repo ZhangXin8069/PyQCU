@@ -290,6 +290,28 @@ assert loaded.variant == "legacy"
 | 原生库缺失 | KUPL/CUDA 未构建 | `python -m pyqcu` 与安装文档 |
 | 残差高于验收线 | 口径错误或单精度地板 | 检查 `residual_scope`；c64 地板为 `2.4414e-4` |
 
+## 生产求解 checklist
+
+从 notebook 迁移到生产运行时，按以下顺序固定决策：
+
+1. **冻结几何与精度**：记录 `(X, Y, Z, T)`、dtype、`mass`/`csw`/`kappa`
+   与 MPI 进程网格。`prod(process_grid)` 必须等于 MPI size；奇偶布局要求
+   每个局部维度为偶数。
+2. **准备 canonical 张量**：规范场 `[3, 3, 4, ...]`、完整费米子
+   `[4, 3, ...]`、奇偶分裂费米子 `[2, 4, 3, ..., T/2]`；求解前运行
+   `lattice.check_su3`。
+3. **选最小层级**：原型用 Torch `bistabcg`，一次原生整次求解用
+   `Krylov`，生产 Clover 用 `Multigrid(variant="legacy")`；Strict 只在
+   显式指定时启用。
+4. **构建或复用资产**：原生 Legacy-MG 需要预构建的粗层 33-stencil 层级。
+   cache identity 覆盖规范场、精度、格点、块大小与 variant；不匹配就是
+   miss，不会静默回退。
+5. **只求解一次**：原生驱动内部已经完成迭代，不要在 Python 外再包循环。
+6. **独立验证**：检查 `SolveResult.residual_scope`；`SCHUR` 残差不是全格点
+   残差。验收必须计算全格点残差；c64 地板为 `2.4414e-4`。
+7. **记录 provenance**：后端、原生库路径与 SHA256、MPI 网格、线程数、
+   迭代数、残差与 wall time。
+
 ## 参见
 
 * {doc}`usage`：算子、smearing 与 HDF5。

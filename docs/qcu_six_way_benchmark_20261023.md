@@ -1,5 +1,8 @@
 # QCU 六版本求解器性能评定（QUDA 对照，2026-10-23）
 
+> 历史说明：本文引用的 `logs/qcu_*` 原始输出未纳入 Git；相关位置已改为路径记录，
+> 当前工作树不保证存在。
+
 状态：当前工作区正式批次结果，未提交、未打 tag、未推送。本文只解释本轮同窗口数据；
 工作树在运行前已包含其他未提交改动，完整快照见
 历史路径 `logs/qcu_six_way_20261023/formal-release/environment.json`；该 JSON 未保留在
@@ -20,10 +23,10 @@
 |---|---|---|
 | Git HEAD | `f20d81c437da365f6067d979b38c0e2617039ab8` | 历史 `environment.json`；当前未保留 |
 | GPU | V100-SXM2-32GB, UUID `GPU-be23deb4-29b1-7bb2-29ef-c4ab7b34f0a8`, 32 GiB | 同上 |
-| GPU 驱动 / CUDA runtime | 551.78 / 12.8（PyTorch）；QUDA 报告 driver 12.4 | 历史 `environment.json`、[`quda-strict.stdout`](../logs/qcu_six_way_20261023/formal-release/quda-strict.stdout) |
+| GPU 驱动 / CUDA runtime | 551.78 / 12.8（PyTorch）；QUDA 报告 driver 12.4 | 历史 `environment.json`、`logs/qcu_six_way_20261023/formal-release/quda-strict.stdout` |
 | CPU | Xeon E5-2696 v3, 18 physical cores, 1 NUMA node | 历史 `environment.json`；当前未保留 |
 | Python / PyTorch | 3.10.12 / 2.10.0+cu128 | 同上 |
-| PyQUDA / QUDA | 0.10.54 / 1.1.0 | 历史 `environment.json`、[`quda-strict.stdout`](../logs/qcu_six_way_20261023/formal-release/quda-strict.stdout) |
+| PyQUDA / QUDA | 0.10.54 / 1.1.0 | 历史 `environment.json`、`logs/qcu_six_way_20261023/formal-release/quda-strict.stdout` |
 | `libqcu.so` CUDA sm70 | SHA256 `9f2d4b0f5ad06d791b734ae74dbc4a34d04bfc999b6b2664595471e6ed2fd9a0` | 同上 |
 | `libqcu.so` KUPL | SHA256 `677a9c42a827b5bb61ab333a5c67be19c218dc34e517449b47da7bdda47f2226` | 同上 |
 | `libquda.so` sm70 | SHA256 `92db62c3a24b693eba92aac1feab7b8ce87c49826d931d10b649e61ab6b218b9` | 同上 |
@@ -62,13 +65,13 @@ workspace/初始化开销，不进入 steady 统计。`setup` 与 `cache` 的边
 
 | 版本 | 真实运行 | 实际 coarse 执行 | setup s | cache load s | first solve s | steady median s | 迭代 | 独立真残差 | 设备峰值 | 原始证据 |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---|
-| Torch Legacy | 是 | 是；每次 3 个 coarse correction | 2.644805 | 0 | 0.613778 | **0.607062** | 22 | `1.649e-7` | 402,653,184 B | [`stdout`](../logs/qcu_six_way_20261023/formal-release/torch-legacy.stdout)；JSON 未保留 |
-| Torch Strict | 是 | 是；每次 20 个 V-cycle 调用 | 4.843557 | 0.022790 | 1.803473 | **1.670798** | 11 | `2.759e-7` | 308,281,344 B | [`stdout`](../logs/qcu_six_way_20261023/formal-release/torch-strict.stdout)；JSON 未保留 |
-| CUDA Legacy | 是 | 是；每次 1 个初始 deflation V-cycle | 0.003782 | 0.013491 | 0.041019 | **0.009302** | 16 | `2.208e-7` | 648,019,968 B | [`stdout`](../logs/qcu_six_way_20261023/formal-release/cuda-legacy.stdout)；JSON 未保留 |
-| CUDA Strict | 是 | 是；trace 直接观测 10 个 `coarse_vcycle` stage | 4.967338 | 0.013578 | 0.038042 | **0.021693** | 10 | `3.348e-7` | 782,237,696 B | [`stdout`](../logs/qcu_six_way_20261023/formal-release/cuda-strict.stdout)、[`trace stdout`](../logs/qcu_six_way_20261023/formal-release/cuda-strict-trace.stdout) |
-| KUPL Legacy | 是 | 尝试 1 次/solve，7/7 被真残差门拒绝，后续 fine-only | 0.013240 | 0.015308 | 0.260122 | **0.256530** | 48 | `6.199e-7` | CPU，N/A | [`stdout`](../logs/qcu_six_way_20261023/formal-release/kupl-legacy.stdout)；JSON 未保留 |
-| KUPL Strict | 是，经原始 C ABI | 是；10 个外层迭代对应至少 10 个递归 V-cycle | 0.013145 | 0.022495 | 0.309197 | **0.268440** | 10 | `2.930e-7` | CPU，N/A | [`stdout`](../logs/qcu_six_way_20261023/formal-release/kupl-strict.stdout)；JSON 未保留 |
-| QUDA aligned MG | 是 | 是；8 个右预条件 GCR 外层迭代 | 0.535602 | N/A | 0.197704 | **0.144755** | 8 | `5.067e-7` | 138,412,032 B | [`stdout`](../logs/qcu_six_way_20261023/formal-release/quda-strict.stdout)；JSON 未保留 |
+| Torch Legacy | 是 | 是；每次 3 个 coarse correction | 2.644805 | 0 | 0.613778 | **0.607062** | 22 | `1.649e-7` | 402,653,184 B | `logs/qcu_six_way_20261023/formal-release/torch-legacy.stdout`；JSON 未保留 |
+| Torch Strict | 是 | 是；每次 20 个 V-cycle 调用 | 4.843557 | 0.022790 | 1.803473 | **1.670798** | 11 | `2.759e-7` | 308,281,344 B | `logs/qcu_six_way_20261023/formal-release/torch-strict.stdout`；JSON 未保留 |
+| CUDA Legacy | 是 | 是；每次 1 个初始 deflation V-cycle | 0.003782 | 0.013491 | 0.041019 | **0.009302** | 16 | `2.208e-7` | 648,019,968 B | `logs/qcu_six_way_20261023/formal-release/cuda-legacy.stdout`；JSON 未保留 |
+| CUDA Strict | 是 | 是；trace 直接观测 10 个 `coarse_vcycle` stage | 4.967338 | 0.013578 | 0.038042 | **0.021693** | 10 | `3.348e-7` | 782,237,696 B | `logs/qcu_six_way_20261023/formal-release/cuda-strict.stdout`、`logs/qcu_six_way_20261023/formal-release/cuda-strict-trace.stdout` |
+| KUPL Legacy | 是 | 尝试 1 次/solve，7/7 被真残差门拒绝，后续 fine-only | 0.013240 | 0.015308 | 0.260122 | **0.256530** | 48 | `6.199e-7` | CPU，N/A | `logs/qcu_six_way_20261023/formal-release/kupl-legacy.stdout`；JSON 未保留 |
+| KUPL Strict | 是，经原始 C ABI | 是；10 个外层迭代对应至少 10 个递归 V-cycle | 0.013145 | 0.022495 | 0.309197 | **0.268440** | 10 | `2.930e-7` | CPU，N/A | `logs/qcu_six_way_20261023/formal-release/kupl-strict.stdout`；JSON 未保留 |
+| QUDA aligned MG | 是 | 是；8 个右预条件 GCR 外层迭代 | 0.535602 | N/A | 0.197704 | **0.144755** | 8 | `5.067e-7` | 138,412,032 B | `logs/qcu_six_way_20261023/formal-release/quda-strict.stdout`；JSON 未保留 |
 
 说明：
 
@@ -77,7 +80,7 @@ workspace/初始化开销，不进入 steady 统计。`setup` 与 `cache` 的边
 - CUDA Legacy 在同一 `LatticeSet` 上连续求解会出现跨 solve 状态污染：单次求解独立残差正常，
   但同对象末次解对原始 RHS 的真残差可升至 `O(0.58)`。正式样本因此在每次计时前重建运行时，
   重建耗时不计入 solve；原始行为与边界见
-  [`cuda-legacy.stdout`](../logs/qcu_six_way_20261023/formal-release/cuda-legacy.stdout)。
+  `logs/qcu_six_way_20261023/formal-release/cuda-legacy.stdout`。
 - KUPL Strict 的 C++ hierarchy init 只有 `0.013145 s`，但它消费的是由 Torch Strict 在同一
   gauge/null-vector 上导出的 41 MiB strict assets，资产构建时间没有重复计入。其 setup 不能
   与 Torch/CUDA/QUDA 的完整层级构建时间直接比较。
@@ -86,9 +89,9 @@ workspace/初始化开销，不进入 steady 统计。`setup` 与 `cache` 的边
   使用 `cudaMemGetInfo` 设备级采样，包含原生分配但不包含 host RSS。
 - 每条路径均在 side JSON 中记录全 Wilson/Clover 独立残差；CUDA/QUDA 的独立检查
   stdout 见
-  [`cuda-legacy-residual.stdout`](../logs/qcu_six_way_20261023/formal-release/cuda-legacy-residual.stdout)、
-  [`cuda-strict-residual.stdout`](../logs/qcu_six_way_20261023/formal-release/cuda-strict-residual.stdout) 与
-  [`quda-strict-residual.stdout`](../logs/qcu_six_way_20261023/formal-release/quda-strict-residual.stdout)。
+  `logs/qcu_six_way_20261023/formal-release/cuda-legacy-residual.stdout`、
+  `logs/qcu_six_way_20261023/formal-release/cuda-strict-residual.stdout` 与
+  `logs/qcu_six_way_20261023/formal-release/quda-strict-residual.stdout`。
 
 ### CUDA Legacy fine-only 消融
 
@@ -96,8 +99,8 @@ workspace/初始化开销，不进入 steady 统计。`setup` 与 `cache` 的边
 
 | 模式 | steady median s | 迭代 | 独立真残差 | 设备峰值 | 证据 |
 |---|---:|---:|---:|---:|---|
-| CUDA Legacy，初始 deflation | 0.009302 | 16 | `2.208e-7` | 648,019,968 B | [`stdout`](../logs/qcu_six_way_20261023/formal-release/cuda-legacy.stdout) |
-| CUDA Legacy，fine-only | **0.008500** | 16 | `2.220e-7` | 622,854,144 B | [`stdout`](../logs/qcu_six_way_20261023/formal-release/cuda-legacy-fine-only.stdout) |
+| CUDA Legacy，初始 deflation | 0.009302 | 16 | `2.208e-7` | 648,019,968 B | `logs/qcu_six_way_20261023/formal-release/cuda-legacy.stdout` |
+| CUDA Legacy，fine-only | **0.008500** | 16 | `2.220e-7` | 622,854,144 B | `logs/qcu_six_way_20261023/formal-release/cuda-legacy-fine-only.stdout` |
 
 该输入上 fine-only 比 coarse-enabled 快 `1.094×`，迭代数没有减少。因而 CUDA Legacy 的
 coarse 路径收益为负，且 fine-only 的收益只能标为“关闭 coarse 后的 fine-only 收益”，
@@ -108,7 +111,7 @@ coarse 路径收益为负，且 fine-only 的收益只能标为“关闭 coarse 
 1. **旧批次中 KUPL Strict 公共 Python 包装不可直接运行（后续已修复）。** `pyqcu.kupl.multigrid.StrictMultigrid`
    向 strict init 传入 tensor 而 C ABI 要求 `unsigned long long *`，并且 FGMRES 包装缺少
    fine/coarse `E` 两个参数。本轮没有改求解器实现，而是通过同一原始 C ABI 完成真实运行；
-   证据见 [`kupl-strict.stdout`](../logs/qcu_six_way_20261023/formal-release/kupl-strict.stdout)。
+   证据见 `logs/qcu_six_way_20261023/formal-release/kupl-strict.stdout`。
    该限制随后已修复：16⁴ 批次 public/raw 同解相对差
    `8.32e-8`，见 [`qcu_mg_refactor_validation_20261023.md`](qcu_mg_refactor_validation_20261023.md)。
 2. **QUDA 不能加载共享 canonical null-vector QIO。** 当前 sm70 `libquda.so` 的
@@ -188,6 +191,6 @@ python pyqcu/testing/benchmark/qcu_six_way.py \
 
 机器可读汇总与逐条原始文件：
 
-- [`summary.md`](../logs/qcu_six_way_20261023/formal-release/summary.md)
+- `logs/qcu_six_way_20261023/formal-release/summary.md`
 - 历史 `summary.json`、`summary.csv`、`inputs.json`、`environment.json` 与
   `data/qcu_six_way_20261023/solution_manifest.json` 在当前工作树未保留。

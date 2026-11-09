@@ -502,3 +502,19 @@ Verification:
   (Torch 115/5.48e-7, KUPL 26/1.71e-7, CUDA 2.10e-7); pip check clean.
 - release_check --offline: 12/12; `--online`: 19/19.
 - RTD en/zh latest: 0.1.8; PyPI latest: 0.1.8 (sdist only).
+
+Auto-nudge checkpoint (2026-11-09 10:42)
+----------------------------------------
+- First successful idle nudge observed after the supervision repair:
+  `action=idle-nudge ... command=command-code nudges=11` at 10:42:35; the
+  nudge turn is this checkpoint. No failures after the 10:32:25 restart.
+- Current release: 0.1.8 on PyPI and RTD; online gate 19/19; CLI tests 15;
+  MPI `--version`/`--help` print once; HEAD 151a7aa (GitHub mirror pending).
+- Next: RTD external-link audit and solver-usage hardening.
+- RTD crawl: 30 pages, 3 external links (Sphinx/RTD/GitHub theme), all HTTP 200.
+- Repaired 27 dead local links to removed `logs/qcu_*` evidence in three
+  2026-10-23 historical reports; converted them to path records with a
+  "not retained in Git" notice. Docs audit now has no `[LINK]` errors; the
+  only remaining findings are two pre-existing `SKILL-SIZE` warnings.
+- Added a bilingual production-solve checklist (geometry, tensors, layer,
+  assets, one solve, independent residual, provenance) to `solvers.md`.

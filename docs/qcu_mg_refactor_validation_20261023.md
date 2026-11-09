@@ -1,5 +1,8 @@
 # QCU MultiGrid 重构与跨实现验收（2026-10-23）
 
+> 历史说明：本文引用的 `logs/qcu_*` 原始输出未纳入 Git；相关位置已改为路径记录，
+> 当前工作树不保证存在。
+
 ## 结论
 
 - `Legacy-MultiGrid` 是 QCU 默认求解器，也是默认 debug/优化对象；
@@ -32,8 +35,8 @@
 ## 16^4 QCU 矩阵
 
 输入 hash 与 cache identity 记录在
-[`summary.md`](../logs/qcu_mg_matrix_16cubed_20261023/summary.md) 和
-[`parity/summary.stdout`](../logs/qcu_16cubed_quick_20261023/parity/summary.stdout)。
+`logs/qcu_mg_matrix_16cubed_20261023/summary.md` 和
+`logs/qcu_16cubed_quick_20261023/parity/summary.stdout`。
 
 | ID | backend / variant | iterations | steady median | independent full residual | status |
 |---|---|---:|---:|---:|---|
@@ -197,13 +200,13 @@ allocator 数值。
 
 ## 证据
 
-- 六项矩阵：[`summary.md`](../logs/qcu_mg_matrix_16cubed_20261023/summary.md)
-- 跨实现 parity：[`parity/summary.stdout`](../logs/qcu_16cubed_quick_20261023/parity/summary.stdout)
+- 六项矩阵：`logs/qcu_mg_matrix_16cubed_20261023/summary.md`
+- 跨实现 parity：`logs/qcu_16cubed_quick_20261023/parity/summary.stdout`
 - L24 单 rank：历史目录 `logs/qcu_mg_final_20261023`，实体未保留在当前工作树
 - L24 2-rank：历史目录 `data/logs/qcu_mg_final_20261023`，实体未保留在当前工作树
 - BiCGStab：历史目录 `logs/qcu_bicgstab_final_20261023`，实体未保留在当前工作树
-- Strict skip：[`single/cuda-strict-2l-smoke.stdout`](../logs/qcu_l24x64_mpi_20261023/single/cuda-strict-2l-smoke.stdout)
-- L32 汇总：[`summary.json`](../logs/qcu_l32x64_mpi_20261023/summary.json)
+- Strict skip：`logs/qcu_l24x64_mpi_20261023/single/cuda-strict-2l-smoke.stdout`
+- L32 汇总：`logs/qcu_l32x64_mpi_20261023/summary.json`
 - L32 odd cache build：历史记录 `logs/qcu_l32x64_mpi_20261023/legacy-cache-odd-schur-2l-build.json`，实体未保留在当前工作树
-- L32 BiCGStab：[`summary.md`](../logs/qcu_l32x64_mpi_20261023/bicgstab_three_way/summary.md)
-- QUDA MG skip：[`quda-multigrid-status.json`](../logs/qcu_l32x64_mpi_20261023/quda-multigrid-status.json)
+- L32 BiCGStab：`logs/qcu_l32x64_mpi_20261023/bicgstab_three_way/summary.md`
+- QUDA MG skip：`logs/qcu_l32x64_mpi_20261023/quda-multigrid-status.json`

@@ -1,5 +1,8 @@
 # Large-lattice MultiGrid benchmark decisions (2026-10-23)
 
+> 历史说明：本文引用的 `logs/qcu_*` 原始输出未纳入 Git；相关位置已改为路径记录，
+> 当前工作树不保证存在。
+
 ## Strict-MultiGrid setup is not accepted
 
 For the requested production lattices, Strict-MultiGrid initialization is
@@ -45,4 +48,4 @@ as a completed solve.
 - Legacy cold setup:
   `data/benchmark_legacy_vs_strict_20261022/reports/legacy_build_24x24x24x64.json`
 - QUDA multi-grid status:
-  [`quda-multigrid-status.json`](../logs/qcu_l32x64_mpi_20261023/quda-multigrid-status.json)
+  `logs/qcu_l32x64_mpi_20261023/quda-multigrid-status.json`

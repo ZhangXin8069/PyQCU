@@ -304,6 +304,30 @@ assert loaded.variant == "legacy"
 | Native library missing | KUPL/CUDA was not built | `python -m pyqcu` and the package README |
 | Residual above acceptance | Wrong scope or single-precision floor | Check `residual_scope`; c64 floor is `2.4414e-4` |
 
+## Production checklist
+
+Use this sequence when a notebook solve becomes a production run:
+
+1. **Freeze the geometry and precision.** Record `(X, Y, Z, T)`, dtype,
+   `mass`/`csw`/`kappa`, and the MPI process grid. `prod(process_grid)` must
+   equal the MPI size; every local extent must be even for parity layouts.
+2. **Prepare canonical tensors.** Gauge `[3, 3, 4, ...]`, full fermion
+   `[4, 3, ...]`, parity-split fermion `[2, 4, 3, ..., T/2]`. Run
+   `lattice.check_su3` before the solve.
+3. **Pick the smallest layer.** Torch `bistabcg` for prototyping, `Krylov`
+   for one native whole solve, and `Multigrid(variant="legacy")` for
+   production Clover. Select Strict only by name.
+4. **Build or reuse assets.** Native Legacy-MG needs a pre-built coarse
+   33-stencil hierarchy. Cache identity covers gauge, precision, lattice,
+   block size, and variant; a mismatch is a miss, not a fallback.
+5. **Solve once.** Native drivers already own the iteration; do not put a
+   Python loop around them.
+6. **Verify independently.** Check `SolveResult.residual_scope`; a `SCHUR`
+   residual is not a full-lattice residual. Compute a full residual for the
+   acceptance decision. The c64 floor is `2.4414e-4`.
+7. **Record provenance.** Backend, native library path and SHA256, MPI grid,
+   thread counts, iterations, residual, and wall time.
+
 ## See also
 
 * {doc}`usage` for operators, smearing, and HDF5.
