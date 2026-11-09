@@ -681,6 +681,7 @@ Nudge checkpoint (2026-11-09 11:26)
   adf2ebb7b5b740c3cd95a46277244fcb0b76e617ccd17def364e35562d6ad998.
 - PyPI: https://pypi.org/project/pyqcu/0.1.13/
 - Verification: CLI 25 passed; full Python 153 passed/4 skipped; clean PyPI
-  0.1.13 wrong-count JSON FAIL and default 4^4 selftest PASS; offline 12/12.
+  0.1.13 wrong-count JSON FAIL and default 4^4 selftest PASS; offline 12/12,
+  online 19/19; PyPI latest/RTD en/zh 0.1.13.
 - 13:27 job still has 0.1.10-era text; current HEAD is 0.1.13. Reviewer must
   use actual versions and include 0.1.11/0.1.12/0.1.13 in the dev110 message.
