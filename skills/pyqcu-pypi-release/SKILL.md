@@ -253,6 +253,16 @@ site-packages/pyqcu/cuda/qcu.cpython-312-x86_64-linux-gnu.so   # Cython 桥
   `release_check` 的 `_fetch` 已改用浏览器 UA；修正后 0.1.5 的 `--online`
   为 18/18。
 
+### 0.1.6 安装警告可见性
+
+- pip 在成功时**吞掉 stderr**；`_warn` 只写 stderr 会让“KUPL/CUDA 未构建”
+  在成功安装里完全不可见。修法：与进度条一样写 `/dev/tty`，无 tty 才回退
+  stderr。
+- 验证要伪终端：`script -qec '<pip install ...>' /dev/null`，然后 grep
+  `[pyqcu build]`；普通重定向到日志只能验证 fallback，不能验证用户可见性。
+- 非零 MPI rank 的 FAIL 原因写 stderr，stdout 仍只有 rank 0 的一份 JSON；
+  退出码仍必须 0/2。
+
 发布门 12 项（`release_check --offline` 顺序）：version、sdist exists、sdist no
 testing、sdist no binaries、sdist native sources、sdist no home paths、sdist
 Chinese README、twine check、bilingual blocks、docs examples、sphinx en、

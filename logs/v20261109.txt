@@ -413,3 +413,27 @@ Verification:
 - Tooling fix: RTD rejects the default Python-urllib UA with HTTP 403;
   `release_check._fetch` now sends a browser-like UA. `release_check --online`
   after the fix: 18/18 (PyPI JSON/simple/project links + RTD en/zh).
+
+0.1.6 install-warning visibility (2026-11-09)
+--------------------------------------------
+Fixes:
+- `setup.py::_warn` now writes through `/dev/tty` (falling back to stderr),
+  like the progress lines. pip captures stderr and replays it only on failure,
+  so previously a successful install silently hid "KUPL/CUDA not built".
+- Non-zero MPI ranks now print a one-line FAIL reason to stderr while stdout
+  keeps a single rank-0 JSON report; exit codes remain 0/2.
+
+Artifact:
+dist/pyqcu-0.1.6.tar.gz
+size: 605,959 bytes
+sha256: 3591f4670bfaab317cb32f284ea73dd6df12b9ce96156b0920e3795265315e49
+twine check: PASSED
+PyPI: https://pypi.org/project/pyqcu/0.1.6/
+
+Verification:
+- `script -qec` pseudo-tty install with CXX/NVCC missing: the log shows
+  `KUPL backend not built`, `CUDA backend not built`, and `installing PyQCU
+  without a native backend`; install exit 0; selftest Torch PASS, native SKIP.
+- clean PyPI 0.1.6 upgrade: Torch 75 it/1.597e-6, KUPL 17 it/2.5e-7,
+  CUDA 2.199e-7 (`n/a`); all layers PASS.
+- pytest test_cli_selftest.py: 9 passed; release_check --offline 12/12.

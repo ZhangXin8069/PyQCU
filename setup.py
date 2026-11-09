@@ -67,7 +67,10 @@ def _warn(message: str) -> None:
         return
     _WARNED.add(message)
     warnings.warn(f"[PyQCU build] {message}", RuntimeWarning, stacklevel=2)
-    print(f"[PyQCU build] {message}", file=sys.stderr, flush=True)
+    # pip captures stderr on a successful build; write through the same
+    # /dev/tty channel as the progress lines so the user actually sees a
+    # missing CUDA/DCU backend.
+    _notify_progress(message)
 
 
 def _toolchain_problem(backend: str) -> str | None:

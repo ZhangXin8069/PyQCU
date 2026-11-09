@@ -12,7 +12,7 @@ The same public Python API drives three execution paths:
 * the CUDA/DCU backend (`pyqcu.cuda`), a C++/CUDA implementation exposed
   through a Cython bridge.
 
-This release is `0.1.5`. The package is distributed as a source archive; the
+This release is `0.1.6`. The package is distributed as a source archive; the
 KUPL library is built on the installing machine when the toolchain is
 available, and the CUDA/DCU library is built opportunistically.
 

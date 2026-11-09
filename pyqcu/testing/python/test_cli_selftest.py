@@ -68,13 +68,18 @@ def test_selftest_exit_code_matches_status():
     assert _selftest_exit_code({"status": "FAIL"}) == 2
 
 
-def test_main_nonzero_rank_failure_returns_2(monkeypatch):
+def test_main_nonzero_rank_failure_returns_2(monkeypatch, capsys):
     from pyqcu import __main__ as cli
 
     monkeypatch.setattr(
         _selftest, "run_all",
-        lambda *args, **kwargs: {"status": "FAIL", "mpi_rank": 1, "layers": {}})
+        lambda *args, **kwargs: {
+            "status": "FAIL", "mpi_rank": 1,
+            "layers": {"torch": {"status": "FAIL", "error": "boom"}}})
     assert cli.main(["--selftest"]) == 2
+    captured = capsys.readouterr()
+    assert "MPI rank 1" in captured.err
+    assert "torch: boom" in captured.err
 
 
 def test_cli_json_rejects_invalid_lattice():

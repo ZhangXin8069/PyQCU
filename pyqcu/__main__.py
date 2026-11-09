@@ -187,8 +187,18 @@ def main(argv=None) -> int:
                 return 2
             parser.error(str(error))
         if report.get("mpi_rank", 0) != 0:
-            # Non-zero ranks stay silent, but must still report a failed
-            # Torch layer to mpirun instead of masking it with exit 0.
+            # Non-zero ranks keep stdout clean, but a failure must still be
+            # visible on stderr and must reach mpirun as a non-zero exit.
+            if report["status"] == "FAIL":
+                print(
+                    f"pyqcu self-test FAIL on MPI rank "
+                    f"{report['mpi_rank']}", file=sys.stderr)
+                for name, layer in report["layers"].items():
+                    if layer.get("status") == "FAIL":
+                        print(
+                            f"  {name}: "
+                            f"{_one_line(layer.get('error', 'failed'))}",
+                            file=sys.stderr)
             return _selftest_exit_code(report)
         if native_output.strip() and report["status"] == "FAIL":
             report["native_output"] = _one_line(native_output, 2000)
