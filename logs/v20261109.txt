@@ -700,3 +700,15 @@ Mid-term status checkpoint (2026-11-09 11:56)
   `-p --session` nudge turns; use `idle-nudge-last.txt`/`/reload`.
 - Hardware gap: DCU/Kunpeng paths were not exercised on real hardware; Python
   package layer is covered on 3.10/3.11/3.12/3.13/3.14 (full deps on 3.12).
+
+RTD / mirror audit (2026-11-09 12:00)
+-------------------------------------
+- RTD latest en/zh: 26 internal pages all HTTP 200, titles 0.1.13; root
+  redirects 302 to `en/latest/`.
+- `/en/stable/` and `/zh-cn/stable/` return 404 because no stable RTD version
+  is active. The repository has no links to `/stable/`; resolving this requires
+  RTD version activation/redirect configuration, not a package change.
+- GitHub `ls-remote` still shows 728e443 (the 0.1.13 code commit) while local
+  and Gitee are at 40fc992 (the later log commit). The Gitee→GitHub mirror is
+  lagging >20 min; the 13:27 job must verify the dev110 tag mirror and report if
+  GitHub remains stale. Do not push GitHub directly.
