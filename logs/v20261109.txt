@@ -500,4 +500,5 @@ Verification:
 - Source MPI: `mpirun -np 2 --version` one line; `--help` one usage block.
 - Clean PyPI 0.1.8 upgrade: same MPI behavior; 8x8x16x16 selftest all PASS
   (Torch 115/5.48e-7, KUPL 26/1.71e-7, CUDA 2.10e-7); pip check clean.
-- release_check --offline: 12/12.
+- release_check --offline: 12/12; `--online`: 19/19.
+- RTD en/zh latest: 0.1.8; PyPI latest: 0.1.8 (sdist only).
