@@ -23,7 +23,8 @@ print("diagnostics OK", report["version"])
 
 `pyqcu --selftest` 会跑 Torch、KUPL、CUDA 三层。`SKIP` 表示后端未构建或没有
 可见设备；`FAIL` 表示该层实际运行了且独立残差检查失败。`--json` 输出机器可读
-报告，`--lattice X Y Z T` 可换另一个偶数格点。
+报告，`--lattice X Y Z T` 可换另一个偶数格点；小于 4 的维度会被拒绝，CUDA
+原生路径未在 `2^4` 上验证，发布验证使用 `8x8x16x16`。
 
 ## 安装与构建
 

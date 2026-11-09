@@ -24,7 +24,9 @@ print("diagnostics OK", report["version"])
 `pyqcu --selftest` runs the Torch, KUPL, and CUDA layers. `SKIP` means the
 backend was not built or no device is visible; `FAIL` means the layer ran and
 its independent residual check failed. Use `--json` for a machine-readable
-report and `--lattice X Y Z T` to choose another even lattice.
+report and `--lattice X Y Z T` to choose another even lattice. Extents below
+4 are rejected; the CUDA native path is not validated at `2^4`, and release
+verification uses `8x8x16x16`.
 
 ## Install and build
 

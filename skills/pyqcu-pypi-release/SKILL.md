@@ -266,6 +266,14 @@ site-packages/pyqcu/cuda/qcu.cpython-312-x86_64-linux-gnu.so   # Cython 桥
   一次 `curl` 判发版失败。`release_check` 现在轮询 12 次 × 5 s，0.1.6
   实测首次 attempt=1 即命中，但保留轮询以防边缘滞后。
 
+### 0.1.7 自检格点下限
+
+- 0.1.7 起自检拒绝任何小于 4 的维度（`extents must be at least 4`）。
+  0.1.6 在 `2 2 2 2` 上实测 CUDA 原生解残差 42.7，而 Torch/KUPL 正常；
+  CUDA 2^4 未验证，接口层面直接拒绝比给出误导性 FAIL 更清晰。
+- 发布验证仍用 `4 4 4 4` 默认值或 `8 8 16 16`；后者 0.1.6 实测
+  Torch 115 it/5.48e-7、KUPL 26 it/1.71e-7、CUDA 2.10e-7。
+
 发布门 12 项（`release_check --offline` 顺序）：version、sdist exists、sdist no
 testing、sdist no binaries、sdist native sources、sdist no home paths、sdist
 Chinese README、twine check、bilingual blocks、docs examples、sphinx en、

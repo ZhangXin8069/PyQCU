@@ -174,6 +174,8 @@ pip check
   only，避免多份 JSON 拼接。
 - 非零 rank 虽不输出，但必须返回真实状态码（PASS 0 / FAIL 2）；无条件
   `return 0` 会让 `mpirun` 掩盖该 rank 的 Torch 失败。0.1.5 有对应单测。
+- 自检格点下限为 4；0.1.6 在 `2 2 2 2` 上 CUDA 残差 42.7，0.1.7 起接口
+  直接拒绝。发布验证用默认 `4 4 4 4` 或 `8 8 16 16`。
 - `--force-reinstall` 复验安装幂等；`pip check` 无输出才算依赖闭合。
 - 在仓库根直接 `python -c 'import pyqcu'` 只会命中源码树（`pyqcu.__file__` 不含
   `site-packages`），不得当作安装证据。

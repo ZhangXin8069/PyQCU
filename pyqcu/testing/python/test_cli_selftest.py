@@ -39,6 +39,11 @@ def test_invalid_lattice_is_rejected():
         _selftest.run_all(lattice_shape=(4, 4, 4, 5), include=("torch",))
 
 
+def test_too_small_lattice_is_rejected():
+    with pytest.raises(ValueError, match="at least 4"):
+        _selftest.run_all(lattice_shape=(2, 2, 2, 2), include=("torch",))
+
+
 def test_include_string_and_empty_selection():
     report = _selftest.run_all(include="torch")
     assert report["status"] == "PASS"
@@ -80,6 +85,17 @@ def test_main_nonzero_rank_failure_returns_2(monkeypatch, capsys):
     captured = capsys.readouterr()
     assert "MPI rank 1" in captured.err
     assert "torch: boom" in captured.err
+
+
+def test_cli_json_rejects_too_small_lattice():
+    process = subprocess.run(
+        [sys.executable, "-m", "pyqcu", "--selftest", "--json",
+         "--lattice", "2", "2", "2", "2"],
+        cwd=ROOT, capture_output=True, text=True)
+    assert process.returncode == 2
+    report = json.loads(process.stdout)
+    assert report["status"] == "FAIL"
+    assert "at least 4" in report["error"]
 
 
 def test_cli_json_rejects_invalid_lattice():

@@ -48,6 +48,8 @@ def _validate_lattice(lattice_shape: Iterable[int]) -> tuple[int, int, int, int]
     shape = tuple(int(value) for value in lattice_shape)
     if len(shape) != 4 or any(value <= 0 or value % 2 for value in shape):
         raise ValueError("self-test lattice must be four positive even integers")
+    if any(value < 4 for value in shape):
+        raise ValueError("self-test lattice extents must be at least 4")
     return shape  # type: ignore[return-value]
 
 

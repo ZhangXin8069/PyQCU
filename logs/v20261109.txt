@@ -440,3 +440,25 @@ Verification:
 - Online gate tooling: the simple index can lag per CDN edge; `release_check`
   now polls 12 × 5 s before failing. 0.1.6 `--online`: 18/18 (PyPI JSON,
   project links, repositories section, simple index, RTD en/zh).
+
+0.1.7 self-test lattice floor (2026-11-09)
+------------------------------------------
+Fix:
+- `_validate_lattice` rejects extents below 4. On 0.1.6, `--lattice 2 2 2 2`
+  produced a CUDA residual of 42.7 while Torch/KUPL passed; CUDA 2^4 is not
+  validated, so the interface now fails fast with "extents must be at least 4".
+
+Artifact:
+dist/pyqcu-0.1.7.tar.gz
+size: 605,986 bytes
+sha256: 65c7035caba539b805c407bc95a647459336a4825dd609734951e10f8c841117
+twine check: PASSED
+PyPI: https://pypi.org/project/pyqcu/0.1.7/
+
+Verification:
+- pytest test_cli_selftest.py: 11 passed.
+- `--lattice 2 2 2 2 --json`: status FAIL, exit 2, error "at least 4".
+- `--lattice 8 8 16 16 --json`: Torch 115 it/5.48e-7, KUPL 26 it/1.71e-7,
+  CUDA 2.10e-7, all PASS.
+- clean PyPI 0.1.7 upgrade: 8x8x16x16 selftest PASS; pip check clean.
+- release_check --offline: 12/12.

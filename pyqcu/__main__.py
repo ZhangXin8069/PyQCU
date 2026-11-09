@@ -161,7 +161,7 @@ def main(argv=None) -> int:
     parser.add_argument(
         "--lattice", nargs=4, type=int, default=(4, 4, 4, 4),
         metavar=("X", "Y", "Z", "T"),
-        help="self-test lattice (four positive even integers)")
+        help="self-test lattice (four even integers >= 4)")
     args = parser.parse_args(argv)
 
     if args.selftest:
