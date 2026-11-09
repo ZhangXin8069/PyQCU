@@ -190,6 +190,12 @@ pip check
   只证明 headless 回合执行成功，TUI 里可能看不到该分支。排查看
   `tui-watch.log`、`idle-nudge-last.txt` 和 `~/.commandcode/projects/...jsonl`；
   要在 TUI 显示该回合需 `/reload`。不要把“TUI 无新消息”误判为注入失败。
+- 并发 nudge 事故：`agent-session-state.py` 曾把含 `tool_use` 的中间 assistant
+  当作回合完成，watcher 在主回合工具调用间隙每 10s 注入；`last_nudge_at` 又在
+  命令启动前写入，长 nudge 返回后立即再次触发。修复为只有“无 tool_use 且有
+  最终 text”的 assistant 才算完成；nudge 返回后再重置空闲时钟；
+  `last_user_input` 忽略 `【自动续跑】` 消息。回归 session-state 16、idle 8、
+  watcher 9；重启后主回合只记录 `idle-skip reason=turn_running`。
 - `mpirun` 返回 135 / `Bus error` 且无 stdout 时先查 `df -h /tmp`；`/tmp` 满会
   让 OpenMPI 共享内存池失败。设置 `TMPDIR`/`OMPI_MCA_orte_tmpdir_base` 到可写
   目录、清理 `/tmp/ompi.*` 遗留，或纯 CPU 诊断加 `OMPI_MCA_btl=^smcuda`。

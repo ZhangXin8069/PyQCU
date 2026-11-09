@@ -285,6 +285,10 @@ site-packages/pyqcu/cuda/qcu.cpython-312-x86_64-linux-gnu.so   # Cython 桥
   非零 rank 静默返回 0，不 import mpi4py。
 - 干净安装复验要用 `env -u PYTHONPATH -u PYQCU_KUPL_LIB` 再 `source env.sh`，
   确保命中 venv 的 console script；PyPI simple index 仍可能需轮询 1-2 次。
+- Python 包层矩阵：3.10.22/3.11.18/3.13.18 的 sdist `--no-deps` 安装、
+  `import pyqcu`、`--version`、`compileall` 全过；3.12 由干净 PyPI venv 覆盖；
+  3.14 系统缺 `ensurepip`，用 `setup.py build` + `PYTHONPATH=build/lib` 验证。
+  cp314 的 torch/mpi4py/h5py/numpy 轮子存在，但完整依赖只在 3.12 端到端跑过。
 
 发布门 12 项（`release_check --offline` 顺序）：version、sdist exists、sdist no
 testing、sdist no binaries、sdist native sources、sdist no home paths、sdist

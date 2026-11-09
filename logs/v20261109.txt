@@ -587,3 +587,27 @@ Full offline wheelhouse checkpoint (2026-11-09 11:20)
 - Added bilingual offline-install sections to `docs/en|zh/install.md`.
 - CUDA wheelhouse was not tested; GPU users must substitute the matching CUDA
   torch wheel.
+
+Concurrent nudge race (2026-11-09 11:06)
+----------------------------------------
+- The 10s watcher injected nudges 12-17 while the main TUI turn was active
+  (10:55-11:05), producing concurrent commits c307f74, 2ec75a7, 9f80e20.
+- Root cause: `commandcode_completion_error` treated any assistant message as
+  completed, including tool_use-only intermediate messages; `last_nudge_at` was
+  stamped before the minutes-long nudge command, so the next check saw
+  `idle_seconds` above the threshold immediately.
+- Fix: require final text without tool_use for completion; reset the idle clock
+  after the nudge command returns; ignore `【自动续跑】` messages for
+  last-user-input. Tests: session-state 16, idle 8, watcher 9.
+- Kept the nudge commits: test_multigrid_api 7 passed/1 skipped,
+  release_check --offline 12/12, docs audit PASS (39 docs/36 skills).
+- Restarted watcher 962817 (10s/10s/2s); the current turn only logs
+  `idle-skip reason=turn_running`.
+
+Python package matrix (2026-11-09)
+----------------------------------
+- 3.10.22/3.11.18/3.13.18: sdist `--no-deps` install, import,
+  `pyqcu --version`, compileall PASS in isolated conda prefixes.
+- 3.12.4: clean PyPI venv; 3.14.4: `setup.py build` + import/CLI (system lacks
+  ensurepip). cp314 wheels exist for torch/mpi4py/h5py/numpy; full dependency
+  install was only exercised on 3.12.
