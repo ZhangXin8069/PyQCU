@@ -262,6 +262,9 @@ site-packages/pyqcu/cuda/qcu.cpython-312-x86_64-linux-gnu.so   # Cython 桥
   `[pyqcu build]`；普通重定向到日志只能验证 fallback，不能验证用户可见性。
 - 非零 MPI rank 的 FAIL 原因写 stderr，stdout 仍只有 rank 0 的一份 JSON；
   退出码仍必须 0/2。
+- `https://pypi.org/simple/pyqcu/` 的不同 CDN 边缘会短暂缺新版本；不要用
+  一次 `curl` 判发版失败。`release_check` 现在轮询 12 次 × 5 s，0.1.6
+  实测首次 attempt=1 即命中，但保留轮询以防边缘滞后。
 
 发布门 12 项（`release_check --offline` 顺序）：version、sdist exists、sdist no
 testing、sdist no binaries、sdist native sources、sdist no home paths、sdist

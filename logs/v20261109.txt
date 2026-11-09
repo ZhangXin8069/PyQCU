@@ -437,3 +437,6 @@ Verification:
 - clean PyPI 0.1.6 upgrade: Torch 75 it/1.597e-6, KUPL 17 it/2.5e-7,
   CUDA 2.199e-7 (`n/a`); all layers PASS.
 - pytest test_cli_selftest.py: 9 passed; release_check --offline 12/12.
+- Online gate tooling: the simple index can lag per CDN edge; `release_check`
+  now polls 12 × 5 s before failing. 0.1.6 `--online`: 18/18 (PyPI JSON,
+  project links, repositories section, simple index, RTD en/zh).
