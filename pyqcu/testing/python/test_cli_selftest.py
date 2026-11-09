@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from pyqcu import _selftest
+from pyqcu.__main__ import _selftest_exit_code
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -60,6 +61,20 @@ def test_cli_rejects_invalid_lattice():
         cwd=ROOT, capture_output=True, text=True)
     assert process.returncode == 2
     assert "positive even" in process.stderr
+
+
+def test_selftest_exit_code_matches_status():
+    assert _selftest_exit_code({"status": "PASS"}) == 0
+    assert _selftest_exit_code({"status": "FAIL"}) == 2
+
+
+def test_main_nonzero_rank_failure_returns_2(monkeypatch):
+    from pyqcu import __main__ as cli
+
+    monkeypatch.setattr(
+        _selftest, "run_all",
+        lambda *args, **kwargs: {"status": "FAIL", "mpi_rank": 1, "layers": {}})
+    assert cli.main(["--selftest"]) == 2
 
 
 def test_cli_json_rejects_invalid_lattice():

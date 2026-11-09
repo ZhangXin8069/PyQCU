@@ -10,7 +10,7 @@ stout 与 Wuppertal smearing、BiCGStab/CG/FGMRES 求解器、Legacy/Strict 多�
   加载；
 * CUDA/DCU 后端（`pyqcu.cuda`），C++/CUDA 实现，经 Cython 桥暴露。
 
-本版本为 `0.1.4`。发行包是源码包：安装机具备工具链时现场构建 KUPL 库，
+本版本为 `0.1.5`。发行包是源码包：安装机具备工具链时现场构建 KUPL 库，
 CUDA/DCU 库则按机会构建。
 
 ## 数据布局

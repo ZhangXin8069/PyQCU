@@ -390,3 +390,23 @@ Verification:
   `git ls-remote` timed out, but the GitHub REST API
   `/repos/ZhangXin8069/PyQCU/commits/main` returned ceeb04c, so the mirror is
   confirmed; RTD en/zh and troubleshooting pages show 0.1.4.
+
+0.1.5 exit-code fix (2026-11-09)
+--------------------------------
+Fix:
+- Non-zero MPI ranks in `pyqcu --selftest` used to return 0 unconditionally
+  after suppressing their output, which could hide a failed Torch layer from
+  `mpirun`. All ranks now return the real status code; only rank 0 prints.
+
+Artifact:
+dist/pyqcu-0.1.5.tar.gz
+size: 605,765 bytes
+sha256: f881f93f092544ae5b31551aa101bf4420a744d0535a6b61b39ecc1b9eecc6b2
+twine check: PASSED
+PyPI: https://pypi.org/project/pyqcu/0.1.5/
+
+Verification:
+- clean PyPI 0.1.5 upgrade: version 0.1.5, all layers PASS, CUDA
+  `iterations=n/a`; `mpirun -np 2 pyqcu --json` one object, mpi_size=2.
+- pytest test_cli_selftest.py: 9 passed (includes the non-zero-rank exit-code
+  contract); release_check --offline 12/12.

@@ -87,6 +87,10 @@ def collect() -> dict:
     }
 
 
+def _selftest_exit_code(report: dict) -> int:
+    return 0 if report.get("status") == "PASS" else 2
+
+
 def _one_line(value, limit: int = 180) -> str:
     text = " ".join(str(value).split())
     return text if len(text) <= limit else text[: limit - 3] + "..."
@@ -183,7 +187,9 @@ def main(argv=None) -> int:
                 return 2
             parser.error(str(error))
         if report.get("mpi_rank", 0) != 0:
-            return 0
+            # Non-zero ranks stay silent, but must still report a failed
+            # Torch layer to mpirun instead of masking it with exit 0.
+            return _selftest_exit_code(report)
         if native_output.strip() and report["status"] == "FAIL":
             report["native_output"] = _one_line(native_output, 2000)
         if args.json:
@@ -193,7 +199,7 @@ def main(argv=None) -> int:
             if report.get("native_output"):
                 print("native output:", report["native_output"],
                       file=sys.stderr)
-        return 0 if report["status"] == "PASS" else 2
+        return _selftest_exit_code(report)
 
     with _quiet_optional_warnings():
         report = collect()

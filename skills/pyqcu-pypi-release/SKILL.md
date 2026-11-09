@@ -246,6 +246,9 @@ site-packages/pyqcu/cuda/qcu.cpython-312-x86_64-linux-gnu.so   # Cython 桥
   字段，避免每 rank 各打一份导致不可解析。
 - `pyqcu --version`/`--help` 仍由 argparse 在每个 rank 输出，属于命令行本身
   行为；文档明确“自检单进程运行”。
+- **非零 rank 不能无条件 `return 0`**：静默只代表不打印；返回值仍必须是
+  `0/2` 的真实状态，否则 `mpirun` 会把失败的 Torch 层掩盖成成功。0.1.5
+  专门修了这一点，并加了 `_selftest_exit_code` 单测。
 
 发布门 12 项（`release_check --offline` 顺序）：version、sdist exists、sdist no
 testing、sdist no binaries、sdist native sources、sdist no home paths、sdist
