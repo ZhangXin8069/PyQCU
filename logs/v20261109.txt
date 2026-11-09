@@ -685,3 +685,18 @@ Nudge checkpoint (2026-11-09 11:26)
   online 19/19; PyPI latest/RTD en/zh 0.1.13.
 - 13:27 job still has 0.1.10-era text; current HEAD is 0.1.13. Reviewer must
   use actual versions and include 0.1.11/0.1.12/0.1.13 in the dev110 message.
+
+Mid-term status checkpoint (2026-11-09 11:56)
+---------------------------------------------
+- Current release: 0.1.13 on PyPI and RTD; online gate 19/19; 25 CLI tests,
+  153 full Python tests passed, 4 skipped.
+- Release progression: 0.1.0–0.1.8 public baseline; 0.1.9 was an unaudited
+  orphan-nudge upload; 0.1.10 made diagnostics lazy; 0.1.11 fixed CUDA
+  companion-library reporting; 0.1.12 made self-test dependency errors JSON;
+  0.1.13 made wrong `--lattice` counts JSON.
+- Known risks: the 13:27 job cannot be replaced because `cron_delete` is not in
+  this tool set; its prompt still says 0.1.10 and the tag message must be
+  corrected by the reviewer. The command-code TUI does not render external
+  `-p --session` nudge turns; use `idle-nudge-last.txt`/`/reload`.
+- Hardware gap: DCU/Kunpeng paths were not exercised on real hardware; Python
+  package layer is covered on 3.10/3.11/3.12/3.13/3.14 (full deps on 3.12).
