@@ -152,6 +152,24 @@ def check_pypi(ver: str) -> None:
             record("PyPI repositories section",
                    "## Repositories" in (info.get("description") or ""),
                    "README.md contains ## Repositories")
+    latest_url = "https://pypi.org/pypi/pyqcu/json"
+    latest_status, latest_body = _fetch(latest_url)
+    latest_version = None
+    attempt = 1
+    for attempt in range(1, 13):
+        if latest_status == 200:
+            try:
+                latest_version = json.loads(latest_body)["info"]["version"]
+            except Exception:
+                latest_version = None
+        if latest_version == ver:
+            break
+        if attempt < 12:
+            time.sleep(5)
+            latest_status, latest_body = _fetch(latest_url)
+    record("PyPI latest metadata", latest_version == ver,
+           f"version={latest_version}, attempt={attempt}")
+
     simple_url = "https://pypi.org/simple/pyqcu/"
     status, body = _fetch(simple_url)
     attempt = 1
