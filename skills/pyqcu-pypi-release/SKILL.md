@@ -273,6 +273,9 @@ site-packages/pyqcu/cuda/qcu.cpython-312-x86_64-linux-gnu.so   # Cython 桥
   CUDA 2^4 未验证，接口层面直接拒绝比给出误导性 FAIL 更清晰。
 - 发布验证仍用 `4 4 4 4` 默认值或 `8 8 16 16`；后者 0.1.6 实测
   Torch 115 it/5.48e-7、KUPL 26 it/1.71e-7、CUDA 2.10e-7。
+- 项目级 `https://pypi.org/pypi/pyqcu/json` 可能比版本级 JSON 和 simple
+  index 慢；`release_check` 现在同时轮询 latest metadata。0.1.7 `--online`
+  为 19/19（新增 `PyPI latest metadata`）。
 
 发布门 12 项（`release_check --offline` 顺序）：version、sdist exists、sdist no
 testing、sdist no binaries、sdist native sources、sdist no home paths、sdist

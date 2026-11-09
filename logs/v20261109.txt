@@ -462,3 +462,6 @@ Verification:
   CUDA 2.10e-7, all PASS.
 - clean PyPI 0.1.7 upgrade: 8x8x16x16 selftest PASS; pip check clean.
 - release_check --offline: 12/12.
+- Online gate now also polls the project-level PyPI latest metadata; 0.1.7
+  `--online`: 19/19 (version JSON, project links, repositories, latest,
+  simple index, RTD en/zh).
