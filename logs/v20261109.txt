@@ -386,3 +386,7 @@ Verification:
 - invalid lattice under 2 ranks: one FAIL object, exit 2.
 - clean PyPI 0.1.4 upgrade and force reinstall: all layers PASS; pip check
   clean; release_check --offline 12/12; pytest CLI 7 passed.
+- Commit ceeb04c; GitLab and Gitee `git ls-remote` both match. GitHub
+  `git ls-remote` timed out, but the GitHub REST API
+  `/repos/ZhangXin8069/PyQCU/commits/main` returned ceeb04c, so the mirror is
+  confirmed; RTD en/zh and troubleshooting pages show 0.1.4.
