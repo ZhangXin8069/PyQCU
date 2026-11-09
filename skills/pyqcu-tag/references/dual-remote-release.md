@@ -57,6 +57,17 @@ hash，GitHub 镜像在 Gitee 推送后 `~10 s` 内完成同步。轮询按分�
 - GitHub 若因 host key 未登记而报 `Host key verification failed`，只读核验改用 HTTPS URL
   （如上面的 `https://github.com/...`），或在推送机器上先登记 `github.com` 主机键；
   不要用 `StrictHostKeyChecking=no` 长期绕过。
+- `git ls-remote https://github.com/...` 可能因网络/DNS 连续返回空或超时。不要立刻判
+  “未同步”：用 GitHub REST API 做独立只读核验：
+
+  ```bash
+  curl -sL https://api.github.com/repos/ZhangXin8069/PyQCU/commits/main \
+    | python -c 'import json,sys; d=json.load(sys.stdin); print(d["sha"])'
+  ```
+
+  2026-11-09 的 0.1.4 发布中，`git ls-remote` 连续 8 次为空，但 API 返回
+  `ceeb04c0…`，RTD 页面标题已是 0.1.4；二者结合即可确认镜像与站点已同步。
+  GitLab/Gitee 仍用 `git ls-remote` 核验，API 只作为 GitHub 的补充证据。
 - Gitee 推送失败时 GitLab 已就绪，重试 Gitee 即可；重试仍失败则停止后续步骤，并在摘要中
   写明"三端中哪一端未到位"，不隐藏部分交付状态。
 - 只推 `main`（或发布分支）与显式标签，不推其它本地分支；不使用 `--force`/`--force-with-lease`。
