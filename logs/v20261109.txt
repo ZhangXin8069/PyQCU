@@ -649,4 +649,9 @@ Nudge checkpoint (2026-11-09 11:26)
 - PyPI: https://pypi.org/project/pyqcu/0.1.11/
 - Verification: CLI 20 passed; full Python 148 passed/4 skipped; clean PyPI
   0.1.11; missing-library JSON status False; default 4^4 selftest PASS;
-  offline gate 12/12.
+  offline gate 12/12, online 19/19; PyPI latest 0.1.11; RTD en/zh 0.1.11;
+  GitHub `ls-remote` at 89e99b8 (API cache lagged).
+- Note: the scheduled 13:27 job 6ba91412 still carries 0.1.10-era text because
+  `cron_delete` is unavailable in this tool set. It will operate on the current
+  HEAD (0.1.11); the reviewer must verify actual PyPI/RTD versions and should
+  mention 0.1.11 in the dev110 tag message.
