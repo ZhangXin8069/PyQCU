@@ -123,6 +123,23 @@ print("all public subpackages importable")
 如果 KUPL 报告 `FileNotFoundError`，说明原生库没有构建。安装工具链后重装，
 或把 `PYQCU_KUPL_LIB` 指向已有的 `libqcu.so`。
 
+## 离线安装
+
+在联网机器上下载 sdist 与全部运行时/构建 wheel 到同一目录，把目录复制到目标
+机器，然后：
+
+```bash
+python -m venv .venv
+PYQCU_SKIP_NATIVE_BUILD=1 .venv/bin/pip install --no-index \
+  --find-links wheelhouse "pyqcu==0.1.8"
+```
+
+`wheelhouse` 必须包含 `pyqcu`、`numpy`/`torch`/`h5py`/`mpi4py` 及其传递依赖，
+以及 PEP 517 构建所需的 `setuptools`/`wheel`。只有目标机具备原生工具链且确实
+需要源码内构建 KUPL/CUDA 时才去掉 `PYQCU_SKIP_NATIVE_BUILD=1`。已实测的
+CPU-only 0.1.8 wheelhouse 为 233 MB（`torch 2.15.0+cpu`）；GPU 部署需换成匹配
+的 CUDA torch wheel。
+
 ## 从源码仓库安装
 
 ```bash

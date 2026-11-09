@@ -132,6 +132,24 @@ If the KUPL report says `FileNotFoundError`, the native library was not built.
 Either install a toolchain and reinstall, or set `PYQCU_KUPL_LIB` to an
 existing `libqcu.so`.
 
+## Offline install
+
+On a connected host, download the sdist and every runtime/build wheel into a
+directory, copy that directory to the target machine, then:
+
+```bash
+python -m venv .venv
+PYQCU_SKIP_NATIVE_BUILD=1 .venv/bin/pip install --no-index \
+  --find-links wheelhouse "pyqcu==0.1.8"
+```
+
+`wheelhouse` must contain `pyqcu`, `numpy`/`torch`/`h5py`/`mpi4py`, their
+transitive wheels, and `setuptools`/`wheel` for the PEP 517 build. Omit
+`PYQCU_SKIP_NATIVE_BUILD=1` only when the target has the native toolchain and
+you want an in-tree KUPL/CUDA build. The verified CPU-only 0.1.8 wheelhouse was
+233 MB with `torch 2.15.0+cpu`; GPU deployments need the matching CUDA torch
+wheel instead.
+
 ## From a source checkout
 
 ```bash

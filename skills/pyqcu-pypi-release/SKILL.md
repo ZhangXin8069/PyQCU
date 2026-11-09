@@ -198,7 +198,7 @@ site-packages/pyqcu/cuda/qcu.cpython-312-x86_64-linux-gnu.so   # Cython 桥
 | 重装 | `pip install --force-reinstall --no-deps --no-build-isolation ./dist/pyqcu-<ver>.tar.gz`（可加 `PYQCU_SKIP_NATIVE_BUILD=1` 快速验打包） | 0.1.1：no-native 与 native 两个 venv 各做 install #1/#2（force-reinstall）均成功 |
 | 卸载重装 | `pip uninstall -y pyqcu` 后从 PyPI 重装 | 0.1.1 从 PyPI sdist 重建成功，诊断仍 0.1.1，`pip check` 干净 |
 | 升级/降级 | 已装旧版时装新版必须写 `pyqcu==<ver>` 或 `--upgrade` | 裸 `pip install pyqcu` 只报 `already satisfied (0.1.0)`（`data/pypi/pypi-upgrade-011.log`） |
-| 离线安装 | `PIP_NO_INDEX=1 ... pip install --no-build-isolation --no-deps --force-reinstall dist/pyqcu-<ver>.tar.gz`（加 `PYQCU_SKIP_NATIVE_BUILD=1`） | 0.1.8：`--system-site-packages` venv 与无 Cython 最小 venv 均构建/安装成功；Torch PASS，KUPL/CUDA 清晰 SKIP；本地单 wheel `--find-links` 也可离线安装。完整 torch wheelhouse 未下载（体积） |
+| 离线安装 | `PIP_NO_INDEX=1 PYQCU_SKIP_NATIVE_BUILD=1 pip install --no-index --find-links wheelhouse pyqcu==<ver>`（wheelhouse 含运行时依赖 + setuptools/wheel） | 0.1.8：233 MB CPU-only wheelhouse（torch 2.15.0+cpu）在无系统 site-packages 的全新 venv 中完整安装，build isolation 也走本地 wheel；Torch PASS，KUPL/CUDA SKIP，`pip check` 干净。CUDA wheelhouse 未测试 |
 | extras | `pip install "pyqcu[<extra>]==<ver>"`（或 `--dry-run` 先看解析） | 0.1.1：`pyqcu[all]` 装出 matplotlib 3.11.2 + psutil 7.2.2，`pyqcu.tools.mpl_cjk_setup` 可调用 |
 | CLI 自检 | `pyqcu --selftest` / `python -m pyqcu --selftest --json` | 0.1.2：no-native `torch=PASS, kupl=SKIP, cuda=SKIP`；native 三层 PASS |
 

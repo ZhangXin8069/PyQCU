@@ -573,3 +573,17 @@ Full Python suite checkpoint (2026-11-09 11:10)
 - Fixed the test to skip when `cuda_legacy_module.qcu` has no `applyInitQcu`.
   Rerun: 143 passed, 4 skipped, 0 failed in 26.67 s.
 - This is a test-harness defect, not a solver/core change.
+
+Full offline wheelhouse checkpoint (2026-11-09 11:20)
+-----------------------------------------------------
+- Built a 233 MB CPU-only wheelhouse: torch 2.15.0+cpu, numpy 2.5.4,
+  h5py 3.16.0, mpi4py 4.1.2, transitive wheels, setuptools/wheel, and the
+  0.1.8 sdist.
+- Fresh venv without system site-packages; `PIP_NO_INDEX=1` plus
+  `--find-links` installed the full dependency closure, including the PEP 517
+  build isolation. `pyqcu --version` is 0.1.8; selftest Torch PASS and
+  KUPL/CUDA SKIP; `pip check` clean. The simplified documented command was
+  also verified without `--no-build-isolation`.
+- Added bilingual offline-install sections to `docs/en|zh/install.md`.
+- CUDA wheelhouse was not tested; GPU users must substitute the matching CUDA
+  torch wheel.
