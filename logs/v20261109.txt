@@ -270,3 +270,39 @@ Solver guide update (2026-11-09)
   129d5c2a49c7c39998323bf59d3a57b2f4fd110d.
 - RTD en/latest/solvers.html and zh-cn/latest/solvers.html return HTTP 200;
   titles are "Solvers — PyQCU 0.1.1" and "求解器 — PyQCU（中文文档） 0.1.1".
+
+0.1.2 UX release (2026-11-09)
+-----------------------------
+Reason: add a console script and an installation self-test; no core solver
+changes.
+
+Changes:
+- `[project.scripts] pyqcu = "pyqcu.__main__:main"`; `pyqcu` and
+  `python -m pyqcu` are equivalent.
+- `pyqcu --selftest` / `--json`: Torch 4^4 Clover BiCGStab, KUPL/CUDA 4^4
+  Wilson BiCGStab, independent full-lattice residual per layer; missing native
+  backends are SKIP, overall PASS exits 0, FAIL exits 2.
+- CLI filters the optional TileLang warning; human SKIP/FAIL reasons are
+  single-line and truncated; native stdout is captured at fd 1 and flushed
+  before restore, so `--json` stays parseable.
+- version 0.1.2; README/docs install/overview include the console script and
+  selftest; docs examples and release_check PAGES now include solvers.
+- `pyqcu/testing/python/test_cli_selftest.py` (3 tests).
+
+Artifact:
+dist/pyqcu-0.1.2.tar.gz
+size: 605,113 bytes
+sha256: 115c7af1d3f451c559140b40e1a992542b7dbc00be96d2112443e7bf88dfe058
+twine check: PASSED
+PyPI: https://pypi.org/project/pyqcu/0.1.2/
+
+Verification:
+- no-native venv: `torch PASS / kupl SKIP / cuda SKIP`, overall PASS, exit 0.
+- native venv: torch 78 it / 1.246e-6; KUPL 17 it / 2.50e-7; CUDA residual
+  2.199e-7 with iterations=None (known CUDA Wilson getter gap); overall PASS.
+- clean PyPI venv upgrade 0.1.1 -> 0.1.2; console/selftest PASS; pip check clean.
+- uninstall/reinstall from PyPI: 0.1.2, all layers PASS, pip check clean.
+- release_check --offline: 12/12; docs_examples: 28 ok / 8 skipped / 0 failed;
+  pytest test_cli_selftest.py: 3 passed.
+- PyPI JSON: six project links, description contains ## Repositories, only the
+  sdist is published.

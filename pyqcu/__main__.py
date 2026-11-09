@@ -1,16 +1,31 @@
-"""Command-line diagnostics for an installed PyQCU.
+"""Command-line diagnostics and self-test for an installed PyQCU.
 
-Run ``python -m pyqcu`` after installation to print the package version, its
-location, dependency versions, and the availability of the native KUPL and
-CUDA backends. ``python -m pyqcu --json`` is the machine-readable form.
+``pyqcu`` (or ``python -m pyqcu``) prints the package version, dependency
+versions, and native-backend availability. ``pyqcu --selftest`` runs the Torch,
+KUPL, and CUDA layers with independent residual checks; a missing native
+backend is reported as ``SKIP``.
 """
 
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import platform
 import sys
+import warnings
+
+from . import __version__
+
+
+@contextlib.contextmanager
+def _quiet_optional_warnings():
+    """Keep the optional-dependency notice out of normal CLI output."""
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore", message=r"TileLang is unavailable.*",
+            category=RuntimeWarning)
+        yield
 
 
 def _module_version(name: str) -> str:
@@ -67,14 +82,98 @@ def collect() -> dict:
     }
 
 
+def _one_line(value, limit: int = 180) -> str:
+    text = " ".join(str(value).split())
+    return text if len(text) <= limit else text[: limit - 3] + "..."
+
+
+@contextlib.contextmanager
+def _capture_native_stdout():
+    """Keep C++ solver banners out of the CLI's own stdout.
+
+    The native CUDA/KUPL libraries print diagnostics directly to file
+    descriptor 1. ``contextlib.redirect_stdout`` cannot capture those, so this
+    context manager reserves a temporary file descriptor and restores it in a
+    ``finally`` block.
+    """
+    import os
+    import tempfile
+
+    sys.stdout.flush()
+    saved = os.dup(1)
+    with tempfile.TemporaryFile(mode="w+", encoding="utf-8") as capture:
+        os.dup2(capture.fileno(), 1)
+        try:
+            yield capture
+        finally:
+            sys.stdout.flush()
+            try:
+                import ctypes
+
+                # Native CUDA/KUPL code uses C printf; flush it before the
+                # original file descriptor is restored, or the buffered line
+                # would appear after the JSON report.
+                ctypes.CDLL(None).fflush(None)
+            except Exception:
+                pass
+            os.dup2(saved, 1)
+            os.close(saved)
+
+
+def _print_selftest(report: dict) -> None:
+    print(f"pyqcu {report['version']} self-test")
+    for name, layer in report["layers"].items():
+        status = str(layer.get("status", "FAIL"))
+        if status == "PASS":
+            detail = (
+                f"iterations={layer.get('iterations')} "
+                f"residual={float(layer.get('true_residual', 0.0)):.3e} "
+                f"{layer.get('device', '')}")
+        elif status == "SKIP":
+            detail = _one_line(layer.get("reason", "unavailable"))
+        else:
+            detail = _one_line(layer.get("error", "unknown error"))
+        print(f"  {name:<6}: {status:<4} {detail}")
+    print(f"overall: {report['status']}")
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
-        prog="python -m pyqcu",
-        description="Show PyQCU version and native-backend availability.")
-    parser.add_argument("--json", action="store_true",
-                        help="print a machine-readable report")
+        prog="pyqcu",
+        description="Show PyQCU version/backends or run the install self-test.")
+    parser.add_argument(
+        "--version", action="version", version=f"%(prog)s {__version__}")
+    parser.add_argument(
+        "--json", action="store_true", help="print a machine-readable report")
+    parser.add_argument(
+        "--selftest", action="store_true",
+        help="run Torch/KUPL/CUDA layers with independent residual checks")
+    parser.add_argument(
+        "--lattice", nargs=4, type=int, default=(4, 4, 4, 4),
+        metavar=("X", "Y", "Z", "T"),
+        help="self-test lattice (four positive even integers)")
     args = parser.parse_args(argv)
-    report = collect()
+
+    if args.selftest:
+        from . import _selftest
+
+        with _quiet_optional_warnings(), _capture_native_stdout() as capture:
+            report = _selftest.run_all(tuple(args.lattice))
+            capture.seek(0)
+            native_output = capture.read()
+        if native_output.strip() and report["status"] == "FAIL":
+            report["native_output"] = _one_line(native_output, 2000)
+        if args.json:
+            print(json.dumps(report, indent=2))
+        else:
+            _print_selftest(report)
+            if report.get("native_output"):
+                print("native output:", report["native_output"],
+                      file=sys.stderr)
+        return 0 if report["status"] == "PASS" else 2
+
+    with _quiet_optional_warnings():
+        report = collect()
     if args.json:
         print(json.dumps(report, indent=2))
         return 0

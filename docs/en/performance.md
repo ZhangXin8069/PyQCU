@@ -57,9 +57,10 @@ KUPL `793970c6c9903cf4fdb649666604437ef5dd19541dfe9335df486f6041963b4a`,
 CUDA `bfd1f8b91be9137c621c4ebb2f30556f07ca9e5b19ad775f0231f9cfe811229e`,
 Cython bridge `b00a84f0a3b73e907e93f6983122694bd3d545f19e876ad6720dd99913e119df`.
 
-The 0.1.1 release is metadata-only; the code is identical to 0.1.0. The
-numbers below were re-measured from a clean PyPI 0.1.1 venv. The repository
-driver with its own NumPy full-lattice residual reported 2.21e-7 at 0.134 s.
+0.1.1 was metadata-only and 0.1.2 adds the CLI self-test. The solver code is
+identical to 0.1.0, so the 8x8x16x16 numbers below remain valid; they were
+measured on 0.1.1 from a clean PyPI venv. The repository driver with its own
+NumPy full-lattice residual reported 2.21e-7 at 0.134 s.
 
 | Backend | Device | Iterations | True residual | Acceptance | Solve wall | Notes |
 |---|---|---|---|---|---|---|

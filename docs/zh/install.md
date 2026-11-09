@@ -67,9 +67,13 @@ PYQCU_BUILD_BACKEND=cuda pip install pyqcu
 ## 验证安装
 
 ```bash
-python -m pyqcu
-python -m pyqcu --json
+pyqcu
+pyqcu --selftest
+pyqcu --json
 ```
+
+`pyqcu` 是安装后的 console script；`python -m pyqcu` 等价。
+`pyqcu --selftest` 会跑 Torch/KUPL/CUDA 三层，缺少原生后端时报告 `SKIP`。
 
 ```python
 import json
@@ -80,16 +84,31 @@ report = json.loads(subprocess.run(
     [sys.executable, "-m", "pyqcu", "--json"],
     check=True, capture_output=True, text=True).stdout)
 assert report["package"] == "pyqcu"
-assert report["version"] == "0.1.1"
+assert report["version"] == "0.1.2"
 assert "path" in report["backends"]["kupl"]
 print("pyqcu", report["version"], "at", report["path"])
+```
+
+```python
+import json
+import subprocess
+import sys
+
+report = json.loads(subprocess.run(
+    [sys.executable, "-m", "pyqcu", "--selftest", "--json",
+     "--lattice", "4", "4", "4", "4"],
+    check=True, capture_output=True, text=True).stdout)
+assert report["status"] == "PASS"
+assert report["layers"]["torch"]["status"] == "PASS"
+print("self-test:", {
+    name: layer["status"] for name, layer in report["layers"].items()})
 ```
 
 ```python
 import importlib.util
 import pyqcu
 
-assert pyqcu.__version__ == "0.1.1"
+assert pyqcu.__version__ == "0.1.2"
 missing = [
     name for name in
     ("api", "lattice", "tools", "torch", "solver", "cuda", "kupl")

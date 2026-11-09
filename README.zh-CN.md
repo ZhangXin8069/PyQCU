@@ -39,9 +39,13 @@ PYQCU_BUILD_BACKEND=cuda pip install pyqcu
 验证安装：
 
 ```bash
-python -m pyqcu
-python -m pyqcu --json
+pyqcu                 # 安装的 console script；等价于 python -m pyqcu
+pyqcu --selftest      # Torch/KUPL/CUDA 三层自检；缺原生后端显示 SKIP
+pyqcu --json
 ```
+
+`pyqcu --selftest` 会在每个可用层上跑一次小规模独立残差求解。缺少 KUPL 或 CUDA
+后端会报告 `SKIP`，不会被当成安装失败。
 
 ## 文档
 

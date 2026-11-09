@@ -12,7 +12,7 @@ The same public Python API drives three execution paths:
 * the CUDA/DCU backend (`pyqcu.cuda`), a C++/CUDA implementation exposed
   through a Cython bridge.
 
-This release is `0.1.1`. The package is distributed as a source archive; the
+This release is `0.1.2`. The package is distributed as a source archive; the
 KUPL library is built on the installing machine when the toolchain is
 available, and the CUDA/DCU library is built opportunistically.
 
@@ -48,9 +48,14 @@ The Torch backend is always importable once the package and its dependencies
 are installed. Native KUPL/CUDA availability is reported by:
 
 ```bash
-python -m pyqcu
-python -m pyqcu --json
+pyqcu
+pyqcu --selftest
+pyqcu --json
 ```
+
+`pyqcu` is the installed console script; `python -m pyqcu` is equivalent.
+`--selftest` runs the Torch/KUPL/CUDA layers and reports missing native
+backends as `SKIP`.
 
 ## Package layers
 

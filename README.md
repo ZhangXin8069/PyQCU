@@ -42,9 +42,14 @@ PYQCU_BUILD_BACKEND=cuda pip install pyqcu
 Verify the installation:
 
 ```bash
-python -m pyqcu
-python -m pyqcu --json
+pyqcu                 # installed console script; python -m pyqcu is equivalent
+pyqcu --selftest      # Torch/KUPL/CUDA layers; missing native backends show SKIP
+pyqcu --json
 ```
+
+`pyqcu --selftest` runs a small independent-residual solve on every available
+layer. A missing KUPL or CUDA backend is reported as `SKIP`, not as a failed
+installation.
 
 ## Quick start
 
