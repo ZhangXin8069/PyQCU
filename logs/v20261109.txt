@@ -533,3 +533,18 @@ Skill split checkpoint (2026-11-09 10:55)
 - Docs audit: `PASS docs=39 skills=36` with no `[LINK]` or `[SKILL-SIZE]`
   findings. Form audit: 36/36.
 - Next: offline wheelhouse install, Python version matrix, DCU/Kunpeng paths.
+
+Offline install checkpoint (2026-11-09 11:00)
+---------------------------------------------
+- Fresh `--system-site-packages` venv, `PIP_NO_INDEX=1`, local 0.1.8 sdist,
+  `--no-build-isolation --no-deps --force-reinstall`,
+  `PYQCU_SKIP_NATIVE_BUILD=1`: build/install succeeded; `pyqcu --version`
+  is 0.1.8; selftest Torch PASS, KUPL/CUDA SKIP with explicit reasons;
+  `pip check` clean.
+- Local single-wheel `--no-index --find-links wheelhouse` install also
+  succeeded; CLI help/version work.
+- Minimal venv without system site-packages and without Cython installed
+  only setuptools/wheel, then built/installed the same sdist offline:
+  version/help/import all OK. The skip-native path does not require Cython.
+- Full torch dependency wheelhouse was not downloaded (size); the sdist,
+  single-wheel, and no-Cython offline boundaries are verified.
