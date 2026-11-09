@@ -62,13 +62,31 @@ def _kupl_status() -> dict:
         return {"available": False, "error": f"{type(error).__name__}: {error}"}
 
 
+def _cuda_library_path(origin: str) -> Path | None:
+    override = os.environ.get("PYQCU_CUDA_LIB")
+    candidates = [Path(override)] if override else [
+        Path(origin).parent / "libqcu.so",
+        Path(origin).parent.parent / "libqcu.so",
+    ]
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    return None
+
+
 def _cuda_status() -> dict:
     try:
         spec = importlib.util.find_spec("pyqcu.cuda.qcu")
         if spec is None or not spec.origin:
             return {"available": False,
                     "error": "Cython bridge is not built in this installation"}
-        return {"available": True, "path": spec.origin}
+        library = _cuda_library_path(spec.origin)
+        if library is None:
+            return {"available": False,
+                    "error": "native library libqcu.so not found",
+                    "path": spec.origin}
+        return {"available": True, "path": spec.origin,
+                "library": str(library)}
     except Exception as error:  # pragma: no cover - diagnostic only
         return {"available": False, "error": f"{type(error).__name__}: {error}"}
 

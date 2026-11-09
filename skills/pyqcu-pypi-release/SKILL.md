@@ -299,6 +299,10 @@ site-packages/pyqcu/cuda/qcu.cpython-312-x86_64-linux-gnu.so   # Cython 桥
   `parser.error`；CLI 测试 19 项。
 - 事故：0.1.9 曾被未被杀死的 nudge 子进程从半成品工作树抢先上传；0.1.10
   是审查后的超集。停 watcher 必须杀进程组，不能只杀 watcher PID。
+- 0.1.11 诊断准确性：bridge 的 `find_spec` 成功不代表可加载；必须检查
+  companion `libqcu.so`（`PYQCU_CUDA_LIB` 或 bridge 同目录/上级目录）。缺库时
+  `pyqcu --json` 返回 `cuda.available=False`，`--selftest` 仍会 FAIL。
+- 0.1.11 sdist 606,633 B，sha256 109517de…498c75；CLI 20、全量 148/4。
 
 发布门 12 项（`release_check --offline` 顺序）：version、sdist exists、sdist no
 testing、sdist no binaries、sdist native sources、sdist no home paths、sdist

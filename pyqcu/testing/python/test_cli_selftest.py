@@ -6,6 +6,7 @@ import json
 import os
 import subprocess
 import sys
+import types
 from pathlib import Path
 
 import pytest
@@ -171,6 +172,27 @@ def test_cli_json_rejects_non_integer_lattice():
     report = json.loads(process.stdout)
     assert report["status"] == "FAIL"
     assert "four integers" in report["error"]
+
+
+def test_cuda_status_requires_companion_library(tmp_path, monkeypatch):
+    from pyqcu import __main__ as cli
+
+    bridge = tmp_path / "cuda" / "qcu.cpython-test.so"
+    bridge.parent.mkdir()
+    bridge.write_text("", encoding="utf-8")
+    monkeypatch.delenv("PYQCU_CUDA_LIB", raising=False)
+    monkeypatch.setattr(
+        cli.importlib.util, "find_spec",
+        lambda name: types.SimpleNamespace(origin=str(bridge)))
+    missing = cli._cuda_status()
+    assert missing["available"] is False
+    assert "libqcu.so" in missing["error"]
+
+    library = bridge.parent / "libqcu.so"
+    library.write_text("", encoding="utf-8")
+    found = cli._cuda_status()
+    assert found["available"] is True
+    assert found["library"] == str(library)
 
 
 def test_cli_rejects_non_integer_lattice():

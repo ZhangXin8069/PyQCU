@@ -631,3 +631,22 @@ Python package matrix (2026-11-09)
   unreviewed working tree; 0.1.10 is the reviewed superset. Stop the watcher
   by process group (`kill -TERM -- -WATCHER_PID`) so nudge children do not
   survive and publish/commit concurrently.
+
+Nudge checkpoint (2026-11-09 11:26)
+-----------------------------------
+- 0.1.10 is live on PyPI/RTD; watcher 977368 runs the 10s fixed build.
+- Found a diagnostics bug: after removing the bundled `pyqcu/cuda/libqcu.so`,
+  `pyqcu --json` still reports `cuda.available=True` while `--selftest` FAILs.
+  Next: require the companion native library before reporting availability.
+
+0.1.11 CUDA diagnostic accuracy (2026-11-09)
+--------------------------------------------
+- `pyqcu --json` now reports `cuda.available=False` when the Cython bridge
+  exists but its companion `libqcu.so` is missing; when available it includes
+  both `path` (bridge) and `library` (native library).
+- Artifact: 606,633 bytes, sha256
+  109517de6ab3ef9e980a27e85b59d119f377b0fd41f6dde89fb74df157049c75.
+- PyPI: https://pypi.org/project/pyqcu/0.1.11/
+- Verification: CLI 20 passed; full Python 148 passed/4 skipped; clean PyPI
+  0.1.11; missing-library JSON status False; default 4^4 selftest PASS;
+  offline gate 12/12.
