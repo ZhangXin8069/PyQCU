@@ -80,6 +80,10 @@ rpath，期望 `pyqcu/cuda/libqcu.so` 同目录。
   创建多个 GPU worker。
 * KUPL 跨 rank 用 MPI、rank 内用 OpenMP。固定 `OMP_NUM_THREADS` 与
   `KUPL_OMP_THREADS`，避免超订。
+* `mpirun` 以 `Bus error`、退出码 135 结束时先看 `df -h /tmp`。`/tmp` 满会让
+  OpenMPI 共享内存池失败；把 `OMPI_MCA_orte_tmpdir_base` 与 `TMPDIR` 指向可写
+  路径、清理遗留 MPI 临时文件，或对纯 CPU 诊断设置
+  `OMPI_MCA_btl=^smcuda`。
 
 ## 警告与已知限制
 

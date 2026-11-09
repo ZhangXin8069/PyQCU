@@ -84,6 +84,10 @@ For multigrid details, see {doc}`solvers`. For the low-level native ABI, see
   multiple GPU workers inside one process.
 * KUPL uses MPI across ranks and OpenMP inside each rank. Pin
   `OMP_NUM_THREADS` and `KUPL_OMP_THREADS`; avoid oversubscription.
+* If `mpirun` exits 135 with `Bus error`, check `df -h /tmp`. OpenMPI's
+  shared-memory pool can fail when `/tmp` is full; point
+  `OMPI_MCA_orte_tmpdir_base` and `TMPDIR` at a writable path, remove stale
+  MPI temp files, or set `OMPI_MCA_btl=^smcuda` for CPU-only diagnostics.
 
 ## Warnings and known limitations
 

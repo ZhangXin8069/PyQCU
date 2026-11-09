@@ -190,6 +190,11 @@ pip check
   只证明 headless 回合执行成功，TUI 里可能看不到该分支。排查看
   `tui-watch.log`、`idle-nudge-last.txt` 和 `~/.commandcode/projects/...jsonl`；
   要在 TUI 显示该回合需 `/reload`。不要把“TUI 无新消息”误判为注入失败。
+- `mpirun` 返回 135 / `Bus error` 且无 stdout 时先查 `df -h /tmp`；`/tmp` 满会
+  让 OpenMPI 共享内存池失败。设置 `TMPDIR`/`OMPI_MCA_orte_tmpdir_base` 到可写
+  目录、清理 `/tmp/ompi.*` 遗留，或纯 CPU 诊断加 `OMPI_MCA_btl=^smcuda`。
+  0.1.8 MPI 契约：自检 8×8×16×16 单份 JSON/Torch PASS/rc0，2⁴ 单份 FAIL/rc2，
+  `--json` version/size/rank 正确。
 - `--force-reinstall` 复验安装幂等；`pip check` 无输出才算依赖闭合。
 - 在仓库根直接 `python -c 'import pyqcu'` 只会命中源码树（`pyqcu.__file__` 不含
   `site-packages`），不得当作安装证据。

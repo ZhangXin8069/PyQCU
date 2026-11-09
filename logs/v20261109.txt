@@ -548,3 +548,18 @@ Offline install checkpoint (2026-11-09 11:00)
   version/help/import all OK. The skip-native path does not require Cython.
 - Full torch dependency wheelhouse was not downloaded (size); the sdist,
   single-wheel, and no-Cython offline boundaries are verified.
+
+MPI CLI checkpoint (2026-11-09 11:05)
+-------------------------------------
+- First MPI runs returned rc=135 with `Bus error` and no stdout; `/tmp` was
+  100% full (our stale venvs/docs builds). Freed our own `/tmp/p11*`, audit,
+  docs-build and `/tmp/ompi.*` residue; `/tmp` dropped to 40% used.
+- Re-ran with `TMPDIR`/`OMPI_MCA_orte_tmpdir_base` under `data/pypi/tmp` and
+  `OMPI_MCA_btl=^smcuda`:
+  - `mpirun -np 2 pyqcu --selftest --json --lattice 8 8 16 16`: rc 0, one
+    JSON, rank 0, Torch PASS, KUPL/CUDA SKIP.
+  - invalid `2 2 2 2`: rc 2, one JSON FAIL, error "at least 4".
+  - `mpirun -np 2 pyqcu --json`: rc 0, version 0.1.8, size 2, rank 0.
+  - `--version`/`--help`: one line / one usage block.
+- Added the `/tmp`-full OpenMPI SIGBUS workaround to both troubleshooting
+  pages and the testing skill.
