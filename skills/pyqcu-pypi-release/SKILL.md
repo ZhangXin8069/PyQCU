@@ -249,6 +249,9 @@ site-packages/pyqcu/cuda/qcu.cpython-312-x86_64-linux-gnu.so   # Cython 桥
 - **非零 rank 不能无条件 `return 0`**：静默只代表不打印；返回值仍必须是
   `0/2` 的真实状态，否则 `mpirun` 会把失败的 Torch 层掩盖成成功。0.1.5
   专门修了这一点，并加了 `_selftest_exit_code` 单测。
+- RTD 对默认 `Python-urllib` User-Agent 返回 HTTP 403（curl 正常）。
+  `release_check` 的 `_fetch` 已改用浏览器 UA；修正后 0.1.5 的 `--online`
+  为 18/18。
 
 发布门 12 项（`release_check --offline` 顺序）：version、sdist exists、sdist no
 testing、sdist no binaries、sdist native sources、sdist no home paths、sdist

@@ -41,6 +41,8 @@
 - 无 RTD API token 时**不能从 CLI 手动触发**构建或读取构建日志；但推 Gitee 会经
   GitHub 镜像自动触发，不需要 token（本次已实测）。不要把“本地构建通过”写成
   “RTD 已发布”，要按页探针确认 HTTP 200 与标题版本。
+- RTD 对默认 `Python-urllib` User-Agent 返回 HTTP 403；探针用 `curl` 或显式
+  浏览器 UA。`release_check` 已统一使用浏览器 UA，避免把站点正常误判为 403。
 
 ## 2. 配置文件布局
 

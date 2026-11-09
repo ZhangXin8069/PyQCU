@@ -410,3 +410,6 @@ Verification:
   `iterations=n/a`; `mpirun -np 2 pyqcu --json` one object, mpi_size=2.
 - pytest test_cli_selftest.py: 9 passed (includes the non-zero-rank exit-code
   contract); release_check --offline 12/12.
+- Tooling fix: RTD rejects the default Python-urllib UA with HTTP 403;
+  `release_check._fetch` now sends a browser-like UA. `release_check --online`
+  after the fix: 18/18 (PyPI JSON/simple/project links + RTD en/zh).

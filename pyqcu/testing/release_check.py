@@ -116,8 +116,14 @@ def check_sphinx() -> None:
 
 
 def _fetch(url: str) -> tuple[int, bytes]:
+    # Read the Docs rejects the default Python-urllib user agent with HTTP 403.
+    request = urllib.request.Request(
+        url,
+        headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) "
+                               "pyqcu-release-check/0.1"},
+    )
     try:
-        with urllib.request.urlopen(url, timeout=20) as response:
+        with urllib.request.urlopen(request, timeout=20) as response:
             return response.status, response.read()
     except urllib.error.HTTPError as error:
         return error.code, b""
