@@ -47,7 +47,8 @@ printf '%s %s\n' "$HEAD_SHA" "$(git rev-parse --abbrev-ref HEAD)@local"
 
 验收：`git rev-parse HEAD` 的输出与三条 `git ls-remote <url> refs/heads/main` 的 hash
 **四个值完全相同**；缺一不可报告"已交付"。本次发布提交 `b63e7798b61da…` 的三端均为同一
-hash，GitHub 镜像在 Gitee 推送后 `~10 s` 内完成同步。轮询按分钟级设置即可，超时只报
+hash，GitHub 镜像在 Gitee 推送后约 10 s 到数分钟完成同步（0.1.4 的日志提交实测约
+5 分钟）。轮询按分钟级设置即可，单次超时不判失败，超时只报
 "镜像未同步"，不改写远端、不 force push。
 
 边界与陷阱：

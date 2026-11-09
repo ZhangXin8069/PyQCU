@@ -332,7 +332,8 @@ section、PyPI simple index、RTD en/zh-cn。
   `.readthedocs.yaml`（0.1.0 时期 GitHub main 停在 `8847f84`，配置推上去
   之前每次都秒失败）。先 `git ls-remote` 确认 GitHub 上有
   `docs/<lang>/.readthedocs.yaml`，再触发重建。
-- 已验证路径：`b63e779` 推 Gitee 后 GitHub 镜像约 10 s 更新，RTD 自动构建成功，
+- 已验证路径：`b63e779` 推 Gitee 后 GitHub 镜像约 10 s 更新；0.1.4 的日志提交实测
+  约 5 分钟才同步。按分钟级轮询，单次超时不判失败。RTD 自动构建成功，
   `en/latest` 与 `zh-cn/latest` 均 HTTP 200（当时标题 0.1.0）；0.1.1 推送后要
   按页确认标题变为 0.1.1。zh-cn 翻译条目已存在，push-triggered build 不需要
   RTD API token。
