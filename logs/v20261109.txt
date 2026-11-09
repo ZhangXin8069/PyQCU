@@ -478,3 +478,26 @@ Supervision repair (2026-11-09)
   `--`. Configure regressions: idle 8/8, watcher 9/9.
 - Current watcher: 10s idle threshold, 10s min-turn, 2s poll, unlimited;
   rendered nudge command starts with `command-code`, not `--`.
+
+0.1.8 MPI info output (2026-11-09)
+----------------------------------
+Fix:
+- `mpirun -np 2 pyqcu --version` printed two lines and `--help` printed two
+  usage blocks. Main now pre-scans launcher rank variables
+  (`OMPI_COMM_WORLD_RANK`, `PMI_RANK`, `I_MPI_RANK`, `MV2_COMM_WORLD_RANK`,
+  `SLURM_PROCID`) before argparse; non-zero ranks return 0 silently.
+- No mpi4py import is added on the info path.
+
+Artifact:
+dist/pyqcu-0.1.8.tar.gz
+size: 606,166 bytes
+sha256: 0d8dc41a60382c36577a43dbc691135e8f82f4b261a6cdefd2556e2b49102ed3
+twine check: PASSED
+PyPI: https://pypi.org/project/pyqcu/0.1.8/
+
+Verification:
+- pytest test_cli_selftest.py: 15 passed.
+- Source MPI: `mpirun -np 2 --version` one line; `--help` one usage block.
+- Clean PyPI 0.1.8 upgrade: same MPI behavior; 8x8x16x16 selftest all PASS
+  (Torch 115/5.48e-7, KUPL 26/1.71e-7, CUDA 2.10e-7); pip check clean.
+- release_check --offline: 12/12.

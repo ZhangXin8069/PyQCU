@@ -174,6 +174,9 @@ pip check
   only，避免多份 JSON 拼接。
 - 非零 rank 虽不输出，但必须返回真实状态码（PASS 0 / FAIL 2）；无条件
   `return 0` 会让 `mpirun` 掩盖该 rank 的 Torch 失败。0.1.5 有对应单测。
+- `mpirun -np N pyqcu --version/--help` 只由 rank 0 输出。rank 在 argparse
+  之前从 `OMPI_COMM_WORLD_RANK`/`PMI_RANK`/`I_MPI_RANK`/`MV2_COMM_WORLD_RANK`/
+  `SLURM_PROCID` 预扫描，不 import mpi4py；0.1.8 起 15 项 CLI 测试覆盖。
 - 自检格点下限为 4；0.1.6 在 `2 2 2 2` 上 CUDA 残差 42.7，0.1.7 起接口
   直接拒绝。发布验证用默认 `4 4 4 4` 或 `8 8 16 16`。
 - 自动续跑注入失败时先看 `tui-watch.log`：`idle-nudge-failed detail=FileNotFoundError

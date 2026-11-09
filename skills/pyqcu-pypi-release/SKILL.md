@@ -277,6 +277,14 @@ site-packages/pyqcu/cuda/qcu.cpython-312-x86_64-linux-gnu.so   # Cython 桥
   index 慢；`release_check` 现在同时轮询 latest metadata。0.1.7 `--online`
   为 19/19（新增 `PyPI latest metadata`）。
 
+### 0.1.8 MPI 信息输出去重
+
+- `mpirun -np N pyqcu --version/--help` 在 0.1.7 会打印 N 份。0.1.8 在
+  argparse 前预扫描 `OMPI_COMM_WORLD_RANK`/`PMI_RANK`/`SLURM_PROCID` 等，
+  非零 rank 静默返回 0，不 import mpi4py。
+- 干净安装复验要用 `env -u PYTHONPATH -u PYQCU_KUPL_LIB` 再 `source env.sh`，
+  确保命中 venv 的 console script；PyPI simple index 仍可能需轮询 1-2 次。
+
 发布门 12 项（`release_check --offline` 顺序）：version、sdist exists、sdist no
 testing、sdist no binaries、sdist native sources、sdist no home paths、sdist
 Chinese README、twine check、bilingual blocks、docs examples、sphinx en、

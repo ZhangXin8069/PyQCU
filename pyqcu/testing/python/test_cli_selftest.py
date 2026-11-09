@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -57,6 +58,31 @@ def test_torch_layer_is_deterministic():
     second = _selftest.run_all(include=("torch",))["layers"]["torch"]
     assert first["iterations"] == second["iterations"]
     assert abs(first["true_residual"] - second["true_residual"]) < 1e-12
+
+
+def _run_cli(args, rank):
+    env = os.environ.copy()
+    env["OMPI_COMM_WORLD_RANK"] = str(rank)
+    return subprocess.run(
+        [sys.executable, "-m", "pyqcu", *args],
+        cwd=ROOT, capture_output=True, text=True, env=env)
+
+
+def test_cli_rank0_prints_version_and_help():
+    version = _run_cli(["--version"], 0)
+    assert version.returncode == 0
+    assert version.stdout.startswith("pyqcu ")
+    help_output = _run_cli(["--help"], 0)
+    assert help_output.returncode == 0
+    assert "usage: pyqcu" in help_output.stdout
+
+
+@pytest.mark.parametrize("flag", ["--version", "--help", "-h"])
+def test_cli_nonzero_rank_info_is_silent(flag):
+    process = _run_cli([flag], 1)
+    assert process.returncode == 0
+    assert process.stdout == ""
+    assert process.stderr == ""
 
 
 def test_cli_rejects_invalid_lattice():

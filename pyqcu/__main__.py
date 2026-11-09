@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import json
+import os
 import platform
 import sys
 import warnings
@@ -129,6 +130,20 @@ def _capture_native_stdout():
             os.close(saved)
 
 
+def _launcher_rank() -> int | None:
+    """Read the MPI rank from launcher variables without importing mpi4py."""
+    for name in ("OMPI_COMM_WORLD_RANK", "PMI_RANK", "I_MPI_RANK",
+                 "MV2_COMM_WORLD_RANK", "SLURM_PROCID"):
+        value = os.environ.get(name)
+        if value is None:
+            continue
+        try:
+            return int(value)
+        except ValueError:
+            continue
+    return None
+
+
 def _print_selftest(report: dict) -> None:
     print(f"pyqcu {report['version']} self-test")
     for name, layer in report["layers"].items():
@@ -162,7 +177,12 @@ def main(argv=None) -> int:
         "--lattice", nargs=4, type=int, default=(4, 4, 4, 4),
         metavar=("X", "Y", "Z", "T"),
         help="self-test lattice (four even integers >= 4)")
-    args = parser.parse_args(argv)
+    argv_list = list(sys.argv[1:] if argv is None else argv)
+    rank = _launcher_rank()
+    if rank is not None and rank != 0 and any(
+            arg in ("--version", "--help", "-h") for arg in argv_list):
+        return 0
+    args = parser.parse_args(argv_list)
 
     if args.selftest:
         from . import _selftest

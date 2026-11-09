@@ -74,7 +74,8 @@ pyqcu --json
 
 `pyqcu` 是安装后的 console script；`python -m pyqcu` 等价。
 `pyqcu --selftest` 会跑 Torch/KUPL/CUDA 三层，缺少原生后端时报告 `SKIP`。
-默认格点是 `4^4`，小于 4 的维度会被拒绝。
+默认格点是 `4^4`，小于 4 的维度会被拒绝；MPI 下 `--version`/`--help`
+只由 rank 0 输出。
 
 ```python
 import json
@@ -85,7 +86,7 @@ report = json.loads(subprocess.run(
     [sys.executable, "-m", "pyqcu", "--json"],
     check=True, capture_output=True, text=True).stdout)
 assert report["package"] == "pyqcu"
-assert report["version"] == "0.1.7"
+assert report["version"] == "0.1.8"
 assert "path" in report["backends"]["kupl"]
 print("pyqcu", report["version"], "at", report["path"])
 ```
@@ -109,7 +110,7 @@ print("self-test:", {
 import importlib.util
 import pyqcu
 
-assert pyqcu.__version__ == "0.1.7"
+assert pyqcu.__version__ == "0.1.8"
 missing = [
     name for name in
     ("api", "lattice", "tools", "torch", "solver", "cuda", "kupl")
