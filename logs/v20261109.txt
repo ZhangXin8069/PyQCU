@@ -563,3 +563,13 @@ MPI CLI checkpoint (2026-11-09 11:05)
   - `--version`/`--help`: one line / one usage block.
 - Added the `/tmp`-full OpenMPI SIGBUS workaround to both troubleshooting
   pages and the testing skill.
+
+Full Python suite checkpoint (2026-11-09 11:10)
+-----------------------------------------------
+- First run: 143 passed, 3 skipped, 1 failed. The failure was
+  `test_cuda_legacy_lifecycle_delegates_to_monolithic_abi` assuming that a
+  CUDA-capable torch implies the Cython bridge exists; `pyqcu.cuda.qcu` was an
+  empty namespace, so monkeypatching `applyInitQcu` raised AttributeError.
+- Fixed the test to skip when `cuda_legacy_module.qcu` has no `applyInitQcu`.
+  Rerun: 143 passed, 4 skipped, 0 failed in 26.67 s.
+- This is a test-harness defect, not a solver/core change.

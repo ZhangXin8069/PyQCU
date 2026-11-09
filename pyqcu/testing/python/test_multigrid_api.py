@@ -171,6 +171,8 @@ def test_kupl_legacy_lifecycle_delegates_to_canonical_abi(monkeypatch):
     reason="CUDA legacy lifecycle probe requires a PyTorch-supported device",
 )
 def test_cuda_legacy_lifecycle_delegates_to_monolithic_abi(monkeypatch):
+    if not hasattr(cuda_legacy_module.qcu, "applyInitQcu"):
+        pytest.skip("CUDA QCU bridge is not built")
     calls = []
     monkeypatch.setattr(
         cuda_legacy_module.qcu, "applyInitQcu",

@@ -195,6 +195,10 @@ pip check
   目录、清理 `/tmp/ompi.*` 遗留，或纯 CPU 诊断加 `OMPI_MCA_btl=^smcuda`。
   0.1.8 MPI 契约：自检 8×8×16×16 单份 JSON/Torch PASS/rc0，2⁴ 单份 FAIL/rc2，
   `--json` version/size/rank 正确。
+- CUDA bridge 测试不能只按 `torch.cuda.is_available()` 跳过；源码树里
+  `pyqcu.cuda.qcu` 可能只是空 namespace。必须检查 `hasattr(qcu,
+  "applyInitQcu")`，缺失时 `pytest.skip("CUDA QCU bridge is not built")`。
+  全量 `pyqcu/testing/python` 当前 143 passed / 4 skipped。
 - `--force-reinstall` 复验安装幂等；`pip check` 无输出才算依赖闭合。
 - 在仓库根直接 `python -c 'import pyqcu'` 只会命中源码树（`pyqcu.__file__` 不含
   `site-packages`），不得当作安装证据。
