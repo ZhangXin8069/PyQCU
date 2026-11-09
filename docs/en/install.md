@@ -183,3 +183,5 @@ mpirun -np 4 python pyqcu/testing/python/conftest.py
   `pyqcu.__file__` contains `site-packages`.
 * **`/tmp` full**: pip builds in a temporary directory; use a larger `TMPDIR`
   or clean old virtual environments.
+
+For a symptom-driven checklist, see {doc}`troubleshooting`.

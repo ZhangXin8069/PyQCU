@@ -295,3 +295,4 @@ assert loaded.variant == "legacy"
 * {doc}`usage`：算子、smearing 与 HDF5。
 * {doc}`install`：原生构建变量。
 * {doc}`performance`：已测求解与 provenance。
+* {doc}`troubleshooting`：求解器与后端故障排查。

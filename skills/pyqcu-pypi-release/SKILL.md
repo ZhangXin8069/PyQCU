@@ -182,8 +182,8 @@ site-packages/pyqcu/cuda/qcu.cpython-312-x86_64-linux-gnu.so   # Cython 桥
 | 版本一致 | `release_check` 的 `version` 项：pyproject 与 `pyqcu.__version__` 相同 | 0.1.1 通过 |
 | sdist 内容 | 无 `pyqcu/testing/`、无 `.so/.o`、KUPL+CUDA 源都在、`SOURCES.txt` 无 `/home/`、含 `README.zh-CN.md` | 0.1.1：254 成员 / 87 个 `.py` / 0 testing / 0 `.so` / KUPL src 34 / CUDA src 33 |
 | twine | `python -m twine check dist/pyqcu-<ver>.tar.gz` → `PASSED` | 0.1.0、0.1.1 均 PASSED |
-| 双语代码块 | `release_check` 的 `bilingual blocks`：5 页 × en/zh 逐块相同 | 0.1.2 通过 |
-| 文档示例 | `python -m pyqcu.testing.docs_examples --keep-going`：每块必须有 `assert` 或 `# docs-skip` | `ok=28 skipped=8 failed=0` |
+| 双语代码块 | `release_check` 的 `bilingual blocks`：6 页 × en/zh 逐块相同 | 0.1.2 通过 |
+| 文档示例 | `python -m pyqcu.testing.docs_examples --keep-going`：每块必须有 `assert` 或 `# docs-skip` | `ok=30 skipped=8 failed=0` |
 | 文档站点 | Sphinx `-W` 构建 en 与 zh | 两站 exit=0 |
 | 打包契约 | `pytest pyqcu/testing/dcu/test_install_selection.py pyqcu/testing/kupl/test_pure_kupl_install.py` | 9 passed |
 | KUPL/API 回归 | `pytest pyqcu/testing/kupl/test_kupl_python.py pyqcu/testing/kupl/test_krylov_api.py pyqcu/testing/python/test_api_contract.py pyqcu/testing/python/test_krylov_api.py` | 29 passed |

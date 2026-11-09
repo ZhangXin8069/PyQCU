@@ -71,3 +71,4 @@ pyqcu --json
 * {doc}`solvers`：迭代、多重网格与原生求解路径的选择与完整调用。
 * {doc}`install`：安装、原生构建变量与验证。
 * {doc}`performance`：历史跨平台测量及其可复现性状态。
+* {doc}`troubleshooting`：安装、原生后端与求解器故障排查。

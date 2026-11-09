@@ -306,3 +306,14 @@ Verification:
   pytest test_cli_selftest.py: 3 passed.
 - PyPI JSON: six project links, description contains ## Repositories, only the
   sdist is published.
+
+Troubleshooting page update (2026-11-09)
+----------------------------------------
+- Added docs/en/troubleshooting.md and docs/zh/troubleshooting.md: install/build
+  failures, native-backend lookup, solver scope/iteration limits, MPI/layout,
+  warnings, and the bug-report bundle.
+- Site toctree, docs_examples PAGES, release_check PAGES, and docs/skills
+  references now use six pages.
+- docs_examples: 30 ok / 8 skipped / 0 failed; Sphinx en/zh -W exit 0;
+  bilingual blocks match; release_check --offline 12/12.
+- This is a docs-only update; PyPI 0.1.2 remains the current package.

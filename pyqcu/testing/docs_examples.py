@@ -17,7 +17,8 @@ import pathlib
 import re
 import sys
 
-PAGES = ("overview", "usage", "solvers", "performance", "install")
+PAGES = ("overview", "usage", "solvers", "performance", "install",
+         "troubleshooting")
 BLOCK = re.compile(r"```python\n(.*?)```", re.S)
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 

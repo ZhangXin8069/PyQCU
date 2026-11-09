@@ -94,7 +94,7 @@ mpirun -np 4 python pyqcu/testing/python/conftest.py       # single file with MP
 
 ```bash
 python -m pyqcu.testing.release_check --offline      # 本次 12/12
-python -m pyqcu.testing.docs_examples --keep-going   # 28 ok / 8 skipped / 0 failed
+python -m pyqcu.testing.docs_examples --keep-going   # 30 ok / 8 skipped / 0 failed
 python -m pyqcu --selftest --json                    # Torch/KUPL/CUDA 三层
 python -B -m pytest -q -p no:cacheprovider \
   pyqcu/testing/dcu/test_install_selection.py \

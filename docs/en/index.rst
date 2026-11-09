@@ -16,3 +16,4 @@ CUDA/DCU/KUPL-accelerated lattice-QCD Dirac operators and multigrid solvers.
    solvers
    performance
    install
+   troubleshooting

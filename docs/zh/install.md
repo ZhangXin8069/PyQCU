@@ -172,3 +172,5 @@ mpirun -np 4 python pyqcu/testing/python/conftest.py
 * **导入到错误版本**：在源码树外运行，并断言 `pyqcu.__file__` 含
   `site-packages`。
 * **`/tmp` 满**：pip 在临时目录构建；设置更大的 `TMPDIR` 或清理旧 venv。
+
+按症状排查见 {doc}`troubleshooting`。

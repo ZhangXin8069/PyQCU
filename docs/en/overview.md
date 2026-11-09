@@ -76,3 +76,4 @@ backends as `SKIP`.
 * {doc}`install` for installation, native build variables, and verification.
 * {doc}`performance` for historical cross-platform measurements and their
   reproducibility status.
+* {doc}`troubleshooting` for installation, native-backend, and solver failures.

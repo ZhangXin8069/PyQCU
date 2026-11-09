@@ -309,3 +309,4 @@ assert loaded.variant == "legacy"
 * {doc}`usage` for operators, smearing, and HDF5.
 * {doc}`install` for native build variables.
 * {doc}`performance` for measured solves and provenance.
+* {doc}`troubleshooting` for solver and backend failures.
