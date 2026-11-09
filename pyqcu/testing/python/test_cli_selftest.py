@@ -195,6 +195,31 @@ def test_cuda_status_requires_companion_library(tmp_path, monkeypatch):
     assert found["library"] == str(library)
 
 
+def test_selftest_import_failure_is_json(monkeypatch, capsys):
+    from pyqcu import __main__ as cli
+    import pyqcu
+
+    monkeypatch.delattr(pyqcu, "_selftest", raising=False)
+    monkeypatch.setitem(sys.modules, "pyqcu._selftest", None)
+    assert cli.main(["--selftest", "--json"]) == 2
+    report = json.loads(capsys.readouterr().out)
+    assert report["status"] == "FAIL"
+    assert "dependencies unavailable" in report["error"]
+
+
+def test_selftest_runtime_failure_is_json(monkeypatch, capsys):
+    from pyqcu import __main__ as cli
+
+    def fail(*args, **kwargs):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(_selftest, "run_all", fail)
+    assert cli.main(["--selftest", "--json"]) == 2
+    report = json.loads(capsys.readouterr().out)
+    assert report["status"] == "FAIL"
+    assert "RuntimeError: boom" in report["error"]
+
+
 def test_cli_rejects_non_integer_lattice():
     process = subprocess.run(
         [sys.executable, "-m", "pyqcu", "--selftest",

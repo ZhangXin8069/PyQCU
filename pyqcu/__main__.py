@@ -253,7 +253,26 @@ def main(argv=None) -> int:
                 return 2
             parser.error(message)
 
-        from . import _selftest
+        try:
+            from . import _selftest
+        except Exception as error:
+            message = (
+                f"self-test dependencies unavailable: "
+                f"{type(error).__name__}: {error}")
+            if rank not in (None, 0):
+                return 2
+            if args.json:
+                print(json.dumps({
+                    "package": "pyqcu",
+                    "version": __version__,
+                    "lattice": list(args.lattice),
+                    "layers": {},
+                    "status": "FAIL",
+                    "error": message,
+                }, indent=2))
+                return 2
+            print(f"pyqcu: {message}", file=sys.stderr)
+            return 2
 
         try:
             with _quiet_optional_warnings(), _capture_native_stdout() as capture:
@@ -274,6 +293,22 @@ def main(argv=None) -> int:
                 }, indent=2))
                 return 2
             parser.error(str(error))
+        except Exception as error:
+            message = f"self-test failed: {type(error).__name__}: {error}"
+            if rank not in (None, 0):
+                return 2
+            if args.json:
+                print(json.dumps({
+                    "package": "pyqcu",
+                    "version": __version__,
+                    "lattice": list(lattice),
+                    "layers": {},
+                    "status": "FAIL",
+                    "error": message,
+                }, indent=2))
+                return 2
+            print(f"pyqcu: {message}", file=sys.stderr)
+            return 2
         if report.get("mpi_rank", 0) != 0:
             # Non-zero ranks keep stdout clean, but a failure must still be
             # visible on stderr and must reach mpirun as a non-zero exit.

@@ -303,6 +303,9 @@ site-packages/pyqcu/cuda/qcu.cpython-312-x86_64-linux-gnu.so   # Cython 桥
   companion `libqcu.so`（`PYQCU_CUDA_LIB` 或 bridge 同目录/上级目录）。缺库时
   `pyqcu --json` 返回 `cuda.available=False`，`--selftest` 仍会 FAIL。
 - 0.1.11 sdist 606,633 B，sha256 109517de…498c75；CLI 20、全量 148/4。
+- 0.1.12：`--selftest` 的 `_selftest` 导入失败、以及 `run_all` 的非
+  `ValueError` 异常，在 `--json` 下都返回 `status=FAIL`/exit 2，不再 traceback。
+  3.10 `--no-deps` 实测 JSON FAIL "dependencies unavailable"；CLI 22、全量 150/4。
 
 发布门 12 项（`release_check --offline` 顺序）：version、sdist exists、sdist no
 testing、sdist no binaries、sdist native sources、sdist no home paths、sdist

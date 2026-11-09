@@ -655,3 +655,18 @@ Nudge checkpoint (2026-11-09 11:26)
   `cron_delete` is unavailable in this tool set. It will operate on the current
   HEAD (0.1.11); the reviewer must verify actual PyPI/RTD versions and should
   mention 0.1.11 in the dev110 tag message.
+
+0.1.12 self-test failure reporting (2026-11-09)
+-----------------------------------------------
+- `pyqcu --selftest` on an incomplete install previously raised
+  `ModuleNotFoundError` with no JSON (exit 1). It now catches import and
+  non-ValueError runtime failures, returning `status=FAIL`/exit 2 under
+  `--json` and a one-line error otherwise.
+- Artifact: 606,795 bytes, sha256
+  e14fc7d808a66ccd582b7478f50b52d845716f6e89e7be81143bef8796744a6f.
+- PyPI: https://pypi.org/project/pyqcu/0.1.12/
+- Verification: CLI 22 passed; full Python 150 passed/4 skipped; clean PyPI
+  0.1.12 default selftest PASS; Python 3.10 `--no-deps` selftest returns JSON
+  FAIL "dependencies unavailable"; offline gate 12/12.
+- The 13:27 scheduled job remains 0.1.10-era text; current HEAD is 0.1.12.
+  Reviewer must use actual versions and include 0.1.12 in the dev110 message.
