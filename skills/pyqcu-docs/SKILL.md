@@ -61,7 +61,7 @@ python -m pyqcu.testing.release_check --offline   # 已包含双站 -W
 ```
 
 - 中英围栏块逐字节一致（`python` 与 `bash` 都比）；每个 python 块要有 `assert` 或
-  `# docs-skip`/`# pseudo-code`；加入 `solvers.md` 后基线 26 ok / 8 skipped /
+  `# docs-skip`/`# pseudo-code`；加入 `solvers.md` 后基线 28 ok / 8 skipped /
   0 failed。
 - 版本同步点：`docs/{en,zh}/conf.py` 的 `release`、`install.md` 的 `pyqcu==<ver>`
   和两处版本断言、`overview.md` 的版本号随发布版本一起改；漏改 `install.md` 会让

@@ -149,9 +149,11 @@ site-packages/pyqcu/cuda/qcu.cpython-312-x86_64-linux-gnu.so   # Cython 桥
   环境变量 → 包内 `pyqcu/kupl/libqcu.so` → 包内 `pyqcu/kupl/build/libqcu.so`
   → 源码树 `cpp/kupl/qcu/libqcu.so`；全落空时 `FileNotFoundError` 列出全部
   候选。
-- 诊断入口 `python -m pyqcu` / `python -m pyqcu --json`
+- 诊断入口 `pyqcu` / `python -m pyqcu` / `--json`
   （`pyqcu/__main__.py`）：打印 version、`pyqcu.__file__`、
   numpy/torch/h5py/mpi4py 版本、KUPL 库路径与导出符号数、CUDA 桥路径。
+  `pyqcu --selftest` 跑 Torch/KUPL/CUDA 三层独立残差；缺原生后端为 SKIP，
+  整体 PASS 才退出 0，`--json` 机器可读。
 - 无原生库是合法安装状态（`PYQCU_SKIP_NATIVE_BUILD=1` 的
   `data/pypi/venv-011-nolib/`）：`import pyqcu` 成功、KUPL 报候选路径。
   不要用“import 成功”判断原生后端可用，要看 `python -m pyqcu`。
@@ -180,8 +182,8 @@ site-packages/pyqcu/cuda/qcu.cpython-312-x86_64-linux-gnu.so   # Cython 桥
 | 版本一致 | `release_check` 的 `version` 项：pyproject 与 `pyqcu.__version__` 相同 | 0.1.1 通过 |
 | sdist 内容 | 无 `pyqcu/testing/`、无 `.so/.o`、KUPL+CUDA 源都在、`SOURCES.txt` 无 `/home/`、含 `README.zh-CN.md` | 0.1.1：254 成员 / 87 个 `.py` / 0 testing / 0 `.so` / KUPL src 34 / CUDA src 33 |
 | twine | `python -m twine check dist/pyqcu-<ver>.tar.gz` → `PASSED` | 0.1.0、0.1.1 均 PASSED |
-| 双语代码块 | `release_check` 的 `bilingual blocks`：4 页 × en/zh 逐块相同 | 0.1.1 通过 |
-| 文档示例 | `python -m pyqcu.testing.docs_examples --keep-going`：每块必须有 `assert` 或 `# docs-skip` | `ok=18 skipped=2 failed=0` |
+| 双语代码块 | `release_check` 的 `bilingual blocks`：5 页 × en/zh 逐块相同 | 0.1.2 通过 |
+| 文档示例 | `python -m pyqcu.testing.docs_examples --keep-going`：每块必须有 `assert` 或 `# docs-skip` | `ok=28 skipped=8 failed=0` |
 | 文档站点 | Sphinx `-W` 构建 en 与 zh | 两站 exit=0 |
 | 打包契约 | `pytest pyqcu/testing/dcu/test_install_selection.py pyqcu/testing/kupl/test_pure_kupl_install.py` | 9 passed |
 | KUPL/API 回归 | `pytest pyqcu/testing/kupl/test_kupl_python.py pyqcu/testing/kupl/test_krylov_api.py pyqcu/testing/python/test_api_contract.py pyqcu/testing/python/test_krylov_api.py` | 29 passed |
@@ -197,6 +199,23 @@ site-packages/pyqcu/cuda/qcu.cpython-312-x86_64-linux-gnu.so   # Cython 桥
 | 卸载重装 | `pip uninstall -y pyqcu` 后从 PyPI 重装 | 0.1.1 从 PyPI sdist 重建成功，诊断仍 0.1.1，`pip check` 干净 |
 | 升级/降级 | 已装旧版时装新版必须写 `pyqcu==<ver>` 或 `--upgrade` | 裸 `pip install pyqcu` 只报 `already satisfied (0.1.0)`（`data/pypi/pypi-upgrade-011.log`） |
 | extras | `pip install "pyqcu[<extra>]==<ver>"`（或 `--dry-run` 先看解析） | 0.1.1：`pyqcu[all]` 装出 matplotlib 3.11.2 + psutil 7.2.2，`pyqcu.tools.mpl_cjk_setup` 可调用 |
+| CLI 自检 | `pyqcu --selftest` / `python -m pyqcu --selftest --json` | 0.1.2：no-native `torch=PASS, kupl=SKIP, cuda=SKIP`；native 三层 PASS |
+
+### 0.1.2 安装态自检经验
+
+- `pyqcu` console script 由 `[project.scripts] pyqcu = "pyqcu.__main__:main"`
+  提供；`python -m pyqcu` 等价。
+- `pyqcu --selftest`：Torch 4^4 Clover BiCGStab；KUPL/CUDA 4^4 Wilson
+  BiCGStab；每层用独立全格点残差；缺原生库为 SKIP，整体 PASS exit 0，
+  FAIL exit 2。
+- CUDA Wilson 当前没有 iteration getter，`iterations=None` 是合法结果，
+  不是失败；不要 `int(None)`。
+- 原生 CUDA C++ 用 `printf` 写 stdout，且缓冲可能在 fd 恢复后才 flush。
+  CLI 在 fd 1 层捕获，恢复前调用 `ctypes.CDLL(None).fflush(None)`；PASS 时
+  丢弃，FAIL 时把截断日志放进 `native_output`，保证 `--json` 可解析。
+- 0.1.2 实测：no-native `torch 78 it/1.246e-6`；native `torch 78 it/1.246e-6`、
+  `kupl 17 it/2.48e-7`、`cuda residual 2.199e-7 (iterations None)`；
+  `pytest test_cli_selftest.py` 3 passed。
 
 发布门 12 项（`release_check --offline` 顺序）：version、sdist exists、sdist no
 testing、sdist no binaries、sdist native sources、sdist no home paths、sdist

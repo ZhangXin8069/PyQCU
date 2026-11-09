@@ -94,7 +94,8 @@ mpirun -np 4 python pyqcu/testing/python/conftest.py       # single file with MP
 
 ```bash
 python -m pyqcu.testing.release_check --offline      # 本次 12/12
-python -m pyqcu.testing.docs_examples --keep-going   # 26 ok / 8 skipped / 0 failed
+python -m pyqcu.testing.docs_examples --keep-going   # 28 ok / 8 skipped / 0 failed
+python -m pyqcu --selftest --json                    # Torch/KUPL/CUDA 三层
 python -B -m pytest -q -p no:cacheprovider \
   pyqcu/testing/dcu/test_install_selection.py \
   pyqcu/testing/kupl/test_pure_kupl_install.py       # 打包契约 9 passed
@@ -165,6 +166,9 @@ pip check
 
 - `python -m pyqcu` 必须报出 `site-packages/pyqcu/...` 与包内 KUPL/Cython 库；回落到源码
   树路径即视为安装验证失败。
+- `pyqcu --selftest` 是安装态第一命令：Torch 必跑，KUPL/CUDA 缺库为 SKIP，
+  整体 PASS 才退出 0；`--json` 可机器读取。CUDA Wilson 的
+  `iterations=None` 是合法结果，不是失败。
 - `--force-reinstall` 复验安装幂等；`pip check` 无输出才算依赖闭合。
 - 在仓库根直接 `python -c 'import pyqcu'` 只会命中源码树（`pyqcu.__file__` 不含
   `site-packages`），不得当作安装证据。

@@ -126,8 +126,8 @@ python -m pyqcu.testing.docs_examples --keep-going
 
   规则：每个 python 围栏块要么含 `assert `，要么标 `# docs-skip` / `# pseudo-code`。
   同一页的块共享命名空间并按页内顺序执行（前面的 `U`/`src`/`kappa` 供后面的块使用，
-  重命名会连带打断后续块）。加入 `solvers.md` 后的基线：**26 ok / 8 skipped /
-  0 failed**（en+zh 共 34 个 python 块）。
+  重命名会连带打断后续块）。加入 `solvers.md` 后的基线：**28 ok / 8 skipped /
+  0 failed**（en+zh 共 36 个 python 块）。
 - 两个容易踩的匹配细节：块必须写成行首的 python 围栏（带 info-string 后缀或缩进就
   不会被收集）；未闭合围栏会让正则吞掉后续内容。`performance.md` 当前只有 bash 块，
   **bash 块从不被执行**，其中的命令路径只能靠人工复核。
