@@ -523,3 +523,13 @@ Auto-nudge checkpoint (2026-11-09 10:42)
   only remaining findings are two pre-existing `SKILL-SIZE` warnings.
 - Added a bilingual production-solve checklist (geometry, tensors, layer,
   assets, one solve, independent residual, provenance) to `solvers.md`.
+
+Skill split checkpoint (2026-11-09 10:55)
+-----------------------------------------
+- Split `pyqcu-benchmark/SKILL.md` (614 -> 205 lines) and
+  `pyqcu-kupl/SKILL.md` (641 -> 245 lines); detailed historical matrices and
+  runtime evidence moved verbatim to
+  `references/qcu-benchmark-history-2026.md` and `references/kupl-history-2026.md`.
+- Docs audit: `PASS docs=39 skills=36` with no `[LINK]` or `[SKILL-SIZE]`
+  findings. Form audit: 36/36.
+- Next: offline wheelhouse install, Python version matrix, DCU/Kunpeng paths.
