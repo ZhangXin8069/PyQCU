@@ -465,3 +465,16 @@ Verification:
 - Online gate now also polls the project-level PyPI latest metadata; 0.1.7
   `--online`: 19/19 (version JSON, project links, repositories, latest,
   simple index, RTD en/zh).
+
+Supervision repair (2026-11-09)
+-------------------------------
+- `tui-watch.log` showed `idle-nudge-failed reason=idle_exec_error
+  detail=FileNotFoundError command=--`; the command JSON began with a literal
+  `"--"` that `subprocess` treated as the executable.
+- Root cause: eight command builders in `~/configure/bin/agent.sh` passed
+  `python3 -c ... --`; Python kept `--` as `sys.argv[1]`.
+- Fix: remove the stray `--` in all eight builders, and make
+  `agent-tui-watch.py::render_recovery_command` defensively strip a leading
+  `--`. Configure regressions: idle 8/8, watcher 9/9.
+- Current watcher: 10s idle threshold, 10s min-turn, 2s poll, unlimited;
+  rendered nudge command starts with `command-code`, not `--`.

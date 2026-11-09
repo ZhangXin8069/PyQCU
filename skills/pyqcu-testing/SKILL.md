@@ -176,6 +176,13 @@ pip check
   `return 0` 会让 `mpirun` 掩盖该 rank 的 Torch 失败。0.1.5 有对应单测。
 - 自检格点下限为 4；0.1.6 在 `2 2 2 2` 上 CUDA 残差 42.7，0.1.7 起接口
   直接拒绝。发布验证用默认 `4 4 4 4` 或 `8 8 16 16`。
+- 自动续跑注入失败时先看 `tui-watch.log`：`idle-nudge-failed detail=FileNotFoundError
+  command=--` 表示命令 JSON 首项 `--` 被当成可执行文件。修复生成端
+  （`~/configure/bin/agent.sh` 的 `python3 -c ... --` 去掉 `--`）并在
+  `agent-tui-watch.py::render_recovery_command` 防御性剥离前导 `--`；回归
+  `agent-tui-watch-idle.test.py` 8 项、`agent-tui-watch.test.py` 9 项。
+- 10s 监督需同时设 `--idle-seconds 10` 和 `--idle-min-turn-seconds 10`；
+  后者默认 30s，会把首次注入推迟到回合完成后 30s。`--idle-poll 2` 足够响应。
 - `--force-reinstall` 复验安装幂等；`pip check` 无输出才算依赖闭合。
 - 在仓库根直接 `python -c 'import pyqcu'` 只会命中源码树（`pyqcu.__file__` 不含
   `site-packages`），不得当作安装证据。
