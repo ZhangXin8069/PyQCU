@@ -667,6 +667,7 @@ Nudge checkpoint (2026-11-09 11:26)
 - PyPI: https://pypi.org/project/pyqcu/0.1.12/
 - Verification: CLI 22 passed; full Python 150 passed/4 skipped; clean PyPI
   0.1.12 default selftest PASS; Python 3.10 `--no-deps` selftest returns JSON
-  FAIL "dependencies unavailable"; offline gate 12/12.
+  FAIL "dependencies unavailable"; offline gate 12/12, online 19/19;
+  PyPI latest/RTD en/zh 0.1.12.
 - The 13:27 scheduled job remains 0.1.10-era text; current HEAD is 0.1.12.
   Reviewer must use actual versions and include 0.1.12 in the dev110 message.
