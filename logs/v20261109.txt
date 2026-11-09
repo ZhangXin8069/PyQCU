@@ -622,6 +622,8 @@ Python package matrix (2026-11-09)
 - Artifact: 606,504 bytes, sha256
   66eeffe6f22cc45e9737c15e58d31c768aaa65a1c9818af9df868527bfc7b1f8.
 - PyPI: https://pypi.org/project/pyqcu/0.1.10/
+- Release gate: offline 12/12, online 19/19; PyPI latest 0.1.10, RTD en/zh
+  0.1.10; GitHub mirror c5b40ca.
 - Verification: CLI 19 passed; full Python 147 passed/4 skipped; MPI `--json`
   one JSON/stderr 0; clean PyPI 0.1.10; default 4^4 selftest
   Torch/KUPL/CUDA PASS (installed CUDA bridge).
