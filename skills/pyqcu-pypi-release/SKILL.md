@@ -290,6 +290,16 @@ site-packages/pyqcu/cuda/qcu.cpython-312-x86_64-linux-gnu.so   # Cython 桥
   3.14 系统缺 `ensurepip`，用 `setup.py build` + `PYTHONPATH=build/lib` 验证。
   cp314 的 torch/mpi4py/h5py/numpy 轮子存在，但完整依赖只在 3.12 端到端跑过。
 
+### 0.1.10 诊断与 JSON 错误
+
+- 0.1.10 的诊断路径不再 import torch/mpi4py：依赖版本走
+  `importlib.metadata`，MPI size/rank 走 launcher 环境变量，后端可用性用
+  `find_spec`/包内库路径；`pyqcu --json` 更快且不触发 OpenMPI 初始化。
+- 非整数 `--lattice` 在 `--json` 下返回 `status=FAIL`/exit 2，人类模式走
+  `parser.error`；CLI 测试 19 项。
+- 事故：0.1.9 曾被未被杀死的 nudge 子进程从半成品工作树抢先上传；0.1.10
+  是审查后的超集。停 watcher 必须杀进程组，不能只杀 watcher PID。
+
 发布门 12 项（`release_check --offline` 顺序）：version、sdist exists、sdist no
 testing、sdist no binaries、sdist native sources、sdist no home paths、sdist
 Chinese README、twine check、bilingual blocks、docs examples、sphinx en、

@@ -196,6 +196,9 @@ pip check
   最终 text”的 assistant 才算完成；nudge 返回后再重置空闲时钟；
   `last_user_input` 忽略 `【自动续跑】` 消息。回归 session-state 16、idle 8、
   watcher 9；重启后主回合只记录 `idle-skip reason=turn_running`。
+- 停 watcher 必须杀整个进程组（它用 `setsid` 启动时 PGID=watcher PID）：
+  `kill -TERM -- -<watcher_pid>`。只杀 watcher PID 会留下 `command-code`
+  nudge 子进程继续改文件/上传包；0.1.9 的半成品发布就是这样产生的。
 - `mpirun` 返回 135 / `Bus error` 且无 stdout 时先查 `df -h /tmp`；`/tmp` 满会
   让 OpenMPI 共享内存池失败。设置 `TMPDIR`/`OMPI_MCA_orte_tmpdir_base` 到可写
   目录、清理 `/tmp/ompi.*` 遗留，或纯 CPU 诊断加 `OMPI_MCA_btl=^smcuda`。

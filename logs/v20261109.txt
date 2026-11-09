@@ -611,3 +611,21 @@ Python package matrix (2026-11-09)
 - 3.12.4: clean PyPI venv; 3.14.4: `setup.py build` + import/CLI (system lacks
   ensurepip). cp314 wheels exist for torch/mpi4py/h5py/numpy; full dependency
   install was only exercised on 3.12.
+
+0.1.10 diagnostics and JSON lattice (2026-11-09)
+------------------------------------------------
+- Diagnostics no longer import torch/mpi4py: dependency versions via
+  `importlib.metadata`, MPI size/rank from launcher env, backend availability
+  via `find_spec`/package library path.
+- `--json` returns a FAIL report and exit 2 for non-integer `--lattice`;
+  human mode uses `parser.error`.
+- Artifact: 606,504 bytes, sha256
+  66eeffe6f22cc45e9737c15e58d31c768aaa65a1c9818af9df868527bfc7b1f8.
+- PyPI: https://pypi.org/project/pyqcu/0.1.10/
+- Verification: CLI 19 passed; full Python 147 passed/4 skipped; MPI `--json`
+  one JSON/stderr 0; clean PyPI 0.1.10; default 4^4 selftest
+  Torch/KUPL/CUDA PASS (installed CUDA bridge).
+- Incident: 0.1.9 was uploaded at 11:17 by an orphan nudge child from an
+  unreviewed working tree; 0.1.10 is the reviewed superset. Stop the watcher
+  by process group (`kill -TERM -- -WATCHER_PID`) so nudge children do not
+  survive and publish/commit concurrently.

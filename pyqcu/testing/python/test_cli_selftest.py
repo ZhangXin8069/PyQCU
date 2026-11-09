@@ -85,6 +85,33 @@ def test_cli_nonzero_rank_info_is_silent(flag):
     assert process.stderr == ""
 
 
+def test_collect_does_not_import_heavy_dependencies():
+    code = (
+        "import sys; from pyqcu.__main__ import collect; collect(); "
+        "print(int('torch' in sys.modules), int('mpi4py' in sys.modules))"
+    )
+    process = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=ROOT, capture_output=True, text=True)
+    assert process.returncode == 0, process.stderr
+    assert process.stdout.strip() == "0 0"
+
+
+def test_mpi_info_uses_launcher_env_without_importing_mpi4py():
+    code = (
+        "import sys; from pyqcu._selftest import mpi_info; "
+        "print(mpi_info()); print(int('mpi4py' in sys.modules))"
+    )
+    env = os.environ.copy()
+    env["OMPI_COMM_WORLD_RANK"] = "1"
+    env["OMPI_COMM_WORLD_SIZE"] = "2"
+    process = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=ROOT, capture_output=True, text=True, env=env)
+    assert process.returncode == 0, process.stderr
+    assert process.stdout.splitlines() == ["(2, 1)", "0"]
+
+
 def test_cli_rejects_invalid_lattice():
     process = subprocess.run(
         [sys.executable, "-m", "pyqcu", "--selftest",
@@ -133,3 +160,23 @@ def test_cli_json_rejects_invalid_lattice():
     report = json.loads(process.stdout)
     assert report["status"] == "FAIL"
     assert "positive even" in report["error"]
+
+
+def test_cli_json_rejects_non_integer_lattice():
+    process = subprocess.run(
+        [sys.executable, "-m", "pyqcu", "--selftest", "--json",
+         "--lattice", "4", "4", "4", "x"],
+        cwd=ROOT, capture_output=True, text=True)
+    assert process.returncode == 2
+    report = json.loads(process.stdout)
+    assert report["status"] == "FAIL"
+    assert "four integers" in report["error"]
+
+
+def test_cli_rejects_non_integer_lattice():
+    process = subprocess.run(
+        [sys.executable, "-m", "pyqcu", "--selftest",
+         "--lattice", "4", "4", "4", "x"],
+        cwd=ROOT, capture_output=True, text=True)
+    assert process.returncode == 2
+    assert "four integers" in process.stderr

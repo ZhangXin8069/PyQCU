@@ -10,11 +10,13 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import importlib.util
 import json
 import os
 import platform
 import sys
 import warnings
+from pathlib import Path
 
 from . import __version__
 
@@ -31,6 +33,12 @@ def _quiet_optional_warnings():
 
 def _module_version(name: str) -> str:
     try:
+        from importlib.metadata import version
+
+        return str(version(name))
+    except Exception:
+        pass
+    try:
         module = __import__(name)
         return str(getattr(module, "__version__", "unknown"))
     except Exception as error:  # pragma: no cover - diagnostic only
@@ -39,26 +47,28 @@ def _module_version(name: str) -> str:
 
 def _kupl_status() -> dict:
     try:
-        from pyqcu.kupl import qcu
+        spec = importlib.util.find_spec("pyqcu.kupl.qcu")
+        if spec is None:
+            return {"available": False, "error": "KUPL binding is not installed"}
+        import pyqcu.kupl as kupl_package
 
-        return {
-            "available": True,
-            "path": str(qcu.library_path()),
-            "symbols": len(qcu._SIGNATURES),
-        }
+        candidate = os.environ.get("PYQCU_KUPL_LIB")
+        if not candidate:
+            candidate = str(Path(kupl_package.__file__).with_name("libqcu.so"))
+        if not Path(candidate).is_file():
+            return {"available": False, "error": f"library not found: {candidate}"}
+        return {"available": True, "path": candidate}
     except Exception as error:  # pragma: no cover - diagnostic only
         return {"available": False, "error": f"{type(error).__name__}: {error}"}
 
 
 def _cuda_status() -> dict:
     try:
-        import pyqcu.cuda.qcu as qcu
-
-        path = getattr(qcu, "__file__", None)
-        if not path:
+        spec = importlib.util.find_spec("pyqcu.cuda.qcu")
+        if spec is None or not spec.origin:
             return {"available": False,
                     "error": "Cython bridge is not built in this installation"}
-        return {"available": True, "path": path}
+        return {"available": True, "path": spec.origin}
     except Exception as error:  # pragma: no cover - diagnostic only
         return {"available": False, "error": f"{type(error).__name__}: {error}"}
 
@@ -66,9 +76,7 @@ def _cuda_status() -> dict:
 def collect() -> dict:
     import pyqcu
 
-    from ._selftest import mpi_info
-
-    mpi_size, mpi_rank = mpi_info()
+    mpi_size, mpi_rank = _launcher_info()
     return {
         "package": "pyqcu",
         "version": pyqcu.__version__,
@@ -144,6 +152,30 @@ def _launcher_rank() -> int | None:
     return None
 
 
+def _launcher_size() -> int | None:
+    """Read the MPI size from launcher variables without importing mpi4py."""
+    for name in ("OMPI_COMM_WORLD_SIZE", "PMI_SIZE", "I_MPI_SIZE",
+                 "MV2_COMM_WORLD_SIZE", "SLURM_NTASKS"):
+        value = os.environ.get(name)
+        if value is None:
+            continue
+        try:
+            return int(value)
+        except ValueError:
+            continue
+    return None
+
+
+def _launcher_info() -> tuple[int, int]:
+    rank = _launcher_rank()
+    size = _launcher_size()
+    if rank is None:
+        rank = 0
+    if size is None:
+        size = 1 if rank == 0 else rank + 1
+    return size, rank
+
+
 def _print_selftest(report: dict) -> None:
     print(f"pyqcu {report['version']} self-test")
     for name, layer in report["layers"].items():
@@ -174,7 +206,7 @@ def main(argv=None) -> int:
         "--selftest", action="store_true",
         help="run Torch/KUPL/CUDA layers with independent residual checks")
     parser.add_argument(
-        "--lattice", nargs=4, type=int, default=(4, 4, 4, 4),
+        "--lattice", nargs=4, default=("4", "4", "4", "4"),
         metavar=("X", "Y", "Z", "T"),
         help="self-test lattice (four even integers >= 4)")
     argv_list = list(sys.argv[1:] if argv is None else argv)
@@ -185,21 +217,39 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv_list)
 
     if args.selftest:
-        from . import _selftest
-
         try:
-            with _quiet_optional_warnings(), _capture_native_stdout() as capture:
-                report = _selftest.run_all(tuple(args.lattice))
-                capture.seek(0)
-                native_output = capture.read()
-        except ValueError as error:
-            if _selftest.mpi_info()[1] != 0:
+            lattice = tuple(int(value) for value in args.lattice)
+        except (TypeError, ValueError):
+            message = "self-test lattice must be four integers"
+            if rank not in (None, 0):
                 return 2
             if args.json:
                 print(json.dumps({
                     "package": "pyqcu",
                     "version": __version__,
                     "lattice": list(args.lattice),
+                    "layers": {},
+                    "status": "FAIL",
+                    "error": message,
+                }, indent=2))
+                return 2
+            parser.error(message)
+
+        from . import _selftest
+
+        try:
+            with _quiet_optional_warnings(), _capture_native_stdout() as capture:
+                report = _selftest.run_all(lattice)
+                capture.seek(0)
+                native_output = capture.read()
+        except ValueError as error:
+            if rank not in (None, 0):
+                return 2
+            if args.json:
+                print(json.dumps({
+                    "package": "pyqcu",
+                    "version": __version__,
+                    "lattice": list(lattice),
                     "layers": {},
                     "status": "FAIL",
                     "error": str(error),

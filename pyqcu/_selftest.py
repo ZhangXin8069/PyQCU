@@ -12,6 +12,8 @@ that runs must pass its independent residual check.
 
 from __future__ import annotations
 
+import os
+import sys
 import time
 from typing import Any, Iterable
 
@@ -20,15 +22,43 @@ import torch
 from . import __version__
 
 
-def mpi_info() -> tuple[int, int]:
-    """Return ``(size, rank)`` without requiring an MPI launcher."""
+def _env_int(name: str) -> int | None:
+    value = os.environ.get(name)
+    if value is None:
+        return None
     try:
-        from mpi4py import MPI
+        return int(value)
+    except ValueError:
+        return None
 
-        communicator = MPI.COMM_WORLD
-        return int(communicator.Get_size()), int(communicator.Get_rank())
-    except Exception:
-        return 1, 0
+
+def mpi_info() -> tuple[int, int]:
+    """Return ``(size, rank)`` without importing mpi4py if it is unused."""
+    if "mpi4py" in sys.modules:
+        try:
+            from mpi4py import MPI
+
+            communicator = MPI.COMM_WORLD
+            return int(communicator.Get_size()), int(communicator.Get_rank())
+        except Exception:
+            pass
+    rank = None
+    for name in ("OMPI_COMM_WORLD_RANK", "PMI_RANK", "I_MPI_RANK",
+                 "MV2_COMM_WORLD_RANK", "SLURM_PROCID"):
+        rank = _env_int(name)
+        if rank is not None:
+            break
+    size = None
+    for name in ("OMPI_COMM_WORLD_SIZE", "PMI_SIZE", "I_MPI_SIZE",
+                 "MV2_COMM_WORLD_SIZE", "SLURM_NTASKS"):
+        size = _env_int(name)
+        if size is not None:
+            break
+    if rank is None:
+        rank = 0
+    if size is None:
+        size = 1 if rank == 0 else rank + 1
+    return size, rank
 
 
 def _native_mpi_skip(backend: str) -> dict[str, Any] | None:

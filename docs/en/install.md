@@ -94,7 +94,7 @@ report = json.loads(subprocess.run(
     [sys.executable, "-m", "pyqcu", "--json"],
     check=True, capture_output=True, text=True).stdout)
 assert report["package"] == "pyqcu"
-assert report["version"] == "0.1.8"
+assert report["version"] == "0.1.10"
 assert "path" in report["backends"]["kupl"]
 print("pyqcu", report["version"], "at", report["path"])
 ```
@@ -118,7 +118,7 @@ print("self-test:", {
 import importlib.util
 import pyqcu
 
-assert pyqcu.__version__ == "0.1.8"
+assert pyqcu.__version__ == "0.1.10"
 missing = [
     name for name in
     ("api", "lattice", "tools", "torch", "solver", "cuda", "kupl")
