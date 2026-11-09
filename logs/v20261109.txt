@@ -478,6 +478,11 @@ Supervision repair (2026-11-09)
   `--`. Configure regressions: idle 8/8, watcher 9/9.
 - Current watcher: 10s idle threshold, 10s min-turn, 2s poll, unlimited;
   rendered nudge command starts with `command-code`, not `--`.
+- Real nudge: 10:42:35 start, 10:46:12 `idle-nudge-ok`; the injected turn
+  committed `a55d3dd` and pushed. The command-code TUI did not render the
+  external `-p --session` branch, which is why it looked failed. The watcher
+  now writes `idle-nudge-last.txt` with command/returncode/stdout/stderr;
+  use `/reload` in the TUI to load the injected branch.
 
 0.1.8 MPI info output (2026-11-09)
 ----------------------------------

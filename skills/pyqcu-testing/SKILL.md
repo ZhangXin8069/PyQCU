@@ -186,6 +186,10 @@ pip check
   `agent-tui-watch-idle.test.py` 8 项、`agent-tui-watch.test.py` 9 项。
 - 10s 监督需同时设 `--idle-seconds 10` 和 `--idle-min-turn-seconds 10`；
   后者默认 30s，会把首次注入推迟到回合完成后 30s。`--idle-poll 2` 足够响应。
+- command-code TUI 不会刷新外部 `-p --session` 写入的回合：`idle-nudge-ok`
+  只证明 headless 回合执行成功，TUI 里可能看不到该分支。排查看
+  `tui-watch.log`、`idle-nudge-last.txt` 和 `~/.commandcode/projects/...jsonl`；
+  要在 TUI 显示该回合需 `/reload`。不要把“TUI 无新消息”误判为注入失败。
 - `--force-reinstall` 复验安装幂等；`pip check` 无输出才算依赖闭合。
 - 在仓库根直接 `python -c 'import pyqcu'` 只会命中源码树（`pyqcu.__file__` 不含
   `site-packages`），不得当作安装证据。
