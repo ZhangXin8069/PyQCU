@@ -306,6 +306,9 @@ site-packages/pyqcu/cuda/qcu.cpython-312-x86_64-linux-gnu.so   # Cython 桥
 - 0.1.12：`--selftest` 的 `_selftest` 导入失败、以及 `run_all` 的非
   `ValueError` 异常，在 `--json` 下都返回 `status=FAIL`/exit 2，不再 traceback。
   3.10 `--no-deps` 实测 JSON FAIL "dependencies unavailable"；CLI 22、全量 150/4。
+- 0.1.13：`--lattice` 改为 `nargs="*"` 后在代码里校验恰好 4 个值；3/5/0 个
+  在 `--json` 下返回 `status=FAIL`/exit 2，不再走 argparse 文本错误。
+  CLI 25、全量 153/4；sdist 606,860 B，sha256 adf2ebb7…6ad998。
 
 发布门 12 项（`release_check --offline` 顺序）：version、sdist exists、sdist no
 testing、sdist no binaries、sdist native sources、sdist no home paths、sdist

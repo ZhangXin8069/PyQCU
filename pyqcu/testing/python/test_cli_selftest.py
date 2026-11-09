@@ -195,6 +195,19 @@ def test_cuda_status_requires_companion_library(tmp_path, monkeypatch):
     assert found["library"] == str(library)
 
 
+@pytest.mark.parametrize(
+    "values", [("4", "4", "4"), ("4", "4", "4", "4", "4"), ()])
+def test_cli_json_rejects_wrong_lattice_count(values):
+    process = subprocess.run(
+        [sys.executable, "-m", "pyqcu", "--selftest", "--json",
+         "--lattice", *values],
+        cwd=ROOT, capture_output=True, text=True)
+    assert process.returncode == 2
+    report = json.loads(process.stdout)
+    assert report["status"] == "FAIL"
+    assert "four integers" in report["error"]
+
+
 def test_selftest_import_failure_is_json(monkeypatch, capsys):
     from pyqcu import __main__ as cli
     import pyqcu

@@ -224,8 +224,8 @@ def main(argv=None) -> int:
         "--selftest", action="store_true",
         help="run Torch/KUPL/CUDA layers with independent residual checks")
     parser.add_argument(
-        "--lattice", nargs=4, default=("4", "4", "4", "4"),
-        metavar=("X", "Y", "Z", "T"),
+        "--lattice", nargs="*", default=("4", "4", "4", "4"),
+        metavar="N",
         help="self-test lattice (four even integers >= 4)")
     argv_list = list(sys.argv[1:] if argv is None else argv)
     rank = _launcher_rank()
@@ -235,23 +235,31 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv_list)
 
     if args.selftest:
-        try:
-            lattice = tuple(int(value) for value in args.lattice)
-        except (TypeError, ValueError):
-            message = "self-test lattice must be four integers"
+        values = tuple(args.lattice)
+
+        def reject_lattice(message: str) -> int:
             if rank not in (None, 0):
                 return 2
             if args.json:
                 print(json.dumps({
                     "package": "pyqcu",
                     "version": __version__,
-                    "lattice": list(args.lattice),
+                    "lattice": list(values),
                     "layers": {},
                     "status": "FAIL",
                     "error": message,
                 }, indent=2))
                 return 2
             parser.error(message)
+            return 2
+
+        if len(values) != 4:
+            return reject_lattice(
+                "self-test lattice requires exactly four integers")
+        try:
+            lattice = tuple(int(value) for value in values)
+        except (TypeError, ValueError):
+            return reject_lattice("self-test lattice must be four integers")
 
         try:
             from . import _selftest
