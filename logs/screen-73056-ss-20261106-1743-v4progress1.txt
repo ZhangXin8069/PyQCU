@@ -1,0 +1,54 @@
+(base) nsls_yangyb@login02:~$ djob -ll 2050850 | tail -n 8
+        execNode             pids
+        cn10579              1945138
+    traceMessages                               2026/11/06 15:28:56    :    [JOB_ADD] J
+ob 2050850 is submitted by nsls_yangyb, job state is PENDING.
+                                                2026/11/06 15:29:00    :    [JOB_START]
+ Job 2050850 start message has been sent.
+                                                2026/11/06 15:29:01    :    [JOB_START_
+ACK] Job 2050850 start message has been received by agent cn10579.
+                                                2026/11/06 15:29:01    :    [JOB_EXECUT
+ION] Job 2050850 state is from PENDING to RUNNING.
+                                                2026/11/06 15:29:02    :    [HOST_PRE-H
+OOK_START] Job 2050850 host-pre-hook started at 2026/11/06 15:29:02 .
+                                                2026/11/06 15:29:13    :    [HOST_PRE-H
+OOK_END] Job 2050850 host-pre-hook is finished successfully at 2026/11/06 15:29:13 , co
+st time: 11634 ms.
+(base) nsls_yangyb@login02:~$ ls -lh /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_o
+pt_20261106/compute_y101_init_profile_v4
+total 576K
+-rw-r----- 1 nsls_yangyb eapp 28K Nov  6 15:30 mpirun.err
+-rw-r----- 1 nsls_yangyb eapp   0 Nov  6 15:29 mpirun.out
+-rw-r----- 1 nsls_yangyb eapp  71 Nov  6 15:29 rank_0000.txt
+-rw-r----- 1 nsls_yangyb eapp  71 Nov  6 15:29 rank_0001.txt
+-rw-r----- 1 nsls_yangyb eapp  72 Nov  6 15:30 rank_0002.txt
+-rw-r----- 1 nsls_yangyb eapp  71 Nov  6 15:29 rank_0003.txt
+-rw-r----- 1 nsls_yangyb eapp  71 Nov  6 15:29 rank_0004.txt
+-rw-r----- 1 nsls_yangyb eapp  71 Nov  6 15:29 rank_0005.txt
+-rw-r----- 1 nsls_yangyb eapp  71 Nov  6 15:29 rank_0006.txt
+-rw-r----- 1 nsls_yangyb eapp  71 Nov  6 15:29 rank_0007.txt
+-rw-r----- 1 nsls_yangyb eapp  71 Nov  6 15:29 rank_0008.txt
+-rw-r----- 1 nsls_yangyb eapp  71 Nov  6 15:29 rank_0009.txt
+-rw-r----- 1 nsls_yangyb eapp  72 Nov  6 15:29 rank_0010.txt
+-rw-r----- 1 nsls_yangyb eapp  72 Nov  6 15:29 rank_0011.txt
+-rw-r----- 1 nsls_yangyb eapp  72 Nov  6 15:29 rank_0012.txt
+-rw-r----- 1 nsls_yangyb eapp  72 Nov  6 15:29 rank_0013.txt
+-rw-r----- 1 nsls_yangyb eapp  72 Nov  6 15:29 rank_0014.txt
+-rw-r----- 1 nsls_yangyb eapp  72 Nov  6 15:29 rank_0015.txt
+-rw-r----- 1 nsls_yangyb eapp  32 Nov  6 15:29 start.txt
+(base) nsls_yangyb@login02:~$ grep -E "GEOMETRY_PROFILE|LATTICE_SET_PROFILE|SCRATCH_PRO
+FILE|INIT_APPLY|TOPOLOGY" /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106
+/compute_y101_init_profile_v4/mpirun.err | tail -n 12
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=0.002958
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=0.002867
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=0.005796
+PYQCU::KUPL::SCRATCH_PROFILE: stage=halo-scratch elapsed=0.499349
+PYQCU::KUPL::SCRATCH_PROFILE: stage=boundary-sites elapsed=0.744412
+PYQCU::KUPL::LATTICE_SET_PROFILE: stage=allocate-scratch elapsed=5.460634
+PYQCU::KUPL::INIT_APPLY: stage=register elapsed=7.192680
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=0.237188
+PYQCU::KUPL::SCRATCH_PROFILE: stage=halo-scratch elapsed=12.842387
+PYQCU::KUPL::SCRATCH_PROFILE: stage=boundary-sites elapsed=12.843161
+PYQCU::KUPL::LATTICE_SET_PROFILE: stage=allocate-scratch elapsed=14.391297
+PYQCU::KUPL::INIT_APPLY: stage=register elapsed=19.482394
+(base) nsls_yangyb@login02:~$

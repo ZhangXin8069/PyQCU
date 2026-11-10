@@ -1,0 +1,54 @@
+PYQCU::KUPL::SCRATCH_PROFILE: stage=halo-scratch elapsed=0.014124
+PYQCU::KUPL::SCRATCH_PROFILE: stage=boundary-sites elapsed=0.014254
+PYQCU::KUPL::LATTICE_SET_PROFILE: stage=allocate-scratch elapsed=0.024968
+PYQCU::KUPL::SCRATCH_PROFILE: stage=boundary-sites elapsed=0.014274
+PYQCU::KUPL::LATTICE_SET_PROFILE: stage=allocate-scratch elapsed=0.024991
+PYQCU::KUPL::INIT_APPLY: stage=register elapsed=0.059116
+PYQCU::KUPL::INIT_APPLY: stage=register elapsed=0.061484
+PYQCU::KUPL::SCRATCH_PROFILE: stage=boundary-sites elapsed=0.014313
+PYQCU::KUPL::LATTICE_SET_PROFILE: stage=allocate-scratch elapsed=0.025033
+PYQCU::KUPL::SCRATCH_PROFILE: stage=boundary-sites elapsed=0.014321
+PYQCU::KUPL::LATTICE_SET_PROFILE: stage=allocate-scratch elapsed=0.025035
+PYQCU::KUPL::INIT_APPLY: stage=register elapsed=0.062247
+PYQCU::KUPL::INIT_APPLY: stage=register elapsed=0.060996
+PYQCU::KUPL::SCRATCH_PROFILE: stage=boundary-sites elapsed=0.014361
+PYQCU::KUPL::LATTICE_SET_PROFILE: stage=allocate-scratch elapsed=0.025077
+PYQCU::KUPL::SCRATCH_PROFILE: stage=boundary-sites elapsed=0.014358
+PYQCU::KUPL::LATTICE_SET_PROFILE: stage=allocate-scratch elapsed=0.025075
+PYQCU::KUPL::INIT_APPLY: stage=register elapsed=0.061409
+PYQCU::KUPL::SCRATCH_PROFILE: stage=boundary-sites elapsed=0.014383
+PYQCU::KUPL::LATTICE_SET_PROFILE: stage=allocate-scratch elapsed=0.025099
+PYQCU::KUPL::INIT_APPLY: stage=register elapsed=0.059989
+PYQCU::KUPL::INIT_APPLY: stage=register elapsed=0.061190
+PYQCU::KUPL::SCRATCH_PROFILE: stage=boundary-sites elapsed=0.014488
+PYQCU::KUPL::LATTICE_SET_PROFILE: stage=allocate-scratch elapsed=0.025209
+PYQCU::KUPL::SCRATCH_PROFILE: stage=boundary-sites elapsed=0.014494
+PYQCU::KUPL::LATTICE_SET_PROFILE: stage=allocate-scratch elapsed=0.025206
+PYQCU::KUPL::INIT_APPLY: stage=register elapsed=0.060545
+PYQCU::KUPL::INIT_APPLY: stage=register elapsed=0.060343
+PYQCU::KUPL::SCRATCH_PROFILE: stage=boundary-sites elapsed=0.014547
+PYQCU::KUPL::LATTICE_SET_PROFILE: stage=allocate-scratch elapsed=0.025266
+PYQCU::KUPL::SCRATCH_PROFILE: stage=boundary-sites elapsed=0.014439
+PYQCU::KUPL::LATTICE_SET_PROFILE: stage=allocate-scratch elapsed=0.025277
+PYQCU::KUPL::INIT_APPLY: stage=register elapsed=0.060014
+PYQCU::KUPL::INIT_APPLY: stage=register elapsed=0.061978
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=0.009187
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=0.009348
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=0.009534
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=0.009595
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=0.009571
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=0.009538
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=0.009721
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=0.009597
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=0.009608
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=0.009811
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=0.009724
+(base) nsls_yangyb@login02:~$ cat /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_
+20261106/login_y101_init_profile_smoke_v4/rank_0000.txt
+rank=0 size=16 before=1433777.841798 after=1433777.897710 elapsed=0.055912
+(base) nsls_yangyb@login02:~$ cp /home/share/nsls_yangyb/logs/job_y101_init_profile_v2.
+sh /home/share/nsls_yangyb/logs/job_y101_init_profile_v3.sh
+(base) nsls_yangyb@login02:~$ sed -i -e s/compute_y101_init_profile_v2/compute_y101_ini
+t_profile_v3/ -e s/qcu_y101b/qcu_y101c/ -e s#/y101b.out#/y101c.out# -e s#/y101b.err#/y1
+01c.err# /home/share/nsls_yangyb/logs/job_y101_init_profile_v3.sh
+(base) nsls_yangyb@login02:~$

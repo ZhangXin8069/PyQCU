@@ -1,0 +1,54 @@
+                                                2026/11/06 14:42:35    :    [JOB_START]
+ Job 2050424 start message has been sent.
+                                                2026/11/06 14:42:35    :    [JOB_START_
+ACK] Job 2050424 start message has been received by agent cn10579.
+                                                2026/11/06 14:42:35    :    [JOB_EXECUT
+ION] Job 2050424 state is from PENDING to RUNNING.
+                                                2026/11/06 14:42:36    :    [HOST_PRE-H
+OOK_START] Job 2050424 host-pre-hook started at 2026/11/06 14:42:36 .
+                                                2026/11/06 14:42:47    :    [HOST_PRE-H
+OOK_END] Job 2050424 host-pre-hook is finished successfully at 2026/11/06 14:42:47 , co
+st time: 11243 ms.
+                                                2026/11/06 14:43:44    :    [JOB_FINISH
+] Job 2050424 state is from RUNNING to SUCCEEDED.
+(base) nsls_yangyb@login02:~$ ls -lh /home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_20
+261106/compute_y101_init_profile_v1
+total 576K
+-rw-r----- 1 nsls_yangyb eapp 13K Nov  6 14:43 mpirun.err
+-rw-r----- 1 nsls_yangyb eapp   0 Nov  6 14:42 mpirun.out
+-rw-r----- 1 nsls_yangyb eapp  72 Nov  6 14:43 rank_0000.txt
+-rw-r----- 1 nsls_yangyb eapp  72 Nov  6 14:43 rank_0001.txt
+-rw-r----- 1 nsls_yangyb eapp  72 Nov  6 14:43 rank_0002.txt
+-rw-r----- 1 nsls_yangyb eapp  72 Nov  6 14:43 rank_0003.txt
+-rw-r----- 1 nsls_yangyb eapp  72 Nov  6 14:43 rank_0004.txt
+-rw-r----- 1 nsls_yangyb eapp  72 Nov  6 14:43 rank_0005.txt
+-rw-r----- 1 nsls_yangyb eapp  72 Nov  6 14:43 rank_0006.txt
+-rw-r----- 1 nsls_yangyb eapp  72 Nov  6 14:43 rank_0007.txt
+-rw-r----- 1 nsls_yangyb eapp  72 Nov  6 14:43 rank_0008.txt
+-rw-r----- 1 nsls_yangyb eapp  72 Nov  6 14:43 rank_0009.txt
+-rw-r----- 1 nsls_yangyb eapp  73 Nov  6 14:43 rank_0010.txt
+-rw-r----- 1 nsls_yangyb eapp  73 Nov  6 14:43 rank_0011.txt
+-rw-r----- 1 nsls_yangyb eapp  73 Nov  6 14:43 rank_0012.txt
+-rw-r----- 1 nsls_yangyb eapp  73 Nov  6 14:43 rank_0013.txt
+-rw-r----- 1 nsls_yangyb eapp  73 Nov  6 14:43 rank_0014.txt
+-rw-r----- 1 nsls_yangyb eapp  73 Nov  6 14:43 rank_0015.txt
+-rw-r----- 1 nsls_yangyb eapp  67 Nov  6 14:43 start.txt
+(base) nsls_yangyb@login02:~$ cat /home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_20261
+106/compute_y101_init_profile_v1/rank_*.txt
+rank=0 size=16 before=96707.452382 after=96717.842922 elapsed=10.390541
+rank=1 size=16 before=96707.467558 after=96717.841272 elapsed=10.373714
+rank=2 size=16 before=96707.476835 after=96717.922889 elapsed=10.446054
+rank=3 size=16 before=96707.469505 after=96717.840488 elapsed=10.370983
+rank=4 size=16 before=96707.450487 after=96717.843216 elapsed=10.392730
+rank=5 size=16 before=96707.456193 after=96718.498972 elapsed=11.042779
+rank=6 size=16 before=96707.475085 after=96718.055373 elapsed=10.580288
+rank=7 size=16 before=96707.486390 after=96717.914668 elapsed=10.428278
+rank=8 size=16 before=96707.430189 after=96717.842764 elapsed=10.412575
+rank=9 size=16 before=96707.473239 after=96717.840607 elapsed=10.367369
+rank=10 size=16 before=96707.838473 after=96717.840579 elapsed=10.002106
+rank=11 size=16 before=96707.436534 after=96717.842813 elapsed=10.406279
+rank=12 size=16 before=96707.471453 after=96717.843384 elapsed=10.371931
+rank=13 size=16 before=96707.454430 after=96717.843402 elapsed=10.388972
+rank=14 size=16 before=96707.565061 after=96717.846172 elapsed=10.281110
+rank=15 size=16 before=96707.439826 after=96717.843565 elapsed=10.403739
+(base) nsls_yangyb@login02:~$

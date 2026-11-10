@@ -1,0 +1,54 @@
+er was unable to perform the requested transformation; the transformation might be disa
+bled or specified as part of an unsupported transformation ordering
+LLVM gold plugin: <unknown>:0:0: loop not vectorized: Cannot vectorize early exit loop
+/usr/bin/ld: warning: LLVM gold plugin: <unknown>:0:0: loop not vectorized: the optimiz
+er was unable to perform the requested transformation; the transformation might be disa
+bled or specified as part of an unsupported transformation ordering
+[100%] Built target kupl_qcu
+[1]+  Done                    nohup bash /home/share/nsls_yangyb/logs/build_ht2split_ge
+neric.sh > /home/share/nsls_yangyb/logs/build_ht2split_generic.log 2>&1
+(base) nsls_yangyb@login02:~$ printf '%s' 'H4sIAHhl7WoAA+1W33ObOBDuM3+FyuXh7kEGEYPbzPjB
+TmjsqX8V2zOXm5vRAFYwZ0AcEo7dTP73W4GdOmmTe/Fc2xsvHgtWu59W4mN3Ex4Joygzun1PaMKjOKOSODSIw6g
+hlm+OIqZptmwTVaNjV6NpNetR3Vp2ExHbap1bjmW3TGSSln1uv0HmcZZ/XUoh/QJC+bz0s2gTZy/Zgdnt7Ss49V
+7Q4/iTyC9vjSDOjMAXS00wiXCpCV4WIUPGkqfMEEu/YEYmEkG3cEDbwJhsP13ODZatgR+aVnAu26+aaoDN2vqZs
+jQWvvSNVZkndBmklOeSWqblEGI6unbHixXYKXOjZqLipGLjmuhaEgfts/uP88mAur9PXK8/dEczOuh3L/DOJyjj
+ZIGl9TlIeLjCEctYEYcGOP4dlg3B9QctXS3iAuEc6WdqNV1jm5wXEk1uIFBagQMiBAFOj5ODK6X0Ot4NnXRmPZj
+9' > /home/share/nsls_yangyb/b64/sync_run_y91_login_t16_lib_20261106.b64
+P5kM56ntu5mrbfocpPqZ+pwKpDu/3RVdvcO1f63vzanXSu3Tapn2fjyXgwvr6hnjsZezNQH8QzvKYTb/yhPwDzJ
+yjdwfjyI72aDjrTHh32R7TXGXyg0/7MnbaJc/6uWZu5o0534NKZRf849ICQNBmnjJfAlhWyBTo3TYHSPIY0gjDm
+a1aIMhBhEQcM4SxHxAE1sAxeDkcZzxj6U0OgSv0cB1skEg5I2E8SfocBA/sCK7JUVvlWLjnAdtGOQfkW3qYhmZB
+xFhkiTvOE1YxKy0TGUREvGvlW3y2R+BJBqql/ThM0ygCR+nJ2VpFfRgyLxA+w4seOT4p91QxVM0IxcQ9bfyLf9K
+invnZJfSEQNhtWqwVPobhDpEEc8z3w31Ln40ueIMJws7Ld4FiyAkHWrL0XcpszFFY7SNiaJQLix7hgKntJZB5uB
+B1+a3nBF2UoY57' >> /home/share/nsls_yangyb/b64/sync_run_y91_login_t16_lib_20261106.b64
+printf '%s' 'R
+gdU06v1YzU39c5oUMBtL++nGXkPY7e9liIJVTKu/MEMVEogxaPwleKYrepQyL7+ePghhFecYyMJyBn+ZVJuMF6W
+faN87V/4fJfl2/U+PV/3/vf47Nnle/61T/f9v5Kep/6EfLtl+Oo0oa1JZFXqi0hKYGJUFdZtAXmujLqKyynEah1
+2iBSDPnc463uwCE/PUTxypnzgE89xP877nqtUux57nXs764xEseOo5foCewzroOeBs6jtV1dOo3qRVXWSPwG8Rs
+ZACyNYVeg0Rcr8QDN5Mgm/9UPICkf2iu6nHaCzzi7L6wGHdatR/2JYHktPZ/e5sHl7oe57anJqfk5zkJN9B/gGI
+ef8IABQAAA==' >> /home/share/nsls_yangyb/b64/sync_run_y91_login_t16_lib_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' '
+> FVAyP2UA89RT/+3i7P6Z/cMj0Hg4oaP5kM56ntu5mrbfocpPqZ+pwKpDu/3RVdvcO1f63vzanXSu3Tapn2fjy
+Xgwvr6hnjsZezNQH8QzvKYTb/yhPwDzJyjdwfjyI72aDjrTHh32R7TXGXyg0/7MnbaJc/6uWZu5o0534NKZRf84
+9ICQNBmnjJfAlhWyBTo3TYHSPIY0gjDma1aIMhBhEQcM4SxHxAE1sAxeDkcZzxj6U0OgSv0cB1skEg5I2E8Sfoc
+BA/sCK7JUVvlWLjnAdtGOQfkW3qYhmZBxFhkiTvOE1YxKy0TGUREvGvlW3y2R+BJBqql/ThM0ygCR+nJ2VpFfRg
+yLxA+w4seOT4p91QxVM0IxcQ9bfyLf9KinvnZJfSEQNhtWqwVPobhDpEEc8z3w31Ln40ueIMJws7Ld4FiyAkHWr
+L0XcpszFFY7SNiaJQLix7hgKntJZB5uBB1+a3nBF2UoY57' >> /home/share/nsls_yangyb/b64/sync_run
+_y91_login_t16_lib_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'R
+> gdU06v1YzU39c5oUMBtL++nGXkPY7e9liIJVTKu/MEMVEogxaPwleKYrepQyL7+ePghhFecYyMJyBn+ZVJuMF
+6WfaN87V/4fJfl2/U+PV/3/vf47Nnle/61T/f9v5Kep/6EfLtl+Oo0oa1JZFXqi0hKYGJUFdZtAXmujLqKyynEa
+h12iBSDPnc463uwCE/PUTxypnzgE89xP877nqtUux57nXs764xEseOo5foCewzroOeBs6jtV1dOo3qRVXWSPwG8
+RsZACyNYVeg0Rcr8QDN5Mgm/9UPICkf2iu6nHaCzzi7L6wGHdatR/2JYHktPZ/e5sHl7oe57anJqfk5zkJN9B/g
+GIef8IABQAAA==' >> /home/share/nsls_yangyb/b64/sync_run_y91_login_t16_lib_20261106.b64
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/b64/sync_run_y91_login_
+t16_lib_20261106.b64 > /home/share/nsls_yangyb/b64/sync_run_y91_login_t16_lib_20261106.
+tgz
+(base) nsls_yangyb@login02:~$ tar -xzf /home/share/nsls_yangyb/b64/sync_run_y91_login_t
+16_lib_20261106.tgz -C /home/share/nsls_yangyb
+(base) nsls_yangyb@login02:~$ chmod 750 /home/share/nsls_yangyb/logs/run_y91_login_t16_
+bicg.sh /home/share/nsls_yangyb/logs/run_y91_login_t16_mg.sh
+(base) nsls_yangyb@login02:~$ md5sum /home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_20
+261106/build-ht2split-generic/libqcu.so
+15d594c4108f7a342996688d272b280a  /home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_20261
+106/build-ht2split-generic/libqcu.so
+(base) nsls_yangyb@login02:~$

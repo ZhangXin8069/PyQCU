@@ -1,0 +1,54 @@
+    traceMessages                               2026/11/06 13:37:18    :    [JOB_ADD] J
+ob 2049788 is submitted by nsls_yangyb, job state is PENDING.
+                                                2026/11/06 13:37:23    :    [JOB_START]
+ Job 2049788 start message has been sent.
+                                                2026/11/06 13:37:23    :    [JOB_START_
+ACK] Job 2049788 start message has been received by agent cn10579.
+                                                2026/11/06 13:37:23    :    [JOB_EXECUT
+ION] Job 2049788 state is from PENDING to RUNNING.
+                                                2026/11/06 13:37:24    :    [HOST_PRE-H
+OOK_START] Job 2049788 host-pre-hook started at 2026/11/06 13:37:24 .
+                                                2026/11/06 13:37:35    :    [HOST_PRE-H
+OOK_END] Job 2049788 host-pre-hook is finished successfully at 2026/11/06 13:37:35 , co
+st time: 11647 ms.
+(base) nsls_yangyb@login02:~$ tail -n 40 /home/share/nsls_yangyb/PyQCU/data/kupl_hbm_op
+t_20261106/compute_y93_mapping16_v1/probe.out
+START 2026-11-06T13:37:38+08:00
+SLOT_BEGIN 2026-11-06T13:37:39+08:00
+cn10579
+cn10579
+cn10579
+cn10579
+cn10579
+cn10579
+cn10579
+cn10579
+cn10579
+cn10579
+cn10579
+cn10579
+cn10579
+cn10579
+cn10579
+cn10579
+SLOT_END rc=0 2026-11-06T13:37:55+08:00
+NUMA_BEGIN 2026-11-06T13:37:56+08:00
+cn10579
+cn10579
+cn10579
+cn10579
+cn10579
+cn10579
+cn10579
+cn10579
+cn10579
+cn10579
+cn10579
+cn10579
+cn10579
+cn10579
+cn10579
+cn10579
+NUMA_END rc=0 2026-11-06T13:38:10+08:00
+COMPLETE 2026-11-06T13:38:11+08:00
+(base) nsls_yangyb@login02:~$

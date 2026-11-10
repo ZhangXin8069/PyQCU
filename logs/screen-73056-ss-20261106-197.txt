@@ -1,0 +1,54 @@
+    totalStime                                  1
+
+    totalMaxMemSwp                              0
+
+    totalMaxMem                                 0
+
+    hostPreHookRunTime                          28
+
+    preHookRunTime                              0
+
+    jobWallclockDuration                        4
+
+    postHookRunTime                             0
+
+    hostPostHookRunTime                         0
+
+    jobSstoppedTime                             0
+
+    coreHours                                   4
+
+    jobExitCode                                 0
+
+    systemExitCode                              0
+
+    exitMessage                                 Job execution succeeded
+
+    nodeUsages
+        execNode             resGroup resIndex utime    stime    wallclockDuration    s
+stoppedTime     cpuUtil          gpuUtil          npuUtil          memResource
+
+        cn10579              0        0/1      0        1        4                    0
+                5/5              -                -                0/0/0/0/1/1/0/0
+
+    nodePids
+        execNode             pids
+        cn10579              -
+    traceMessages                               2026/11/06 11:45:43    :    [JOB_ADD] J
+ob 2049098 is submitted by nsls_yangyb, job state is PENDING.
+                                                2026/11/06 11:45:47    :    [JOB_START]
+ Job 2049098 start message has been sent.
+                                                2026/11/06 11:45:47    :    [JOB_START_
+ACK] Job 2049098 start message has been received by agent cn10579.
+                                                2026/11/06 11:45:47    :    [JOB_EXECUT
+ION] Job 2049098 state is from PENDING to RUNNING.
+                                                2026/11/06 11:45:48    :    [HOST_PRE-H
+OOK_START] Job 2049098 host-pre-hook started at 2026/11/06 11:45:48 .
+                                                2026/11/06 11:46:16    :    [HOST_PRE-H
+OOK_END] Job 2049098 host-pre-hook is finished successfully at 2026/11/06 11:46:16 , co
+st time: 27531 ms.
+                                                2026/11/06 11:46:20    :    [JOB_FINISH
+] Job 2049098 state is from RUNNING to SUCCEEDED.
+(base) nsls_yangyb@login02:~$ cat /home/share/nsls_yangyb/y83.out
+cat: /home/share/nsls_yangyb/y83.out: No such file or directory
+(base) nsls_yangyb@login02:~$

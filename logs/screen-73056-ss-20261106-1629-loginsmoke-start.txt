@@ -1,0 +1,54 @@
+
+
+def main() -> int:
+    comm = MPI.COMM_WORLD
+    rank = int(comm.Get_rank())
+    size = int(comm.Get_size())
+    work = Path(os.environ["PREBIND_WORK"])
+    work.mkdir(parents=True, exist_ok=True)
+    local = (24, 24, 24, 4)
+    params = np.zeros(58, dtype=np.int32)
+    params[0:4] = local
+    params[4] = int(np.prod(local))
+    params[5:9] = (1, 1, 1, 16)
+    params[9] = 0
+    params[10] = rank
+    params[11] = size
+    params[13] = 50
+    params[14] = 2
+    params[15] = 0
+    params[16] = 2
+    argv = np.zeros(8, dtype=np.float32)
+    argv[0], argv[1], argv[7] = -0.277, 1.0e-4, 1.160920226
+    set_ptrs = np.zeros(100, dtype=np.int64)
+    before = time.perf_counter()
+    set_ptrs_arg = NumpyTensor(set_ptrs)
+    params_arg = NumpyTensor(params)
+    argv_arg = NumpyTensor(argv)
+    qcu.applyInitQcu(set_ptrs_arg, params_arg, argv_arg)
+    qcu.applyEndQcu(set_ptrs_arg, params_arg)
+    after = time.perf_counter()
+    (work / f"rank_{rank:04d}.txt").write_text(
+        f"rank={rank} size={size} before={before:.6f} after={after:.6f} "
+        f"elapsed={after - before:.6f}\n",
+        encoding="utf-8")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+(base) nsls_yangyb@login02:~$ mkdir -p /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm
+_opt_20261106/login_y101_init_profile_smoke_v1
+(base) nsls_yangyb@login02:~$ env PREBIND_WORK=/home/share/nsls_yangyb/PyQCU-main/data/
+kupl_hbm_opt_20261106/login_y101_init_profile_smoke_v1 PYQCU_KUPL_LIB=/home/share/nsls_
+yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/build-ht2split-generic/libqcu.so LD_LIBRAR
+Y_PATH=/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/build-ht2split-gen
+eric:/Users/zhangxin/configure/lib:/Users/zhangxin/.local/lib:/Users/zhangxin/slib:/Use
+rs/zhangxin/lib:/usr/local/lib:/usr/lib:/usr/lib64:/usr/libx32:/usr/lib32:/lib:/lib64:/
+libx32:/lib32: KUPL_PROFILE_INIT=1 KUPL_OMP_THREADS=1 OMP_NUM_THREADS=1 KUPL_NUMA_BIND=
+0 timeout -k 5s 60s mpirun --oversubscribe -np 1 --bind-to none --map-by slot --allow-r
+un-as-root python -B /home/share/nsls_yangyb/logs/probe_prebind.py > /home/share/nsls_y
+angyb/PyQCU-main/data/kupl_hbm_opt_20261106/login_y101_init_profile_smoke_v1/mpirun.out
+ 2> /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/login_y101_init_profi
+le_smoke_v1/mpirun.err
+(base) nsls_yangyb@login02:~$

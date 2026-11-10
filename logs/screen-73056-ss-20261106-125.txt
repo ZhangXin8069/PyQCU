@@ -1,0 +1,54 @@
+{"converged": true, "gate": "PASS", "iterations": 16, "label": "bicgstab_4", "mode": "b
+icgstab", "process_seconds": 5.495533664012328, "returncode": 0, "status": "PASS", "tim
+ed_out": false, "verify_status": null, "wall_seconds": 1.1376181268133223}
+(base) nsls_yangyb@login02:~$ grep -n -E "fallback|requires|failed|coarse|error" /home/
+share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/mg_true_lattice_sweep_v1/L8_r8_
+t/stderr.txt
+65:    cache_layout, coarse_local, coarse_starts = inspect_cache_layout(
+67:    cache_layout, coarse_local, coarse_starts = inspect_cache_layout(
+68:    cache_layout, coarse_local, coarse_starts = inspect_cache_layout(
+71:    cache_layout, coarse_local, coarse_starts = inspect_cache_layout(
+73:    raise ValueError("coarse cache time extent is not divisible by grid_t")
+74:    cache_layout, coarse_local, coarse_starts = inspect_cache_layout(
+75:ValueError: coarse cache time extent is not divisible by grid_t
+77:    cache_layout, coarse_local, coarse_starts = inspect_cache_layout(
+79:    raise ValueError("coarse cache time extent is not divisible by grid_t")
+80:ValueError: coarse cache time extent is not divisible by grid_t
+81:    raise ValueError("coarse cache time extent is not divisible by grid_t")
+82:ValueError: coarse cache time extent is not divisible by grid_t    raise ValueError(
+"coarse cache time extent is not divisible by grid_t")
+84:ValueError: coarse cache time extent is not divisible by grid_t
+85:    raise ValueError("coarse cache time extent is not divisible by grid_t")
+86:ValueError: coarse cache time extent is not divisible by grid_t
+87:    raise ValueError("coarse cache time extent is not divisible by grid_t")
+88:ValueError: coarse cache time extent is not divisible by grid_t
+93:    cache_layout, coarse_local, coarse_starts = inspect_cache_layout(
+95:    raise ValueError("coarse cache time extent is not divisible by grid_t")
+96:ValueError: coarse cache time extent is not divisible by grid_t
+101:    cache_layout, coarse_local, coarse_starts = inspect_cache_layout(
+103:    raise ValueError("coarse cache time extent is not divisible by grid_t")
+104:ValueError: coarse cache time extent is not divisible by grid_t
+(base) nsls_yangyb@login02:~$ ctest --test-dir /home/share/nsls_yangyb/PyQCU-main/data/
+kupl_hbm_opt_20261106/build-t2zblock-generic -R "kupl_qcu_python_(multigrid|legacy_mg|f
+ailure_modes)" --output-on-failure
+Internal ctest changing into directory: /home/share/nsls_yangyb/PyQCU-main/data/kupl_hb
+m_opt_20261106/build-t2zblock-generic
+Test project /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/build-t2zblo
+ck-generic
+    Start 22: kupl_qcu_python_multigrid_1rank
+1/6 Test #22: kupl_qcu_python_multigrid_1rank ...   Passed   20.36 sec
+    Start 23: kupl_qcu_python_multigrid_2rank
+2/6 Test #23: kupl_qcu_python_multigrid_2rank ...   Passed    1.94 sec
+    Start 27: kupl_qcu_python_legacy_mg_1rank
+3/6 Test #27: kupl_qcu_python_legacy_mg_1rank ...   Passed    0.88 sec
+    Start 28: kupl_qcu_python_legacy_mg_2rank
+4/6 Test #28: kupl_qcu_python_legacy_mg_2rank ...   Passed    0.98 sec
+    Start 29: kupl_qcu_python_legacy_mg_4rank
+5/6 Test #29: kupl_qcu_python_legacy_mg_4rank ...   Passed    3.25 sec
+    Start 30: kupl_qcu_python_failure_modes
+6/6 Test #30: kupl_qcu_python_failure_modes .....   Passed    3.10 sec
+
+100% tests passed, 0 tests failed out of 6
+
+Total Test time (real) =  30.54 sec
+(base) nsls_yangyb@login02:~$

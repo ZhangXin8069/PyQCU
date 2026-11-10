@@ -1,0 +1,54 @@
+-rw-r----- 1 nsls_yangyb eapp  71 Nov  6 15:29 rank_0008.txt
+-rw-r----- 1 nsls_yangyb eapp  71 Nov  6 15:29 rank_0009.txt
+-rw-r----- 1 nsls_yangyb eapp  72 Nov  6 15:29 rank_0010.txt
+-rw-r----- 1 nsls_yangyb eapp  72 Nov  6 15:29 rank_0011.txt
+-rw-r----- 1 nsls_yangyb eapp  72 Nov  6 15:29 rank_0012.txt
+-rw-r----- 1 nsls_yangyb eapp  72 Nov  6 15:29 rank_0013.txt
+-rw-r----- 1 nsls_yangyb eapp  72 Nov  6 15:29 rank_0014.txt
+-rw-r----- 1 nsls_yangyb eapp  72 Nov  6 15:29 rank_0015.txt
+-rw-r----- 1 nsls_yangyb eapp  32 Nov  6 15:29 start.txt
+(base) nsls_yangyb@login02:~$ grep -E "GEOMETRY_PROFILE|LATTICE_SET_PROFILE|SCRATCH_PRO
+FILE|INIT_APPLY|TOPOLOGY" /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106
+/compute_y101_init_profile_v4/mpirun.err | tail -n 12
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=0.002958
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=0.002867
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=0.005796
+PYQCU::KUPL::SCRATCH_PROFILE: stage=halo-scratch elapsed=0.499349
+PYQCU::KUPL::SCRATCH_PROFILE: stage=boundary-sites elapsed=0.744412
+PYQCU::KUPL::LATTICE_SET_PROFILE: stage=allocate-scratch elapsed=5.460634
+PYQCU::KUPL::INIT_APPLY: stage=register elapsed=7.192680
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=0.237188
+PYQCU::KUPL::SCRATCH_PROFILE: stage=halo-scratch elapsed=12.842387
+PYQCU::KUPL::SCRATCH_PROFILE: stage=boundary-sites elapsed=12.843161
+PYQCU::KUPL::LATTICE_SET_PROFILE: stage=allocate-scratch elapsed=14.391297
+PYQCU::KUPL::INIT_APPLY: stage=register elapsed=19.482394
+(base) nsls_yangyb@login02:~$ cat /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_
+20261106/compute_y101_init_profile_v4/rank_*.txt
+rank=0 size=16 before=99487.448240 after=99494.878822 elapsed=7.430582
+rank=1 size=16 before=99487.535312 after=99493.914876 elapsed=6.379564
+rank=2 size=16 before=99487.445436 after=99522.254990 elapsed=34.809555
+rank=3 size=16 before=99487.451027 after=99493.914387 elapsed=6.463360
+rank=4 size=16 before=99487.452400 after=99493.922619 elapsed=6.470219
+rank=5 size=16 before=99487.443308 after=99493.914177 elapsed=6.470869
+rank=6 size=16 before=99487.446819 after=99494.105910 elapsed=6.659091
+rank=7 size=16 before=99487.534129 after=99493.915153 elapsed=6.381024
+rank=8 size=16 before=99487.440275 after=99493.914084 elapsed=6.473809
+rank=9 size=16 before=99487.427377 after=99493.913091 elapsed=6.485713
+rank=10 size=16 before=99487.441922 after=99494.100155 elapsed=6.658233
+rank=11 size=16 before=99487.526633 after=99493.915379 elapsed=6.388746
+rank=12 size=16 before=99487.449634 after=99493.914412 elapsed=6.464778
+rank=13 size=16 before=99487.436769 after=99493.912846 elapsed=6.476077
+rank=14 size=16 before=99487.422079 after=99494.100302 elapsed=6.678223
+rank=15 size=16 before=99487.892764 after=99493.914386 elapsed=6.021623
+(base) nsls_yangyb@login02:~$ cat /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_
+20261106/compute_y101_init_profile_v4/start.txt
+START 2026-11-06T15:29:14+08:00
+(base) nsls_yangyb@login02:~$ djob -ll 2050850 | grep -E "jobWallclockDuration|jobExitC
+ode|JOB_FINISH"
+    jobWallclockDuration                        48
+
+(base) nsls_yangyb@login02:~$ cat /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_
+20261106/compute_y101_init_profile_v4/start.txt
+START 2026-11-06T15:29:14+08:00
+END rc=0 2026-11-06T15:31:17+08:00
+(base) nsls_yangyb@login02:~$

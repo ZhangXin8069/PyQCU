@@ -1,0 +1,54 @@
+(base) nsls_yangyb@login02:~$ env | grep -E "OMP|KUPL" | sort
+CONDA_PROMPT_MODIFIER=(base)
+KUPL_ALLOW_OVERSUBSCRIBE=0
+KUPL_DISABLE_CLOVER_CACHE=0
+KUPL_FUSED_BICG_DOTS=1
+KUPL_HUGEPAGE=0
+KUPL_NUMA_BIND=0
+OMP_DYNAMIC=FALSE
+OMPI_ALLOW_RUN_AS_ROOT=1
+OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+OMPI_MCA_plm_rsh_agent=/usr/bin/ssh
+PROMPT_COMMAND={ msg=$(history 1 | { read x y ; echo $y ;});logger -p local1.notice   [
+$(who am i)]["uid=$(whoami)"][pwd=`pwd`]["$msg"]; }
+PYQCU_KUPL_BUILD_DIR=/home/share/nsls_yangyb/PyQCU/cpp/kupl/qcu/build
+PYQCU_KUPL_LIB=/home/share/nsls_yangyb/PyQCU/cpp/kupl/qcu/libqcu.so
+QCU_KUPL_VARIANT=/home/share/nsls_yangyb/PyQCU/cpp/kupl/qcu/libqcu.so
+(base) nsls_yangyb@login02:~$ printf '%s' 'H4sIAGgx7WoAA+1U3Y+bOBDvM3+FL71XAjhfuoc85IPt
+oiUkhaTVnk6yHOKAG4M5bLabnvK/n22abLrV7VN1VaUdI8zM/OY3Y3sM45lw6qZE24ayHUpxmhMU9mBX5G9+lLi
+uO+z3gZ5Hw4GZXdjq7SfsAW8ARz3Ycwd9F7jeyB2N3gD3h1XwgjRC4lqV8iXHZfZIy//CKdh+/wJPuxZwmX8Ref
+ub04ja2dLSIeUD2GKRW4JIYJOGg4pWZI8ps6yaczl2cl4QR+S4Jk4pmEBHtWXHrbM6vp9t7ALT0lLxZNz5/R+NP
+zk7LLFzaCqG8m2BeCURdOHQ89xhxzL9pqE65OQY1Zbwy5bx9GBnpCQ1TTtWqrxoR+tnpFXNd00qKS91s6IHr2Px
+Rj7RFZmxE4ikIewbiOluDVLYk9P2ug9RkcFHPfrdfNCxrOKg8gG7Al+BHUvvzF8WAMvFCkWbBVrfxv5knox7ENx
+tViHS9iubVuf30WQRzMY3kzDxL8EfJ8EarZZhMLsfryZJEnzwW4bkLlihIFptlDv2p0E0H3smyngnYbj8iJYf/D
+jZTJNZHEz9a7cfTaahj9YQ/TkNl7M7NE/CSXI7dr+DLN6hZO1HsyBEq0msaP1QERnEletqKZpgda+OV/unmyCcq
+/qW72I/SVRg6zmHK8dNEH5TWey/3wSxyTtbxrE/WwfLyASu' > /home/share/nsls_yangyb/b64/sync_bui
+ld_cache_L32_v2_20261106.b64
+HVbnBxGt3+nTVfwjsFJWhB1MsC2Bc1KzMZrP14o7UAZs/FeknrccwUYjNRL46ujzHnZA/YUXNqoOipGRxIhaZk5
+ghYVI22vFg2TNKvprlsd23xAcTMsgdqQ9hn2lUVDgPd1nGEFFgLYbheORkpLxWfgdb2h+4dqfDhUFiw5Ax6x+wb
+7aFNVLBi4l/idPFYEpCYBIw+ECQDVZ030b0peJ8raAqAZGr7je+BBAy8fDLGOvdTPU8xsIUmZUvZct7dYprliOa
+NTjmtBbFWsvcep5DXw3CfzpXD4VHiGm4zo7T3f2JNjTKgHH9tn2EdqXfqOXYIEb+r0WVRrezHsc62yn4sx17ilU
+B+nJ1RNKq627HzdW7X7SfCyo1MfaGXTckcqol6l1FtMdw1m1s/+Jb/Kq7zKq/wv8i+iqyO0AAwAAA==' >> /ho
+me/share/nsls_yangyb/b64/sync_build_cache_L32_v2_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'b5fRJppubm782D8v9oovDKbmNHVbnBxGt3+nTVfwjsFJ
+WhB1MsC2Bc1KzMZrP14o7UAZs/FeknrccwUYjNRL46ujzHnZA/YUXNqoOipGRxIhaZk5ghYVI22vFg2TNKvprls
+d23xAcTMsgdqQ9hn2lUVDgPd1nGEFFgLYbheORkpLxWfgdb2h+4dqfDhUFiw5Ax6x+wb7aFNVLBi4l/idPFYEpC
+YBIw+ECQDVZ030b0peJ8raAqAZGr7je+BBAy8fDLGOvdTPU8xsIUmZUvZct7dYprliOaNTjmtBbFWsvcep5DXw3
+CfzpXD4VHiGm4zo7T3f2JNjTKgHH9tn2EdqXfqOXYIEb+r0WVRrezHsc62yn4sx17ilUB+nJ1RNKq627HzdW7X7
+SfCyo1MfaGXTckcqol6l1FtMdw1m1s/+Jb/Kq7zKq/wv8i+iqyO0AAwAAA==' >> /home/share/nsls_yangy
+b/b64/sync_build_cache_L32_v2_20261106.b64
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/b64/sync_build_cache_L3
+2_v2_20261106.b64 > /home/share/nsls_yangyb/b64/sync_build_cache_L32_v2_20261106.tgz
+(base) nsls_yangyb@login02:~$ tar -xzf /home/share/nsls_yangyb/b64/sync_build_cache_L32
+_v2_20261106.tgz -C /home/share/nsls_yangyb/py
+(base) nsls_yangyb@login02:~$ bash /home/share/nsls_yangyb/py/logs/run_build_cache_L32.
+sh
+[ROCE] roce3_user_log_init: [ERR]Failed to open libroce log file
+[ROCE] roce3_user_log_init: [ERR]Failed to open libroce log file
+[ROCE] roce3_user_log_init: [ERR]Failed to open libroce log file
+SDMA ERROR (sdma_constructor|75): [login02] Open SDMA fail:No such file or directory
+/home/share/nsls_yangyb/PyQCU/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang is un
+available; TileLang-specific acceleration and tests will be skipped (ModuleNotFoundErro
+r: No module named 'tilelang')
+  _tilelang = import_tilelang()
+

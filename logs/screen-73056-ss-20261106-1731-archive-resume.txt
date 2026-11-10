@@ -1,0 +1,54 @@
+tl24Ad5bLovzIgEPHy6M6PQzrkbFTWkLzxWcMfdSmW1VJ551otlUaNm1f+uLJt0Rotvo3IunGrn87j1lYdfdwFd
+7955f0L+B7z53752SqMuuXX7t3mfUQr8G+ZZ0UfMOX9AD" >> /home/share/nsls_yangyb/PyQCU-main/da
+ta/kupl_hbm_opt_20261106/profile_sources_20261106_1523.tar.gz.sync.b64
+(base) nsls_yangyb@login02:~$ printf %s "uxuaW+rXmVpgo3irHoi7oMsGXn3ku/8Qcl8kejecyz5i6I
+3GYcGXuAoRW4DrwK/iMtD7aQXV+lYqYcPqMUWF377aYJzxRXU4qoPRxlYfbZZKFHetgoSnMVqUcTiyfptodd2y9
+L7hIoGrAm2dIp1Efa0C9+u4hr51vbC82XeDkIXbfe95s++SBRyy/Opas6R7TTNX6mAiwipFrMsAu3DzsR28R0KS
+IXx4qJ57du68yMHt1xovAH2vZyUpftV9azVmmeTKVq6kPhQNfhNdK7FdY2Z+k8/neIU4T1T3iuvelddz/yg7T/a
+d7LoVey6Aa5spV/teWK3PJAFWKaIutsQeFjQR9BC0eP2gnSjoOElW6kl9GbzTvXAlvGeTmcvhP2n3slb8kn2sO2
+wltoA7SVcsgbeTPghbTGMILZLG2ad00NCVeP1pqv+EjhRrltT2ZwNZoxqy+i6nX1zEP6uL+KvT75+/Pv3Tg7qHM
+6rGk7dpKW9Do0ChGDhaEY8+j/BCBmFPXydlB7/rFTp6owCk0Q46FedXlAeuMzN1QtcwV1slLt61jE5osQMvrhib
+QsmQqPKCo6t4bAderN34NXhAGToMqS57eHMq7CRzUsuvjeZ+D1TZtyiaqjLvAp8e3Alm3V5j1tnzq6sS91wRLL1
+1BNwulmZHzYzSkoQqk2wyOqcS+n5QRsSmsmJG+HblskSy" >> /home/share/nsls_yangyb/PyQCU-main/da
+ta/kupl_hbm_opt_20261106/profile_sources_20261106_1523.tar.gz.sync.b64
+(base) nsls_yangyb@login02:~$ printf %s "YLWGmg0lg5UGSgbvFlrKUJ+G6iQ5nWbit8hvtb0pf4DIy7
+OHoXM60ukCWOqwTxZwtQo5V4gNaKsCdOincHzH/DpnQXNhg6gr9bje5tLoyOF6UkjhrWWzrpJiloJHK1LS6+bew
+Nypy5hvSanmQtQLq1ZVUypcqFmP1dNNU7aJgEOtymQQMVmpWSajUmVzGz2JblG+bXEk1n1xaAJSD8OVjr4Wj74t
+H/3QYDige4z6eAifEqxCTGLCctUnwcLVWe/jwJU6V+4CIcf0/Wu+nvTvX/PzSH/CLbrnzwuYwOgdsHaFPVVkjbc
+D1tj4Qu3hwhMEjAaidJGU28HIJvXATbg8ikizLBZN6OfAAByOPOIgp61HISz6v55MAStQ/GmlySQVtSwQrYxG61
+9IyahXbPSj/tFGkPjH+sz6sCZP6Jz/ZxpJlxo9K5s80sKwB0LXsnAyhc0PmcnX/i0yMhVt5w5R9/+8JvalCBWAp
+3JqhapOXzSLKkncCsJao1ACSsJSpT57KL2IeF+c0+vFslKWSq0tGpbmOvv5Ml9kk1hwAOodgdkUYhsFPwnlAeFm
+6u+rNNzEIhLtR0+IHNadxPxGYn0fcag8MLV9K7EKNyVj06kwUuz1g/1aDc27qUJexgs1ddQdvCak01ASFCRIRkY
+U4nKrnz7oJ4BOj7oHsIB/IhjDgyso/uFg+VlD+RDKNvSy" >> /home/share/nsls_yangyb/PyQCU-main/da
+ta/kupl_hbm_opt_20261106/profile_sources_20261106_1523.tar.gz.sync.b64
+(base) nsls_yangyb@login02:~$ printf %s "Uf3+6WG4/xryGklz+9PckSoJfBTgGFWoh4U211u9q9n/Z0
+t4XCzlRgy7T3spv9EWq9rCAak0LEfHRnApKDpUZPu4VYy6wr65iSv4O4d/3sI/cNh6C9MuMZE8weTD5ejOWuJDo
+L0TQQ08ttM80lFeOQKrzaajxuWt3om1vtU7cRe4rDXWbdvMt9otGiyPI4qmyIOI6mn8YK1auae2PwkBmjgU/g3t
+5sRlKeASM9JSO27Me+Eczt/8WWS9aBaDmkrUvVheLfAdop7sRx18HEILJUq79PWbZQvnNXVikIBW7Tot363XrLj
+Kpy3reC6yrlcJcNhkEU9HV9M8L6zq6AnL4XYWHG8x0xXJKPB5GzSlWhqGUFXb0b8RdYf9J99sCymhjhh+w30zkJ
+GzxSwpUrgSA6LnaL02L9NpniFDmqrX2jcK7tOxRi5Zt651L9LjxOZ/IeR96W6UzxPaV4jGcZblVSSKQQTVFwpyB
+ChsLpeoZQ0iA6Zte2B89MKhCKgvp9BWCHIiX741u2KtWi/ylyVUQK5hErtSRrM4p9A3L57/ZXRx3Bs8QLMtHzhL
+Nmr2YzGcYpuWv0LIa3c8Icb6v4kUD0EJd7PSYYJH9+Nqw6+BFuGe6HdZWv1tvIjepdUNziui3tB40rUm+4uHRi7
+EecMHoLd1Ejy4Fct2lFEMHWfJ5S6L6JRIxVq4Jl7LzaU1" >> /home/share/nsls_yangyb/PyQCU-main/da
+ta/kupl_hbm_opt_20261106/profile_sources_20261106_1523.tar.gz.sync.b64
+(base) nsls_yangyb@login02:~$ printf %s "DEcvcIyn9q2jHl5HvmSHfKmjIeMjsNe3tiLzOljeZtVdL5
+9//93rn0YXQuHD1nMiQAlrq42gRGEXYcdLkLUwEDYnOLjaTf0/FaHx0/68+I/kZAEOBg8WArI5/mN/+PVXB3b8x
+6Eo8PRL/MfP8XNCOAouWCWw42Y8T0fjfDbLs72b+dyK+RiI5hgM3jhNL082NuA6dCHzm6ebEIwRdSUf2jo6NGwE
+sSlHQoeX3YglqtBdLAkDL6KW0XItLPl5enh4vYiLSTJR8drA00Uqx6C3DSte73hzD9ebyK0hFVpRzCpn87TDFmk
+8b5v7+dbcw7umrX+N62ED5B49f/nyxU/KuWZeJL0iuU5F7UULN5vI8rBRM3TT5zsV9IjdZdjjkmdG+L2jWcjvuZ
+2bvKwkNwXg0IeRNAk6IxaRkQ/X6hqTEBq0iMqqYV2M6KkrBGAMN51dP2wLAkeqQVE5FROdVNiF0wL6MzLsNNm0i
+MZQUx0wYtFfDZ94bRA1jN4ktx0miLw11lu3FowmIYqpRM1qv0++N69E3a/zN0n2v1sq7ikRd2QioXFj9Or/HZvm
+y+/L78uv3e//A9AbX3IAugEA" >> /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261
+106/profile_sources_20261106_1523.tar.gz.sync.b64
+(base) nsls_yangyb@login02:~$ wc -c /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_op
+t_20261106/profile_sources_20261106_1523.tar.gz.sync.b64
+26492 /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/profile_sources_202
+61106_1523.tar.gz.sync.b64
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/PyQCU-main/data/kupl_hb
+m_opt_20261106/profile_sources_20261106_1523.tar.gz.sync.b64 > /home/share/nsls_yangyb/
+PyQCU-main/data/kupl_hbm_opt_20261106/profile_sources_20261106_1523.tar.gz
+(base) nsls_yangyb@login02:~$ sha256sum /home/share/nsls_yangyb/PyQCU-main/data/kupl_hb
+m_opt_20261106/profile_sources_20261106_1523.tar.gz
+2f2e8add48fe5bbf80f257e85e27e2ebc48f63c92bb45af512831b3baa37d067  /home/share/nsls_yang
+yb/PyQCU-main/data/kupl_hbm_opt_20261106/profile_sources_20261106_1523.tar.gz
+(base) nsls_yangyb@login02:~$

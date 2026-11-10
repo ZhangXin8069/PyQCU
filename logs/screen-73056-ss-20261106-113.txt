@@ -1,0 +1,54 @@
+is unavailable; TileLang-specific acceleration and tests will be skipped (ModuleNotFoun
+dError: No module named 'tilelang')
+  _tilelang = import_tilelang()
+/home/share/nsls_yangyb/PyQCU-main/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang
+is unavailable; TileLang-specific acceleration and tests will be skipped (ModuleNotFoun
+dError: No module named 'tilelang')
+  _tilelang = import_tilelang()
+/home/share/nsls_yangyb/PyQCU-main/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang
+is unavailable; TileLang-specific acceleration and tests will be skipped (ModuleNotFoun
+dError: No module named 'tilelang')
+  _tilelang = import_tilelang()
+/home/share/nsls_yangyb/PyQCU-main/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang
+is unavailable; TileLang-specific acceleration and tests will be skipped (ModuleNotFoun
+dError: No module named 'tilelang')
+  _tilelang = import_tilelang()
+/home/share/nsls_yangyb/PyQCU-main/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang
+is unavailable; TileLang-specific acceleration and tests will be skipped (ModuleNotFoun
+dError: No module named 'tilelang')
+  _tilelang = import_tilelang()
+/home/share/nsls_yangyb/PyQCU-main/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang
+is unavailable; TileLang-specific acceleration and tests will be skipped (ModuleNotFoun
+dError: No module named 'tilelang')
+  _tilelang = import_tilelang()
+/home/share/nsls_yangyb/PyQCU-main/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang
+is unavailable; TileLang-specific acceleration and tests will be skipped (ModuleNotFoun
+dError: No module named 'tilelang')
+  _tilelang = import_tilelang()
+/home/share/nsls_yangyb/PyQCU-main/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang
+is unavailable; TileLang-specific acceleration and tests will be skipped (ModuleNotFoun
+dError: No module named 'tilelang')
+  _tilelang = import_tilelang()
+/home/share/nsls_yangyb/PyQCU-main/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang
+is unavailable; TileLang-specific acceleration and tests will be skipped (ModuleNotFoun
+dError: No module named 'tilelang')
+  _tilelang = import_tilelang()
+/home/share/nsls_yangyb/PyQCU-main/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang
+is unavailable; TileLang-specific acceleration and tests will be skipped (ModuleNotFoun
+dError: No module named 'tilelang')
+  _tilelang = import_tilelang()
+/home/share/nsls_yangyb/PyQCU-main/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang
+is unavailable; TileLang-specific acceleration and tests will be skipped (ModuleNotFoun
+dError: No module named 'tilelang')
+  _tilelang = import_tilelang()
+/home/share/nsls_yangyb/PyQCU-main/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang
+is unavailable; TileLang-specific acceleration and tests will be skipped (ModuleNotFoun
+dError: No module named 'tilelang')
+  _tilelang = import_tilelang()
+/home/share/nsls_yangyb/PyQCU-main/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang
+is unavailable; TileLang-specific acceleration and tests will be skipped (ModuleNotFoun
+dError: No module named 'tilelang')
+  _tilelang = import_tilelang()
+^Z
+[2]+  Stopped                 bash /home/share/nsls_yangyb/py/logs/run_l32_bicg.sh
+(base) nsls_yangyb@login02:~$

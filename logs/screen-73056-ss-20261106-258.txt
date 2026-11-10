@@ -1,0 +1,54 @@
+    totalUtime                                  342
+
+    totalStime                                  314
+
+    totalMaxMemSwp                              4763
+
+    totalMaxMem                                 4763
+
+    hostPreHookRunTime                          11
+
+    preHookRunTime                              0
+
+    jobWallclockDuration                        644
+
+    postHookRunTime                             0
+
+    hostPostHookRunTime                         0
+
+    jobSstoppedTime                             0
+
+    coreHours                                   644
+
+    jobExitCode                                 143
+
+    systemExitCode                              10001
+
+    exitMessage                                 Job command execution failed, errCode:
+143
+    nodeUsages
+        execNode             resGroup resIndex utime    stime    wallclockDuration    s
+stoppedTime     cpuUtil          gpuUtil          npuUtil          memResource
+
+        cn10579              0        0/1      342      314      644                  0
+                101/107          -                -                0/49/0/0/4763/4763/1
+549/0
+    nodePids
+        execNode             pids
+        cn10579              -
+    traceMessages                               2026/11/06 12:18:26    :    [JOB_ADD] J
+ob 2049318 is submitted by nsls_yangyb, job state is PENDING.
+                                                2026/11/06 12:18:30    :    [JOB_START]
+ Job 2049318 start message has been sent.
+                                                2026/11/06 12:18:30    :    [JOB_START_
+ACK] Job 2049318 start message has been received by agent cn10579.
+                                                2026/11/06 12:18:30    :    [JOB_EXECUT
+ION] Job 2049318 state is from PENDING to RUNNING.
+                                                2026/11/06 12:18:31    :    [HOST_PRE-H
+OOK_START] Job 2049318 host-pre-hook started at 2026/11/06 12:18:31 .
+                                                2026/11/06 12:18:43    :    [HOST_PRE-H
+OOK_END] Job 2049318 host-pre-hook is finished successfully at 2026/11/06 12:18:42 , co
+st time: 11475 ms.
+                                                2026/11/06 12:29:27    :    [JOB_FINISH
+] Job 2049318 state is from RUNNING to FAILED, reason: job failed.
+(base) nsls_yangyb@login02:~$

@@ -1,0 +1,54 @@
+(base) nsls_yangyb@login02:~$ chmod 750 /home/share/nsls_yangyb/PyQCU/pyqcu/testing/sim
+ple/prepare_mpi_slab.py
+(base) nsls_yangyb@login02:~$ nohup python -B /home/share/nsls_yangyb/PyQCU/pyqcu/testi
+ng/simple/prepare_mpi_slab.py --input /home/share/nsls_yangyb/PyQCU/data/production_L24
+/gauge_24x24x24x64_c64.h5 --lat 24 24 24 64 --grid 1 1 2 8 --output-dir /home/share/nsl
+s_yangyb/PyQCU/data/kupl_hbm_opt_20261106/y91_gauge_slabs --kind gauge --dtype c64 > /h
+ome/share/nsls_yangyb/logs/prepare_y91_gauge.log 2>&1 & echo PREP_PID=
+[1] 71076
+PREP_PID=
+(base) nsls_yangyb@login02:~$ tail -n 12 /home/share/nsls_yangyb/logs/prepare_y91_gauge
+.log
+slab rank=5/16 shape=(3, 3, 4, 24, 24, 12, 8) bytes=15931608
+slab rank=6/16 shape=(3, 3, 4, 24, 24, 12, 8) bytes=15931608
+slab rank=7/16 shape=(3, 3, 4, 24, 24, 12, 8) bytes=15931608
+slab rank=8/16 shape=(3, 3, 4, 24, 24, 12, 8) bytes=15931608
+slab rank=9/16 shape=(3, 3, 4, 24, 24, 12, 8) bytes=15931608
+slab rank=10/16 shape=(3, 3, 4, 24, 24, 12, 8) bytes=15931608
+slab rank=11/16 shape=(3, 3, 4, 24, 24, 12, 8) bytes=15931608
+slab rank=12/16 shape=(3, 3, 4, 24, 24, 12, 8) bytes=15931608
+slab rank=13/16 shape=(3, 3, 4, 24, 24, 12, 8) bytes=15931608
+slab rank=14/16 shape=(3, 3, 4, 24, 24, 12, 8) bytes=15931608
+slab rank=15/16 shape=(3, 3, 4, 24, 24, 12, 8) bytes=15931608
+{"manifest": "/home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_20261106/y91_gauge_slabs/
+manifest.json", "ranks": 16}
+[1]+  Done                    nohup python -B /home/share/nsls_yangyb/PyQCU/pyqcu/testi
+ng/simple/prepare_mpi_slab.py --input /home/share/nsls_yangyb/PyQCU/data/production_L24
+/gauge_24x24x24x64_c64.h5 --lat 24 24 24 64 --grid 1 1 2 8 --output-dir /home/share/nsl
+s_yangyb/PyQCU/data/kupl_hbm_opt_20261106/y91_gauge_slabs --kind gauge --dtype c64 > /h
+ome/share/nsls_yangyb/logs/prepare_y91_gauge.log 2>&1
+(base) nsls_yangyb@login02:~$ nohup python -B /home/share/nsls_yangyb/PyQCU/pyqcu/testi
+ng/simple/prepare_mpi_slab.py --input /home/share/nsls_yangyb/PyQCU/data/production_L24
+/source_24x24x24x64_c64.h5 --lat 24 24 24 64 --grid 1 1 2 8 --output-dir /home/share/ns
+ls_yangyb/PyQCU/data/kupl_hbm_opt_20261106/y91_source_slabs --kind source --dtype c64 >
+ /home/share/nsls_yangyb/logs/prepare_y91_source.log 2>&1 &
+[1] 73855
+(base) nsls_yangyb@login02:~$ tail -n 10 /home/share/nsls_yangyb/logs/prepare_y91_sourc
+e.log
+slab rank=7/16 shape=(4, 3, 24, 24, 12, 8) bytes=5314776
+slab rank=8/16 shape=(4, 3, 24, 24, 12, 8) bytes=5314776
+slab rank=9/16 shape=(4, 3, 24, 24, 12, 8) bytes=5314776
+slab rank=10/16 shape=(4, 3, 24, 24, 12, 8) bytes=5314776
+slab rank=11/16 shape=(4, 3, 24, 24, 12, 8) bytes=5314776
+slab rank=12/16 shape=(4, 3, 24, 24, 12, 8) bytes=5314776
+slab rank=13/16 shape=(4, 3, 24, 24, 12, 8) bytes=5314776
+slab rank=14/16 shape=(4, 3, 24, 24, 12, 8) bytes=5314776
+slab rank=15/16 shape=(4, 3, 24, 24, 12, 8) bytes=5314776
+{"manifest": "/home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_20261106/y91_source_slabs
+/manifest.json", "ranks": 16}
+[1]+  Done                    nohup python -B /home/share/nsls_yangyb/PyQCU/pyqcu/testi
+ng/simple/prepare_mpi_slab.py --input /home/share/nsls_yangyb/PyQCU/data/production_L24
+/source_24x24x24x64_c64.h5 --lat 24 24 24 64 --grid 1 1 2 8 --output-dir /home/share/ns
+ls_yangyb/PyQCU/data/kupl_hbm_opt_20261106/y91_source_slabs --kind source --dtype c64 >
+ /home/share/nsls_yangyb/logs/prepare_y91_source.log 2>&1
+(base) nsls_yangyb@login02:~$

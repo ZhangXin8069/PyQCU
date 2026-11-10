@@ -1,0 +1,54 @@
+r: No module named 'tilelang')
+/home/share/nsls_yangyb/PyQCU/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang is un
+available; TileLang-specific acceleration and tests will be skipped (ModuleNotFoundErro
+r: No module named 'tilelang')
+/home/share/nsls_yangyb/PyQCU/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang is un
+available; TileLang-specific acceleration and tests will be skipped (ModuleNotFoundErro
+r: No module named 'tilelang')
+/home/share/nsls_yangyb/PyQCU/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang is un
+available; TileLang-specific acceleration and tests will be skipped (ModuleNotFoundErro
+r: No module named 'tilelang')
+/home/share/nsls_yangyb/PyQCU/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang is un
+available; TileLang-specific acceleration and tests will be skipped (ModuleNotFoundErro
+r: No module named 'tilelang')
+/home/share/nsls_yangyb/PyQCU/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang is un
+available; TileLang-specific acceleration and tests will be skipped (ModuleNotFoundErro
+r: No module named 'tilelang')
+/home/share/nsls_yangyb/PyQCU/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang is un
+available; TileLang-specific acceleration and tests will be skipped (ModuleNotFoundErro
+r: No module named 'tilelang')
+/home/share/nsls_yangyb/PyQCU/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang is un
+available; TileLang-specific acceleration and tests will be skipped (ModuleNotFoundErro
+r: No module named 'tilelang')
+/home/share/nsls_yangyb/PyQCU/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang is un
+available; TileLang-specific acceleration and tests will be skipped (ModuleNotFoundErro
+r: No module named 'tilelang')
+/home/share/nsls_yangyb/PyQCU/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang is un
+available; TileLang-specific acceleration and tests will be skipped (ModuleNotFoundErro
+r: No module named 'tilelang')
+/home/share/nsls_yangyb/PyQCU/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang is un
+available; TileLang-specific acceleration and tests will be skipped (ModuleNotFoundErro
+r: No module named 'tilelang')
+/home/share/nsls_yangyb/PyQCU/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang is un
+available; TileLang-specific acceleration and tests will be skipped (ModuleNotFoundErro
+r: No module named 'tilelang')
+(base) nsls_yangyb@login02:~$ djob -ll 2050917 | grep -E "jobWallclockDuration|jobExitC
+ode|JOB_FINISH"
+    jobWallclockDuration                        349
+
+(base) nsls_yangyb@login02:~$ djob -ll 2050917 | grep -E "jobWallclockDuration|jobExitC
+ode|cpuUtil|nodeUsages|execNode"
+        execNode             resGroup resIndex hwThreads        gpuIds           npuIds
+
+    execNodes                                   cn10579
+
+    execNodeCnt                                 1
+
+    jobWallclockDuration                        349
+
+    nodeUsages
+        execNode             resGroup resIndex utime    stime    wallclockDuration    s
+stoppedTime     cpuUtil          gpuUtil          npuUtil          memResource
+
+        execNode             pids
+(base) nsls_yangyb@login02:~$

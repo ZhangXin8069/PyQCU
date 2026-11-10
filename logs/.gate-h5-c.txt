@@ -1,0 +1,54 @@
+ local_rank=11 local_size=16 numa_nodes=16 cpu_node=11 cpuset=418-425 memory_node=27 me
+mory_policy=bind memory_bound=true threads=8 bound_threads=8 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=15 local_size=16 numa_nodes=16 cpu_node=15 cpuset=570-577 memory_node=31 me
+mory_policy=bind memory_bound=true threads=8 bound_threads=8 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=13 local_size=16 numa_nodes=16 cpu_node=13 cpuset=494-501 memory_node=29 me
+mory_policy=bind memory_bound=true threads=8 bound_threads=8 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=5 local_size=16 numa_nodes=16 cpu_node=5 cpuset=190-197 memory_node=21 memo
+ry_policy=bind memory_bound=true threads=8 bound_threads=8 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=4 local_size=16 numa_nodes=16 cpu_node=4 cpuset=152-159 memory_node=20 memo
+ry_policy=bind memory_bound=true threads=8 bound_threads=8 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=6 local_size=16 numa_nodes=16 cpu_node=6 cpuset=228-235 memory_node=22 memo
+ry_policy=bind memory_bound=true threads=8 bound_threads=8 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=8 local_size=16 numa_nodes=16 cpu_node=8 cpuset=304-311 memory_node=24 memo
+ry_policy=bind memory_bound=true threads=8 bound_threads=8 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=10 local_size=16 numa_nodes=16 cpu_node=10 cpuset=380-387 memory_node=26 me
+mory_policy=bind memory_bound=true threads=8 bound_threads=8 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=12 local_size=16 numa_nodes=16 cpu_node=12 cpuset=456-463 memory_node=28 me
+mory_policy=bind memory_bound=true threads=8 bound_threads=8 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=14 local_size=16 numa_nodes=16 cpu_node=14 cpuset=532-539 memory_node=30 me
+mory_policy=bind memory_bound=true threads=8 bound_threads=8 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=7 local_size=16 numa_nodes=16 cpu_node=7 cpuset=266-273 memory_node=23 memo
+ry_policy=bind memory_bound=true threads=8 bound_threads=8 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=0 local_size=16 numa_nodes=16 cpu_node=0 cpuset=0-7 memory_node=16 memory_p
+olicy=bind memory_bound=true threads=8 bound_threads=8 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=1 local_size=16 numa_nodes=16 cpu_node=1 cpuset=38-45 memory_node=17 memory
+_policy=bind memory_bound=true threads=8 bound_threads=8 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=2 local_size=16 numa_nodes=16 cpu_node=2 cpuset=76-83 memory_node=18 memory
+_policy=bind memory_bound=true threads=8 bound_threads=8 source=sysfs
+(base) nsls_yangyb@login02:~$ python -c "import h5py; print(h5py.__version__, h5py.get_
+config().mpi)"
+3.7.0 False
+(base) nsls_yangyb@login02:~$ python -c "import h5py; f=h5py.File(/home/share/nsls_yang
+yb/PyQCU/data/production_L24/gauge_24x24x24x64_c64.h5); d=f[data]; print(gauge,d.shape,
+d.chunks,d.compression,d.id.get_storage_size())"
+  File "<string>", line 1
+    import h5py; f=h5py.File(/home/share/nsls_yangyb/PyQCU/data/production_L24/gauge_24
+x24x24x64_c64.h5); d=f[data]; print(gauge,d.shape,d.chunks,d.compression,d.id.get_stora
+ge_size())
+                             ^
+SyntaxError: invalid syntax
+(base) nsls_yangyb@login02:~$

@@ -1,0 +1,54 @@
+      Start 34: kupl_qcu_numa_explicit_nodes
+34/35 Test #34: kupl_qcu_numa_explicit_nodes ................   Passed    0.92 sec
+      Start 35: kupl_qcu_kunpeng_profile_contract
+35/35 Test #35: kupl_qcu_kunpeng_profile_contract ...........   Passed    2.21 sec
+
+100% tests passed, 0 tests failed out of 35
+
+Total Test time (real) =  89.37 sec
+(base) nsls_yangyb@login02:~$ sha256sum /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu
+/src/lattice_clover_multigrid.cpp /home/share/nsls_yangyb/PyQCU-main/pyqcu/tools/_legac
+y_mg_cache.py /home/share/nsls_yangyb/PyQCU-main/pyqcu/testing/simple/mpi/test_mpi_cont
+ract.py
+f9a51d4b4e864bfb2933bd3d369c5e8f82ea4a4d90645201bd8cc7f6fa7bc7c3  /home/share/nsls_yang
+yb/PyQCU-main/cpp/kupl/qcu/src/lattice_clover_multigrid.cpp
+24091b4b78aa3f7b30374f9ca444c64d419ce75a45a8cc0566aa6db9b8230a0e  /home/share/nsls_yang
+yb/PyQCU-main/pyqcu/tools/_legacy_mg_cache.py
+36318eaa893af40f9d2e5a01bdac500332aa04b46361da964939c4adc40e401d  /home/share/nsls_yang
+yb/PyQCU-main/pyqcu/testing/simple/mpi/test_mpi_contract.py
+(base) nsls_yangyb@login02:~$ python3 -m pytest -q -p no:cacheprovider /home/share/nsls
+_yangyb/PyQCU-main/pyqcu/testing/simple/mpi/test_mpi_contract.py -k "chunked_digest or
+chunked_dataset_digest"
+..                                                                              [100%]
+================================== warnings summary ===================================
+PyQCU/pyqcu/tools/_define.py:39
+  /home/share/nsls_yangyb/PyQCU/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang is
+unavailable; TileLang-specific acceleration and tests will be skipped (ModuleNotFoundEr
+ror: No module named 'tilelang')
+    _tilelang = import_tilelang()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2 passed, 26 deselected, 1 warning in 2.16s
+SDMA ERROR (sdma_constructor|75): [login02] Open SDMA fail:No such file or directory
+(base) nsls_yangyb@login02:~$ python3 -m pytest -q -p no:cacheprovider /home/share/nsls
+_yangyb/PyQCU-main/pyqcu/testing/simple/mpi/test_mpi_contract.py
+............................                                                    [100%]
+================================== warnings summary ===================================
+PyQCU/pyqcu/tools/_define.py:39
+  /home/share/nsls_yangyb/PyQCU/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang is
+unavailable; TileLang-specific acceleration and tests will be skipped (ModuleNotFoundEr
+ror: No module named 'tilelang')
+    _tilelang = import_tilelang()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+28 passed, 1 warning in 1.94s
+SDMA ERROR (sdma_constructor|75): [login02] Open SDMA fail:No such file or directory
+(base) nsls_yangyb@login02:~$ djob
+----------------------------------------
+query successfully, no matches.
+(base) nsls_yangyb@login02:~$ duser
+USER            TOTAL_JOBS              WAITING_JOBS            PENDING_JOBS
+ RUNNING_JOBS            STOPPED_JOBS            SSTOPPED_JOBS
+nsls_yangyb     0                       0                       0
+ 0                       0                       0
+(base) nsls_yangyb@login02:~$

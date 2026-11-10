@@ -1,0 +1,54 @@
+/usr/bin/ld: warning: LLVM gold plugin: <unknown>:0:0: loop not vectorized: the optimiz
+er was unable to perform the requested transformation; the transformation might be disa
+bled or specified as part of an unsupported transformation ordering
+LLVM gold plugin: <unknown>:0:0: loop not vectorized: call instruction cannot be vector
+ized
+/usr/bin/ld: warning: LLVM gold plugin: <unknown>:0:0: loop not vectorized: the optimiz
+er was unable to perform the requested transformation; the transformation might be disa
+bled or specified as part of an unsupported transformation ordering
+LLVM gold plugin: <unknown>:0:0: loop not vectorized: Cannot vectorize early exit loop
+/usr/bin/ld: warning: LLVM gold plugin: <unknown>:0:0: loop not vectorized: the optimiz
+er was unable to perform the requested transformation; the transformation might be disa
+bled or specified as part of an unsupported transformation ordering
+LLVM gold plugin: <unknown>:0:0: loop not vectorized: Cannot vectorize early exit loop
+/usr/bin/ld: warning: LLVM gold plugin: <unknown>:0:0: loop not vectorized: the optimiz
+er was unable to perform the requested transformation; the transformation might be disa
+bled or specified as part of an unsupported transformation ordering
+LLVM gold plugin: <unknown>:0:0: loop not vectorized: Cannot vectorize early exit loop
+/usr/bin/ld: warning: LLVM gold plugin: <unknown>:0:0: loop not vectorized: the optimiz
+er was unable to perform the requested transformation; the transformation might be disa
+bled or specified as part of an unsupported transformation ordering
+LLVM gold plugin: <unknown>:0:0: loop not vectorized: call instruction cannot be vector
+ized
+/usr/bin/ld: warning: LLVM gold plugin: <unknown>:0:0: loop not vectorized: the optimiz
+er was unable to perform the requested transformation; the transformation might be disa
+bled or sp(base) nsls_yangyb@login02:~$ tail -n 12 /home/share/nsls_yangyb/logs/build_h
+t2split_generic.log
+/usr/bin/ld: warning: LLVM gold plugin: <unknown>:0:0: loop not vectorized: the optimiz
+er was unable to perform the requested transformation; the transformation might be disa
+bled or specified as part of an unsupported transformation ordering
+LLVM gold plugin: <unknown>:0:0: loop not vectorized: Cannot vectorize early exit loop
+/usr/bin/ld: warning: LLVM gold plugin: <unknown>:0:0: loop not vectorized: the optimiz
+er was unable to perform the requested transformation; the transformation might be disa
+bled or specified as part of an unsupported transformation ordering
+LLVM gold plugin: <unknown>:0:0: loop not vectorized: Cannot vectorize early exit loop
+/usr/bin/ld: warning: LLVM gold plugin: <unknown>:0:0: loop not vectorized: the optimiz
+er was unable to perform the requested transformation; the transformation might be disa
+bled or specified as part of an unsupported transformation ordering
+LLVM gold plugin: <unknown>:0:0: loop not vectorized: Cannot vectorize early exit loop
+/usr/bin/ld: warning: LLVM gold plugin: <unknown>:0:0: loop not vectorized: the optimiz
+er was unable to perform the requested transformation; the transformation might be disa
+bled or specified as part of an unsupported transformation ordering
+LLVM gold plugin: <unknown>:0:0: loop not vectorized: call instruction cannot be vector
+ized
+/usr/bin/ld: warning: LLVM gold plugin: <unknown>:0:0: loop not vectorized: the optimiz
+er was unable to perform the requested transformation; the transformation might be disa
+bled or specified as part of an unsupported transformation ordering
+LLVM gold plugin: <unknown>:0:0: loop not vectorized: Cannot vectorize early exit loop
+/usr/bin/ld: warning: LLVM gold plugin: <unknown>:0:0: loop not vectorized: the optimiz
+er was unable to perform the requested transformation; the transformation might be disa
+bled or specified as part of an unsupported transformation ordering
+[100%] Built target kupl_qcu
+[1]+  Done                    nohup bash /home/share/nsls_yangyb/logs/build_ht2split_ge
+neric.sh > /home/share/nsls_yangyb/logs/build_ht2split_generic.log 2>&1
+(base) nsls_yangyb@login02:~$

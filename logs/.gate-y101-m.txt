@@ -1,0 +1,54 @@
+h/SmwfCSPe8kpv8NOuBl4Z3nmpcJBD6lbwUAMbCdJ0hpmNh2IhiqrXUnmtLAEVCEHFp3UdAuE7ghClioZs7Gt9H
+VdM+s+hrzIkxLKAJPF7udr5fEg94SG+9Uu+Vs5mZVR80M4Ew7cw8tJn85+Ebfre+T+SQiilkeWdOgcqqEMo46QT
+KiYrmey2MNTFMir1MbX+aLSxtSnhXdHClFkhbiqIN86M9pW1mPc9ObIGqJcsTye4NQsnFQSi5MfhDt3t4hhLLfd
+ouClKE335Ta/Z+CHehsVynVNyxfR87zhjqdZh+Spyn/n6+dAkW8z8V4crofxn/N5rNxiz/20dze83//0Kenv8PR
+Ph4+l/C9gdHn54j2a+Uy/8+jc8cLKlRTSI6w6ePodHc2mI' >> /home/share/nsls_yangyb/b64/sync_app
+ly_profile_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'y
+> 9P9vzksRWxPeWtaylmcpvwHgjL4iABIAAA==' >> /home/share/nsls_yangyb/b64/sync_apply_profi
+le_20261106.b64
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/b64/sync_apply_profile_
+20261106.b64 > /home/share/nsls_yangyb/b64/sync_apply_profile_20261106.tgz
+(base) nsls_yangyb@login02:~$ tar -xzf /home/share/nsls_yangyb/b64/sync_apply_profile_2
+0261106.tgz -C /home/share/nsls_yangyb/PyQCU
+(base) nsls_yangyb@login02:~$ nohup bash /home/share/nsls_yangyb/logs/build_ht2split_ge
+neric.sh > /home/share/nsls_yangyb/logs/build_apply_profile.log 2>&1 &
+[1] 860695
+(base) nsls_yangyb@login02:~$ tail -n 12 /home/share/nsls_yangyb/logs/build_apply_profi
+le.log
+/usr/bin/ld: warning: LLVM gold plugin: <unknown>:0:0: loop not vectorized: the optimiz
+er was unable to perform the requested transformation; the transformation might be disa
+bled or specified as part of an unsupported transformation ordering
+LLVM gold plugin: <unknown>:0:0: loop not vectorized: Cannot vectorize early exit loop
+/usr/bin/ld: warning: LLVM gold plugin: <unknown>:0:0: loop not vectorized: the optimiz
+er was unable to perform the requested transformation; the transformation might be disa
+bled or specified as part of an unsupported transformation ordering
+LLVM gold plugin: <unknown>:0:0: loop not vectorized: Cannot vectorize early exit loop
+/usr/bin/ld: warning: LLVM gold plugin: <unknown>:0:0: loop not vectorized: the optimiz
+er was unable to perform the requested transformation; the transformation might be disa
+bled or specified as part of an unsupported transformation ordering
+LLVM gold plugin: <unknown>:0:0: loop not vectorized: Cannot vectorize early exit loop
+/usr/bin/ld: warning: LLVM gold plugin: <unknown>:0:0: loop not vectorized: the optimiz
+er was unable to perform the requested transformation; the transformation might be disa
+bled or specified as part of an unsupported transformation ordering
+LLVM gold plugin: <unknown>:0:0: loop not vectorized: call instruction cannot be vector
+ized
+/usr/bin/ld: warning: LLVM gold plugin: <unknown>:0:0: loop not vectorized: the optimiz
+er was unable to perform the requested transformation; the transformation might be disa
+bled or specified as part of an unsupported transformation ordering
+LLVM gold plugin: <unknown>:0:0: loop not vectorized: Cannot vectorize early exit loop
+/usr/bin/ld: warning: LLVM gold plugin: <unknown>:0:0: loop not vectorized: the optimiz
+er was unable to perform the requested transformation; the transformation might be disa
+bled or specified as part of an unsupported transformation ordering
+[100%] Built target kupl_qcu
+[1]+  Done                    nohup bash /home/share/nsls_yangyb/logs/build_ht2split_ge
+neric.sh > /home/share/nsls_yangyb/logs/build_apply_profile.log 2>&1
+(base) nsls_yangyb@login02:~$ dsub -q q_hpcapp /home/share/nsls_yangyb/logs/job_y101_in
+it_profile.sh
+Submit job <2050424> successfully.
+(base) nsls_yangyb@login02:~$ find /home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_2026
+1106/compute_y101_init_profile_v1 -maxdepth 1 -type f -printf %f%s
+start.txt32mpirun.out0mpirun.err0rank_0010.txt72rank_0009.txt71rank_0011.txt72rank_0008
+.txt71rank_0001.txt71rank_0000.txt71rank_0003.txt71rank_0013.txt72rank_0004.txt71rank_0
+012.txt72rank_0002.txt71rank_0014.txt72rank_0007.txt71rank_0006.txt71rank_0015.txt73ran
+k_0005.txt72(base) nsls_yangyb@login02:~$

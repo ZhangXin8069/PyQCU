@@ -1,0 +1,54 @@
+(base) nsls_yangyb@login02:~$ sed -i -e s/qcu_y91/qcu_y91m/g -e s#/y91.out#/y91m.out# -
+e s#/y91.err#/y91m.err# -e s/compute_y91_slab16_v1/compute_y91_slab16_manualgeom_v1/ -e
+ s/y91_gauge_slabs/y91_gauge_slabs_t16/ -e s/y91_source_slabs/y91_source_slabs_t16/ -e
+s#build-t2zblock-generic#build-ht2split-generic# -e s/1_1_2_8/1_1_1_16/ -e s/--skip-ind
+ependent-residual// /home/share/nsls_yangyb/logs/job_y91_manualgeom.sh
+(base) nsls_yangyb@login02:~$ grep -E "DSUB -n|DSUB -oo|DSUB -eo|work=|gauge_slabs=|sou
+rce_slabs=|lib=|--grid|skip-independent|run_bicg|run_mg" /home/share/nsls_yangyb/logs/j
+ob_y91_manualgeom.sh
+#DSUB -n qcu_y91m
+#DSUB -nn 1
+#DSUB -oo /home/share/nsls_yangyb/y91m.out
+#DSUB -eo /home/share/nsls_yangyb/y91m.err
+gauge_slabs="$base/y91_gauge_slabs_t16"
+source_slabs="$base/y91_source_slabs_t16"
+work="$base/compute_y91_slab16_manualgeom_v1"
+lib="$base/build-ht2split-generic/libqcu.so"
+    --lat 24 24 24 64 --grid 1 1 2 8 \
+run_bicg() {
+run_mg() {
+run_bicg bicgstab_1
+run_mg mg_1
+(base) nsls_yangyb@login02:~$ sed -i s/--grid\ 1\ 1\ 2\ 8/--grid\ 1\ 1\ 1\ 16/ /home/sh
+are/nsls_yangyb/logs/job_y91_manualgeom.sh
+(base) nsls_yangyb@login02:~$ grep -n "--grid\|skip-independent\|--levels\|--restart" /
+home/share/nsls_yangyb/logs/job_y91_manualgeom.sh
+grep: unrecognized option '--grid\|skip-independent\|--levels\|--restart'
+Usage: grep [OPTION]... PATTERNS [FILE]...
+Try 'grep --help' for more information.
+(base) nsls_yangyb@login02:~$ grep -n -E -- "--grid|skip-independent|--levels|--restart
+" /home/share/nsls_yangyb/logs/job_y91_manualgeom.sh
+53:    --lat 24 24 24 64 --grid 1 1 1 16 \
+68:  run_case "$1" --levels 1 --restart 0
+73:  run_case "$1" --levels 2 --restart 10 --mg-grid 2 2 2 1 \
+(base) nsls_yangyb@login02:~$ dsub -q q_hpcapp /home/share/nsls_yangyb/logs/job_y91_man
+ualgeom.sh
+Submit job <2050917> successfully.
+(base) nsls_yangyb@login02:~$ djob -ll 2050917 | tail -n 8
+        execNode             pids
+        cn10579              1984959,1985059,1985214,1985216,1985222,1985231,1985243,19
+85257,1985273,1985284,1985291,1985308,1985321,1985332,1985344,1985356,1985369,1985387
+    traceMessages                               2026/11/06 15:35:26    :    [JOB_ADD] J
+ob 2050917 is submitted by nsls_yangyb, job state is PENDING.
+                                                2026/11/06 15:35:28    :    [JOB_START]
+ Job 2050917 start message has been sent.
+                                                2026/11/06 15:35:28    :    [JOB_START_
+ACK] Job 2050917 start message has been received by agent cn10579.
+                                                2026/11/06 15:35:28    :    [JOB_EXECUT
+ION] Job 2050917 state is from PENDING to RUNNING.
+                                                2026/11/06 15:35:29    :    [HOST_PRE-H
+OOK_START] Job 2050917 host-pre-hook started at 2026/11/06 15:35:29 .
+                                                2026/11/06 15:35:40    :    [HOST_PRE-H
+OOK_END] Job 2050917 host-pre-hook is finished successfully at 2026/11/06 15:35:40 , co
+st time: 11237 ms.
+(base) nsls_yangyb@login02:~$

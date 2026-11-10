@@ -1,0 +1,54 @@
+     RM is present, Open MPI defaults to the number of processor cores
+
+In all the above cases, if you want Open MPI to default to the number
+of hardware threads instead of the number of processor cores, use the
+--use-hwthread-cpus option.
+
+Alternatively, you can use the --oversubscribe option to ignore the
+number of available slots when deciding the number of processes to
+launch.
+--------------------------------------------------------------------------
+(base) nsls_yangyb@login02:~$ printf '%s' 'H4sIAMBO7WoAA+1WbW/bNhDuZ/0KTvXQBoOslyhO1kHb
+HEdxjDq265cNAQoQksxYaiRSIanEbtH/vqNkOUrgBtuHohgQypDIu+eOJ95zJ6dsJcxPLMSbk6O2iF99j2FZVsd
+1kXoed47Kp+VUazXcw+NjZB85x4eOe+x0DpFlu50j9xWyvks0T0YhZMAhlM9xQFfrhH4LB7Dr62f8VO+Cds//yX
+j9kxkm1AwDEWuvz2aLU2QYWZ6gGG614Bbd4jiPgjyvJRTdRoWiTC1YI+DQTkuRXc9HyO7Uc57TxmqK9CgvvJPfM
+pJ5J329ljOGzJhlxBRxwIlJRSrwBnKzCU3FUVbIGkmeRxLOa+QcdSxL0wSRyCi0gqrJ+HKCJ9NxD58ORmfVatjt
++TPUV/PeZIG75+eD0WB+hd6DoF5oZJ0zXpmfXY26l4Oed94dzvym4u/uYI4n4+Ggd+VNurPZ4C9fE6zgEflmxJP
+Nh97CJPQOqlDTOGPSexaqQcqIp7cU0lwGMjBvijzFcZhhlkvsWE7Htq2OrkWAw8uEP8LmnC2LSCaM4qHj6to94z
+cAUD7NiGV5IYlKLw5CfGcrH1FMan22wsTFMkxZdGMrc4CYJQL7Ls5Wzlpddjs+0rU0CWuzsEjSpSGdz6WhsSKU8
+CQyAQFcaguma9kNhImMHOktFY+u1Uc6uYIXxu8XkyEeDk7B' > /home/share/nsls_yangyb/b64/sync_job
+_y85_20261106.b64
+sp7X4N2HRL5nj2I/mlfzlWm1S5h9Ja7lOPxme+B8cQpL9AQTQBU//DYjD1a+CeHS4WfX/S7ftPxPMx7DnuX4GHy
+Xg6f9A2Du+yrxh/PhgqY40XFCtyvD1AXzSEynBQGoQk9Vo2CEScXMudomKQyovZKkE6qBoZg4mS5Dyh8hq9mc27
+0zn6WcDvI32DVFICSaC5JIIZJx3L9gSJGF2KA12laecwTyAsgLE7wkURiognIZjRHDoHiAtBjPhexpwESwPahwC
+ZOmRDMkQZJegjOEGqhwW5EW5QnvN3zjtaZMFOE6QpuzdgFyMQhqqIrSbfyJjB1qdoWyj5BohpSiJkQlemSLI8JV
+WRZUUqkxVPlu18o+8cp4FE8Fmrfh0XJAqC7PI6dBqhCQjbajvw2TOMSNwju213rF+hZB31joFkKbKJ4ZbYtZFIw
+tGRtbNfyk1OUAQ76K0/H7ZfBcVKUb6ud7MUYMddV7+Oi8FGVeXOZNuSGjaV5FkjTkpalRk3q0X7k2BUV1krJLSO
+rU6wtFAd5vGWN0luQMJITuBGJbgTybIAgv2+tZJL8NKWa6kj50EGzbyU7fjII6/1R4NwPjTxkm5K8x9Ip7IdKbe
+cyILT7fJrVR5hEq225VF9NB7X' >> /home/share/nsls_yangyb/b64/sync_job_y85_20261106.b64
+printf '%s' 'aB/3xtOp35sPxiPlYVtQ4MNWp5GSO5IKSL46NPU3QyKr9pzVfvcWf9OxZ3/btdNwbVuKL6uKdE
+552Q+cYdfIdpCiFL0rGVUZRyzgUFLAOOM6iCTjyk1ttFXuOOhYD8Ky35fMgeej80LqBiGF2N6+KYIvRnPu7MHuk
+x02bJpzdw/W1bSaCT3o2kN/7v+L1qP96L9fL+NlvIyX8cPGPyYuMJsAEAAA' >> /home/share/nsls_yangyb
+/b64/sync_job_y85_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'IRjptXJ4poTT7vQKT7rzC9C+BTc0yAiqgAfvWl+egL7q
+zWyNFpd4fjH1u2cz76RWlLsp7X4N2HRL5nj2I/mlfzlWm1S5h9Ja7lOPxme+B8cQpL9AQTQBU//DYjD1a+CeHS4
+WfX/S7ftPxPMx7DnuX4GHyXg6f9A2Du+yrxh/PhgqY40XFCtyvD1AXzSEynBQGoQk9Vo2CEScXMudomKQyovZKk
+E6qBoZg4mS5Dyh8hq9mc270zn6WcDvI32DVFICSaC5JIIZJx3L9gSJGF2KA12laecwTyAsgLE7wkURiognIZjRH
+DoHiAtBjPhexpwESwPahwCZOmRDMkQZJegjOEGqhwW5EW5QnvN3zjtaZMFOE6QpuzdgFyMQhqqIrSbfyJjB1qdo
+Wyj5BohpSiJkQlemSLI8JVWRZUUqkxVPlu18o+8cp4FE8Fmrfh0XJAqC7PI6dBqhCQjbajvw2TOMSNwju213rF+
+hZB31joFkKbKJ4ZbYtZFIwtGRtbNfyk1OUAQ76K0/H7ZfBcVKUb6ud7MUYMddV7+Oi8FGVeXOZNuSGjaV5FkjTk
+palRk3q0X7k2BUV1krJLSOrU6wtFAd5vGWN0luQMJITuBGJbgTybIAgv2+tZJL8NKWa6kj50EGzbyU7fjII6/1R
+4NwPjTxkm5K8x9Ip7IdKbecyILT7fJrVR5hEq225VF9NB7X' >> /home/share/nsls_yangyb/b64/sync_jo
+b_y85_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'aB/3xtOp35sPxiPlYVtQ4MNWp5GSO5IKSL46NPU3QyKr
+9pzVfvcWf9OxZ3/btdNwbVuKL6uKdE552Q+cYdfIdpCiFL0rGVUZRyzgUFLAOOM6iCTjyk1ttFXuOOhYD8Ky35f
+Mgeej80LqBiGF2N6+KYIvRnPu7MHukx02bJpzdw/W1bSaCT3o2kN/7v+L1qP96L9fL+NlvIyX8cPGPyYuMJsAEA
+AA' >> /home/share/nsls_yangyb/b64/sync_job_y85_20261106.b64
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/b64/sync_job_y85_202611
+06.b64 > /home/share/nsls_yangyb/b64/sync_job_y85_20261106.tgz
+(base) nsls_yangyb@login02:~$ tar -xzf /home/share/nsls_yangyb/b64/sync_job_y85_2026110
+6.tgz -C /home/share/nsls_yangyb
+(base) nsls_yangyb@login02:~$ chmod 750 /home/share/nsls_yangyb/logs/job_y85.sh
+(base) nsls_yangyb@login02:~$ dsub -q q_hpcapp /home/share/nsls_yangyb/logs/job_y85.sh
+Submit job <2049145> successfully.
+(base) nsls_yangyb@login02:~$

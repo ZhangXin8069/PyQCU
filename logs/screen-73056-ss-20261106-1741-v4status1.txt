@@ -1,0 +1,54 @@
+yb/PyQCU-main/cpp/kupl/qcu/src/backend.cpp
+fda226cb3ca74b833fe9e25118fe64ad5ce9ee8e281cb27fc4575bb9d1e8c090  /home/share/nsls_yang
+yb/PyQCU-main/cpp/kupl/qcu/src/apply_init.cpp
+(base) nsls_yangyb@login02:~$ cmake --build /home/share/nsls_yangyb/PyQCU-main/data/kup
+l_hbm_opt_20261106/build-ht2split-generic -j 8 > /home/share/nsls_yangyb/PyQCU-main/dat
+a/kupl_hbm_opt_20261106/build_profile_rebuild_20261106_1735.log 2>&1
+(base) nsls_yangyb@login02:~$ tail -n 8 /home/share/nsls_yangyb/PyQCU-main/data/kupl_hb
+m_opt_20261106/build_profile_rebuild_20261106_1735.log
+/usr/bin/ld: warning: LLVM gold plugin: <unknown>:0:0: loop not vectorized: the optimiz
+er was unable to perform the requested transformation; the transformation might be disa
+bled or specified as part of an unsupported transformation ordering
+LLVM gold plugin: <unknown>:0:0: loop not vectorized: Cannot vectorize early exit loop
+/usr/bin/ld: warning: LLVM gold plugin: <unknown>:0:0: loop not vectorized: the optimiz
+er was unable to perform the requested transformation; the transformation might be disa
+bled or specified as part of an unsupported transformation ordering
+LLVM gold plugin: <unknown>:0:0: loop not vectorized: call instruction cannot be vector
+ized
+/usr/bin/ld: warning: LLVM gold plugin: <unknown>:0:0: loop not vectorized: the optimiz
+er was unable to perform the requested transformation; the transformation might be disa
+bled or specified as part of an unsupported transformation ordering
+LLVM gold plugin: <unknown>:0:0: loop not vectorized: Cannot vectorize early exit loop
+/usr/bin/ld: warning: LLVM gold plugin: <unknown>:0:0: loop not vectorized: the optimiz
+er was unable to perform the requested transformation; the transformation might be disa
+bled or specified as part of an unsupported transformation ordering
+[100%] Built target kupl_qcu
+(base) nsls_yangyb@login02:~$ sha256sum /home/share/nsls_yangyb/PyQCU-main/data/kupl_hb
+m_opt_20261106/build-ht2split-generic/libqcu.so
+d6a3075bfd8788eb525467edd241933e3240e11c2b8fc70ddd7dad212f0cc9da  /home/share/nsls_yang
+yb/PyQCU-main/data/kupl_hbm_opt_20261106/build-ht2split-generic/libqcu.so
+(base) nsls_yangyb@login02:~$ cp /home/share/nsls_yangyb/logs/job_y101_init_profile_v3.
+sh /home/share/nsls_yangyb/logs/job_y101_init_profile_v4.sh
+(base) nsls_yangyb@login02:~$ sed -i -e s/compute_y101_init_profile_v3/compute_y101_ini
+t_profile_v4/ -e s/qcu_y101c/qcu_y101d/ -e s#/y101c.out#/y101d.out# -e s#/y101c.err#/y1
+01d.err# /home/share/nsls_yangyb/logs/job_y101_init_profile_v4.sh
+(base) nsls_yangyb@login02:~$ dsub -q q_hpcapp /home/share/nsls_yangyb/logs/job_y101_in
+it_profile_v4.sh
+Submit job <2050850> successfully.
+(base) nsls_yangyb@login02:~$ djob -ll 2050850 | tail -n 8
+        execNode             pids
+        cn10579              1945138
+    traceMessages                               2026/11/06 15:28:56    :    [JOB_ADD] J
+ob 2050850 is submitted by nsls_yangyb, job state is PENDING.
+                                                2026/11/06 15:29:00    :    [JOB_START]
+ Job 2050850 start message has been sent.
+                                                2026/11/06 15:29:01    :    [JOB_START_
+ACK] Job 2050850 start message has been received by agent cn10579.
+                                                2026/11/06 15:29:01    :    [JOB_EXECUT
+ION] Job 2050850 state is from PENDING to RUNNING.
+                                                2026/11/06 15:29:02    :    [HOST_PRE-H
+OOK_START] Job 2050850 host-pre-hook started at 2026/11/06 15:29:02 .
+                                                2026/11/06 15:29:13    :    [HOST_PRE-H
+OOK_END] Job 2050850 host-pre-hook is finished successfully at 2026/11/06 15:29:13 , co
+st time: 11634 ms.
+(base) nsls_yangyb@login02:~$

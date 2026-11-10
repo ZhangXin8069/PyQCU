@@ -1,0 +1,54 @@
+--use-hwthread-cpus option.
+
+Alternatively, you can use the --oversubscribe option to ignore the
+number of available slots when deciding the number of processes to
+launch.
+--------------------------------------------------------------------------
+(base) nsls_yangyb@login02:~$ printf '%s' 'H4sIAO9U7WoAA+1WbW/bNhDuZ/0KTnXRFoMsUZGVtoO3
+ObbiGnVs1y8bAhQgJJmx1UikQlKJ3aL/fUfJcpwiCbYPxTYglCGRd889pHjPUU75StqfeUS2b9425frZj2iO4/i
+eh/Tz2G+VT8etxrp5R14L4ZZ7fOS23CPPRw72/BZ+hpwfsprvWiFVKGApX9YhW20S9hAOYBcXj/BU74L2z/9Je/
+6THSXMjkK5Np73ZosTZFlZnqA13GrDFboi6zwO87y2MHQVF1oytWGDQEN7L0O47o+QV3dFzm4HU2TGedE+cn/Ja
+NbGft+sPZwje80zast1KKjNZCrJFnKzjWytUV6oGkkfR1IhauQc+Y5jGJIqZBVGwXRnfDYhk+m4S04Go141Gna6
+wQz1db87WZDO6elgNJifow9gqAcG3eRcVOG981HnbNBtn3aGs+DQ8WdnMCeT8XDQPW9POrPZ4I/AkLwQMX1wxZP
+tx+7CpuwaqtAwBOeq/SjUgJTRttnQSHsZqtC+LPKUrKOM8FwR13F9jB3fNGLAkWUi7mBzwZdFrBLOyND1TOOGi0
+sAaE475lleKKrTS8KIXGPNEa9p7c9WhHpERSmPL7EOB4hdIkjgkWzlbvSFm+uWaaRJVIdFRZIuLeV+KQOtFWVUJ
+LENCNBSU3LTyC5hmcjKkdnQ6zGNeksn5/DC5MNiMiTDwQkQ' > /home/share/nsls_yangyb/b64/sync_job
+_y89_20261106.b64
+HftZcDbW01TZh+Ja3ucejXtBGzYiTH/G/h3ANPi4GEyDGnjPDO8X/WDS6QffmedjmHPcPweGyXg6v/UebN9ZX2v
++dDDUwYYoGNHyePUafTUQKpeD0jCiabuBwSDXyYXaOyoN6czYjRJkgusgZ9DRllwkTF2gl7N5ZzpHLyT8PrGXSK
+clVBSOl0Ry643v4LakMWdL+drUidoT5gksC2D8mgpZRDIWSQRhLEceWPV+WoojxpnmysLcirYoz8U7/I4VWYg+A
+QcCT5im/MYCKiuUlhb+zpNv1ZoD/wna1UO+Bf3ZikqVsJUtkyxPaVVLWZGqZCWSZTPfmnviNFQIvl7Vz9dr0hCE
+y8vbw7JQSmQ5Tff4GEaxvEG4iX3nLRSm6+v1KZ4iTC2vxG6sRFGBWs4+fqm2OUUxTGA2fr+dfRUWKy3suqrt0kB
+cb1P9fI9AjK69fcju4DmIqSyPBglaSqfMql0Nmp8lZ6bOTKHggNj5JE8LfY7cnfIyyS3IFM0p3JgCOpksCxDRr7
+sotQSWptooE7m3NjiyS9tecyJuN347EFUAR3UpKe35B8LSyY41raCqEGw3/FaVQJTEq10JVJ+Gu3XYJ93xdBp05
+4PxSDPsigY4' >> /home/share/nsls_yangyb/b64/sync_job_y89_20261106.b64
+printf '%s' 'sN6NlF7TVELu9abpPxMKOTVzVvPeW+CHxG38MLV7QI0drZdVpTm3vPCtZvgFwm5ZJ+y6VFQVHP
+NQSAplk1oXYay40DR10M6516Dr3BrLU71UDjzv7BfSN1hSRPDuTRF8Fw777j3Y+2xHBzGHfe8erGcYtRK6cDQPg
+3nwN44X49/+k/XUntpTe2r/wfYXB1aJ6wAQAAA=' >> /home/share/nsls_yangyb/b64/sync_job_y89_20
+261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'QpBZO4c9bZx2pudk0pm/B+8roGFhRlEFfP2u8fU70Dfz
+MFujxRmZv58Gnd4MBFl7yum0+wEXRHVK7bTxHftZcDbW01TZh+Ja3ucejXtBGzYiTH/G/h3ANPi4GEyDGnjPDO8
+X/WDS6QffmedjmHPcPweGyXg6v/UebN9ZX2v+dDDUwYYoGNHyePUafTUQKpeD0jCiabuBwSDXyYXaOyoN6czYjR
+JkgusgZ9DRllwkTF2gl7N5ZzpHLyT8PrGXSKclVBSOl0Ry643v4LakMWdL+drUidoT5gksC2D8mgpZRDIWSQRhL
+EceWPV+WoojxpnmysLcirYoz8U7/I4VWYg+AQcCT5im/MYCKiuUlhb+zpNv1ZoD/wna1UO+Bf3ZikqVsJUtkyxP
+aVVLWZGqZCWSZTPfmnviNFQIvl7Vz9dr0hCEy8vbw7JQSmQ5Tff4GEaxvEG4iX3nLRSm6+v1KZ4iTC2vxG6sRFG
+BWs4+fqm2OUUxTGA2fr+dfRUWKy3suqrt0kBcb1P9fI9AjK69fcju4DmIqSyPBglaSqfMql0Nmp8lZ6bOTKHggN
+j5JE8LfY7cnfIyyS3IFM0p3JgCOpksCxDRr7sotQSWptooE7m3NjiyS9tecyJuN347EFUAR3UpKe35B8LSyY41r
+aCqEGw3/FaVQJTEq10JVJ+Gu3XYJ93xdBp054PxSDPsigY4' >> /home/share/nsls_yangyb/b64/sync_jo
+b_y89_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'sN6NlF7TVELu9abpPxMKOTVzVvPeW+CHxG38MLV7QI0d
+rZdVpTm3vPCtZvgFwm5ZJ+y6VFQVHPNQSAplk1oXYay40DR10M6516Dr3BrLU71UDjzv7BfSN1hSRPDuTRF8Fw7
+77j3Y+2xHBzGHfe8erGcYtRK6cDQPg3nwN44X49/+k/XUntpTe2r/wfYXB1aJ6wAQAAA=' >> /home/share/n
+sls_yangyb/b64/sync_job_y89_20261106.b64
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/b64/sync_job_y89_202611
+06.b64 > /home/share/nsls_yangyb/b64/sync_job_y89_20261106.tgz
+(base) nsls_yangyb@login02:~$ tar -xzf /home/share/nsls_yangyb/b64/sync_job_y89_2026110
+6.tgz -C /home/share/nsls_yangyb
+(base) nsls_yangyb@login02:~$ chmod 750 /home/share/nsls_yangyb/logs/job_y89.sh
+(base) nsls_yangyb@login02:~$ dsub -q q_hpcapp /home/share/nsls_yangyb/logs/job_y89.sh
+Submit job <2049318> successfully.
+(base) nsls_yangyb@login02:~$ hostname
+login02
+(base) nsls_yangyb@login02:~$ date
+Fri Nov  6 12:20:06 PM CST 2026
+(base) nsls_yangyb@login02:~$

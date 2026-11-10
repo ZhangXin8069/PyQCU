@@ -1,0 +1,54 @@
+ 36029020525034816     32 -rw-r-----   1 nsls_yangyb eapp          525 Nov  6 13:00 /ho
+me/share/nsls_yangyb/b64/sync_job_y92_mapping_probe_20261106.b64
+ 36029020525035200     32 -rw-r-----   1 nsls_yangyb eapp          393 Nov  6 13:00 /ho
+me/share/nsls_yangyb/b64/sync_job_y92_mapping_probe_20261106.tgz
+(base) nsls_yangyb@login02:~$ find /home/share/nsls_yangyb -type f -mmin -15 -name \*.o
+ut -ls 2>/dev/null | tail -20
+(base) nsls_yangyb@login02:~$ printf '%s' 'H4sICHtf7WoAA3J1bl95OTFfbG9naW5fc2xhYjE2LnNo
+AH1UyW7bMBC96ytYNYf2QGupoyyAD3Ls2EZkW/VySFGAoGRCZk2RLEk5UYv+eykvrZ2mgQQBmnnvzYz4Ru/feRn
+lXob12tHEAFg5WlQqJ8Bbi5J4eo0V8bhmGtWYF3XmpfXnu6VH+LZlKY4SwnTehDpWm3TciwbprbDB3qaSDK2zEg
+lpUOiHURD4kes8CbWxuAbuMVFQjuqbAGmGsyBC28B1ys2KKgAlcC8arOs45FkKZUD6aOugh2WaoGTUPWpkFWUra
+MIfGRP5BhaEE0Vzj9Hse161tHCP9KTX0Gbx7BGl8WJo+R9sIY5LYiuda7sfby9+vsD/+iM0HadoshyjxXDWj3vz
+zvUxsaM32dczlhOj7mjS6/hn8eFy0E/jQb8TnIUX03SaTAePaNZPp7PF3+xJr+MBSmfT+1HyktxNpncPqDdP4vk
+Q' > /home/share/nsls_yangyb/b64/sync_run_y91_login_slab16_20261106.b64
+cTNIyTezQfLfrzThB9um6fofuTuJv00SJEX06Jtk/H0JKIyjpmAy41+OT7GpSSqooDCMWWKF1lOlc0IwByCYLIh
+q3T7IEIwAUn4KsDbKjEEmY1kFLdhre8KrGNYcbEE7RKEGvY2GaHlbVZCyveBQcvydqeo2eINpQXnqalZGTvrbJi
+hhaKrlqydg+FGDYgbB/uqG0jDQAE9grB9QFU4KogsLEcbKx2MFJjw11mZ0Z9VNzvyavofeocXmKtAfRb4dWVfcv
+1EwhaQeTf2AUIm4+DjWAgILC9wz5DaogCl/6BvTK1JCDfNc7IljBtG4dQ2emxPSz/dABwumxSiVWVGyo4SsK2t5
+8jbD/v76iNrGZrfXk+1FsKh9n+L6HIzj/7JbV/l7ywPWatb1pwt/FGZWT1b/qkhQ2V0DqFSGIf3DRD0lWFmfMbr
+AmIFq0EAAA=' >> /home/share/nsls_yangyb/b64/sync_run_y91_login_slab16_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' '
+> jUcTNIyTezQfLfrzThB9um6fofuTuJv00SJEX06Jtk/H0JKIyjpmAy41+OT7GpSSqooDCMWWKF1lOlc0IwByC
+YLIhq3T7IEIwAUn4KsDbKjEEmY1kFLdhre8KrGNYcbEE7RKEGvY2GaHlbVZCyveBQcvydqeo2eINpQXnqalZGTv
+rbJihhaKrlqydg+FGDYgbB/uqG0jDQAE9grB9QFU4KogsLEcbKx2MFJjw11mZ0Z9VNzvyavofeocXmKtAfRb4dW
+Vfcv1EwhaQeTf2AUIm4+DjWAgILC9wz5DaogCl/6BvTK1JCDfNc7IljBtG4dQ2emxPSz/dABwumxSiVWVGyo4Ss
+K2t58jbD/v76iNrGZrfXk+1FsKh9n+L6HIzj/7JbV/l7ywPWatb1pwt/FGZWT1b/qkhQ2V0DqFSGIf3DRD0lWFm
+fMbrAmIFq0EAAA=' >> /home/share/nsls_yangyb/b64/sync_run_y91_login_slab16_20261106.b64
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/b64/sync_run_y91_login_
+slab16_20261106.b64 > /home/share/nsls_yangyb/b64/sync_run_y91_login_slab16_20261106.tg
+z
+(base) nsls_yangyb@login02:~$ gzip -dc /home/share/nsls_yangyb/b64/sync_run_y91_login_s
+lab16_20261106.tgz > /home/share/nsls_yangyb/logs/run_y91_login_slab16.sh
+(base) nsls_yangyb@login02:~$ chmod 750 /home/share/nsls_yangyb/logs/run_y91_login_slab
+16.sh
+(base) nsls_yangyb@login02:~$ nohup bash /home/share/nsls_yangyb/logs/run_y91_login_sla
+b16.sh > /home/share/nsls_yangyb/logs/login_y91_slab16.log 2>&1 &
+[1] 179541
+(base) nsls_yangyb@login02:~$ tail -n 35 /home/share/nsls_yangyb/logs/login_y91_slab16.
+log
+nohup: ignoring input
+###env.sh in /home/share/nsls_yangyb/PyQCU is sourcing...:2026-11-06-13-03-07###
+###env.sh in /home/share/nsls_yangyb/PyQCU is done......:2026-11-06-13-03-07###
+--------------------------------------------------------------------------
+Your job has requested more processes than the ppr for
+this topology can support:
+
+  App: python
+  Number of procs:  16
+  PPR: 2:numa
+
+Please revise the conflict and try again.
+--------------------------------------------------------------------------
+[1]+  Exit 1                  nohup bash /home/share/nsls_yangyb/logs/run_y91_login_sla
+b16.sh > /home/share/nsls_yangyb/logs/login_y91_slab16.log 2>&1
+(base) nsls_yangyb@login02:~$

@@ -1,0 +1,54 @@
+XUjehSmA8FVh/pJZMTKNiHXoX4yPbGyJoI1Z88MjAfhwEsJE+SW7xuKIovsUtc7YC4ZfQ0FTfVI60IlDKZDa/QV
+o/V1MZyfY6yLvBjZWhllVSusEwPVKidhERfAbqVyXtOGWrVsKO/zN5TXtKFWHRuK1Eloqy00lMFJrYWMVzxGH3X
+A/ipaumsp8rVA4W9hMx8HXSOly7b4CTjgmEKjeaQgtJ3gwspQ16rwsa9V59CEhww6STmD2XLoOaY6q4rHrlUU36
+r0mqrIHIE4Rh3AmXTfZ7qvcGpRlip1kcVbd8aGpbaWblFT2/3q2iqdg1a6YoBraDjvPkQixBlItQfKlmF4KWmL7
+GNMtY4d+9dcvk21SSDTVpWaWFHVjnpGd' >> /home/share/nsls_yangyb/b64/sync_ht2split_20261106
+.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'ZFrvpjP5ZqjrfhK
+> 4N1MCk21jJPsoF6cuQ6aYxLInaore3SQcOyQXWB2vTFJD0Mr0pPBPuYRABzdv8KJhFparu1K+X70p6OJYrXzt
+6ZDWxmqcfKf4bSfdmf9dDzpp+M5P11P9mmRc0MrfR4Sbg8Jt80Sbn/alNSpcqxtbXHlwNnm5ZGGXNygr4f8EfNj
+6gHBzWBUcbZMxLWSHBL95xKc0u6bJRjxyjMqX7wCTRa9dTVaIOxGUBEyHtti3K9HydeRKIjFBSYQbdEE+Sl1YZb
+jyvFVETMFhjyOoeO1CQsEHwTTBTTitofL8K0hyDYCyEt8G5zHoJMTdqMpwVTHw2FEImjZMlVIvtZTYPprYcWZJO
+MNT5BUR7ywycksvxYz1u8Jk8JH1kAt7ZpGVxaMMZTlJynArnBh2Hkn7Xgz4jiQhhQXgiwu21rZblWwkrewKxmc2
+jqbjSM5QU1ir1pH8BK4qNA7giPteERf' >> /home/share/nsls_yangyb/b64/sync_ht2split_20261106.
+b64
+(base) nsls_yangyb@login02:~$ printf '%s' '8kNOgny/4LACKTYs
+> NrQNv5pgJ9by87YaWOtP1Gq1lPppzXdn6VXr9Ix6YfAZF7zN9iRR2z9KqleEf+oWf4zCCS5Vlu92bL8MB6f8u
+VrF5G8vrNJvsPtWHCHZm9FwWG5lM5mCppocTWBNPCmfIwSDUriPwBpj0HSTKbjoCzHiPUwSBdY8k/pBQ1IJNTSj
+j21ciqM3G48PSSKRiJ4k2vsiskRoWdgWUkNsXxzCleh748SvF/JVoxVZJG2MDh+i/MF1kqb4KCE0w+IS1evjt3C
+fJHsCh1FIJ2FYAMnCyNPXPqapHeivrIDnewVlgUgr5wZ4dpacr07gq+f30ULNfidS+zotuQ+7KgQ7+d38IU/tyw
+BdZOA1lYG3sQy81jLwWsvA7yIDv6kM/I1l4LeWgW+WwZ3SRbzaLhJ0EU3QVDTBxqIJWosmsIum9QknTJbHzNxAi
+xYvE+gGxpJNg06/nMR5eIueudL+Rmp' >> /home/share/nsls_yangyb/b64/sync_ht2split_20261106.b
+64
+(base) nsls_yangyb@login02:~$ printf '%s' 'j0aEwfYZAPUYlIavY
+> ZZ+acC/EKCei50mEk0yAdIfAW3A+KAhfKIyYQDIR418FDKM2AW3BXY2i8RiQorPjFZ6r5XTGw+bBh82Dn3nzI
+NHle99DCIcCn3ML4eb07n0HIRH9w0bCh71QX/peqAqj8fn3Eyr95mFb4UNX+pN1pdpTKra6b05k8U+fpCGZTnXH
+Qqc8xX0kUDT+9O84f45sUiPuvI2kdx+pF42/jaTXOQ/ViDt/I+ltLWlTxd9G0uucwWqXUpKZDjYS6tbSPVX8bST
+Uzrmvh2TUl5KMuopy6ppds5utiw6sPjyZGUeSOPQTl9XM8wy4Vr6sALlTUD6e3bqPfvz1l7Pwl/c//+3d2dvwzf
+nZ6/MfHvVg55st0nRe5lIsXLPqFWXEKLXdXQeGe6VPlhNTKQjhnXLAHD+QXX2jnaquvPetkMGlc2IGZOkYUcX1Y
+5WJlOW1FjQ7V3diAQGmqiSflAiFpR' >> /home/share/nsls_yangyb/b64/sync_ht2split_20261106.b6
+4
+(base) nsls_yangyb@login02:~$ printf '%s' '9gCfSrXLlCWAoP1fyv
+> KCkjFBwpZ3Xq8GQIY1IrvTA5ERTROP/w+sOv52/Pw3ff//Tz+7f8uxpVJ0Bb4mR1IXmVHOS8lKhC8pgHqXIxT
+5MyLNlw0nhaZVtlqlKnhgleEZk6OqE6phzsbyz0nHabCRQhH9XBaoNWFVRHlQRXmFY6rDWdPFA3Npy407KpFm9T
+j7tqcq0uW/OujYTCM9RcpSnGTewKm7n4s1oTlnNtbkaEJcSglnlJ9xEMJ3k2yw4OijKORqtwCDv2wcEs+4gZaNF
+MAgWUmh5ls7ghlfbtKxBjCfsWBJspx7ZUo4tiVKqF0qAfI/gFtc7ibqBNAjHW81sRZOAx2nIDd51fXLrSuna871
+l8JGwmJ2e0SsRGixytBToaZYurND5x8S5yhKj3FGULibiQJgMXSmuM9LOIAa1REcLomXDloq7R5/rbUyH5xmcDN
+APry0qpYUENZsIggfV5w2oYuCM0Y' >> /home/share/nsls_yangyb/b64/sync_ht2split_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'GFgfbm1EJa9PREPcLRp
+> EXaaDhICeZJj2yCed6iXsYb1LbBYp5IaROv3EYG3DpkaBEwdw6VthPXGCYyauOiP7I3byMM3OudWXrZyLYfdh
+P8hXF7lBLSt7h1sWzSfp6DXDCeLquUxhGDFZAHZHCWgED7qZ8QJ18s5u8CB3sZ5e7hkBsAKsoNfXcwzBO5yOAkj
+jWP65ko1lxnMYhEzST/NBBOCPIMjIKXihzA4C4iEiKsSApxsAgZmmAQwxLJ9gg4jvOw7nM0KLlgh+vkeIQCB1XX
+gpOUNYC1y65gkFcLv7PwRMpdCgoyxQzDdwE0Em2jixyQt4CeYkEJux0k21NpOyDQBbIBjy0ppKnclNplFbYZZfH
+2dDBO8BJ8oEGxWrkpyThknT+X97WSfDXnVfFKdANzPtDrlRp1YxxpxgbebARAkSvpzXxLIE97tLvjuuE7pYV3fa
+XC5LTv8GcwiZbmhIqrFH/TxC9XH' >> /home/share/nsls_yangyb/b64/sync_ht2split_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' '4Ziajs2Vkczk6eadIPiY
+> 5TdhxOMmus8aPb9iz80GFhUa0kKCozN1LJUS5bUVRRvhziK/XqQpZTebx6A5K5cqV4q9ot+bVkjdT1cRJvfY+
+BOoPbk/cnyo8aJu1JucymXbwkwAEo6y3csQY4F+I9RPk5i0h4zhNu4lMwVIKnaDJ+6zpa7M6G2+hLuFiZG3mFFL
+Iyg8tjnNa4qOysMGSsDCrTWp94W4pVzflTYEMirEjnKdZlF5clhRgqTEDtVvHDs3i3l6cPDbcLHz1cP1cD1cD9c
+Xcv0fo6PjTwDWAAA=' >> /home/share/nsls_yangyb/b64/sync_ht2split_20261106.b64
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/b64/sync_ht2split_20261
+106.b64 > /home/share/nsls_yangyb/b64/sync_ht2split_20261106.tgz
+(base) nsls_yangyb@login02:~$ tar -xzf /home/share/nsls_yangyb/b64/sync_ht2split_202611
+06.tgz -C /home/share/nsls_yangyb/PyQCU
+(base) nsls_yangyb@login02:~$

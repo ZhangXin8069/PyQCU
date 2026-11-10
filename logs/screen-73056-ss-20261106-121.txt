@@ -1,0 +1,54 @@
+--mg-grid 2 2 2 2 --restart 0 --coarse-max-iter 200 --coarse-tol-factor 10000.0 --nv-it
+ers 1 --seed 42 --warmup 0 --repeat 1 --output /home/share/nsls_yangyb/PyQCU-main/data/
+kupl_hbm_opt_20261106/l32_bicg_v1/.solution.h5.3280701-1793931720989049208.partial --re
+port /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/l32_bicg_v1/.report.
+json.3280701-1793931720989049208.partial --skip-independent-residual
+3281544 /work_ssd/software/soft/tool/anaconda3/2023.3/bin/python3 -m pyqcu.testing.simp
+le.mpi.worker --backend kupl --torch-device auto --kupl-legacy-layout auto --gauge /hom
+e/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/l32_bicg_v1/gauge_global_c64.
+h5 --source /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/l32_bicg_v1/s
+ource_global_c64.h5 --lat 32 32 32 64 --grid 1 2 4 4 --mass -0.277 --csw 1.160920226 --
+atol 0.0001 --max-iter 50 --omp-threads 4 --dtype c64 --levels 1 --min-size 4 --dof 12
+--mg-grid 2 2 2 2 --restart 0 --coarse-max-iter 200 --coarse-tol-factor 10000.0 --nv-it
+ers 1 --seed 42 --warmup 0 --repeat 1 --output /home/share/nsls_yangyb/PyQCU-main/data/
+kupl_hbm_opt_20261106/l32_bicg_v1/.solution.h5.3280701-1793931720989049208.partial --re
+port /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/l32_bicg_v1/.report.
+json.3280701-1793931720989049208.partial --skip-independent-residual
+3281545 /work_ssd/software/soft/tool/anaconda3/2023.3/bin/python3 -m pyqcu.testing.simp
+le.mpi.worker --backend kupl --torch-device auto --kupl-legacy-layout auto --gauge /hom
+e/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/l32_bicg_v1/gauge_global_c64.
+h5 --source /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/l32_bicg_v1/s
+ource_global_c64.h5 --lat 32 32 32 64 --grid 1 2 4 4 --mass -0.277 --csw 1.160920226 --
+atol 0.0001 --max-iter 50 --omp-threads 4 --dtype c64 --levels 1 --min-size 4 --dof 12
+--mg-grid 2 2 2 2 --restart 0 --coarse-max-iter 200 --coarse-tol-factor 10000.0 --nv-it
+ers 1 --seed 42 --warmup 0 --repeat 1 --output /home/share/nsls_yangyb/PyQCU-main/data/
+kupl_hbm_opt_20261106/l32_bicg_v1/.solution.h5.3280701-1793931720989049208.partial --re
+port /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/l32_bicg_v1/.report.
+json.3280701-1793931720989049208.partial --skip-independent-residual
+3281546 /work_ssd/software/soft/tool/anaconda3/2023.3/bin/python3 -m pyqcu.testing.simp
+le.mpi.worker --backend kupl --torch-device auto --kupl-legacy-layout auto --gauge /hom
+e/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/l32_bicg_v1/gauge_global_c64.
+h5 --source /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/l32_bicg_v1/s
+ource_global_c64.h5 --lat 32 32 32 64 --grid 1 2 4 4 --mass -0.277 --csw 1.160920226 --
+atol 0.0001 --max-iter 50 --omp-threads 4 --dtype c64 --levels 1 --min-size 4 --dof 12
+--mg-grid 2 2 2 2 --restart 0 --coarse-max-iter 200 --coarse-tol-factor 10000.0 --nv-it
+ers 1 --seed 42 --warmup 0 --repeat 1 --output /home/share/nsls_yangyb/PyQCU-main/data/
+kupl_hbm_opt_20261106/l32_bicg_v1/.solution.h5.3280701-1793931720989049208.partial --re
+port /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/l32_bicg_v1/.report.
+json.3280701-1793931720989049208.partial --skip-independent-residual
+(base) nsls_yangyb@login02:~$ ps -o pid=,stat=,etime=,%cpu=,%mem=,rss= -p 3281546
+3281546 Rl         03:05  3.1  0.0 354040
+(base) nsls_yangyb@login02:~$ fg
+bash /home/share/nsls_yangyb/py/logs/run_l32_bicg.sh
+^Z
+[2]+  Stopped                 bash /home/share/nsls_yangyb/py/logs/run_l32_bicg.sh
+(base) nsls_yangyb@login02:~$ ps -o pid=,stat=,etime=,%cpu=,%mem=,rss= -p 3281546
+3281546 Rl         07:58  3.0  0.0 499460
+(base) nsls_yangyb@login02:~$ ps -o pid=,stat=,etime=,%cpu=,%mem=,rss= -p 3281546
+(base) nsls_yangyb@login02:~$ ls -lh /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_o
+pt_20261106/l32_bicg_v1
+total 769M
+-rw-r----- 1 nsls_yangyb eapp 1.6K Nov  6 10:22 case_manifest.json
+-rw-r----- 1 nsls_yangyb eapp 577M Nov  6 10:21 gauge_global_c64.h5
+-rw-r----- 1 nsls_yangyb eapp 193M Nov  6 10:21 source_global_c64.h5
+(base) nsls_yangyb@login02:~$

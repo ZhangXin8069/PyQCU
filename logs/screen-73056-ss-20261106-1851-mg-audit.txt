@@ -1,0 +1,54 @@
+ACK] Job 2051058 start message has been received by agent cn10579.
+                                                2026/11/06 15:48:25    :    [JOB_EXECUT
+ION] Job 2051058 state is from PENDING to RUNNING.
+                                                2026/11/06 15:48:27    :    [HOST_PRE-H
+OOK_START] Job 2051058 host-pre-hook started at 2026/11/06 15:48:26 .
+                                                2026/11/06 15:48:38    :    [HOST_PRE-H
+OOK_END] Job 2051058 host-pre-hook is finished successfully at 2026/11/06 15:48:37 , co
+st time: 11264 ms.
+                                                2026/11/06 15:48:47    :    [JOB_FINISH
+] Job 2051058 state is from RUNNING to SUCCEEDED.
+(base) nsls_yangyb@login02:~$ find /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt
+_20261106/compute_y91_slab16_manualgeom_v1/mg_1 -maxdepth 1 -type f -printf "%p %s\n"
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/compute_y91_slab16_manual
+geom_v1/mg_1/stdout.txt 0
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/compute_y91_slab16_manual
+geom_v1/mg_1/stderr.txt 32540
+(base) nsls_yangyb@login02:~$ tail -n 35 /home/share/nsls_yangyb/PyQCU-main/data/kupl_h
+bm_opt_20261106/compute_y91_slab16_manualgeom_v1/mg_1/stderr.txt
+PYQCU::KUPL::LATTICE_SET_PROFILE: stage=parameters elapsed=15.463590
+PYQCU::KUPL::GEOMETRY_PROFILE: stage=coordinates elapsed=15.501374
+PYQCU::KUPL::GEOMETRY_PROFILE: stage=metadata elapsed=15.501425
+PYQCU::KUPL::LATTICE_SET_PROFILE: stage=geometry elapsed=15.501575
+PYQCU::KUPL::LATTICE_SET_PROFILE: stage=parameters elapsed=15.501619
+PYQCU::KUPL::SCRATCH_PROFILE: stage=halo-scratch elapsed=0.013384
+PYQCU::KUPL::SCRATCH_PROFILE: stage=boundary-sites elapsed=0.014274
+PYQCU::KUPL::LATTICE_SET_PROFILE: stage=allocate-scratch elapsed=15.518155
+PYQCU::KUPL::INIT_APPLY: stage=register elapsed=17.090182
+PYQCU::KUPL::SCRATCH_PROFILE: stage=halo-scratch elapsed=0.014182
+PYQCU::KUPL::SCRATCH_PROFILE: stage=boundary-sites elapsed=0.015138
+PYQCU::KUPL::LATTICE_SET_PROFILE: stage=allocate-scratch elapsed=15.517010
+PYQCU::KUPL::INIT_APPLY: stage=register elapsed=17.103053
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=0.002085
+PYQCU::KUPL::SCRATCH_PROFILE: stage=halo-scratch elapsed=0.016831
+PYQCU::KUPL::SCRATCH_PROFILE: stage=boundary-sites elapsed=0.017968
+PYQCU::KUPL::LATTICE_SET_PROFILE: stage=allocate-scratch elapsed=15.521170
+PYQCU::KUPL::INIT_APPLY: stage=register elapsed=17.108017
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=0.002648
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=0.002179
+PYQCU::KUPL::SCRATCH_PROFILE: stage=halo-scratch elapsed=0.921971
+PYQCU::KUPL::SCRATCH_PROFILE: stage=boundary-sites elapsed=0.922838
+PYQCU::KUPL::LATTICE_SET_PROFILE: stage=allocate-scratch elapsed=16.386502
+PYQCU::KUPL::INIT_APPLY: stage=register elapsed=18.018032
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=0.048136
+PYQCU::KUPL::SCRATCH_PROFILE: stage=halo-scratch elapsed=4.266122
+PYQCU::KUPL::SCRATCH_PROFILE: stage=boundary-sites elapsed=4.267075
+PYQCU::KUPL::LATTICE_SET_PROFILE: stage=allocate-scratch elapsed=16.690231
+PYQCU::KUPL::INIT_APPLY: stage=register elapsed=18.316618
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=0.002145
+PYQCU::KUPL::SCRATCH_PROFILE: stage=halo-scratch elapsed=22.664592
+PYQCU::KUPL::SCRATCH_PROFILE: stage=boundary-sites elapsed=22.665581
+PYQCU::KUPL::LATTICE_SET_PROFILE: stage=allocate-scratch elapsed=35.045698
+PYQCU::KUPL::INIT_APPLY: stage=register elapsed=36.691334
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=7.800305
+(base) nsls_yangyb@login02:~$

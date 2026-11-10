@@ -1,0 +1,54 @@
+Kpy3reC6yrlcJcNhkEU9HV9M8L6zq6AnL4XYWHG8x0xXJKPB5GzSlWhqGUFXb0b8RdYf9J99sCymhjhh+w30zkJ
+GzxSwpUrgSA6LnaL02L9NpniFDmqrX2jcK7tOxRi5Zt651L9LjxOZ/IeR96W6UzxPaV4jGcZblVSSKQQTVFwpyB
+ChsLpeoZQ0iA6Zte2B89MKhCKgvp9BWCHIiX741u2KtWi/ylyVUQK5hErtSRrM4p9A3L57/ZXRx3Bs8QLMtHzhL
+Nmr2YzGcYpuWv0LIa3c8Icb6v4kUD0EJd7PSYYJH9+Nqw6+BFuGe6HdZWv1tvIjepdUNziui3tB40rUm+4uHRi7
+EecMHoLd1Ejy4Fct2lFEMHWfJ5S6L6JRIxVq4Jl7LzaU1" >> /home/share/nsls_yangyb/PyQCU-main/da
+ta/kupl_hbm_opt_20261106/profile_sources_20261106_1523.tar.gz.sync.b64
+(base) nsls_yangyb@login02:~$ printf %s "DEcvcIyn9q2jHl5HvmSHfKmjIeMjsNe3tiLzOljeZtVdL5
+9//93rn0YXQuHD1nMiQAlrq42gRGEXYcdLkLUwEDYnOLjaTf0/FaHx0/68+I/kZAEOBg8WArI5/mN/+PVXB3b8x
+6Eo8PRL/MfP8XNCOAouWCWw42Y8T0fjfDbLs72b+dyK+RiI5hgM3jhNL082NuA6dCHzm6ebEIwRdSUf2jo6NGwE
+sSlHQoeX3YglqtBdLAkDL6KW0XItLPl5enh4vYiLSTJR8drA00Uqx6C3DSte73hzD9ebyK0hFVpRzCpn87TDFmk
+8b5v7+dbcw7umrX+N62ED5B49f/nyxU/KuWZeJL0iuU5F7UULN5vI8rBRM3TT5zsV9IjdZdjjkmdG+L2jWcjvuZ
+2bvKwkNwXg0IeRNAk6IxaRkQ/X6hqTEBq0iMqqYV2M6KkrBGAMN51dP2wLAkeqQVE5FROdVNiF0wL6MzLsNNm0i
+MZQUx0wYtFfDZ94bRA1jN4ktx0miLw11lu3FowmIYqpRM1qv0++N69E3a/zN0n2v1sq7ikRd2QioXFj9Or/HZvm
+y+/L78uv3e//A9AbX3IAugEA" >> /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261
+106/profile_sources_20261106_1523.tar.gz.sync.b64
+(base) nsls_yangyb@login02:~$ wc -c /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_op
+t_20261106/profile_sources_20261106_1523.tar.gz.sync.b64
+26492 /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/profile_sources_202
+61106_1523.tar.gz.sync.b64
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/PyQCU-main/data/kupl_hb
+m_opt_20261106/profile_sources_20261106_1523.tar.gz.sync.b64 > /home/share/nsls_yangyb/
+PyQCU-main/data/kupl_hbm_opt_20261106/profile_sources_20261106_1523.tar.gz
+(base) nsls_yangyb@login02:~$ sha256sum /home/share/nsls_yangyb/PyQCU-main/data/kupl_hb
+m_opt_20261106/profile_sources_20261106_1523.tar.gz
+2f2e8add48fe5bbf80f257e85e27e2ebc48f63c92bb45af512831b3baa37d067  /home/share/nsls_yang
+yb/PyQCU-main/data/kupl_hbm_opt_20261106/profile_sources_20261106_1523.tar.gz
+(base) nsls_yangyb@login02:~$ tar -xzf /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm
+_opt_20261106/profile_sources_20261106_1523.tar.gz -C /home/share/nsls_yangyb/PyQCU-mai
+n
+(base) nsls_yangyb@login02:~$ chmod 640 /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu
+/include/kupl/lattice_geometry.h /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/la
+ttice_geometry.cpp /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/lattice_clover_d
+slash.cpp /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/lattice_multigrid.cpp /ho
+me/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/backend.cpp /home/share/nsls_yangyb/Py
+QCU-main/cpp/kupl/qcu/src/apply_init.cpp
+(base) nsls_yangyb@login02:~$ sha256sum /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu
+/include/kupl/lattice_geometry.h /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/la
+ttice_geometry.cpp /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/lattice_clover_d
+slash.cpp /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/lattice_multigrid.cpp /ho
+me/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/backend.cpp /home/share/nsls_yangyb/Py
+QCU-main/cpp/kupl/qcu/src/apply_init.cpp
+e7ee529f2f85305913a2f1f9fbce3777766bfa6a111823876adb20d1dedaa739  /home/share/nsls_yang
+yb/PyQCU-main/cpp/kupl/qcu/include/kupl/lattice_geometry.h
+1822e392aa0e7d0cccb519b84026bad630726fce99e5fea208fa5faf0befafd4  /home/share/nsls_yang
+yb/PyQCU-main/cpp/kupl/qcu/src/lattice_geometry.cpp
+5715a3d53d2a44b231224b261d5af039cb355f97d2d4b48d07d60f316456dcc5  /home/share/nsls_yang
+yb/PyQCU-main/cpp/kupl/qcu/src/lattice_clover_dslash.cpp
+20c43c04e371d2b064e4332cfdc4f455fd3a40997c8ef3b1e01072ac6d4642de  /home/share/nsls_yang
+yb/PyQCU-main/cpp/kupl/qcu/src/lattice_multigrid.cpp
+f958f7a204ef48f3eb74be4e56ae23efeec8c8c0512419b0980adc86e20e8cab  /home/share/nsls_yang
+yb/PyQCU-main/cpp/kupl/qcu/src/backend.cpp
+fda226cb3ca74b833fe9e25118fe64ad5ce9ee8e281cb27fc4575bb9d1e8c090  /home/share/nsls_yang
+yb/PyQCU-main/cpp/kupl/qcu/src/apply_init.cpp
+(base) nsls_yangyb@login02:~$

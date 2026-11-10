@@ -1,0 +1,54 @@
+opt_20261106/compute_y101_init_profile_v1/init_profile_grep.txt
+PYQCU::KUPL::INIT_PROFILE rank=12 stage=start elapsed=0.000001
+PYQCU::KUPL::INIT_PROFILE rank=0 stage=start elapsed=0.000001
+PYQCU::KUPL::INIT_PROFILE rank=6 stage=start elapsed=0.000002
+PYQCU::KUPL::INIT_PROFILE rank=15 stage=start elapsed=0.000001
+PYQCU::KUPL::INIT_PROFILE rank=3 stage=start elapsed=0.000002
+PYQCU::KUPL::INIT_PROFILE rank=5 stage=start elapsed=0.000001
+PYQCU::KUPL::INIT_PROFILE rank=4 stage=start elapsed=0.000002
+PYQCU::KUPL::INIT_PROFILE rank=9 stage=start elapsed=0.000002
+PYQCU::KUPL::INIT_PROFILE rank=7 stage=start elapsed=0.000001
+PYQCU::KUPL::INIT_PROFILE rank=1 stage=start elapsed=0.000002
+PYQCU::KUPL::INIT_PROFILE rank=13 stage=start elapsed=0.000002
+PYQCU::KUPL::INIT_PROFILE rank=2 stage=start elapsed=0.000002
+PYQCU::KUPL::INIT_PROFILE rank=11 stage=start elapsed=0.000001
+PYQCU::KUPL::INIT_PROFILE rank=14 stage=start elapsed=0.000001
+PYQCU::KUPL::INIT_PROFILE rank=8 stage=start elapsed=0.000001
+PYQCU::KUPL::INIT_PROFILE rank=10 stage=start elapsed=0.000001
+PYQCU::KUPL::INIT_PROFILE rank=2 stage=uniform-config elapsed=0.349388
+PYQCU::KUPL::INIT_PROFILE rank=3 stage=uniform-config elapsed=0.471391
+PYQCU::KUPL::INIT_PROFILE rank=0 stage=uniform-config elapsed=0.520050
+PYQCU::KUPL::INIT_PROFILE rank=1 stage=uniform-config elapsed=0.393037
+PYQCU::KUPL::INIT_PROFILE rank=6 stage=uniform-config elapsed=0.488107
+PYQCU::KUPL::INIT_PROFILE rank=10 stage=uniform-config elapsed=0.098893
+PYQCU::KUPL::INIT_PROFILE rank=11 stage=uniform-config elapsed=0.342699
+PYQCU::KUPL::INIT_PROFILE rank=7 stage=uniform-config elapsed=0.396935
+PYQCU::KUPL::INIT_PROFILE rank=4 stage=uniform-config elapsed=0.449982
+PYQCU::KUPL::INIT_PROFILE rank=13 stage=uniform-config elapsed=0.361302
+PYQCU::KUPL::INIT_PROFILE rank=14 stage=uniform-config elapsed=0.303280
+PYQCU::KUPL::INIT_PROFILE rank=8 stage=uniform-config elapsed=0.246130
+PYQCU::KUPL::INIT_PROFILE rank=9 stage=uniform-config elapsed=0.437147
+PYQCU::KUPL::INIT_PROFILE rank=15 stage=uniform-config elapsed=0.487209
+PYQCU::KUPL::INIT_PROFILE rank=5 stage=uniform-config elapsed=0.470102
+PYQCU::KUPL::INIT_PROFILE rank=12 stage=uniform-config elapsed=0.523847
+PYQCU::KUPL::INIT_PROFILE rank=0 stage=local-rank elapsed=0.524796
+PYQCU::KUPL::INIT_PROFILE rank=0 stage=read-numa elapsed=0.526475
+PYQCU::KUPL::INIT_PROFILE rank=4 stage=local-rank elapsed=0.456443
+(base) nsls_yangyb@login02:~$ readlink -f /home/share/nsls_yangyb/PyQCU
+/home/share/nsls_yangyb/PyQCU-main
+(base) nsls_yangyb@login02:~$ ls -l /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src
+/backend.cpp /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/apply_init.cpp /home/s
+hare/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/apply_end.cpp /home/share/nsls_yangyb/PyQC
+U-main/cpp/kupl/qcu/src/lattice_cpu.cpp /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu
+/include/kupl/lattice_cpu.h
+-rw-r----- 1 nsls_yangyb eapp   842 Nov  5 07:48 /home/share/nsls_yangyb/PyQCU-main/cpp
+/kupl/qcu/include/kupl/lattice_cpu.h
+-rw-r----- 1 nsls_yangyb eapp   945 Nov  6 14:41 /home/share/nsls_yangyb/PyQCU-main/cpp
+/kupl/qcu/src/apply_end.cpp
+-rw-r----- 1 nsls_yangyb eapp  1216 Nov  6 14:41 /home/share/nsls_yangyb/PyQCU-main/cpp
+/kupl/qcu/src/apply_init.cpp
+-rw-r----- 1 nsls_yangyb eapp 19072 Nov  5 07:48 /home/share/nsls_yangyb/PyQCU-main/cpp
+/kupl/qcu/src/backend.cpp
+-rw-r----- 1 nsls_yangyb eapp 30479 Nov  6 14:36 /home/share/nsls_yangyb/PyQCU-main/cpp
+/kupl/qcu/src/lattice_cpu.cpp
+(base) nsls_yangyb@login02:~$

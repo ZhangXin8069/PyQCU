@@ -1,0 +1,54 @@
+* HPCKit setting environment variables...
+
+* compiler setvars
+* hmpi setvars
+* kml setvars
+* kudnn setvars
+* kupl setvars
+* kuqcd setvars
+* kutacc setvars
+* hio setvars
+
+* HPCKit environment variables inited
+Conda Env: CONDA_SH=/work_ssd/software/soft/tool/anaconda3/2023.3/etc/profile.d/conda.s
+h
+Enable conda: source ${CONDA_SH}
+Conda Env: CONDARC=/work_ssd/software/soft/tool/anaconda3/2023.3/conda_config.yaml
+Conda Env: CONDA_CFG=/work_ssd/software/soft/tool/anaconda3/2023.3/conda_config.yaml
+HPCKIT_ENV: HPCKIT_BASEDIR=/work_ssd/software/soft/tool/hpckit/2026.1.RC1/HPCKit/26.1.R
+C1
+HPCKIT_ENV: HPCKIT_COM_BS=/work_ssd/software/soft/tool/hpckit/2026.1.RC1/HPCKit/26.1.RC
+1/compiler/bisheng
+HPCKIT_ENV: HPCKIT_COM_KGCC=/work_ssd/software/soft/tool/hpckit/2026.1.RC1/HPCKit/26.1.
+RC1/compiler/gcc
+HPCKIT_ENV: HPCKIT_HMPI=/work_ssd/software/soft/tool/hpckit/2026.1.RC1/HPCKit/26.1.RC1/
+hmpi
+HPCKIT_ENV: HPCKIT_KML=/work_ssd/software/soft/tool/hpckit/2026.1.RC1/HPCKit/26.1.RC1/k
+ml
+
+Loading cmake/2026.1.RC1
+  Loading requirement: hpckit/2026.1.RC1 bisheng/compiler5.2.0/bishengmodule
+    bisheng/hmpi26.1.RC1/release
+Currently Loaded Modulefiles:
+ 1) anaconda3/2023.3    3) bisheng/compiler5.2.0/bishengmodule   5) cmake/2026.1.RC1
+ 2) hpckit/2026.1.RC1   4) bisheng/hmpi26.1.RC1/release
+
+Key:
+auto-loaded
+###env.sh in /home/share/nsls_yangyb/PyQCU is sourcing...:2026-11-06-11-37-39###
+###env.sh in /home/share/nsls_yangyb/PyQCU is done......:2026-11-06-11-37-39###
+(base) nsls_yangyb@login02:~$ djob
+ID           NAME         STATE      USER         ACCOUNT      QUEUE                STA
+RT_TIME           END_TIME             EXEC_NODES
+2048816      default      RUNNING    nsls_yangyb  common       q_hpcapp             202
+6/11/06 11:00:42  -                    cn10579
+(base) nsls_yangyb@login02:~$ strings /opt/batch/cli/bin/dsub | grep -i -E "kill|cancel
+|terminate|delete" | head -n 40
+(base) nsls_yangyb@login02:~$ file /opt/batch/cli/bin/dsub /opt/batch/cli/bin/djob
+/opt/batch/cli/bin/dsub: ELF 64-bit LSB pie executable, ARM aarch64, version 1 (SYSV),
+dynamically linked, interpreter /lib/ld-linux-aarch64.so.1, BuildID[sha1]=49898ad8f67bb
+7aab52276e1b605a737ce420835, for GNU/Linux 3.7.0, stripped
+/opt/batch/cli/bin/djob: ELF 64-bit LSB pie executable, ARM aarch64, version 1 (SYSV),
+dynamically linked, interpreter /lib/ld-linux-aarch64.so.1, BuildID[sha1]=f0a8bd5d4a58d
+7855e34e3287a4e08f138adf3fd, for GNU/Linux 3.7.0, stripped
+(base) nsls_yangyb@login02:~$

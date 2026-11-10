@@ -1,0 +1,54 @@
+    postHookRunTime                             0
+
+    hostPostHookRunTime                         0
+
+    jobSstoppedTime                             0
+
+    coreHours                                   108
+
+    nodeUsages
+        execNode             resGroup resIndex utime    stime    wallclockDuration    s
+stoppedTime     cpuUtil          gpuUtil          npuUtil          memResource
+
+        cn10579              0        0/1      1        5        108                  0
+                5/5              -                -                85/14/0/0/100/100/24
+/100
+    nodePids
+        execNode             pids
+        cn10579              1521832,1523441,1523684,1525875,1525876,1525877,1525878,15
+25893,1525908,1525909,1526000,1526007,1526008,1526019,1526068,1526095,1526243,1526358,1
+526366,1526368,1526372,1526437,1526473,1526481,1526490,1526554,1526571,1526678,1526778,
+1527017,1527030,1527031,1527050,1527183,1527238
+    traceMessages                               2026/11/06 14:23:54    :    [JOB_ADD] J
+ob 2050223 is submitted by nsls_yangyb, job state is PENDING.
+                                                2026/11/06 14:23:59    :    [JOB_START]
+ Job 2050223 start message has been sent.
+                                                2026/11/06 14:23:59    :    [JOB_START_
+ACK] Job 2050223 start message has been received by agent cn10579.
+                                                2026/11/06 14:23:59    :    [JOB_EXECUT
+ION] Job 2050223 state is from PENDING to RUNNING.
+                                                2026/11/06 14:24:00    :    [HOST_PRE-H
+OOK_START] Job 2050223 host-pre-hook started at 2026/11/06 14:24:00 .
+                                                2026/11/06 14:24:13    :    [HOST_PRE-H
+OOK_END] Job 2050223 host-pre-hook is finished successfully at 2026/11/06 14:24:12 , co
+st time: 12357 ms.
+(base) nsls_yangyb@login02:~$ find /home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_2026
+1106/compute_y100_t32_bicg_v1 -maxdepth 1 -type f -printf %f%s
+stdout.txt0stderr.txt0(base) nsls_yangyb@login02:~$ find /home/share/nsls_yangyb/PyQCU/
+data/kupl_hbm_opt_20261106/compute_y100_t32_bicg_v1 -maxdepth 1 -type f -printf %f%s
+stdout.txt0stderr.txt0(base) nsls_yangyb@login02:~$ printf '%s' 'H4sICLV07WoAA2pvYl95MT
+AwX2tpbGwuc2gAhdJNT8MgGAfwO58Ct8NOs1Ao0JhdzBazOD1s7mBi0rQd2roWWGkTl+zD2xWq3rz0B3+ePLyk0
+5sgK1WQpbYA0+Vufw/n89qUsOg/Y3CCp6QweWrMmCh4yrvkjBE6jtEX/NTZz7qCeBw//w4b8yffwkluugW+q2W9
+wA+TMdcaBoWuZWCLtJGBspVNzqn6OGfBsOGt7tqxVv5XK5tmrH2BDAFgZQvnHTiWVdVHq+0TxFGIBQmvEkrxIBP
+0aiR45GVe7hXOmAzGSHjjqwwh5OVe4cR+nfl5PPRnIR36MBK5nDDm9XM+nI9R4vpR7uqpwM7Y7RdF1Mldztw5GX
+dyhLmTIC92Rm7eP8RgSAS8XGDbdBLYSkoDCTikrex/jtLquegvsrAy1+pgQaFtq9JaAtOUqn2Hs9f+5ZPH9WaTr
+He7/Wr5pmbgG8UbputnAgAA' > /home/share/nsls_yangyb/b64/sync_job_y100_kill_20261106.b64
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/b64/sync_job_y100_kill_
+20261106.b64 > /home/share/nsls_yangyb/b64/sync_job_y100_kill_20261106.tgz
+(base) nsls_yangyb@login02:~$ gzip -dc /home/share/nsls_yangyb/b64/sync_job_y100_kill_2
+0261106.tgz > /home/share/nsls_yangyb/logs/job_y100_kill.sh
+(base) nsls_yangyb@login02:~$ chmod 750 /home/share/nsls_yangyb/logs/job_y100_kill.sh
+(base) nsls_yangyb@login02:~$ dsub -q q_hpcapp /home/share/nsls_yangyb/logs/job_y100_ki
+ll.sh
+Submit job <2050357> successfully.
+(base) nsls_yangyb@login02:~$

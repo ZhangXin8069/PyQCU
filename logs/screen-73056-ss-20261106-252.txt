@@ -1,0 +1,54 @@
+    1,
+    1,
+    1,
+    4
+  ],
+  "grid_coordinate": [
+    0,
+    0,
+    0,
+    0
+  ],
+  "mpi_rank": 0,
+  "mpi_size": 4,
+  "dtype": "complex64",
+  "mass": -0.277,
+  "kappa": 0.13430029546065003,
+  "mass_normalization": "kappa",
+  "csw": 1.160920226,
+  "atol": 0.0001,
+  "max_iter": 50,
+  "levels": 1,
+  "dof": [
+    12
+  ],
+  "mg_grid": [
+    2,
+    2,
+    2,
+    2
+  ],
+  "restart": 0,
+  "coarse_max_iter": 200,
+  "coarse_tol_factor": 10000.0,
+  "deflate": true,
+  "builder_seconds": 0.0,
+  "input_prebind_seconds": 12.889966779999668,
+  "coarse_source": "unused: restart=0",
+  "wall_seconds": 164.74992410000414,
+  "iterations": 16,
+  "residual_seconds": 1.2370001059025526e-05,
+  "residual_acceptance": 0.0001,
+  "residual_source": "KUPL native fail-closed solve; independent check skipped",
+  "converged": true,
+  "memory": {
+    "available": true,
+    "max_rss_kib": 1282116,
+    "resident_kib": 1114496,
+    "omp_threads": "32"
+  },
+  "status": "PASS"
+}(base) nsls_yangyb@login02:~$ find /home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_202
+61106/compute_y89_ab_v1 -maxdepth 2 -type f -printf %P%s
+bicgstab_1/stdout.txt976bicgstab_1/stderr.txt2400bicgstab_1/solution.h584941280bicgstab
+_1/report.json1193mg_1/stdout.txt0mg_1/stderr.txt1674(base) nsls_yangyb@login02:~$

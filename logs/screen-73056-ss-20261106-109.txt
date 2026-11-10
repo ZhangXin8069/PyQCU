@@ -1,0 +1,54 @@
+3213114 python3 -B /home/share/nsls_yangyb/PyQCU-main/pyqcu/testing/simple/kupl_multigr
+id.py --lat 32 32 32 64 --grid 1 1 1 1 --mass -0.277 --csw 1.160920226 --atol 1e-4 --ma
+x-iter 50 --dtype c64 --levels 2 --restart 1 --mg-grid 2 2 2 8 --dof 12 1 --nv-iters 1
+--local-stencil --local-stencil-batch 4 --coarse-tol-factor 10 --coarse-max-iter 20 --g
+auge /home/share/nsls_yangyb/PyQCU-main/data/production_L32_v1/gauge_32x32x32x64_c64.h5
+ --source /home/share/nsls_yangyb/PyQCU-main/data/production_L32_v1/source_32x32x32x64_
+c64.h5 --write-coarse-cache /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_202611
+06/mg_L32_e1_tblock8_v1/cache_E2_mg2x2x2x4.h5 --report /home/share/nsls_yangyb/PyQCU-ma
+in/data/kupl_hbm_opt_20261106/mg_L32_e1_tblock8_v1/report.json --skip-independent-resid
+ual
+(base) nsls_yangyb@login02:~$ ls -lh /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_o
+pt_20261106/mg_L32_e1_tblock8_v1
+total 0
+(base) nsls_yangyb@login02:~$ find /home/share/nsls_yangyb/PyQCU-main/data -maxdepth 4
+-type f -iname "*L32*cache*" -o -iname "cache*L32*" -print
+(base) nsls_yangyb@login02:~$ PYQCU::KUPL::NULL_VECTOR:
+ column=1/1 elapsed=0.000s
+printf '%s' 'H4sIAMA47WoAA+1UX4/aOBDvcz6Fj7tXk8SEoHvgYaHZFh0FmoU7nVQpchKTuDh2znbYpaf97m
+c7u4BWun2qVFXaIcIez2/+esZMVMqXHc/YCGUlVVrSvNOkzJpqqOp334WCIIijCNh1Eo/dGqCed9tRGIBwjCYjN
+IrQJABBOJmg8B0Ivo/716lTGksTyrca8+qB8v/DGdh+/4qdPhdwXn8S+vUXv1PSzyn3CT+CHKvaU0QDSDoBWtqS
+PabM86QQeurXoiG+qrEkPldMZSdTslPub06f5zvYYMo9o0+mg9/+tfhHv8Qa+4euZVmdN5lodYYCFIdhEA+8vKO
+stFCr8ug7Fmr0LWeiOMCKcCJpMfAKIzV9KV8YbaUou0JTwbOladxjOPDuhTxc7L1sZ4Iy7UxHDiw63Xbawq3ao6
+8E66y1YT0eeJK0Ql4Je374VQk+8LzmYMIBsAXP8oFnK/fFA2DztylE9sdus8yWi5kLxqZloqH5P0U3VGLgcA6Rr
+G5myyT79CG72yar+WKZbW7Sm+UyWU7DC+pKvP2YJjfv76bRRWrg67+y9Z9Jereb3c3TxSx5Ur4KxZjYpOvbxTK5
+Npwmn3eL1Pmfr9M0mW8X69VZeftxvdqtZrvb2yRN3j8da9oQUzgAoaIVx2y6TdJPhjtQxiDeayKno0CB8cT8WXx
+70rXgIwBn4Hx77ckU' > /home/share/nsls_yangyb/b64/sync_l32_distributed_20261106.b64
+XFk7/FsQ4lOFi+0+rNX1RjWYISevjiy3iUtQQgQiIBlJeYHZYXPGqJpoa4lwaVyADNVpqcF4IITWyeTA8SMiXso
+jkSqLleF6U9y1m+wUgAGQzSZGK5Q9yAchnHwu5kaFJsTrAUDIYGRwz5AakoOxsFZv9SnloDCxcrIkTBlYjXHYg9
+C5LZN1SeB3C86a/KjM6ZMdiYvYt9EDcY2CIGlIhdv6OLtSWRigntcaCGBecchtDMB7Yic5+NSHzd1VtDvjMh6s9
+PlOsTtrvDqQFtoakha0wKEaxsZLTtsO6EfKVCaB6pj2vvR7+gbvdEbvdHPRv8BgP/OFQAMAAA=' >> /home/sh
+are/nsls_yangyb/b64/sync_l32_distributed_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'wtdEacorX9GmZcRvWmpv4Egye93D9tSXCRjbOS4OhJfA
+dpFhK9xVxFp77otH3x1lI/TQf3GUFXFk7/FsQ4lOFi+0+rNX1RjWYISevjiy3iUtQQgQiIBlJeYHZYXPGqJpoa4
+lwaVyADNVpqcF4IITWyeTA8SMiXsojkSqLleF6U9y1m+wUgAGQzSZGK5Q9yAchnHwu5kaFJsTrAUDIYGRwz5Aak
+oOxsFZv9SnloDCxcrIkTBlYjXHYg9C5LZN1SeB3C86a/KjM6ZMdiYvYt9EDcY2CIGlIhdv6OLtSWRigntcaCGBe
+cchtDMB7Yic5+NSHzd1VtDvjMh6s9PlOsTtrvDqQFtoakha0wKEaxsZLTtsO6EfKVCaB6pj2vvR7+gbvdEbvdHP
+Rv8BgP/OFQAMAAA=' >> /home/share/nsls_yangyb/b64/sync_l32_distributed_20261106.b64
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/b64/sync_l32_distribute
+d_20261106.b64 > /home/share/nsls_yangyb/b64/sync_l32_distributed_20261106.tgz
+(base) nsls_yangyb@login02:~$ tar -xzf /home/share/nsls_yangyb/b64/sync_l32_distributed
+_20261106.tgz -C /home/share/nsls_yangyb/py
+(base) nsls_yangyb@login02:~$ bash /home/share/nsls_yangyb/py/logs/run_l32_distributed_
+mg.sh
+[ROCE] roce3_user_log_init: [ERR]Failed to open libroce log file
+[ROCE] roce3_user_log_init: [ERR]Failed to open libroce log file
+[ROCE] roce3_user_log_init: [ERR]Failed to open libroce log file
+SDMA ERROR (sdma_constructor|75): [login02] Open SDMA fail:No such file or directory
+/home/share/nsls_yangyb/PyQCU/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang is un
+available; TileLang-specific acceleration and tests will be skipped (ModuleNotFoundErro
+r: No module named 'tilelang')
+  _tilelang = import_tilelang()
+PYQCU::KUPL::MG_BUILD:
+ stencil coarse=1/16384 elapsed=5.426s window=26
+

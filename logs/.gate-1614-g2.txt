@@ -1,0 +1,54 @@
+/usr/bin/ld: warning: LLVM gold plugin: <unknown>:0:0: loop not vectorized: the optimiz
+er was unable to perform the requested transformation; the transformation might be disa
+bled or specified as part of an unsupported transformation ordering
+LLVM gold plugin: <unknown>:0:0: loop not vectorized: Cannot vectorize early exit loop
+/usr/bin/ld: warning: LLVM gold plugin: <unknown>:0:0: loop not vectorized: the optimiz
+er was unable to perform the requested transformation; the transformation might be disa
+bled or specified as part of an unsupported transformation ordering
+LLVM gold plugin: <unknown>:0:0: loop not vectorized: Cannot vectorize early exit loop
+/usr/bin/ld: warning: LLVM gold plugin: <unknown>:0:0: loop not vectorized: the optimiz
+er was unable to perform the requested transformation; the transformation might be disa
+bled or specified as part of an unsupported transformation ordering
+LLVM gold plugin: <unknown>:0:0: loop not vectorized: call instruction cannot be vector
+ized
+/usr/bin/ld: warning: LLVM gold plugin: <unknown>:0:0: loop not vectorized: the optimiz
+er was unable to perform the requested transformation; the transformation might be disa
+bled or specified as part of an unsupported transformation ordering
+LLVM gold plugin: <unknown>:0:0: loop not vectorized: Cannot vectorize early exit loop
+/usr/bin/ld: warning: LLVM gold plugin: <unknown>:0:0: loop not vectorized: the optimiz
+er was unable to perform the requested transformation; the transformation might be disa
+bled or specified as part of an unsupported transformation ordering
+[100%] Built target kupl_qcu
+(base) nsls_yangyb@login02:~$ sha256sum /home/share/nsls_yangyb/PyQCU-main/data/kupl_hb
+m_opt_20261106/build-ht2split-generic/libqcu.so
+3d9a1063769b4d1e3a085e527228dd483a920e005ab0601778d8e5031c04db68  /home/share/nsls_yang
+yb/PyQCU-main/data/kupl_hbm_opt_20261106/build-ht2split-generic/libqcu.so
+(base) nsls_yangyb@login02:~$ cp /home/share/nsls_yangyb/logs/job_y101_init_profile.sh
+/home/share/nsls_yangyb/logs/job_y101_init_profile_v2.sh
+(base) nsls_yangyb@login02:~$ sed -i -e s/compute_y101_init_profile_v1/compute_y101_ini
+t_profile_v2/ -e s/qcu_y101/qcu_y101b/ -e s#/y101.out#/y101b.out# -e s#/y101.err#/y101b
+.err# /home/share/nsls_yangyb/logs/job_y101_init_profile_v2.sh
+(base) nsls_yangyb@login02:~$ grep -E "DSUB -n|DSUB -oo|DSUB -eo|work=|KUPL_PROFILE_INI
+T" /home/share/nsls_yangyb/logs/job_y101_init_profile_v2.sh
+#DSUB -n qcu_y101b
+#DSUB -nn 1
+#DSUB -oo /home/share/nsls_yangyb/y101b.out
+#DSUB -eo /home/share/nsls_yangyb/y101b.err
+work="$root/data/kupl_hbm_opt_20261106/compute_y101_init_profile_v2"
+export KUPL_TOPOLOGY_REPORT=1 KUPL_PROFILE_INIT=1
+(base) nsls_yangyb@login02:~$ dsub -q q_hpcapp /home/share/nsls_yangyb/logs/job_y101_in
+it_profile_v2.sh
+Submit job <2050608> successfully.
+(base) nsls_yangyb@login02:~$ djob -ll 2050608 | grep -E "jobState|jobExitCode|jobWallc
+lockDuration|traceMessages"
+    jobWallclockDuration                        0
+
+    traceMessages                               2026/11/06 15:04:50    :    [JOB_ADD] J
+ob 2050608 is submitted by nsls_yangyb, job state is PENDING.
+(base) nsls_yangyb@login02:~$ djob -ll 2050608 | grep -E "jobState|jobExitCode|jobWallc
+lockDuration|traceMessages"
+    jobWallclockDuration                        0
+
+    traceMessages                               2026/11/06 15:04:50    :    [JOB_ADD] J
+ob 2050608 is submitted by nsls_yangyb, job state is PENDING.
+(base) nsls_yangyb@login02:~$

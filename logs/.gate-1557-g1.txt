@@ -1,0 +1,54 @@
+-rwxr-x--- 1 nsls_yangyb eapp 1310 Nov  5 10:56 job_y5.sh
+-rwxr-x--- 1 nsls_yangyb eapp 1310 Nov  5 10:56 job_y4.sh
+-rwxr-x--- 1 nsls_yangyb eapp 1355 Nov  5 10:46 job_y3.sh
+-rwxr-x--- 1 nsls_yangyb eapp 1310 Nov  5 10:38 job_y2.sh
+-rwxr-x--- 1 nsls_yangyb eapp 1339 Nov  5 10:24 job_z.sh
+-rw-r----- 1 nsls_yangyb eapp 1544 Nov  5 10:11 stage_run.sh
+-rwxr-x--- 1 nsls_yangyb eapp 1306 Nov  5 10:06 job_x.sh
+-rwxr-x--- 1 nsls_yangyb eapp 1306 Nov  5 10:00 job_w.sh
+-rwxr-x--- 1 nsls_yangyb eapp 1306 Nov  5 09:59 job_v.sh
+-rwxr-x--- 1 nsls_yangyb eapp 1306 Nov  5 09:56 job_u.sh
+-rwxr-x--- 1 nsls_yangyb eapp 1306 Nov  5 09:52 job_t.sh
+-rw-r----- 1 nsls_yangyb eapp  575 Nov  5 09:52 build_lto.sh
+-rwxr-x--- 1 nsls_yangyb eapp 1306 Nov  5 09:42 job_s.sh
+-rwxr-x--- 1 nsls_yangyb eapp 1306 Nov  5 09:42 job_r.sh
+-rwxr-x--- 1 nsls_yangyb eapp 1352 Nov  5 09:40 job_q.sh
+-rwxr-x--- 1 nsls_yangyb eapp 1352 Nov  5 09:40 job_p.sh
+-rwxr-x--- 1 nsls_yangyb eapp 1306 Nov  5 09:36 job_o.sh
+-rwxr-x--- 1 nsls_yangyb eapp 1305 Nov  5 09:33 job_n.sh
+-rwxr-x--- 1 nsls_yangyb eapp 1329 Nov  5 09:33 job_l.sh
+-rwxr-x--- 1 nsls_yangyb eapp 1306 Nov  5 09:33 job_m.sh
+-rwxr-x--- 1 nsls_yangyb eapp 1306 Nov  5 09:30 job_k.sh
+-rwxr-x--- 1 nsls_yangyb eapp 1306 Nov  5 09:30 job_j.sh
+-rwxr-x--- 1 nsls_yangyb eapp 1306 Nov  5 09:30 job_i.sh
+-rwxr-x--- 1 nsls_yangyb eapp 1306 Nov  5 09:27 job_h.sh
+-rwxr-x--- 1 nsls_yangyb eapp 1306 Nov  5 09:27 job_g.sh
+-rwxr-x--- 1 nsls_yangyb eapp 1306 Nov  5 09:27 job_f.sh
+-rwxr-x--- 1 nsls_yangyb eapp 1670 Nov  5 09:27 mkjob.sh
+-rw-r----- 1 nsls_yangyb eapp 1409 Nov  5 09:23 opt_e.sh
+-rw-r----- 1 nsls_yangyb eapp 1533 Nov  5 09:19 diag6.sh
+-rw-r----- 1 nsls_yangyb eapp 1672 Nov  5 09:18 diag5.sh
+-rw-r----- 1 nsls_yangyb eapp 1702 Nov  5 09:15 diag4.sh
+-rw-r----- 1 nsls_yangyb eapp 1548 Nov  5 09:14 diag3.sh
+-rw-r----- 1 nsls_yangyb eapp 1143 Nov  5 09:13 diag_team.sh
+-rw-r----- 1 nsls_yangyb eapp 1344 Nov  5 09:10 diag_omp.sh
+-rw-r----- 1 nsls_yangyb eapp 1409 Nov  5 09:09 opt_d.sh
+-rw-r----- 1 nsls_yangyb eapp  441 Nov  5 09:06 rebuild_hbm.sh
+-rw-r----- 1 nsls_yangyb eapp 1395 Nov  5 09:02 opt_c1.sh
+-rw-r----- 1 nsls_yangyb eapp 1409 Nov  5 08:59 opt_b.sh
+-rw-r----- 1 nsls_yangyb eapp  797 Nov  5 08:57 stream_probe.sh
+-rw-r----- 1 nsls_yangyb eapp  442 Nov  5 08:56 resume_build.sh
+-rw-r----- 1 nsls_yangyb eapp  750 Nov  5 08:51 build_sve.sh
+-rw-r----- 1 nsls_yangyb eapp 1292 Nov  5 08:45 opt_a.sh
+-rw-r----- 1 nsls_yangyb eapp 1288 Oct 30 08:23 sub.sh
+-rw-r----- 1 nsls_yangyb eapp 1288 Oct 30 08:23 _sub.sh
+-rw-r----- 1 nsls_yangyb eapp  700 Oct 30 06:40 sub-env.sh
+-rwxr-x--- 1 nsls_yangyb eapp  721 Oct 30 05:45 ddub.sh
+-rwxr-x--- 1 nsls_yangyb eapp  207 Oct 30 03:19 sleep.sh
+(base) nsls_yangyb@login02:~$ find /home/share/nsls_yangyb/sh -maxdepth 1 -type f -name
+ "*y101*" -print
+(base) nsls_yangyb@login02:~$ find /home/share/nsls_yangyb/sh /home/share/nsls_yangyb/P
+yQCU-main/data/kupl_hbm_opt_20261106 -maxdepth 3 -type f -name "*y101*" -print
+(base) nsls_yangyb@login02:~$ grep -l compute_y101_init_profile_v1 /home/share/nsls_yan
+gyb/sh/*.sh
+(base) nsls_yangyb@login02:~$

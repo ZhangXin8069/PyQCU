@@ -1,0 +1,54 @@
+tCR6Xu9GxxBdSRpLJh1UNqkdeIAvyNRTrk93H7GtgPe6XJx3Q3zJDMTUD0zCJ+yuYCRslQjFoKLeFeADX73zXBs
+Q9s176QsocQS2Eiy31yATW5FYRAqpxFQK2KtXYCmxWgsq3ZRM9WCwsTu7aSsppHEJxpzA5wuQmLFoZFXsrM4Cn0
+mo2Q0Z1kYYOd3xwom+xeg7RUDZHqGeqzNCyE3IoBXo1Iepb' >> /home/share/nsls_yangyb/b64/sync_l2
+4_mg_vs_bicg_v2_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' '5VMQWHyBFUD8BVZItMKqZMWO3k0nDzPk78Wi0jzFqoCt
+F9tGapb4EBNV+wQ3M0YxQupyXz2LgMqdQ8iacWgeYYJHabAdafjN0xQFb5u2xFCFZdJth1McKeqpMdKOLQcMoHN
+24jgx41Lz3IA4CWRRke1iMywar6+0S2ep1PKyAQaLE05UBBOjOCnBki3MARsTMkaMEHjfAowNEaxhfqvkBqLUxX
+yyQ3dKLSSj0lzRUNqq8gO8CvPo26lFjAcwg4jfQk30QC3YhrtbuTVl0hVgc0MARr4oQGQGBIDsu3CeZiflEOa+j
+TNRGoQFmNSK1+dtWwD8BOoXKJXAS2dFJOxI8u8BVZTCSRHhFe662yM9L1X5sDz6+XC4Y3YVJT8ogu/gvohuEFGD
+jkgjVDrjdjCeFBzx4YMMhvLwiH9ZqIspEeZMWelgMkyHwNCMoNzztIizg8NjGqSlO+1M7LeEQa0pJUU9iwOK04Q
+Eb8A2XPVxA8md1nq2Poeul9Cz7Ysq1YtzVGC/W+SWoXdz9FL0W0FkYwl4es5uSTLwMcAx1VJli1M/4uBloziDI7
+xageEaXDGw38tlfhxGOOCL6mUnXshTAJgCoFjRF3aU5gcNtm7C93Ihi6Uc4SHBOEzAXA7kpUqZMXlDnuONCUeWv
+q4q3yrkF5+UakAbowmyIQV/kqH2nNcoYZ1UfTBNSjWtqR0I' >> /home/share/nsls_yangyb/b64/sync_l2
+4_mg_vs_bicg_v2_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'LsCnFO93lAosSjHUKCXSepHpAODyyGPmGQcHrzgYiGrt
+v/2Hxq/P1+fr8z/3/AcBjCIRABoAAA==' >> /home/share/nsls_yangyb/b64/sync_l24_mg_vs_bicg_v2
+_20261106.b64
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/b64/sync_l24_mg_vs_bicg
+_v2_20261106.b64 > /home/share/nsls_yangyb/b64/sync_l24_mg_vs_bicg_v2_20261106.tgz
+(base) nsls_yangyb@login02:~$ tar -xzf /home/share/nsls_yangyb/b64/sync_l24_mg_vs_bicg_
+v2_20261106.tgz -C /home/share/nsls_yangyb/py
+(base) nsls_yangyb@login02:~$ tar -xzf /home/share/nsls_yangyb/b64/sync_l24_mg_vs_bicg_
+v2_20261106.tgz -C /home/share/nsls_yangyb/py
+(base) nsls_yangyb@login02:~$ env PYQCU_MG_RESTART=8 PYQCU_MG_AB_OUT=l24_true_mg_vs_bic
+g_r8_v1 python3 -B /home/share/nsls_yangyb/py/logs/run_l24_true_mg_vs_bicg.py
+{"converged": true, "gate": "PASS", "iterations": 16, "label": "bicgstab_1", "mode": "b
+icgstab", "process_seconds": 5.510493860114366, "returncode": 0, "status": "PASS", "tim
+ed_out": false, "verify_status": null, "wall_seconds": 1.38579202699475}
+{"coarse_calls": 19, "converged": true, "fine_calls": 34, "gate": "PASS", "iterations":
+ null, "label": "mg_1", "mode": "mg", "process_seconds": 7.6478508110158145, "returncod
+e": 0, "status": "PASS", "timed_out": false, "verify_status": 0, "wall_seconds": 0.8379
+83715115115}
+{"coarse_calls": 19, "converged": true, "fine_calls": 34, "gate": "PASS", "iterations":
+ null, "label": "mg_2", "mode": "mg", "process_seconds": 7.774582476122305, "returncode
+": 0, "status": "PASS", "timed_out": false, "verify_status": 0, "wall_seconds": 1.15965
+60380421579}
+{"converged": true, "gate": "PASS", "iterations": 16, "label": "bicgstab_2", "mode": "b
+icgstab", "process_seconds": 5.259124870179221, "returncode": 0, "status": "PASS", "tim
+ed_out": false, "verify_status": null, "wall_seconds": 1.3902570500504225}
+{"converged": true, "gate": "PASS", "iterations": 16, "label": "bicgstab_3", "mode": "b
+icgstab", "process_seconds": 5.169879044871777, "returncode": 0, "status": "PASS", "tim
+ed_out": false, "verify_status": null, "wall_seconds": 1.2005568521562964}
+{"coarse_calls": 19, "converged": true, "fine_calls": 34, "gate": "PASS", "iterations":
+ null, "label": "mg_3", "mode": "mg", "process_seconds": 7.411920572863892, "returncode
+": 0, "status": "PASS", "timed_out": false, "verify_status": 0, "wall_seconds": 0.79611
+95390671492}
+{"coarse_calls": 19, "converged": true, "fine_calls": 34, "gate": "PASS", "iterations":
+ null, "label": "mg_4", "mode": "mg", "process_seconds": 8.29262894904241, "returncode"
+: 0, "status": "PASS", "timed_out": false, "verify_status": 0, "wall_seconds": 1.394851
+4689691365}
+{"converged": true, "gate": "PASS", "iterations": 16, "label": "bicgstab_4", "mode": "b
+icgstab", "process_seconds": 5.152696033939719, "returncode": 0, "status": "PASS", "tim
+ed_out": false, "verify_status": null, "wall_seconds": 1.2058932960499078}
+(base) nsls_yangyb@login02:~$

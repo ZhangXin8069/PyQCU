@@ -1,0 +1,54 @@
+                                                2026/11/06 11:46:20    :    [JOB_FINISH
+] Job 2049098 state is from RUNNING to SUCCEEDED.
+(base) nsls_yangyb@login02:~$ cat /home/share/nsls_yangyb/y83.out
+cat: /home/share/nsls_yangyb/y83.out: No such file or directory
+(base) nsls_yangyb@login02:~$ printf '%s' 'H4sIAPVN7WoAA+1WbW/bNhDuZ/0KTvXQBoOsl8hOlkHb
+HFtxjPqtftkQoAAhyYylRhIZkUrsFv3vO0qWowROsH0otgGhBJG8e+5I8Z47KaZrrn+mPt6e2k0evvkezTCMtm0
+j2Z+0W0VvWOVcNvu4ZSKzZZ0cW3b7pGUjw7Tb9skbZHyX3TxpORdeBlv5EnrpehOlz+EAdn39gp/yXdC+/5+0tz
+/ofpTqvsdD5W1vvjxHmpawCIXwqAS36BaHLPAYqyQpug1ySZlKsEHAob02RWY1HiOzXY0zltZmM6QGLHdOf0lI4
+pz21UpOKdJDmhCdh15G9JTHHG8hNltflxyluaiQ5GUkybIKuUBtw1AUTgTSciVP5WAymuLpbNLF54Nxr5wNO113
+jvpy3J0ucefiYjAeLK7QBxBUE4VsGM1K897VuDMadJ2LznDu1hV/dgYLPJ0MB90rZ9qZzwd/uAqneRaQZ3c83X7
+sLnWS3kEWKkpGqXBehCoQMuKoDYnUV57w9JucxTj0E0yZwJZhtU3TaKtKADi8irJHWJbRVR6IiKZ4aNmqck+zGw
+BIn3pAE5YLIsOLPR/fmdJHEJJKn6wxsbHwYxrcmNIcIHqBwK6Nk7W1kZfZDFuqEkd+ZebnUbzShPWlMNTWJCVZF
+OiAAC41OVWV5Aa2iTSG1Ibcj6pURzq9ghfGH5bTIR4OzsEh' > /home/share/nsls_yangyb/b64/sync_job
+_y84_20261106.b64
+b+6cVopiNak9rAGbTsEcx3wkH7mjiVykjD2k1uqQejzpuQ4cgxf/BAlRB8zcj8vBzK2AB1a4XPbdaafvPhEvJrD
+mpH8FHqaT2eJBWzu8UV8y/mIwlMZKlqdYkuP9EfqqIFRsB8WeT2KnYYKAh9G12CtKBsm46I0CpIKqFjEYSAnLol
+Rco3fzRWe2QD9yuD+l75AMiicIFJeIU+20bZgOJwFNV/xIlWHaO2QRbAtKCINKAeicEy28F2FGvJUG5YKDTB6qJ
+ihKaSodJh7T/C1iLDuzztI88dAncIRA48UxvdfAn+ZxTXJ/p2FbEVJY5BztUoJtgYK6IFxE6VrnUcJiUqZTksci
+WmfRqsm26t5x7AkEH7DybtsgkRBkFtextcclHocNG03r5ARmAb9HZtNsGz9Dclry7TxBY2QSzS6wGy0SJEMtY2+
+/EltGUAArqI3fH5Zfe/lakrvKbL0QYMvelHfbxmAj829vsis+NZtS8qJRRgoCFbHVy0nzM6epCjoow1AkdjpO41
+zWksdL3kRMg1ARRuCRCnDHo1UOVPp1ZyVW4KUpNkJF1oMMynYh2zMvC5zGbzVquVCuC2JJzT+gl4x2IN1mRORZu
+pt+KxPBj4L1LhHKz8PjbOzj7mQ2c7uLwWQs' >> /home/share/nsls_yangyb/b64/sync_job_y84_202611
+06.b64
+printf '%s' 'PexSB3yY8jRickdiDsGXhyZ/KAQyKs9J5fdgmtcdO+bzrq2aa9OQfFmXpLOKy3zgDL1GpoUkpd
+K7glGlcUC9DJIJGKdde4GgmXRTGe2Uew5axoOwqOwFc6B/dF5IPmBLPjZ3b4rg21AfWwewh2THNZv62D6AtRWlY
+kIX6vPQXbh/o8go//aP1mt7ba/ttf3H2l8GJEfRABAAAA==' >> /home/share/nsls_yangyb/b64/sync_jo
+b_y84_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'GKmVctiTwllndoWnncUlaN+Dm9RLCCqBR2eNr09A39R6
+tMbLEV5cztxOb+6cVopiNak9rAGbTsEcx3wkH7mjiVykjD2k1uqQejzpuQ4cgxf/BAlRB8zcj8vBzK2AB1a4XPb
+daafvPhEvJrDmpH8FHqaT2eJBWzu8UV8y/mIwlMZKlqdYkuP9EfqqIFRsB8WeT2KnYYKAh9G12CtKBsm46I0CpI
+KqFjEYSAnLolRco3fzRWe2QD9yuD+l75AMiicIFJeIU+20bZgOJwFNV/xIlWHaO2QRbAtKCINKAeicEy28F2FGv
+JUG5YKDTB6qJihKaSodJh7T/C1iLDuzztI88dAncIRA48UxvdfAn+ZxTXJ/p2FbEVJY5BztUoJtgYK6IFxE6Vrn
+UcJiUqZTksciWmfRqsm26t5x7AkEH7DybtsgkRBkFtextcclHocNG03r5ARmAb9HZtNsGz9Dclry7TxBY2QSzS6
+wGy0SJEMtY2+/EltGUAArqI3fH5Zfe/lakrvKbL0QYMvelHfbxmAj829vsis+NZtS8qJRRgoCFbHVy0nzM6epCj
+oow1AkdjpO41zWksdL3kRMg1ARRuCRCnDHo1UOVPp1ZyVW4KUpNkJF1oMMynYh2zMvC5zGbzVquVCuC2JJzT+gl
+4x2IN1mRORZupt+KxPBj4L1LhHKz8PjbOzj7mQ2c7uLwWQs' >> /home/share/nsls_yangyb/b64/sync_jo
+b_y84_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'PexSB3yY8jRickdiDsGXhyZ/KAQyKs9J5fdgmtcdO+bz
+rq2aa9OQfFmXpLOKy3zgDL1GpoUkpdK7glGlcUC9DJIJGKdde4GgmXRTGe2Uew5axoOwqOwFc6B/dF5IPmBLPjZ
+3b4rg21AfWwewh2THNZv62D6AtRWlYkIX6vPQXbh/o8go//aP1mt7ba/ttf3H2l8GJEfRABAAAA==' >> /home
+/share/nsls_yangyb/b64/sync_job_y84_20261106.b64
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/b64/sync_job_y84_202611
+06.b64 > /home/share/nsls_yangyb/b64/sync_job_y84_20261106.tgz
+(base) nsls_yangyb@login02:~$ tar -xzf /home/share/nsls_yangyb/b64/sync_job_y84_2026110
+6.tgz -C /home/share/nsls_yangyb
+(base) nsls_yangyb@login02:~$ chmod 750 /home/share/nsls_yangyb/logs/job_y84.sh
+(base) nsls_yangyb@login02:~$ dsub -q q_hpcapp /home/share/nsls_yangyb/logs/job_y84.sh
+Submit job <2049115> successfully.
+(base) nsls_yangyb@login02:~$ djob
+ID           NAME         STATE      USER         ACCOUNT      QUEUE                STA
+RT_TIME           END_TIME             EXEC_NODES
+2048816      default      RUNNING    nsls_yangyb  common       q_hpcapp             202
+6/11/06 11:00:42  -                    cn10579
+(base) nsls_yangyb@login02:~$

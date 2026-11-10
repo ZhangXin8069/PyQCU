@@ -1,0 +1,54 @@
+lib="$base/build-t2zblock-generic/libqcu.so"
+mkdir -p "$work"
+
+export PYQCU_KUPL_LIB="$lib"
+export LD_LIBRARY_PATH="$(dirname "$lib"):${LD_LIBRARY_PATH}"
+export OMP_NUM_THREADS=8
+export KUPL_OMP_THREADS=8
+export KUPL_NUMA_BIND=1
+export KUPL_MEMORY_POLICY=bind
+(base) nsls_yangyb@login02:~$ find /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt
+_20261106 -maxdepth 1 -type d -name "*slab*" -print
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/y91_gauge_slabs
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/y91_source_slabs
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/compute_y91_slab16_v1
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/login_y91_slab16_v1
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/y91_gauge_slabs_t16
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/y91_source_slabs_t16
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/y91_gauge_slabs_1224
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/y91_source_slabs_1224
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/y91_gauge_slabs_1118
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/y91_source_slabs_1118
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/y91_gauge_slabs_t32
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/y91_source_slabs_t32
+(base) nsls_yangyb@login02:~$ cp /home/share/nsls_yangyb/logs/job_y91_slab16.sh /home/s
+hare/nsls_yangyb/logs/job_y91_manualgeom.sh
+(base) nsls_yangyb@login02:~$ sed -i -e s/qcu_y91/qcu_y91m/g -e s#/y91.out#/y91m.out# -
+e s#/y91.err#/y91m.err# -e s/compute_y91_slab16_v1/compute_y91_slab16_manualgeom_v1/ -e
+ s/y91_gauge_slabs/y91_gauge_slabs_t16/ -e s/y91_source_slabs/y91_source_slabs_t16/ -e
+s#build-t2zblock-generic#build-ht2split-generic# -e s/1_1_2_8/1_1_1_16/ -e s/--skip-ind
+ependent-residual// /home/share/nsls_yangyb/logs/job_y91_manualgeom.sh
+(base) nsls_yangyb@login02:~$ grep -E "DSUB -n|DSUB -oo|DSUB -eo|work=|gauge_slabs=|sou
+rce_slabs=|lib=|--grid|skip-independent|run_bicg|run_mg" /home/share/nsls_yangyb/logs/j
+ob_y91_manualgeom.sh
+#DSUB -n qcu_y91m
+#DSUB -nn 1
+#DSUB -oo /home/share/nsls_yangyb/y91m.out
+#DSUB -eo /home/share/nsls_yangyb/y91m.err
+gauge_slabs="$base/y91_gauge_slabs_t16"
+source_slabs="$base/y91_source_slabs_t16"
+work="$base/compute_y91_slab16_manualgeom_v1"
+lib="$base/build-ht2split-generic/libqcu.so"
+    --lat 24 24 24 64 --grid 1 1 2 8 \
+run_bicg() {
+run_mg() {
+run_bicg bicgstab_1
+run_mg mg_1
+(base) nsls_yangyb@login02:~$ sed -i s/--grid\ 1\ 1\ 2\ 8/--grid\ 1\ 1\ 1\ 16/ /home/sh
+are/nsls_yangyb/logs/job_y91_manualgeom.sh
+(base) nsls_yangyb@login02:~$ grep -n "--grid\|skip-independent\|--levels\|--restart" /
+home/share/nsls_yangyb/logs/job_y91_manualgeom.sh
+grep: unrecognized option '--grid\|skip-independent\|--levels\|--restart'
+Usage: grep [OPTION]... PATTERNS [FILE]...
+Try 'grep --help' for more information.
+(base) nsls_yangyb@login02:~$

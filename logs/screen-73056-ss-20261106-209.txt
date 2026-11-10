@@ -1,0 +1,54 @@
+a non-zero exit code. Per user-direction, the job has been aborted.
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+mpirun detected that one or more processes exited with non-zero status, thus causing
+the job to be terminated. The first process to do so was:
+
+  Process name: [[54424,1],5]
+  Exit code:    2
+--------------------------------------------------------------------------
+(base) nsls_yangyb@login02:~$ printf '%s' 'H4sIALRQ7WoAA+1WbW/bNhDuZ/0KTvXQFoOslyhK1kHb
+HEdxjTq265cNAQoQksxYaiRSJanEbtH/vqNkOUrhBtuHohgQypDIu+eOJ95zJ2dsLcwPLMLbU68rkmffY1iW5bk
+uUs8T77h6Wk69VsM9OjlB9rFzcuQcW87xEbJs13O9Z8j6LtF8NUohQw6hfEpCut6k9Fs4gF1fP+Knfhe0f/5Pxv
+OfzCilZhSKRHt+Pl+eIcPIixQlcGsEH9FHnBRxWBSNhKKPcako0wg2CDi011JkN/MxsvcgXtDWaob0uCj9099yk
+vunA72RM4bMhOXEFEnIiUlFJvAWcrONTMVRVsoGSR5HEs4b5AJ5lqVpgkhklFpJ1WRyOcXT2aSPz4bj83o16vWD
+ORqoeX+6xL2Li+F4uLhCb0HQLDSyKRivzc+vxr3LYd+/6I3mQVvxd2+4wNPJaNi/8qe9+Xz4V6AJVvKYfDPi6fZ
+df2kSegtVqGmcMek/CtUgZcTXOwpprkIZmjdlkeEkyjErJHYsx7Nty9O1GHB4lfIH2IKzVRnLlFE8clxdu2P8Bg
+DKpxmzvCglUenFYYRvbeUjTkijz9eYuFhGGYtvbGUOELNC4MDF+drZqMvuJse6lqVRYxaVabYypPOpMjTWhBKex
+iYggEtdwXQtv4EwkVEgvaPi0bXmSKdX8ML47XI6wqPhGTgE' > /home/share/nsls_yangyb/b64/sync_job
+_y86_20261106.b64
+mrgq9edz1+BvujtbI2Xl3jxZhb0zuf+aaOodlPawxqw6VXM8e0H8svgcqI2qXMPpbU6pB5PzgMfjiHMfoGCaANm
+wbvlcBY0wAM7vFkOgmlvEHwlXkxgz8ngCjxMJ7PFvbZ1eJcDxfiL4UgZa7ykWJHj5Sv0WUOoCgdlYUQyv2ODQCT
+ptdwragapvJidCqSDqpUxmChJwVMqr9GL+aI3W6CfBfze0xdIJSWUBJpLKphx6lm2L0jM6Eq80lWa9g6LFMICGL
+slXJSRiHkagRktoHOAuBTESO5kwkm4MqB9CJCpQzYkQ5RRgt6DE6R6WFgY0RYVBX/tvKZlHu41YZaxOwN2MUJhq
+IrYaYqtTBhsfYZ2hVJsgZimJEKmdG2KNC8yUhdZXmYyXfN01S22+t5xFkoEn7X657kgURBk15fXCk1A2FbXgc+e
+YcTiDtld27N+hZJ11DuGkmXIJoZbYTdGKglHx9befiW3BUEx7KB3/rzffh2Wa0X5pt7NSoAdd1P/PBeDjarKvcm
+uJbVsasmjRpxUtKoybtaL7gfBqK6yVkpoHTudYFmpOszDLW/SwoCEkYLAjUpwJ9JVCQT7fWclV+ClKzdSR869DJ
+p5Jdvzkcd+548W4QJo4hXdlOY/kE5lO1ZuOZElp7vll7o8ojRe78qj/mg8rNEB' >> /home/share/nsls_yan
+gyb/b64/sync_job_y86_20261106.b64
+printf '%s' '7k9ms6C/GE7GysOuoMCHrU4jI7ckE5B8dWjqb4ZEVuM5b/weLP62Y9/+tmun5dq2FF/WNemc6r
+LvOcOuke0gRSl6WzGqNo5ZyKGkgHHGdRhLxpWbxmin3HPQse6FVb+vmAPPB+eF1A1CirC9e1MEX4z23DmAPSQ7a
+tm05+4BrKtpDRP60LVHwSL4F61H+9F/v57G03gaT+OHjX8AU7Iu3wAQAAA=' >> /home/share/nsls_yangyb
+/b64/sync_job_y86_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'I71Rjs6VcNabXeFpb/EGtC/BDQ1zgmrgq9edz1+Bvujt
+bI2Xl3jxZhb0zuf+aaOodlPawxqw6VXM8e0H8svgcqI2qXMPpbU6pB5PzgMfjiHMfoGCaANmwbvlcBY0wAM7vFk
+OgmlvEHwlXkxgz8ngCjxMJ7PFvbZ1eJcDxfiL4UgZa7ykWJHj5Sv0WUOoCgdlYUQyv2ODQCTptdwragapvJidCq
+SDqpUxmChJwVMqr9GL+aI3W6CfBfze0xdIJSWUBJpLKphx6lm2L0jM6Eq80lWa9g6LFMICGLslXJSRiHkagRkto
+HOAuBTESO5kwkm4MqB9CJCpQzYkQ5RRgt6DE6R6WFgY0RYVBX/tvKZlHu41YZaxOwN2MUJhqIrYaYqtTBhsfYZ2
+hVJsgZimJEKmdG2KNC8yUhdZXmYyXfN01S22+t5xFkoEn7X657kgURBk15fXCk1A2FbXgc+eYcTiDtld27N+hZJ
+11DuGkmXIJoZbYTdGKglHx9befiW3BUEx7KB3/rzffh2Wa0X5pt7NSoAdd1P/PBeDjarKvcmuJbVsasmjRpxUtK
+oybtaL7gfBqK6yVkpoHTudYFmpOszDLW/SwoCEkYLAjUpwJ9JVCQT7fWclV+ClKzdSR869DJp5Jdvzkcd+548W4
+QJo4hXdlOY/kE5lO1ZuOZElp7vll7o8ojRe78qj/mg8rNEB' >> /home/share/nsls_yangyb/b64/sync_jo
+b_y86_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' '7k9ms6C/GE7GysOuoMCHrU4jI7ckE5B8dWjqb4ZEVuM5
+b/weLP62Y9/+tmun5dq2FF/WNemc6rLvOcOuke0gRSl6WzGqNo5ZyKGkgHHGdRhLxpWbxmin3HPQse6FVb+vmAP
+PB+eF1A1CirC9e1MEX4z23DmAPSQ7atm05+4BrKtpDRP60LVHwSL4F61H+9F/v57G03gaT+OHjX8AU7Iu3wAQAA
+A=' >> /home/share/nsls_yangyb/b64/sync_job_y86_20261106.b64
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/b64/sync_job_y86_202611
+06.b64 > /home/share/nsls_yangyb/b64/sync_job_y86_20261106.tgz
+(base) nsls_yangyb@login02:~$ tar -xzf /home/share/nsls_yangyb/b64/sync_job_y86_2026110
+6.tgz -C /home/share/nsls_yangyb
+(base) nsls_yangyb@login02:~$ chmod 750 /home/share/nsls_yangyb/logs/job_y86.sh
+(base) nsls_yangyb@login02:~$ dsub -q q_hpcapp /home/share/nsls_yangyb/logs/job_y86.sh
+Submit job <2049224> successfully.
+(base) nsls_yangyb@login02:~$

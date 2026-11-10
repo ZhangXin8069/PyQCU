@@ -1,0 +1,54 @@
+bled or specified as part of an unsupported transformation ordering
+LLVM gold plugin: <unknown>:0:0: loop not vectorized: Cannot vectorize early exit loop
+/usr/bin/ld: warning: LLVM gold plugin: <unknown>:0:0: loop not vectorized: the optimiz
+er was unable to perform the requested transformation; the transformation might be disa
+bled or specified as part of an unsupported transformation ordering
+LLVM gold plugin: <unknown>:0:0: loop not vectorized: Cannot vectorize early exit loop
+/usr/bin/ld: warning: LLVM gold plugin: <unknown>:0:0: loop not vectorized: the optimiz
+er was unable to perform the requested transformation; the transformation might be disa
+bled or specified as part of an unsupported transformation ordering
+LLVM gold plugin: <unknown>:0:0: loop not vectorized: call instruction cannot be vector
+ized
+/usr/bin/ld: warning: LLVM gold plugin: <unknown>:0:0: loop not vectorized: the optimiz
+er was unable to perform the requested transformation; the transformation might be disa
+bled or specified as part of an unsupported transformation ordering
+LLVM gold plugin: <unknown>:0:0: loop not vectorized: Cannot vectorize early exit loop
+/usr/bin/ld: warning: LLVM gold plugin: <unknown>:0:0: loop not vectorized: the optimiz
+er was unable to perform the requested transformation; the transformation might be disa
+bled or specified as part of an unsupported transformation ordering
+gmake[2]: warning:  Clock skew detected.  Your build may be incomplete.
+[100%] Built target kupl_qcu
+[1]+  Done                    nohup bash /home/share/nsls_yangyb/logs/build_ht2split_ge
+neric.sh > /home/share/nsls_yangyb/logs/build_init_profile.log 2>&1
+(base) nsls_yangyb@login02:~$ printf '%s' 'H4sICMV17WoAA2pvYl95MTAxX2luaXRfcHJvZmlsZS5z
+aACNU2FvmzAQ/c6vuNFWXT8QINuiaBObkoalqEmglGiKVMkC4hYvYLu2aYum/feZZGRtta77gsy7d+98vncHb+y
+MUDtLZWEcTC6XY7CsihMo9KcDbuEWFTxPOe8QCrd5jRrXcTvkAb6zbB+msA8swB10Z8Hpo78YzJzX3vBThStvOD
+U7nDGwC1ZhWxapwDaVpURNSm+azG4r9litOip+hYqF6KgJvHMcw5BYgVUbktUixy8mR83F6dLG9K6nn0Uwprx/M
+o17Jjaeedgy7XWqUntT8xIVWYUYV6jv9Aeu6wzsnFW8Vnj7cIhQohAX7JqUGN25plFt1kSAxcE8bPVMgwtC1TUc
+XyajOIEjeUWPdeytLoD1lIhk1nDguJ7EOaNreWLC512mLVUqVE89KNPAD5wJBVHsj4PFBH0L43Ov0+9iK90COl9
+G' > /home/share/nsls_yangyb/b64/sync_job_y101_init_profile_20261106.b64
+ '
+MzQLxv/RRlaTcm0Vqi95SZR1gykWJLdLkmlX9CTbK88mrWI8ilcoGiVnXnt5ImhaYd3H07LmycfDH8/4P/dC4Tx
+Ci+UcJWexP5pcekPY5rXwHuq424gmj1DbsefugLk/D1vZcBacrrw1vk7r8jf3bDn1o9HU95wnEkmoyeF0hWI/Cu
+OkE4ri8Gsw81GwCDRm1LR11OMSi3Di74DYv1gGsd8F2usYilRYGxisDXyQ0H/vSNCbJmqqJ8rusJB1JnNBMj1hy
+vWyaFjv59pSDCijGK4MaDc05VbWgCyZVrLSsmT3ltawUmm1wwPeqIJpyfGW/5J3S3Yjbe3ADGsf4rZMjzfbjM5I
+u6u1G2dC/xmod+uPRf3FBETuHcm9Tb+Yr3j1L2b9BR3OytKNBAAA' >> /home/share/nsls_yangyb/b64/sy
+nc_job_y101_init_profile_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' '
+> MzQLxv/RRlaTcm0Vqi95SZR1gykWJLdLkmlX9CTbK88mrWI8ilcoGiVnXnt5ImhaYd3H07LmycfDH8/4P/dC4
+TxCi+UcJWexP5pcekPY5rXwHuq424gmj1DbsefugLk/D1vZcBacrrw1vk7r8jf3bDn1o9HU95wnEkmoyeF0hWI/
+CuOkE4ri8Gsw81GwCDRm1LR11OMSi3Di74DYv1gGsd8F2usYilRYGxisDXyQ0H/vSNCbJmqqJ8rusJB1JnNBMj1
+hyvWyaFjv59pSDCijGK4MaDc05VbWgCyZVrLSsmT3ltawUmm1wwPeqIJpyfGW/5J3S3Yjbe3ADGsf4rZMjzfbjM
+5Iu6u1G2dC/xmod+uPRf3FBETuHcm9Tb+Yr3j1L2b9BR3OytKNBAAA' >> /home/share/nsls_yangyb/b64/
+sync_job_y101_init_profile_20261106.b64
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/b64/sync_job_y101_init_
+profile_20261106.b64 > /home/share/nsls_yangyb/b64/sync_job_y101_init_profile_20261106.
+tgz
+(base) nsls_yangyb@login02:~$ gzip -dc /home/share/nsls_yangyb/b64/sync_job_y101_init_p
+rofile_20261106.tgz > /home/share/nsls_yangyb/logs/job_y101_init_profile.sh
+(base) nsls_yangyb@login02:~$ chmod 750 /home/share/nsls_yangyb/logs/job_y101_init_prof
+ile.sh
+(base) nsls_yangyb@login02:~$ dsub -q q_hpcapp /home/share/nsls_yangyb/logs/job_y101_in
+it_profile.sh
+Submit job <2050391> successfully.
+(base) nsls_yangyb@login02:~$

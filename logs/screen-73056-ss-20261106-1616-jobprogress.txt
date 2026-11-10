@@ -1,0 +1,54 @@
+(base) nsls_yangyb@login02:~$ grep -E "DSUB -n|DSUB -oo|DSUB -eo|work=|KUPL_PROFILE_INI
+T" /home/share/nsls_yangyb/logs/job_y101_init_profile_v2.sh
+#DSUB -n qcu_y101b
+#DSUB -nn 1
+#DSUB -oo /home/share/nsls_yangyb/y101b.out
+#DSUB -eo /home/share/nsls_yangyb/y101b.err
+work="$root/data/kupl_hbm_opt_20261106/compute_y101_init_profile_v2"
+export KUPL_TOPOLOGY_REPORT=1 KUPL_PROFILE_INIT=1
+(base) nsls_yangyb@login02:~$ dsub -q q_hpcapp /home/share/nsls_yangyb/logs/job_y101_in
+it_profile_v2.sh
+Submit job <2050608> successfully.
+(base) nsls_yangyb@login02:~$ djob -ll 2050608 | grep -E "jobState|jobExitCode|jobWallc
+lockDuration|traceMessages"
+    jobWallclockDuration                        0
+
+    traceMessages                               2026/11/06 15:04:50    :    [JOB_ADD] J
+ob 2050608 is submitted by nsls_yangyb, job state is PENDING.
+(base) nsls_yangyb@login02:~$ djob -ll 2050608 | grep -E "jobState|jobExitCode|jobWallc
+lockDuration|traceMessages"
+    jobWallclockDuration                        0
+
+    traceMessages                               2026/11/06 15:04:50    :    [JOB_ADD] J
+ob 2050608 is submitted by nsls_yangyb, job state is PENDING.
+(base) nsls_yangyb@login02:~$ djob -ll 2050608 | grep -E "jobState|jobExitCode|jobWallc
+lockDuration|traceMessages"
+    jobWallclockDuration                        49
+
+    traceMessages                               2026/11/06 15:04:50    :    [JOB_ADD] J
+ob 2050608 is submitted by nsls_yangyb, job state is PENDING.
+(base) nsls_yangyb@login02:~$ djob -ll 2050608 | tail -n 8
+        execNode             pids
+        cn10579              1798417,1800207,1800732,1803836,1803837,1803854,1803921,18
+04138,1804238,1804485,1804606,1804759,1805021,1805194,1805413,1805550,1805771,1805913,1
+806239
+    traceMessages                               2026/11/06 15:04:50    :    [JOB_ADD] J
+ob 2050608 is submitted by nsls_yangyb, job state is PENDING.
+                                                2026/11/06 15:04:54    :    [JOB_START]
+ Job 2050608 start message has been sent.
+                                                2026/11/06 15:04:54    :    [JOB_START_
+ACK] Job 2050608 start message has been received by agent cn10579.
+                                                2026/11/06 15:04:54    :    [JOB_EXECUT
+ION] Job 2050608 state is from PENDING to RUNNING.
+                                                2026/11/06 15:04:55    :    [HOST_PRE-H
+OOK_START] Job 2050608 host-pre-hook started at 2026/11/06 15:04:55 .
+                                                2026/11/06 15:05:07    :    [HOST_PRE-H
+OOK_END] Job 2050608 host-pre-hook is finished successfully at 2026/11/06 15:05:07 , co
+st time: 11472 ms.
+(base) nsls_yangyb@login02:~$ ls -lh /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_o
+pt_20261106/compute_y101_init_profile_v2
+total 32K
+-rw-r----- 1 nsls_yangyb eapp  0 Nov  6 15:05 mpirun.err
+-rw-r----- 1 nsls_yangyb eapp  0 Nov  6 15:05 mpirun.out
+-rw-r----- 1 nsls_yangyb eapp 32 Nov  6 15:05 start.txt
+(base) nsls_yangyb@login02:~$

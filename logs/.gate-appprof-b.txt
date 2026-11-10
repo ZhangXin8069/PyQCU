@@ -1,0 +1,54 @@
+start.txt32mpirun.out0mpirun.err0(base) nsls_yangyb@login02:~$ find /home/share/nsls_ya
+ngyb/PyQCU/data/kupl_hbm_opt_20261106/compute_y101_init_profile_v1 -maxdepth 1 -type f
+-printf %f%s
+start.txt32mpirun.out0mpirun.err13008rank_0010.txt72rank_0009.txt71rank_0011.txt72rank_
+0008.txt71rank_0001.txt71rank_0000.txt71rank_0003.txt71rank_0013.txt72rank_0004.txt71ra
+nk_0012.txt72rank_0002.txt71rank_0014.txt72rank_0007.txt71rank_0006.txt71rank_0015.txt7
+3rank_0005.txt72(base) nsls_yangyb@login02:~$ cat /home/share/nsls_yangyb/PyQCU/data/ku
+pl_hbm_opt_20261106/compute_y101_init_profile_v1/start.txt; tail -n 35 /home/share/nsls
+_yangyb/PyQCU/data/kupl_hbm_opt_20261106/compute_y101_init_profile_v1/mpirun.err
+START 2026-11-06T14:38:27+08:00
+END rc=0 2026-11-06T14:39:53+08:00
+PYQCU::KUPL::INIT_PROFILE rank=8 stage=omp-team-affinity elapsed=0.476147
+PYQCU::KUPL::INIT_PROFILE rank=8 stage=memory-policy elapsed=0.476209
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=8 local_size=16 numa_nodes=16 cpu_node=8 cpuset=304-311 memory_node=8 memor
+y_policy=default memory_bound=false threads=8 bound_threads=8 source=sysfs
+PYQCU::KUPL::INIT_PROFILE rank=8 stage=topology-report elapsed=0.476239
+PYQCU::KUPL::INIT_PROFILE rank=12 stage=omp-team-affinity elapsed=0.507840
+PYQCU::KUPL::INIT_PROFILE rank=12 stage=memory-policy elapsed=0.507896
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=12 local_size=16 numa_nodes=16 cpu_node=12 cpuset=456-463 memory_node=12 me
+mory_policy=default memory_bound=false threads=8 bound_threads=8 source=sysfs
+PYQCU::KUPL::INIT_PROFILE rank=12 stage=topology-report elapsed=0.507925
+PYQCU::KUPL::INIT_PROFILE rank=14 stage=omp-team-affinity elapsed=0.090273
+PYQCU::KUPL::INIT_PROFILE rank=14 stage=memory-policy elapsed=0.090346
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=14 local_size=16 numa_nodes=16 cpu_node=14 cpuset=532-539 memory_node=14 me
+mory_policy=default memory_bound=false threads=8 bound_threads=8 source=sysfs
+PYQCU::KUPL::INIT_PROFILE rank=14 stage=topology-report elapsed=0.090380
+PYQCU::KUPL::INIT_PROFILE rank=7 stage=omp-team-affinity elapsed=0.456135
+PYQCU::KUPL::INIT_PROFILE rank=7 stage=memory-policy elapsed=0.456245
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=7 local_size=16 numa_nodes=16 cpu_node=7 cpuset=266-273 memory_node=7 memor
+y_policy=default memory_bound=false threads=8 bound_threads=8 source=sysfs
+PYQCU::KUPL::INIT_PROFILE rank=7 stage=topology-report elapsed=0.456287
+PYQCU::KUPL::INIT_PROFILE rank=2 stage=omp-team-affinity elapsed=0.523967
+PYQCU::KUPL::INIT_PROFILE rank=2 stage=memory-policy elapsed=0.524093
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=2 local_size=16 numa_nodes=16 cpu_node=2 cpuset=76-83 memory_node=2 memory_
+policy=default memory_bound=false threads=8 bound_threads=8 source=sysfs
+PYQCU::KUPL::INIT_PROFILE rank=2 stage=topology-report elapsed=0.524134
+PYQCU::KUPL::INIT_PROFILE rank=6 stage=omp-team-affinity elapsed=0.276306
+PYQCU::KUPL::INIT_PROFILE rank=6 stage=memory-policy elapsed=0.276418
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=6 local_size=16 numa_nodes=16 cpu_node=6 cpuset=228-235 memory_node=6 memor
+y_policy=default memory_bound=false threads=8 bound_threads=8 source=sysfs
+PYQCU::KUPL::INIT_PROFILE rank=6 stage=topology-report elapsed=0.276462
+PYQCU::KUPL::INIT_PROFILE rank=5 stage=omp-team-affinity elapsed=0.615918
+PYQCU::KUPL::INIT_PROFILE rank=5 stage=memory-policy elapsed=0.616074
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=5 local_size=16 numa_nodes=16 cpu_node=5 cpuset=190-197 memory_node=5 memor
+y_policy=default memory_bound=false threads=8 bound_threads=8 source=sysfs
+PYQCU::KUPL::INIT_PROFILE rank=5 stage=topology-report elapsed=0.616158
+(base) nsls_yangyb@login02:~$

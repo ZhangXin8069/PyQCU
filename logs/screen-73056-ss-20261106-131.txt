@@ -1,0 +1,54 @@
+grid_coordinate": [0, 0, 0, 0], "mpi_rank": 0, "mpi_size": 16, "dtype": "complex64", "m
+ass": -0.277, "kappa": 0.13430029546065003, "mass_normalization": "kappa", "csw": 1.160
+920226, "atol": 0.0001, "max_iter": 50, "levels": 2, "dof": [12, 4], "mg_grid": [2, 2,
+2, 1], "restart": 10, "coarse_max_iter": 20, "coarse_tol_factor": 10.0, "deflate": true
+, "builder_seconds": 2.234040821203962, "input_prebind_seconds": 0.036517283879220486,
+"coarse_source": "/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/mg_e4_t
+block1_L24_v1/cache_E4_mg2x2x2x1.h5", "wall_seconds": 1.043791526928544, "residual_seco
+nds": 1.8659303470049053, "verify_status": 0, "final_true_residual": 6.888727571627808e
+-05, "residual_acceptance": 0.000244140625, "residual_source": "independent distributed
+ NumPy full Wilson-Clover reconstruction with MPI halo exchange", "converged": true, "m
+emory": {"available": true, "max_rss_kib": 589468, "resident_kib": 397788, "omp_threads
+": "8"}, "status": "PASS"}
+(base) nsls_yangyb@login02:~$ ctest --test-dir /home/share/nsls_yangyb/PyQCU-main/data/
+kupl_hbm_opt_20261106/build-t2zblock-generic --output-on-failure
+Internal ctest changing into directory: /home/share/nsls_yangyb/PyQCU-main/data/kupl_hb
+m_opt_20261106/build-t2zblock-generic
+Test project /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/build-t2zblo
+ck-generic
+      Start  1: kupl_qcu_1rank
+ 1/35 Test  #1: kupl_qcu_1rank ..............................   Passed    0.62 sec
+      Start  2: kupl_qcu_2rank
+ 2/35 Test  #2: kupl_qcu_2rank ..............................   Passed    0.52 sec
+      Start  3: kupl_qcu_2rank_y
+ 3/35 Test  #3: kupl_qcu_2rank_y ............................   Passed    0.57 sec
+      Start  4: kupl_qcu_2rank_z
+ 4/35 Test  #4: kupl_qcu_2rank_z ............................   Passed    0.59 sec
+      Start  5: kupl_qcu_2rank_t
+ 5/35 Test  #5: kupl_qcu_2rank_t ............................   Passed    0.62 sec
+      Start  6: kupl_qcu_4rank_diagonal
+ 6/35 Test  #6: kupl_qcu_4rank_diagonal .....................   Passed   17.25 sec
+      Start  7: kupl_qcu_laplacian_1rank
+ 7/35 Test  #7: kupl_qcu_laplacian_1rank ....................   Passed    0.41 sec
+      Start  8: kupl_qcu_laplacian_2rank
+ 8/35 Test  #8: kupl_qcu_laplacian_2rank ....................   Passed    0.43 sec
+      Start  9: kupl_qcu_laplacian_2rank_y
+ 9/35 Test  #9: kupl_qcu_laplacian_2rank_y ..................   Passed    0.46 sec
+      Start 10: kupl_qcu_laplacian_2rank_z
+10/35 Test #10: kupl_qcu_laplacian_2rank_z ..................   Passed    0.43 sec
+      Start 11: kupl_qcu_kunpeng_runtime_plan
+11/35 Test #11: kupl_qcu_kunpeng_runtime_plan ...............   Passed    3.61 sec
+      Start 12: kupl_qcu_pure_kupl_contract
+12/35 Test #12: kupl_qcu_pure_kupl_contract .................   Passed    4.92 sec
+      Start 13: kupl_qcu_abi_surface
+13/35 Test #13: kupl_qcu_abi_surface ........................   Passed    0.28 sec
+      Start 14: kupl_qcu_python_layout
+14/35 Test #14: kupl_qcu_python_layout ......................   Passed    2.10 sec
+      Start 15: kupl_qcu_python_new_abi_1rank
+15/35 Test #15: kupl_qcu_python_new_abi_1rank ...............   Passed    0.90 sec
+      Start 16: kupl_qcu_python_new_abi_2rank
+16/35 Test #16: kupl_qcu_python_new_abi_2rank ...............   Passed    1.00 sec
+      Start 17: kupl_qcu_python_new_abi_rectangular
+17/35 Test #17: kupl_qcu_python_new_abi_rectangular .........   Passed    2.30 sec
+      Start 18: kupl_qcu_python_new_abi_block_rectangular
+

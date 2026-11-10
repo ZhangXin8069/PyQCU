@@ -1,0 +1,54 @@
+(base) nsls_yangyb@login02:~$ find /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt
+_20261106/compute_y91_slab16_manualgeom_v1 -maxdepth 2 -type f -printf "%p %s\n"
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/compute_y91_slab16_manual
+geom_v1/bicgstab_1/stdout.txt 0
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/compute_y91_slab16_manual
+geom_v1/bicgstab_1/stderr.txt 0
+(base) nsls_yangyb@login02:~$ tail -n 10 /home/share/nsls_yangyb/y91m.out
+tail: cannot open '/home/share/nsls_yangyb/y91m.out' for reading: No such file or direc
+tory
+(base) nsls_yangyb@login02:~$ find /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt
+_20261106/compute_y91_slab16_manualgeom_v1 -maxdepth 2 -type f -printf "%p %s\n"
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/compute_y91_slab16_manual
+geom_v1/bicgstab_1/stdout.txt 0
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/compute_y91_slab16_manual
+geom_v1/bicgstab_1/stderr.txt 60356
+(base) nsls_yangyb@login02:~$ tail -n 20 /home/share/nsls_yangyb/PyQCU-main/data/kupl_h
+bm_opt_20261106/compute_y91_slab16_manualgeom_v1/bicgstab_1/stderr.txt
+PYQCU::KUPL::SCRATCH_PROFILE: stage=halo-scratch elapsed=0.016020
+PYQCU::KUPL::SCRATCH_PROFILE: stage=boundary-sites elapsed=0.016833
+PYQCU::KUPL::LATTICE_SET_PROFILE: stage=allocate-scratch elapsed=5.102430
+PYQCU::KUPL::INIT_APPLY: stage=register elapsed=46.264916
+PYQCU::KUPL::SCRATCH_PROFILE: stage=halo-scratch elapsed=0.018243
+PYQCU::KUPL::SCRATCH_PROFILE: stage=boundary-sites elapsed=0.018827
+PYQCU::KUPL::LATTICE_SET_PROFILE: stage=allocate-scratch elapsed=5.104953
+PYQCU::KUPL::INIT_APPLY: stage=register elapsed=46.295990
+PYQCU::KUPL::SCRATCH_PROFILE: stage=halo-scratch elapsed=1.063922
+PYQCU::KUPL::SCRATCH_PROFILE: stage=boundary-sites elapsed=1.077371
+PYQCU::KUPL::LATTICE_SET_PROFILE: stage=allocate-scratch elapsed=6.163978
+PYQCU::KUPL::INIT_APPLY: stage=register elapsed=41.750653
+PYQCU::KUPL::SCRATCH_PROFILE: stage=halo-scratch elapsed=3.378474
+PYQCU::KUPL::SCRATCH_PROFILE: stage=boundary-sites elapsed=3.426729
+PYQCU::KUPL::LATTICE_SET_PROFILE: stage=allocate-scratch elapsed=6.034813
+PYQCU::KUPL::INIT_APPLY: stage=register elapsed=46.213487
+PYQCU::KUPL::SCRATCH_PROFILE: stage=halo-scratch elapsed=3.003566
+PYQCU::KUPL::SCRATCH_PROFILE: stage=boundary-sites elapsed=3.004115
+PYQCU::KUPL::LATTICE_SET_PROFILE: stage=allocate-scratch elapsed=7.806699
+PYQCU::KUPL::INIT_APPLY: stage=register elapsed=43.747620
+(base) nsls_yangyb@login02:~$ find /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt
+_20261106/compute_y91_slab16_manualgeom_v1 -maxdepth 2 -type f -printf "%p %s\n"
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/compute_y91_slab16_manual
+geom_v1/bicgstab_1/stdout.txt 0
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/compute_y91_slab16_manual
+geom_v1/bicgstab_1/stderr.txt 60356
+(base) nsls_yangyb@login02:~$ tail -n 8 /home/share/nsls_yangyb/PyQCU-main/data/kupl_hb
+m_opt_20261106/compute_y91_slab16_manualgeom_v1/bicgstab_1/stderr.txt
+PYQCU::KUPL::SCRATCH_PROFILE: stage=halo-scratch elapsed=3.378474
+PYQCU::KUPL::SCRATCH_PROFILE: stage=boundary-sites elapsed=3.426729
+PYQCU::KUPL::LATTICE_SET_PROFILE: stage=allocate-scratch elapsed=6.034813
+PYQCU::KUPL::INIT_APPLY: stage=register elapsed=46.213487
+PYQCU::KUPL::SCRATCH_PROFILE: stage=halo-scratch elapsed=3.003566
+PYQCU::KUPL::SCRATCH_PROFILE: stage=boundary-sites elapsed=3.004115
+PYQCU::KUPL::LATTICE_SET_PROFILE: stage=allocate-scratch elapsed=7.806699
+PYQCU::KUPL::INIT_APPLY: stage=register elapsed=43.747620
+(base) nsls_yangyb@login02:~$

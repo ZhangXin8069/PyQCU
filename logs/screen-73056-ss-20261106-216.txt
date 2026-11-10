@@ -1,0 +1,54 @@
+    hostPreHookTimeout                          300
+
+    totalUtime                                  331
+
+    totalStime                                  689
+
+    totalMaxMemSwp                              3051
+
+    totalMaxMem                                 3051
+
+    hostPreHookRunTime                          11
+
+    preHookRunTime                              0
+
+    jobWallclockDuration                        289
+
+    postHookRunTime                             0
+
+    hostPostHookRunTime                         0
+
+    jobSstoppedTime                             0
+
+    coreHours                                   289
+
+    nodeUsages
+        execNode             resGroup resIndex utime    stime    wallclockDuration    s
+stoppedTime     cpuUtil          gpuUtil          npuUtil          memResource
+
+        cn10579              0        0/1      331      689      289                  0
+                353/760          -                -                2820/264/0/0/3118/31
+18/1362/3084
+    nodePids
+        execNode             pids
+        cn10579              612408,612577,612653,612654,612655,612656,612657,612661,61
+2673,612692,612703,612705,612708,612711,612713,612715,612717,612726
+    traceMessages                               2026/11/06 12:00:24    :    [JOB_ADD] J
+ob 2049224 is submitted by nsls_yangyb, job state is PENDING.
+                                                2026/11/06 12:00:28    :    [JOB_START]
+ Job 2049224 start message has been sent.
+                                                2026/11/06 12:00:28    :    [JOB_START_
+ACK] Job 2049224 start message has been received by agent cn10579.
+                                                2026/11/06 12:00:28    :    [JOB_EXECUT
+ION] Job 2049224 state is from PENDING to RUNNING.
+                                                2026/11/06 12:00:29    :    [HOST_PRE-H
+OOK_START] Job 2049224 host-pre-hook started at 2026/11/06 12:00:29 .
+                                                2026/11/06 12:00:40    :    [HOST_PRE-H
+OOK_END] Job 2049224 host-pre-hook is finished successfully at 2026/11/06 12:00:40 , co
+st time: 11253 ms.
+(base) nsls_yangyb@login02:~$ find /home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_2026
+1106/compute_y86_ab_v1 -maxdepth 2 -type f -printf "%P %s
+> " 2>/dev/null
+bicgstab_1/stdout.txt 0
+bicgstab_1/stderr.txt 6708
+(base) nsls_yangyb@login02:~$

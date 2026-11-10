@@ -1,0 +1,54 @@
+PYQCU::KUPL::MULTIGRID::WARNING:
+ Legacy-MultiGrid levels=2, coarsest=[12,6,6,8], next=[6,3,3,8], volume=3456. Legacy de
+faults to 2 levels; deep or small coarse hierarchies are experimental.
+PYQCU::KUPL::MULTIGRID::WARNING:
+ Legacy-MultiGrid levels=2, coarsest=[12,6,6,8], next=[6,3,3,8], volume=3456. Legacy de
+faults to 2 levels; deep or small coarse hierarchies are experimental.
+PYQCU::KUPL::MG_PROFILE:
+ total=1.247864 fine_apply=0.744091 fine_calls=32 coarse_apply=0.058240 coarse_calls=19
+ restrict=0.002672 restrict_calls=2 prolong=0.004471 prolong_calls=2 coarse_correction=
+0.247814 coarse_correction_calls=2 prepare=0.010328 store=0.012720 full_residual=0.0424
+55
+{"backend": "kupl", "solver": "applyCloverMultigridQcu", "lattice": [24, 24, 24, 64], "
+local_lattice": [24, 12, 12, 16], "local_starts": [0, 0, 0, 0], "grid": [1, 2, 2, 4], "
+grid_coordinate": [0, 0, 0, 0], "mpi_rank": 0, "mpi_size": 16, "dtype": "complex64", "m
+ass": -0.277, "kappa": 0.13430029546065003, "mass_normalization": "kappa", "csw": 1.160
+920226, "atol": 0.0001, "max_iter": 50, "levels": 2, "dof": [12, 4], "mg_grid": [2, 2,
+2, 1], "restart": 10, "coarse_max_iter": 20, "coarse_tol_factor": 10.0, "deflate": true
+, "builder_seconds": 2.485436161980033, "input_prebind_seconds": 0.0, "hdf5_mpio_read":
+ false, "gauge_slab_dir": "/home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_20261106/y91
+_gauge_slabs_1224", "source_slab_dir": "/home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt
+_20261106/y91_source_slabs_1224", "gauge_read_seconds": 0.03395063290372491, "source_re
+ad_seconds": 0.009584936778992414, "coarse_source": "/home/share/nsls_yangyb/PyQCU/data
+/kupl_hbm_opt_20261106/mg_e4_tblock1_L24_v1/cache_E4_mg2x2x2x1.h5", "wall_seconds": 1.2
+50455027911812, "residual_seconds": 2.580997534096241e-05, "verify_status": 0, "residua
+l_acceptance": 0.0001, "residual_source": "KUPL native fail-closed solve; independent c
+heck skipped", "converged": true, "memory": {"available": true, "max_rss_kib": 569236,
+"resident_kib": 533288, "omp_threads": "8"}, "status": "PASS"}
+[1]+  Done                    nohup bash /home/share/nsls_yangyb/logs/run_y91_login_122
+4_mg.sh > /home/share/nsls_yangyb/logs/login_y91_1224_mg.log 2>&1
+(base) nsls_yangyb@login02:~$ nohup python -B /home/share/nsls_yangyb/PyQCU/pyqcu/testi
+ng/simple/prepare_mpi_slab.py --input /home/share/nsls_yangyb/PyQCU/data/production_L24
+/gauge_24x24x24x64_c64.h5 --lat 24 24 24 64 --grid 1 1 1 8 --output-dir /home/share/nsl
+s_yangyb/PyQCU/data/kupl_hbm_opt_20261106/y91_gauge_slabs_1118 --kind gauge --dtype c64
+ > /home/share/nsls_yangyb/logs/prepare_y91_gauge_1118.log 2>&1 &
+[1] 234482
+(base) nsls_yangyb@login02:~$ tail -n 10 /home/share/nsls_yangyb/logs/prepare_y91_gauge
+_1118.log
+nohup: ignoring input
+slab rank=0/8 shape=(3, 3, 4, 24, 24, 24, 8) bytes=31856856
+slab rank=1/8 shape=(3, 3, 4, 24, 24, 24, 8) bytes=31856856
+slab rank=2/8 shape=(3, 3, 4, 24, 24, 24, 8) bytes=31856856
+slab rank=3/8 shape=(3, 3, 4, 24, 24, 24, 8) bytes=31856856
+slab rank=4/8 shape=(3, 3, 4, 24, 24, 24, 8) bytes=31856856
+slab rank=5/8 shape=(3, 3, 4, 24, 24, 24, 8) bytes=31856856
+slab rank=6/8 shape=(3, 3, 4, 24, 24, 24, 8) bytes=31856856
+slab rank=7/8 shape=(3, 3, 4, 24, 24, 24, 8) bytes=31856856
+{"manifest": "/home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_20261106/y91_gauge_slabs_
+1118/manifest.json", "ranks": 8}
+[1]+  Done                    nohup python -B /home/share/nsls_yangyb/PyQCU/pyqcu/testi
+ng/simple/prepare_mpi_slab.py --input /home/share/nsls_yangyb/PyQCU/data/production_L24
+/gauge_24x24x24x64_c64.h5 --lat 24 24 24 64 --grid 1 1 1 8 --output-dir /home/share/nsl
+s_yangyb/PyQCU/data/kupl_hbm_opt_20261106/y91_gauge_slabs_1118 --kind gauge --dtype c64
+ > /home/share/nsls_yangyb/logs/prepare_y91_gauge_1118.log 2>&1
+(base) nsls_yangyb@login02:~$

@@ -1,0 +1,54 @@
+
+    totalStime                                  0
+
+    totalMaxMemSwp                              0
+
+    totalMaxMem                                 0
+
+    hostPreHookRunTime                          12
+
+    preHookRunTime                              0
+
+    jobWallclockDuration                        0
+
+    postHookRunTime                             0
+
+    hostPostHookRunTime                         0
+
+    jobSstoppedTime                             0
+
+    coreHours                                   0
+
+    nodeUsages
+        execNode             resGroup resIndex utime    stime    wallclockDuration    s
+stoppedTime     cpuUtil          gpuUtil          npuUtil          memResource
+
+        cn10579              0        0/1      0        0        0                    0
+                0/0              -                -                0/0/0/0/1/1/0/0
+
+    nodePids
+        execNode             pids
+        cn10579              905937
+    traceMessages                               2026/11/06 12:47:31    :    [JOB_ADD] J
+ob 2049477 is submitted by nsls_yangyb, job state is PENDING.
+                                                2026/11/06 12:47:36    :    [JOB_START]
+ Job 2049477 start message has been sent.
+                                                2026/11/06 12:47:36    :    [JOB_START_
+ACK] Job 2049477 start message has been received by agent cn10579.
+                                                2026/11/06 12:47:37    :    [JOB_EXECUT
+ION] Job 2049477 state is from PENDING to RUNNING.
+                                                2026/11/06 12:47:38    :    [HOST_PRE-H
+OOK_START] Job 2049477 host-pre-hook started at 2026/11/06 12:47:38 .
+                                                2026/11/06 12:47:49    :    [HOST_PRE-H
+OOK_END] Job 2049477 host-pre-hook is finished successfully at 2026/11/06 12:47:49 , co
+st time: 11652 ms.
+(base) nsls_yangyb@login02:~$ find /home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_2026
+1106/compute_y91_slab16_v1 -maxdepth 2 -type f -printf %P%s
+bicgstab_1/stdout.txt0bicgstab_1/stderr.txt0(base) nsls_yangyb@login02:~$ find /home/sh
+are/nsls_yangyb/PyQCU/data/kupl_hbm_opt_20261106/compute_y91_slab16_v1 -maxdepth 2 -typ
+e f -printf %P%s
+bicgstab_1/stdout.txt0bicgstab_1/stderr.txt0(base) nsls_yangyb@login02:~$ tail -n 30 /h
+ome/share/nsls_yangyb/y91.out
+tail: cannot open '/home/share/nsls_yangyb/y91.out' for reading: No such file or direct
+ory
+(base) nsls_yangyb@login02:~$

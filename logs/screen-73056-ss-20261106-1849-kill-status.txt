@@ -1,0 +1,54 @@
+26314,2026315,2026316,2026317,2026318,2026324,2026340,2026354,2026358,2026359,2026362
+(base) nsls_yangyb@login02:~$ cp /home/share/nsls_yangyb/logs/job_y91_kill.sh /home/sha
+re/nsls_yangyb/logs/job_y91_manualgeom_kill.sh
+(base) nsls_yangyb@login02:~$ sed -i -e s/qcu_y91k/qcu_y91mk/g -e s#/y91k.out#/y91mk.ou
+t# -e s#/y91k.err#/y91mk.err# -e s/^kill\ -TERM.*/kill\ -TERM\ 1984959\ 2026084\ 202630
+7\ 2026308\ 2026310\ 2026312\ 2026313\ 2026314\ 2026315\ 2026316\ 2026317\ 2026318\ 202
+6324\ 2026340\ 2026354\ 2026358\ 2026359\ 2026362\ ||\ true/ /home/share/nsls_yangyb/lo
+gs/job_y91_manualgeom_kill.sh
+sed: -e expression #4, char 171: unterminated `s' command
+-bash:  true/: No such file or directory
+(base) nsls_yangyb@login02:~$ dsub -q q_hpcapp /home/share/nsls_yangyb/logs/job_y91_man
+ualgeom_kill.sh
+Submit job <2051048> successfully.
+(base) nsls_yangyb@login02:~$ cp /home/share/nsls_yangyb/logs/job_y91_kill.sh /home/sha
+re/nsls_yangyb/logs/job_y91_manualgeom_kill2.sh
+(base) nsls_yangyb@login02:~$ sed -i -e s/905937/1984959/g -e s/906096/2026084/g -e s/9
+06510/2026307/g -e s/906511/2026308/g -e s/906512/2026310/g -e s/906513/2026312/g -e s/
+906520/2026313/g -e s/906522/2026314/g -e s/906523/2026315/g -e s/906524/2026316/g -e s
+/906525/2026317/g -e s/906526/2026318/g -e s/906531/2026324/g -e s/906536/2026340/g -e
+s/906595/2026354/g -e s/906596/2026358/g -e s/906605/2026359/g -e s/906607/2026362/g /h
+ome/share/nsls_yangyb/logs/job_y91_manualgeom_kill2.sh
+(base) nsls_yangyb@login02:~$ grep "^kill -TERM" /home/share/nsls_yangyb/logs/job_y91_m
+anualgeom_kill2.sh
+kill -TERM 1984959 2026084 2026307 2026308 2026310 2026312 2026313 2026314 2026315 2026
+316 2026317 2026318 2026324 2026340 2026354 2026358 2026359 2026362 || true
+(base) nsls_yangyb@login02:~$ dsub -q q_hpcapp /home/share/nsls_yangyb/logs/job_y91_man
+ualgeom_kill2.sh
+Submit job <2051058> successfully.
+(base) nsls_yangyb@login02:~$ djob -ll 2050917 | grep -E "jobWallclockDuration|jobExitC
+ode|JOB_FINISH"
+    jobWallclockDuration                        787
+
+    jobExitCode                                 143
+
+                                                2026/11/06 15:48:48    :    [JOB_FINIS]
+ Job 2050917 state is from RUNNING to FAILED, reason: job failed.
+(base) nsls_yangyb@login02:~$ djob -ll 2051058 | tail -n 8
+        cn10579              -
+    traceMessages                               2026/11/06 15:48:21    :    [JOB_ADD] J
+ob 2051058 is submitted by nsls_yangyb, job state is PENDING.
+                                                2026/11/06 15:48:25    :    [JOB_START]
+ Job 2051058 start message has been sent.
+                                                2026/11/06 15:48:25    :    [JOB_START_
+ACK] Job 2051058 start message has been received by agent cn10579.
+                                                2026/11/06 15:48:25    :    [JOB_EXECUT
+ION] Job 2051058 state is from PENDING to RUNNING.
+                                                2026/11/06 15:48:27    :    [HOST_PRE-H
+OOK_START] Job 2051058 host-pre-hook started at 2026/11/06 15:48:26 .
+                                                2026/11/06 15:48:38    :    [HOST_PRE-H
+OOK_END] Job 2051058 host-pre-hook is finished successfully at 2026/11/06 15:48:37 , co
+st time: 11264 ms.
+                                                2026/11/06 15:48:47    :    [JOB_FINISH
+] Job 2051058 state is from RUNNING to SUCCEEDED.
+(base) nsls_yangyb@login02:~$

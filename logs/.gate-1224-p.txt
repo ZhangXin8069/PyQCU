@@ -1,0 +1,54 @@
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=12 local_size=16 numa_nodes=4 cpu_node=-1 cpuset=none memory_node=-1 memory
+_policy=default memory_bound=false threads=8 bound_threads=0 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=1 local_size=16 numa_nodes=4 cpu_node=-1 cpuset=none memory_node=-1 memory_
+policy=default memory_bound=false threads=8 bound_threads=0 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=9 local_size=16 numa_nodes=4 cpu_node=-1 cpuset=none memory_node=-1 memory_
+policy=default memory_bound=false threads=8 bound_threads=0 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=13 local_size=16 numa_nodes=4 cpu_node=-1 cpuset=none memory_node=-1 memory
+_policy=default memory_bound=false threads=8 bound_threads=0 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=6 local_size=16 numa_nodes=4 cpu_node=-1 cpuset=none memory_node=-1 memory_
+policy=default memory_bound=false threads=8 bound_threads=0 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=4 local_size=16 numa_nodes=4 cpu_node=-1 cpuset=none memory_node=-1 memory_
+policy=default memory_bound=false threads=8 bound_threads=0 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=8 local_size=16 numa_nodes=4 cpu_node=-1 cpuset=none memory_node=-1 memory_
+policy=default memory_bound=false threads=8 bound_threads=0 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=5 local_size=16 numa_nodes=4 cpu_node=-1 cpuset=none memory_node=-1 memory_
+policy=default memory_bound=false threads=8 bound_threads=0 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=2 local_size=16 numa_nodes=4 cpu_node=-1 cpuset=none memory_node=-1 memory_
+policy=default memory_bound=false threads=8 bound_threads=0 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=0 local_size=16 numa_nodes=4 cpu_node=-1 cpuset=none memory_node=-1 memory_
+policy=default memory_bound=false threads=8 bound_threads=0 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=10 local_size=16 numa_nodes=4 cpu_node=-1 cpuset=none memory_node=-1 memory
+_policy=default memory_bound=false threads=8 bound_threads=0 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=14 local_size=16 numa_nodes=4 cpu_node=-1 cpuset=none memory_node=-1 memory
+_policy=default memory_bound=false threads=8 bound_threads=0 source=sysfs
+{"backend": "kupl", "solver": "applyCloverMultigridQcu", "lattice": [24, 24, 24, 64], "
+local_lattice": [24, 12, 12, 16], "local_starts": [0, 0, 0, 0], "grid": [1, 2, 2, 4], "
+grid_coordinate": [0, 0, 0, 0], "mpi_rank": 0, "mpi_size": 16, "dtype": "complex64", "m
+ass": -0.277, "kappa": 0.13430029546065003, "mass_normalization": "kappa", "csw": 1.160
+920226, "atol": 0.0001, "max_iter": 50, "levels": 1, "dof": [12], "mg_grid": [2, 2, 2,
+2], "restart": 0, "coarse_max_iter": 200, "coarse_tol_factor": 10000.0, "deflate": true
+, "builder_seconds": 0.0, "input_prebind_seconds": 0.0, "hdf5_mpio_read": false, "gauge
+_slab_dir": "/home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_20261106/y91_gauge_slabs_1
+224", "source_slab_dir": "/home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_20261106/y91_
+source_slabs_1224", "gauge_read_seconds": 0.03158536599949002, "source_read_seconds": 0
+.010010975180193782, "coarse_source": "unused: restart=0", "wall_seconds": 1.0848887329
+921126, "iterations": 16, "residual_seconds": 4.0180981159210205e-05, "residual_accepta
+nce": 0.0001, "residual_source": "KUPL native fail-closed solve; independent check skip
+ped", "converged": true, "memory": {"available": true, "max_rss_kib": 542904, "resident
+_kib": 449724, "omp_threads": "8"}, "status": "PASS"}
+[1]+  Done                    nohup bash /home/share/nsls_yangyb/logs/run_y91_login_122
+4_bicg.sh > /home/share/nsls_yangyb/logs/login_y91_1224_bicg.log 2>&1
+(base) nsls_yangyb@login02:~$

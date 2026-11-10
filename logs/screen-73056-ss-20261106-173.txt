@@ -1,0 +1,54 @@
+    -aa,  --any-arch               runs a job on nodes of any architecture.
+    -ar,  --adv-reservation        specifies the advanced reservation for a job.
+    -jR,  --job-resource           specifies job resource requirements.
+          --label                  assigns a job to nodes with specified labels. Exampl
+e: pmi,ssd,!maintenance
+    -mR,  --min-resource           specifies the minimum replica resource requirements
+for a job. Example: cpu=1,mem=128MB
+    -nl,  --node-list              lists nodes, resource pools, or topology to run a jo
+b. Example: rack1 host1 respool+3 host[10-20]+2 !host15
+    -nn,  --nnodes                 specifies the number of nodes to run a job.
+    -N,   --replica                specifies the number of task replicas. Default: 1. R
+ange: [1, 2147483647].
+                                   The value can be a number or a value range in the fo
+rmat of min,max. Example: -N 3,5
+    -O,   --order                  specifies a candidate node sequence policy. Example:
+ cpu:mem:util
+    -rpn, --replica-per-node       specifies the maximum number of replicas a job runs
+on each node. Range: [1, 2048]
+    -R,   --resource               specifies replica resource requirements. Default: cp
+u=1,mem=128MB
+    -RG,  --resource-groups        specifies multiple resource groups with resource req
+uirements for a job. Example: -RG '{-R 'cpu=8'} + {-N 2}'
+    -RL,  --resource-limit         specifies the replica resource limit. Supported: mem
+. Example: mem=10485760MB
+runtime options:
+          --cwd                    specifies the working directory.
+    -e,   --error                  appends the standard error output of a job to the sp
+ecified file.
+    -eo,  --error-override         overrides the standard error output of a job to the
+specified file.
+          --env                    specifies environment variables for a job. Example:
+none|all|EXEC_HOME=/root
+    -o,   --output                 appends the standard output of a job to the specifie
+d file.
+                                   If only -o is specified for dsub, stdout and stderr
+are output to the file specified by -o.
+    -oo,  --output-override        overrides the standard output of a job to the specif
+ied file.
+                                   If only -oo is specified for dsub, stdout and stderr
+ are output to the file specified by -oo.
+          --posthook               specifies post-execution command after a job complet
+es.
+          --prehook                specifies pre-execution command before a job starts.
+          --precheck               specifies the type of precheck and the number of red
+undant nodes. Example: type=basic,backup-nodes=2.
+    -rnc, --resize-notify-cmd      specifies the path to the resize-notify-cmd script o
+f a resizable job.
+    -T,   --timeout                sets the timeout interval for a job, in seconds. Def
+ault: 0. Range: [0, 31536000]
+    -ug,  --usergroup              sets the user group ID. Range: [0, 4294967294]
+other options:
+    -J,   --json                   displays received packets as JSON strings.
+    -h,   --help                   displays help information for the command.
+(base) nsls_yangyb@login02:~$

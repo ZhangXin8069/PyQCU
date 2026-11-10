@@ -1,0 +1,54 @@
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=1 local_size=16 numa_nodes=16 cpu_node=1 cpuset=38-45 memory_node=17 memory
+_policy=bind memory_bound=true threads=8 bound_threads=8 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=5 local_size=16 numa_nodes=16 cpu_node=5 cpuset=190-197 memory_node=21 memo
+ry_policy=bind memory_bound=true threads=8 bound_threads=8 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=11 local_size=16 numa_nodes=16 cpu_node=11 cpuset=418-425 memory_node=27 me
+mory_policy=bind memory_bound=true threads=8 bound_threads=8 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=3 local_size=16 numa_nodes=16 cpu_node=3 cpuset=114-121 memory_node=19 memo
+ry_policy=bind memory_bound=true threads=8 bound_threads=8 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=10 local_size=16 numa_nodes=16 cpu_node=10 cpuset=380-387 memory_node=26 me
+mory_policy=bind memory_bound=true threads=8 bound_threads=8 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=14 local_size=16 numa_nodes=16 cpu_node=14 cpuset=532-539 memory_node=30 me
+mory_policy=bind memory_bound=true threads=8 bound_threads=8 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=6 local_size=16 numa_nodes=16 cpu_node=6 cpuset=228-235 memory_node=22 memo
+ry_policy=bind memory_bound=true threads=8 bound_threads=8 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=2 local_size=16 numa_nodes=16 cpu_node=2 cpuset=76-83 memory_node=18 memory
+_policy=bind memory_bound=true threads=8 bound_threads=8 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=8 local_size=16 numa_nodes=16 cpu_node=8 cpuset=304-311 memory_node=24 memo
+ry_policy=bind memory_bound=true threads=8 bound_threads=8 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=12 local_size=16 numa_nodes=16 cpu_node=12 cpuset=456-463 memory_node=28 me
+mory_policy=bind memory_bound=true threads=8 bound_threads=8 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=4 local_size=16 numa_nodes=16 cpu_node=4 cpuset=152-159 memory_node=20 memo
+ry_policy=bind memory_bound=true threads=8 bound_threads=8 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=0 local_size=16 numa_nodes=16 cpu_node=0 cpuset=0-7 memory_node=16 memory_p
+olicy=bind memory_bound=true threads=8 bound_threads=8 source=sysfs
+(base) nsls_yangyb@login02:~$ find /home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_2026
+1106/compute_y91_slab16_v1 -maxdepth 2 -type f -printf %P%s
+bicgstab_1/stdout.txt0bicgstab_1/stderr.txt9624(base) nsls_yangyb@login02:~$ printf '%s
+' 'H4sICGJe7WoAA2pvYl95OTFfa2lsbC5zaACFkEFPgzAUx+/9FM/tsBNCQZiN4WK2mMXpYbiDiQkBVgUHbWlL
+Isk+vMxn1ZuX/l5///f6ks4v/LIRflmYmsxX2f4WPK9TDdTT4UQPfV6rqlDKGQF9NeQjo0dnPuBdlj+xAOrqx99
+Sqz9+B7NKDSm96XiX0ruZ81KCX8uO+6YuNPeFaU0+FuJtLP3zvks5WNfK/2nlWrvWJ0gCQgy34A3k2LTtpNa7B2
+BBzKLlhCRgyRkxDRAUESKiL4SYhSjDb3mFiBH4SoTjEd4YZrghCWLEEk4nsHrgxLScK4jIobB8+v/GSO86CWhqe
+CXFwZBaGiuKjhOlG2FfYfHMaH6/2W7zTZbt16sXsSCft20JKMkBAAA=' > /home/share/nsls_yangyb/b64/
+sync_job_y91_kill_20261106.b64
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/b64/sync_job_y91_kill_2
+0261106.b64 > /home/share/nsls_yangyb/b64/sync_job_y91_kill_20261106.tgz
+(base) nsls_yangyb@login02:~$ gzip -dc /home/share/nsls_yangyb/b64/sync_job_y91_kill_20
+261106.tgz > /home/share/nsls_yangyb/logs/job_y91_kill.sh
+(base) nsls_yangyb@login02:~$ chmod 750 /home/share/nsls_yangyb/logs/job_y91_kill.sh
+(base) nsls_yangyb@login02:~$ dsub -q q_hpcapp /home/share/nsls_yangyb/logs/job_y91_kil
+l.sh
+Submit job <2049541> successfully.
+(base) nsls_yangyb@login02:~$

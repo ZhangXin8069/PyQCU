@@ -1,0 +1,54 @@
+    jobExitCode                                 0
+
+    systemExitCode                              0
+
+    exitMessage                                 Job execution succeeded
+
+    nodeUsages
+        execNode             resGroup resIndex utime    stime    wallclockDuration    s
+stoppedTime     cpuUtil          gpuUtil          npuUtil          memResource
+
+        cn10579              0        0/1      87       82       57                   0
+                298/105          -                -                0/5/0/0/1784/1784/27
+5/0
+    nodePids
+        execNode             pids
+        cn10579              -
+    traceMessages                               2026/11/06 14:42:31    :    [JOB_ADD] J
+ob 2050424 is submitted by nsls_yangyb, job state is PENDING.
+                                                2026/11/06 14:42:35    :    [JOB_START]
+ Job 2050424 start message has been sent.
+                                                2026/11/06 14:42:35    :    [JOB_START_
+ACK] Job 2050424 start message has been received by agent cn10579.
+                                                2026/11/06 14:42:35    :    [JOB_EXECUT
+ION] Job 2050424 state is from PENDING to RUNNING.
+                                                2026/11/06 14:42:36    :    [HOST_PRE-H
+OOK_START] Job 2050424 host-pre-hook started at 2026/11/06 14:42:36 .
+                                                2026/11/06 14:42:47    :    [HOST_PRE-H
+OOK_END] Job 2050424 host-pre-hook is finished successfully at 2026/11/06 14:42:47 , co
+st time: 11243 ms.
+                                                2026/11/06 14:43:44    :    [JOB_FINISH
+] Job 2050424 state is from RUNNING to SUCCEEDED.
+(base) nsls_yangyb@login02:~$ ls -lh /home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_20
+261106/compute_y101_init_profile_v1
+total 576K
+-rw-r----- 1 nsls_yangyb eapp 13K Nov  6 14:43 mpirun.err
+-rw-r----- 1 nsls_yangyb eapp   0 Nov  6 14:42 mpirun.out
+-rw-r----- 1 nsls_yangyb eapp  72 Nov  6 14:43 rank_0000.txt
+-rw-r----- 1 nsls_yangyb eapp  72 Nov  6 14:43 rank_0001.txt
+-rw-r----- 1 nsls_yangyb eapp  72 Nov  6 14:43 rank_0002.txt
+-rw-r----- 1 nsls_yangyb eapp  72 Nov  6 14:43 rank_0003.txt
+-rw-r----- 1 nsls_yangyb eapp  72 Nov  6 14:43 rank_0004.txt
+-rw-r----- 1 nsls_yangyb eapp  72 Nov  6 14:43 rank_0005.txt
+-rw-r----- 1 nsls_yangyb eapp  72 Nov  6 14:43 rank_0006.txt
+-rw-r----- 1 nsls_yangyb eapp  72 Nov  6 14:43 rank_0007.txt
+-rw-r----- 1 nsls_yangyb eapp  72 Nov  6 14:43 rank_0008.txt
+-rw-r----- 1 nsls_yangyb eapp  72 Nov  6 14:43 rank_0009.txt
+-rw-r----- 1 nsls_yangyb eapp  73 Nov  6 14:43 rank_0010.txt
+-rw-r----- 1 nsls_yangyb eapp  73 Nov  6 14:43 rank_0011.txt
+-rw-r----- 1 nsls_yangyb eapp  73 Nov  6 14:43 rank_0012.txt
+-rw-r----- 1 nsls_yangyb eapp  73 Nov  6 14:43 rank_0013.txt
+-rw-r----- 1 nsls_yangyb eapp  73 Nov  6 14:43 rank_0014.txt
+-rw-r----- 1 nsls_yangyb eapp  73 Nov  6 14:43 rank_0015.txt
+-rw-r----- 1 nsls_yangyb eapp  67 Nov  6 14:43 start.txt
+(base) nsls_yangyb@login02:~$

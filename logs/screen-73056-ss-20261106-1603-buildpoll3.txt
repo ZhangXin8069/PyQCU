@@ -1,0 +1,54 @@
+(base) nsls_yangyb@login02:~$ find /home/share/nsls_yangyb/sh -maxdepth 1 -type f -name
+ "*y101*" -print
+(base) nsls_yangyb@login02:~$ find /home/share/nsls_yangyb/sh /home/share/nsls_yangyb/P
+yQCU-main/data/kupl_hbm_opt_20261106 -maxdepth 3 -type f -name "*y101*" -print
+(base) nsls_yangyb@login02:~$ grep -l compute_y101_init_profile_v1 /home/share/nsls_yan
+gyb/sh/*.sh
+(base) nsls_yangyb@login02:~$ grep -R -l compute_y101_init_profile_v1 /home/share/nsls_
+yangyb/py /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106
+(base) nsls_yangyb@login02:~$ djob -ll 2050424 > /home/share/nsls_yangyb/PyQCU-main/dat
+a/kupl_hbm_opt_20261106/djob_2050424.txt
+(base) nsls_yangyb@login02:~$ grep -E "jobScript|script|command|cmd|workDir|jobName|app
+lication|output" /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/djob_205
+0424.txt
+    cmd                                         /home/share/nsls_yangyb/logs/job_y101_i
+nit_profile.sh
+    description                                 -
+
+(base) nsls_yangyb@login02:~$ cat /home/share/nsls_yangyb/logs/job_y101_init_profile.sh
+#!/bin/bash
+#DSUB --mpi hmpi
+#DSUB -q q_hpcapp
+#DSUB -n qcu_y101
+#DSUB -x job
+#DSUB -nn 1
+#DSUB -N 16
+#DSUB -rpn 16
+#DSUB -R "cpu=8;mem=8G"
+#DSUB -oo /home/share/nsls_yangyb/y101.out
+#DSUB -eo /home/share/nsls_yangyb/y101.err
+#DSUB -T 300
+
+set -u
+source /home/share/nsls_yangyb/PyQCU/env.sh
+root=/home/share/nsls_yangyb/PyQCU
+work="$root/data/kupl_hbm_opt_20261106/compute_y101_init_profile_v1"
+mkdir -p "$work"
+printf 'START %s\n' "$(date --iso-8601=seconds)" >"$work/start.txt"
+export PREBIND_WORK="$work"
+export PYQCU_KUPL_LIB="$root/data/kupl_hbm_opt_20261106/build-ht2split-generic/libqcu.s
+o"
+export LD_LIBRARY_PATH="$(dirname "$PYQCU_KUPL_LIB"):${LD_LIBRARY_PATH}"
+export OMP_NUM_THREADS=8 KUPL_OMP_THREADS=8
+export KUPL_NUMA_BIND=1 KUPL_MEMORY_POLICY=default KUPL_HUGEPAGE=0
+export KUPL_TOPOLOGY_REPORT=1 KUPL_PROFILE_INIT=1
+unset KUPL_MEMORY_NODE KUPL_REQUIRE_MEMORY_BIND
+timeout -k 5s 240s mpirun --oversubscribe -np 16 --bind-to none \
+  --map-by slot --allow-run-as-root python -B \
+  /home/share/nsls_yangyb/logs/probe_prebind.py \
+  >"$work/mpirun.out" 2>"$work/mpirun.err"
+printf 'END rc=%s %s\n' "$?" "$(date --iso-8601=seconds)" >>"$work/start.txt"
+(base) nsls_yangyb@login02:~$ cmake --build /home/share/nsls_yangyb/PyQCU-main/data/kup
+l_hbm_opt_20261106/build-ht2split-generic -j 8 > /home/share/nsls_yangyb/PyQCU-main/dat
+a/kupl_hbm_opt_20261106/build_profile_rebuild_20261106_1603.log 2>&1
+(base) nsls_yangyb@login02:~$

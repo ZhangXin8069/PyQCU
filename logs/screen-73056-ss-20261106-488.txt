@@ -1,0 +1,54 @@
+61106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'L4kFfk184myZCu
+> N9hXBmzHT2UhDuIlL9EcVsjpLAOkYmsL+b9F1l+edn27hSl0O8MbSrs1aKVNoq0xuPkYcuhwfi0R7tVZFN5UZ
+PkZV3M0AJzjtmjM2TTYprnGZ6/uRpP4MD/cfXsLlO1Fg8OrQqHGomFd2g0kjzCE2moIaHpuHzXDqhgGUPsv/suu
+t3DRvYV66dXJLYsMlCZ9vbUAXX2XLskERVffo0valw8NtwIkqjVVE7gKVeaUbgOsM+h+BMPvvBvXw5RleR9B8B2
+uQQ0TaVnULDDi/8EdCZwsMorSiJspmnuu1s9yzKEE1UJ2RO8+mxNhlhyswhJfC9E7WLvwbaul4+DpOmTYM7202M
+lX9lQvFaoGzuncAcNvaVKHKUwQoHF8lysNVaxO7HJMAXVM54mr4Hli2dKA8G6UWkUyFqw5KhMYjQAcXRQNTcLAX
+3NCecIOs93InXKktzQ8LR8y5kQ3/spYo' >> /home/share/nsls_yangyb/b64/sync_init_profile_2026
+1106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'hw4uVmO5MzL9FP/
+> rqUyv3w1pmwmqvvHWZlcTxPMrqO82skkpTtQWYodlxEhc3NlaS9EQS+ASW5YNp1RWYelX6pGgD+ySs6eLodxm
+BgnmR0xp/Iuf4HyYwWx3XWTCLvK/3Wm1CUeF3chL5M4Vd029M6xiwBvtsdpPbyJk9FIrlWoweVGMt18CubAJPmY
+shngX3iiotzaZWUXawZGZ3sIrIYRjEHF4YXbmN8Gdvi1a0hocD1BwroSWUycJSv9234DXZ8UyShaBhuZHurJksZ
+fbbojEXgn4+kszV+8UkxeMuc/g/5uy6rgsnX9UHgT9P4rn+2kEaPAOWwPDe9rx+VFRXam9JFaATndWKQNQV636j
+SZeurwzhyhWLQH/OuvflITlPh5Gss3OuSOhixD9QVTZlJp91Cc4Fa7pUqeEw9GxBcglz1wL9NupFp5jvdA7Wapr
+P8WyGHYzUOiLMOp52FyLQN+V5m8art1' >> /home/share/nsls_yangyb/b64/sync_init_profile_20261
+106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 's885lWXXMUaOufPa
+> AeXeY2bfsPyiJdGdH/mRsSV1B/JsK8PTSJdxqV1nV3R7FxWqY00KFsnPfmgY/EvKGYmhc5aNIeyFwC3LJeNUu
+TdILKCtEVBvTYFVoy3T+tyAePvcoohL8/STvAYqSDAPoTPiQxe3u0SE0ra9LG0kZPCPXDyowlnYTT5uD1GxRe7V
+X+0Usevm3b401nXueDHRMmYfYa/8IMmqln7Q7kNLnuyb+UR7Dd0FxqBBbTwAY9D19/X3A3eBwn0abXTxsZGHEkO
+i7w3C580Eh2dLzcHLoKzxe+DlGr5gl9BDye6Gd4obe4W0Exy6rpA1a95XqnYK13ktHY/Zd+resWe6oE71BFRagD
+IXU5Ms1TrWxxgfqgKO87N1xqphL/y0qRFtt6GEBmy2wCk3p0stl+DdU++semDEdCaokhza3e4Nlugrr1dBlXUvp
+eUyo1VT0QnaoKL6r6mq30RZaXUVOtz' >> /home/share/nsls_yangyb/b64/sync_init_profile_202611
+06.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'cGAPOhHtpHp/JC6wH
+> fu0yb+je7uQa1hLUlgRFGaTK12rLWHbyBBcvozr2vGgp1TPaw4c7Qkw8m3Tr+luyvrqhwrn3rA0yu+Fk9RN5a
+OhezcdgSr79bnePdnglslyxQHVN1rHRJ3o0ur1jQ7l48MsGnPHJZt3ik7a61XeQHjwhpo3YDlv6sIYjEVhRFZCD
+hc9KlrGugeF4X3QQjfYqoLoZKT8A3Yyj6xI3Adj3HTQ8705LFiXU490LrO3tpnNLK29mgBuAmqsDNr76xQwXpAn
+hBrzSRv8kkxzxVAuvHGx7DjQZvc8qPEVfXqfxLLlOq8g5+z4agVao9E/YqA3+2zpl13mqOp4vRJUoqoRP68119Z
+eLn49fPf75uOPdAaq806V3LLx4/PSvBojNHqcrT7AjOjEdr1wo8nEUnz+JsSoFcfcV7bYi/w0GTohjTMxhGkH/4
+poweBnkbo0jC9u/9NBC0fs1ZUpZvO' >> /home/share/nsls_yangyb/b64/sync_init_profile_2026110
+6.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'AH1mFYisfAgCWOk/g3
+> 4aX8lFa0tAejAEWr495Ug7opDApDj4dWrjpTKV1NFFK4TPqAYBeX9oQ7sP7dIIoai4Ro4jdKEHB7JV08nWVf6
+ZI7dUj1fTbiAU0NTs3OyFzlYb5gDbmDEz+7ePny+ORYnU4mSMylN8APQm1WCKF1As38G4W8lPHWo3rNE+NsPWu/
+p4Muyvgat3SE7+iQsxpBegoJq7Ci5bE0rKhu8MCtMWzPzkh+yOhSafn+7bunSZ28vp2ll2rpxm21d8CKJ98/GjC
+dEri15GA8KRJSF/KuEOrKvgNjd+9Py4Dog+MNKCr6M1jS2XlezWdoe4Cw4a1BAm9j0d1dYZTlL6NhVnhjpOUIoW
+kJDT/vOha2FfPFV7u0CQ65yzptpCG0Db4SQ/Agfnw9T8qR1JryJyXRZnoX+b9Xp1Zh/QNybzVD8CTWsl9+a+c7O
+fTLeM5+PeDeFLNYQgbjm9TkPtt+y' >> /home/share/nsls_yangyb/b64/sync_init_profile_20261106
+.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'Nv0DSatLm1dp7Ljq7dL
+> I89BwpRxyuLlmpvuF9JIG5e3aORbR1UK9I+suUP3oX9VfvHOysvXLWuAirdv80JSeXkpsSZX6LuAOrkB/6yqY
+BV1L56YX00L9B1XFHb3tDHBY91Z7Aw9qKwbJCxioeEYuR+PJ/PqRkExN3J87tLasrKCYLnAJLhnujjaMDX4uSpb
+aJZHurII2dy4EmTPW/zkZjRV7Qbu/rE/ibr23/453t8/v39+//z++Y99/h/xMQRQAH4AAA==' >> /home/shar
+e/nsls_yangyb/b64/sync_init_profile_20261106.b64
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/b64/sync_init_profile_2
+0261106.b64 > /home/share/nsls_yangyb/b64/sync_init_profile_20261106.tgz
+(base) nsls_yangyb@login02:~$ tar -xzf /home/share/nsls_yangyb/b64/sync_init_profile_20
+261106.tgz -C /home/share/nsls_yangyb/PyQCU
+(base) nsls_yangyb@login02:~$ nohup bash /home/share/nsls_yangyb/logs/build_ht2split_ge
+neric.sh > /home/share/nsls_yangyb/logs/build_init_profile.log 2>&1 &
+[1] 828638
+(base) nsls_yangyb@login02:~$

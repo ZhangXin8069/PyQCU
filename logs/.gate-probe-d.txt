@@ -1,0 +1,54 @@
+  File "/home/share/nsls_yangyb/PyQCU/pyqcu/testing/__init__.py", line 3, in <module>
+    import torch
+  File "/work_ssd/software/soft/tool/anaconda3/2023.3/lib/python3.10/site-packages/torc
+h/__init__.py", line 202, in <module>
+    from torch._C import *  # noqa: F403
+ImportError: /usr/lib64/libstdc++.so.6: version `GLIBCXX_3.4.29' not found (required by
+ /work_ssd/software/soft/tool/anaconda3/2023.3/lib/python3.10/site-packages/torch/lib/l
+ibtorch_python.so)
+--------------------------------------------------------------------------
+Primary job  terminated normally, but 1 process returned
+a non-zero exit code. Per user-direction, the job has been aborted.
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+mpirun detected that one or more processes exited with non-zero status, thus causing
+the job to be terminated. The first process to do so was:
+
+  Process name: [[60953,1],4]
+  Exit code:    1
+--------------------------------------------------------------------------
+(base) nsls_yangyb@login02:~$ printf '%s' 'H4sICH9q7WoAA3Byb2JlX3ByZWJpbmQucHkArVTfb5sw
+EH7nr/DYC0jEIWmStpHYw9Zqqrb+WFdpD11lOWBSq2Az27RJo/zv82GSQKftaSjB5rvvPp/P53v/blhrNVxwMWT
+iGVVr8yjFkZcrWSJC8trUihGCeFlJZRAVQhpquBTa81pM6t3M8JI5z4qax4Ivdm439nPPF3VZrRHVSFSOXFZ8Yp
+HWfHlz4bUi619pjZ/qqtjZ7LfneWlBtUZXIHPHhJZq7iH7ZCy3EXPBDSGBZkUeoWda1Cx0ZngAxQ2IErs8pjqVw
+vBlLWtNlaLrwHl4e0GuyYHSqHbkFLPZEWghZREcpHFe0KXGacexI5hRQ0ll1F+0uDBdqdSsK6YxOFkNDwRKykUQ
+osEH4Dr/VJal3ZDNHP50fXlJflzffj1rLIqKJ2sBVSDhz8wQwIIwbOyav7K3dsB29hepwB/OL5Aa2wrhSop7/+b
+2' > /home/share/nsls_yangyb/b64/sync_probe_prebind_direct_20261106.b64
+s' '
+/OPF1Rms9MV/OHBx+ZRxFVRUMWF0cqdqFiG24toQ+dR8Om4hU1pY4WA8idDuP3E260xL7Q7olSmpg+lJhDLIRGI
+hG+vRuMu8j+eTB0tvNLt4g8LWrFelZBY0jLDnO52fAisYRaj9zXr2xhp3kVEMECSxh44AhdT10CNAp33/JqxxD5
+r+ucrswKJq+dxNRzcbeSHpPh9AvI8fIjcZ7SbHIDWI8fj42O4Px2wwgXE0i0/H8Xg8c5VgT96WZS/vozjuJ37WH
+tGC5VJB4cCNxxVTuS32WhimAkeAi0urqlhf2Ov4La2DfZ13rm2wWzOMerBLwRsQdhK+ET8X2f/WprndxD82FjQ3
+YohyHyqAbOA9jyfZFpuV8UP8orhhxLCVOYTluEnD3TY1kmzgvW3zmGzcOMezfOsiSDbN4BC/o8QKWmmWtXY0QB3
+Xn8KP9lQmUplxsUz82uSDE9+F33aZ2PYSDt1S0BK6e5I' >> /home/share/nsls_yangyb/b64/sync_probe
+_prebind_direct_20261106.b64
+printf '%s' 'g
+nxDoLIT487ZzcM3Q97U2rDxfcRO4vhN6vwEB6CB0MQYAAA==' >> /home/share/nsls_yangyb/b64/sync_p
+robe_prebind_direct_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' '
+> /OPF1Rms9MV/OHBx+ZRxFVRUMWF0cqdqFiG24toQ+dR8Om4hU1pY4WA8idDuP3E260xL7Q7olSmpg+lJhDLIR
+GIhG+vRuMu8j+eTB0tvNLt4g8LWrFelZBY0jLDnO52fAisYRaj9zXr2xhp3kVEMECSxh44AhdT10CNAp33/Jqxx
+D5r+ucrswKJq+dxNRzcbeSHpPh9AvI8fIjcZ7SbHIDWI8fj42O4Px2wwgXE0i0/H8Xg8c5VgT96WZS/vozjuJ37
+WHtGC5VJB4cCNxxVTuS32WhimAkeAi0urqlhf2Ov4La2DfZ13rm2wWzOMerBLwRsQdhK+ET8X2f/WprndxD82Fj
+Q3YohyHyqAbOA9jyfZFpuV8UP8orhhxLCVOYTluEnD3TY1kmzgvW3zmGzcOMezfOsiSDbN4BC/o8QKWmmWtXY0Q
+B3Xn8KP9lQmUplxsUz82uSDE9+F33aZ2PYSDt1S0BK6e5I' >> /home/share/nsls_yangyb/b64/sync_pro
+be_prebind_direct_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'g
+> nxDoLIT487ZzcM3Q97U2rDxfcRO4vhN6vwEB6CB0MQYAAA==' >> /home/share/nsls_yangyb/b64/sync
+_probe_prebind_direct_20261106.b64
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/b64/sync_probe_prebind_
+direct_20261106.b64 > /home/share/nsls_yangyb/b64/sync_probe_prebind_direct_20261106.tg
+z
+(base) nsls_yangyb@login02:~$ gzip -dc /home/share/nsls_yangyb/b64/sync_probe_prebind_d
+irect_20261106.tgz > /home/share/nsls_yangyb/logs/probe_prebind.py
+(base) nsls_yangyb@login02:~$

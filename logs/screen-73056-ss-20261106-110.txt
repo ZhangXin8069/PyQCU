@@ -1,0 +1,54 @@
+Npwmn3eL1Pmfr9M0mW8X69VZeftxvdqtZrvb2yRN3j8da9oQUzgAoaIVx2y6TdJPhjtQxiDeayKno0CB8cT8WXx
+70rXgIwBn4Hx77ckU' > /home/share/nsls_yangyb/b64/sync_l32_distributed_20261106.b64
+XFk7/FsQ4lOFi+0+rNX1RjWYISevjiy3iUtQQgQiIBlJeYHZYXPGqJpoa4lwaVyADNVpqcF4IITWyeTA8SMiXso
+jkSqLleF6U9y1m+wUgAGQzSZGK5Q9yAchnHwu5kaFJsTrAUDIYGRwz5AakoOxsFZv9SnloDCxcrIkTBlYjXHYg9
+C5LZN1SeB3C86a/KjM6ZMdiYvYt9EDcY2CIGlIhdv6OLtSWRigntcaCGBecchtDMB7Yic5+NSHzd1VtDvjMh6s9
+PlOsTtrvDqQFtoakha0wKEaxsZLTtsO6EfKVCaB6pj2vvR7+gbvdEbvdHPRv8BgP/OFQAMAAA=' >> /home/sh
+are/nsls_yangyb/b64/sync_l32_distributed_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'wtdEacorX9GmZcRvWmpv4Egye93D9tSXCRjbOS4OhJfA
+dpFhK9xVxFp77otH3x1lI/TQf3GUFXFk7/FsQ4lOFi+0+rNX1RjWYISevjiy3iUtQQgQiIBlJeYHZYXPGqJpoa4
+lwaVyADNVpqcF4IITWyeTA8SMiXsojkSqLleF6U9y1m+wUgAGQzSZGK5Q9yAchnHwu5kaFJsTrAUDIYGRwz5Aak
+oOxsFZv9SnloDCxcrIkTBlYjXHYg9C5LZN1SeB3C86a/KjM6ZMdiYvYt9EDcY2CIGlIhdv6OLtSWRigntcaCGBe
+cchtDMB7Yic5+NSHzd1VtDvjMh6s9PlOsTtrvDqQFtoakha0wKEaxsZLTtsO6EfKVCaB6pj2vvR7+gbvdEbvdHP
+Rv8BgP/OFQAMAAA=' >> /home/share/nsls_yangyb/b64/sync_l32_distributed_20261106.b64
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/b64/sync_l32_distribute
+d_20261106.b64 > /home/share/nsls_yangyb/b64/sync_l32_distributed_20261106.tgz
+(base) nsls_yangyb@login02:~$ tar -xzf /home/share/nsls_yangyb/b64/sync_l32_distributed
+_20261106.tgz -C /home/share/nsls_yangyb/py
+(base) nsls_yangyb@login02:~$ bash /home/share/nsls_yangyb/py/logs/run_l32_distributed_
+mg.sh
+[ROCE] roce3_user_log_init: [ERR]Failed to open libroce log file
+[ROCE] roce3_user_log_init: [ERR]Failed to open libroce log file
+[ROCE] roce3_user_log_init: [ERR]Failed to open libroce log file
+SDMA ERROR (sdma_constructor|75): [login02] Open SDMA fail:No such file or directory
+/home/share/nsls_yangyb/PyQCU/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang is un
+available; TileLang-specific acceleration and tests will be skipped (ModuleNotFoundErro
+r: No module named 'tilelang')
+  _tilelang = import_tilelang()
+PYQCU::KUPL::MG_BUILD:
+ stencil coarse=1/16384 elapsed=5.426s window=26
+Traceback (most recent call last):
+  File "/home/share/nsls_yangyb/PyQCU-main/pyqcu/testing/simple/mpi/solve_case.py", lin
+e 760, in <module>
+    raise SystemExit(main())
+  File "/home/share/nsls_yangyb/PyQCU-main/pyqcu/testing/simple/mpi/solve_case.py", lin
+e 674, in main
+    _build_coarse_cache(args, case, cache_path)
+  File "/home/share/nsls_yangyb/PyQCU-main/pyqcu/testing/simple/mpi/solve_case.py", lin
+e 281, in _build_coarse_cache
+    raise RuntimeError(
+RuntimeError: coarse-cache build failed with exit=1: mpirun --oversubscribe --bind-to n
+one -np 32 /usr/bin/env PYTHONPATH=/home/share/nsls_yangyb/PyQCU-main:/home/share/nsls_
+yangyb/PyQCU:/home/share/nsls_yangyb/.local/lib/python3.10/site-packages PYQCU_ROOT=/ho
+me/share/nsls_yangyb/PyQCU-main /work_ssd/software/soft/tool/anaconda3/2023.3/bin/pytho
+n3 /home/share/nsls_yangyb/PyQCU-main/pyqcu/testing/simple/build_full_mg_cache.py --gau
+ge /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/l32_distributed_e2_tbl
+ock4_v1/gauge_global_c64.h5 --lat 32 32 32 64 --mass -0.277 --csw 1.160920226 --dtype c
+64 --dof 12 2 --mg-grid 2 2 2 4 --nv-iters 1 --seed 42 --build-device cpu --batch-size
+4 --grid 1 2 4 4 --output /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106
+/l32_distributed_e2_tblock4_v1/coarse_c64_lv2_E12_2_mg2x2x2x4_nvi1_s42.h5 --report /hom
+e/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/l32_distributed_e2_tblock4_v1
+/coarse_c64_lv2_E12_2_mg2x2x2x4_nvi1_s42.json
+(base) nsls_yangyb@login02:~$ PYQCU::KUPL::MG_BUILD:
+ stencil coarse=820/16384 elapsed=143.190s window=26
+

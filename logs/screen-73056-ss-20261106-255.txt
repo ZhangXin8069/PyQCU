@@ -1,0 +1,54 @@
+bicgstab_1/stdout.txt976bicgstab_1/stderr.txt2400bicgstab_1/solution.h584941280bicgstab
+_1/report.json1193mg_1/stdout.txt0mg_1/stderr.txt1674(base) nsls_yangyb@login02:~$ tail
+ -n 30 /home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_20261106/compute_y89_ab_v1/mg_1/
+stderr.txt
+/home/share/nsls_yangyb/PyQCU/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang is un
+available; TileLang-specific acceleration and tests will be skipped (ModuleNotFoundErro
+r: No module named 'tilelang')
+  _tilelang = import_tilelang()
+/home/share/nsls_yangyb/PyQCU/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang is un
+available; TileLang-specific acceleration and tests will be skipped (ModuleNotFoundErro
+r: No module named 'tilelang')
+  _tilelang = import_tilelang()
+/home/share/nsls_yangyb/PyQCU/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang is un
+available; TileLang-specific acceleration and tests will be skipped (ModuleNotFoundErro
+r: No module named 'tilelang')
+  _tilelang = import_tilelang()
+/home/share/nsls_yangyb/PyQCU/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang is un
+available; TileLang-specific acceleration and tests will be skipped (ModuleNotFoundErro
+r: No module named 'tilelang')
+  _tilelang = import_tilelang()
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=3 local_size=4 numa_nodes=16 cpu_node=3 cpuset=114-145 memory_node=19 memor
+y_policy=bind memory_bound=true threads=32 bound_threads=32 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=0 local_size=4 numa_nodes=16 cpu_node=0 cpuset=0-31 memory_node=16 memory_p
+olicy=bind memory_bound=true threads=32 bound_threads=32 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=2 local_size=4 numa_nodes=16 cpu_node=2 cpuset=76-107 memory_node=18 memory
+_policy=bind memory_bound=true threads=32 bound_threads=32 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=1 local_size=4 numa_nodes=16 cpu_node=1 cpuset=38-69 memory_node=17 memory_
+policy=bind memory_bound=true threads=32 bound_threads=32 source=sysfs
+(base) nsls_yangyb@login02:~$ gzip -dc /home/share/nsls_yangyb/b64/sync_job_y89_kill_20
+261106.b64 > /home/share/nsls_yangyb/logs/job_y89_kill.sh
+gzip: /home/share/nsls_yangyb/b64/sync_job_y89_kill_20261106.b64.gz: No such file or di
+rectory
+(base) nsls_yangyb@login02:~$ chmod 750 /home/share/nsls_yangyb/logs/job_y89_kill.sh
+(base) nsls_yangyb@login02:~$ printf '%s' 'H4sICBdX7WoAA2pvYl95ODlfa2lsbC5zaACFkLFqwzAQ
+hnc9xTUZMjmyGuLYFC8loYSmHeJmKASM7FwrN7YkSzLUkIev3aC2W5f7fr774eCmN7SoJC24FWS6zg73EASNrkA
+Mw4sW2lzokmvtjYS27PI+Ts7efMKHKn7WEpjPz7/R6D9+D5NSdym7a7BJ2cPEe6WACtUgtYIbpNLWNu+5fO8LOt
+6bq875Kv5TRWN89QWikBCLDoKOnKu6HtRm/wSrWxYtFyNW8XJEEsZXJN9g4RUMLhdwpkNia0QNC3LiDodfVVYFc
+RSy1GKp5MkSoayTvEGiTSXdG8xe4yR/3O52+TbLDpv1Uc7IF38spHV1AQAA' > /home/share/nsls_yangyb/
+b64/sync_job_y89_kill_20261106.b64
+(base) nsls_yangyb@login02:~$ gzip -dc /home/share/nsls_yangyb/b64/sync_job_y89_kill_20
+261106.b64 > /home/share/nsls_yangyb/logs/job_y89_kill.sh
+
+gzip: /home/share/nsls_yangyb/b64/sync_job_y89_kill_20261106.b64: not in gzip format
+(base) nsls_yangyb@login02:~$ chmod 750 /home/share/nsls_yangyb/logs/job_y89_kill.sh
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/b64/sync_job_y89_kill_2
+0261106.b64 > /home/share/nsls_yangyb/b64/sync_job_y89_kill_20261106.tgz
+(base) nsls_yangyb@login02:~$ gzip -dc /home/share/nsls_yangyb/b64/sync_job_y89_kill_20
+261106.tgz > /home/share/nsls_yangyb/logs/job_y89_kill.sh
+(base) nsls_yangyb@login02:~$ chmod 750 /home/share/nsls_yangyb/logs/job_y89_kill.sh
+(base) nsls_yangyb@login02:~$

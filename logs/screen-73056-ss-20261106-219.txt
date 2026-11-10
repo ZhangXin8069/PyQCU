@@ -1,0 +1,54 @@
+    hostPreHookRunTime                          11
+
+    preHookRunTime                              0
+
+    jobWallclockDuration                        649
+
+    postHookRunTime                             0
+
+    hostPostHookRunTime                         0
+
+    jobSstoppedTime                             0
+
+    coreHours                                   649
+
+    nodeUsages
+        execNode             resGroup resIndex utime    stime    wallclockDuration    s
+stoppedTime     cpuUtil          gpuUtil          npuUtil          memResource
+
+        cn10579              0        0/1      1401     2729     649                  0
+                636/1114         -                -                6217/243/0/0/6469/64
+69/2583/6469
+    nodePids
+        execNode             pids
+        cn10579              612408,612577,612653,612654,612655,612656,612657,612661,61
+2673,612692,612703,612705,612708,612711,612713,612715,612717,612726
+    traceMessages                               2026/11/06 12:00:24    :    [JOB_ADD] J
+ob 2049224 is submitted by nsls_yangyb, job state is PENDING.
+                                                2026/11/06 12:00:28    :    [JOB_START]
+ Job 2049224 start message has been sent.
+                                                2026/11/06 12:00:28    :    [JOB_START_
+ACK] Job 2049224 start message has been received by agent cn10579.
+                                                2026/11/06 12:00:28    :    [JOB_EXECUT
+ION] Job 2049224 state is from PENDING to RUNNING.
+                                                2026/11/06 12:00:29    :    [HOST_PRE-H
+OOK_START] Job 2049224 host-pre-hook started at 2026/11/06 12:00:29 .
+                                                2026/11/06 12:00:40    :    [HOST_PRE-H
+OOK_END] Job 2049224 host-pre-hook is finished successfully at 2026/11/06 12:00:40 , co
+st time: 11253 ms.
+(base) nsls_yangyb@login02:~$ printf '%s' 'H4sIALVT7WoAA+2TwW+CMBTGPfeveNODJ6RF27osXhbN
+YuZ20HlYsoSgVmGDFikkuvjHr9Dgdtg8mSwmfgd+5XtfHgVeY7XR7rta+Ps+9z+iOO7osHFmYYxZrwclOaMVsWf
+vK3HMgFCPdz1KGKWACWWMNACfeyO/qdB5kJmtfIaB3Owi+VfOxNbrE33sq8CRF6LWjbuIpLsIdIhaw9n8HhwnSS
+MIzaU2trD1w3QZpGntSNgui3JkamMHZoaOVQmkXj9/L7P0hz+F5jItBuQuEcmAPDRrXylwQ5UIV4dBJlypY+3vz
+Z/ZL1zzuI4q8jopTidFltXJF2AYIS1ycApUzrixRtMnYMTr4X4JynkJRrsWPQtqwSxshJEK3CZvvRIcdy2oRdWT
+E2Jha8TWSNWFewwOB8izQiAdC5FCF62CXJiPH2nl9BkmAy2WSq40CpXOZZAIlGaRzNfQfjUn9XE8mfjj2Ww+Gr7
+JNvrvKbrqqqsuUV8Nmaf7AAgAAA==' > /home/share/nsls_yangyb/b64/sync_job_y87_20261106.b64
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/b64/sync_job_y87_202611
+06.b64 > /home/share/nsls_yangyb/b64/sync_job_y87_20261106.tgz
+(base) nsls_yangyb@login02:~$ tar -xzf /home/share/nsls_yangyb/b64/sync_job_y87_2026110
+6.tgz -C /home/share/nsls_yangyb
+(base) nsls_yangyb@login02:~$ chmod 750 /home/share/nsls_yangyb/logs/job_y87_kill.sh
+(base) nsls_yangyb@login02:~$ dsub -q q_hpcapp /home/share/nsls_yangyb/logs/job_y87_kil
+l.sh
+Submit job <2049287> successfully.
+(base) nsls_yangyb@login02:~$

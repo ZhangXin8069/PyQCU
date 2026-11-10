@@ -1,0 +1,54 @@
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=0.009538
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=0.009721
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=0.009597
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=0.009608
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=0.009811
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=0.009724
+(base) nsls_yangyb@login02:~$ cat /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_
+20261106/login_y101_init_profile_smoke_v4/rank_0000.txt
+rank=0 size=16 before=1433777.841798 after=1433777.897710 elapsed=0.055912
+(base) nsls_yangyb@login02:~$ cp /home/share/nsls_yangyb/logs/job_y101_init_profile_v2.
+sh /home/share/nsls_yangyb/logs/job_y101_init_profile_v3.sh
+(base) nsls_yangyb@login02:~$ sed -i -e s/compute_y101_init_profile_v2/compute_y101_ini
+t_profile_v3/ -e s/qcu_y101b/qcu_y101c/ -e s#/y101b.out#/y101c.out# -e s#/y101b.err#/y1
+01c.err# /home/share/nsls_yangyb/logs/job_y101_init_profile_v3.sh
+(base) nsls_yangyb@login02:~$ dsub -q q_hpcapp /home/share/nsls_yangyb/logs/job_y101_in
+it_profile_v3.sh
+Submit job <2050689> successfully.
+(base) nsls_yangyb@login02:~$ djob -ll 2050689 | tail -n 8
+        execNode             pids
+        cn10579              1860013,1860062,1860064,1860140,1860141,1860142,1860143,18
+60144,1860145,1860146,1860155,1860168,1860182,1860184,1860185,1860186,1860187,1860188,1
+860189
+    traceMessages                               2026/11/06 15:14:20    :    [JOB_ADD] J
+ob 2050689 is submitted by nsls_yangyb, job state is PENDING.
+                                                2026/11/06 15:14:24    :    [JOB_START]
+ Job 2050689 start message has been sent.
+                                                2026/11/06 15:14:25    :    [JOB_START_
+ACK] Job 2050689 start message has been received by agent cn10579.
+                                                2026/11/06 15:14:25    :    [JOB_EXECUT
+ION] Job 2050689 state is from PENDING to RUNNING.
+                                                2026/11/06 15:14:26    :    [HOST_PRE-H
+OOK_START] Job 2050689 host-pre-hook started at 2026/11/06 15:14:26 .
+                                                2026/11/06 15:14:37    :    [HOST_PRE-H
+OOK_END] Job 2050689 host-pre-hook is finished successfully at 2026/11/06 15:14:37 , co
+st time: 11402 ms.
+(base) nsls_yangyb@login02:~$ ls -lh /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_o
+pt_20261106/compute_y101_init_profile_v3
+total 64K
+-rw-r----- 1 nsls_yangyb eapp 13K Nov  6 15:15 mpirun.err
+-rw-r----- 1 nsls_yangyb eapp   0 Nov  6 15:14 mpirun.out
+-rw-r----- 1 nsls_yangyb eapp  32 Nov  6 15:14 start.txt
+(base) nsls_yangyb@login02:~$ wc -c /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_op
+t_20261106/compute_y101_init_profile_v3/mpirun.err
+13008 /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/compute_y101_init_p
+rofile_v3/mpirun.err
+(base) nsls_yangyb@login02:~$ djob -ll 2050689 | grep -E "jobWallclockDuration|jobExitC
+ode|JOB_FINISH"
+    jobWallclockDuration                        49
+
+(base) nsls_yangyb@login02:~$ grep -E "LATTICE_SET_PROFILE|SCRATCH_PROFILE|INIT_APPLY|I
+NIT_PROFILE|TOPOLOGY" /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/com
+pute_y101_init_profile_v3/mpirun.err > /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm
+_opt_20261106/compute_y101_init_profile_v3/profile_grep.txt
+(base) nsls_yangyb@login02:~$

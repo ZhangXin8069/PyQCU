@@ -1,0 +1,54 @@
+6/11/06 11:00:42  -                    cn10579
+(base) nsls_yangyb@login02:~$ djob
+ID           NAME         STATE      USER         ACCOUNT      QUEUE                STA
+RT_TIME           END_TIME             EXEC_NODES
+2048816      default      RUNNING    nsls_yangyb  common       q_hpcapp             202
+6/11/06 11:00:42  -                    cn10579
+(base) nsls_yangyb@login02:~$ ddel 2048816
+-bash: ddel: command not found
+(base) nsls_yangyb@login02:~$ djob
+ID           NAME         STATE      USER         ACCOUNT      QUEUE                STA
+RT_TIME           END_TIME             EXEC_NODES
+2048816      default      RUNNING    nsls_yangyb  common       q_hpcapp             202
+6/11/06 11:00:42  -                    cn10579
+(base) nsls_yangyb@login02:~$ djob --help
+Usage: djob [options] [jobid | jobid.index]
+options:
+    -A,   --account                queries jobs by account.
+    -dr,  --detail-reason          queries details about the WAITING or PENDING state.
+It must be used together with -l or -ll.
+          --dependency             queries dependencies of jobs.
+    -dg,  --dep-group              queries dependent job groups of jobs. It must be use
+d together with --dependency.
+    -D,   --done                   queries completed (SUCCEEDED and FAILED) jobs.
+    -en,  --exec-node              queries jobs by execution node.
+    -et,  --end-time               queries jobs by end time. Format: YYYY/mm/dd HH:MM:S
+S
+          --expand                 displays job without compressed execNodes.
+    -hr,  --host-reason            queries the host-level reason why a job is in the WA
+ITING or PENDING state. It must be used together with -l or -ll, and can be set to 1 (b
+rief) or 2 (details).
+    -J,   --json                   displays received packets as JSON strings.
+    -l,   --long                   displays information in long format.
+    -ll,  --longlong               display in long format, contains rusage/affinity/pid
+s info
+    -n,   --name                   queries jobs by name. Fuzzy query is supported.
+          --no-header              displays information without header.
+    -o,   --output                 displays information in custom format.
+    -p,   --page                   specifies the page number for a paginated query. Def
+ault: 1. Range: [1, 65535]
+    -ps,  --page-size              specifies the page size for a paginated query. Defau
+lt: 200. Range: [1, 200]
+    -q,   --queue                  queries jobs by queue.
+    -s,   --job-state              queries jobs by state.
+    -st,  --start-time             queries jobs by start time. Format: YYYY/mm/dd HH:MM
+:SS
+          --step                   query step info of jobs. Example: djob --step jobID
+    -t,   --time-type              queries jobs by time point. Supported values: submit
+ | start | end
+    -u,   --user                   queries jobs by user. Supported users: all | [user]
+    -ug,  --usergroup              queries jobs by user group. Supported user groups: a
+ll | [user group]
+    -w,   --wide                   displays information in wide format.
+    -h,   --help                   displays help information for the command.
+(base) nsls_yangyb@login02:~$

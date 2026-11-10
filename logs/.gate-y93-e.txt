@@ -1,0 +1,54 @@
+    stdoutRedirectPath                          -
+
+    stdoutRedirectType                          append
+
+    hostPreHookFilePath                         /home/share/software/donau/hook/hosthoo
+k/no_exclusive/hostPreHook.sh
+    hostPreHookTimeout                          300
+
+    totalUtime                                  0
+
+    totalStime                                  0
+
+    totalMaxMemSwp                              0
+
+    totalMaxMem                                 0
+
+    hostPreHookRunTime                          12
+
+    preHookRunTime                              0
+
+    jobWallclockDuration                        0
+
+    postHookRunTime                             0
+
+    hostPostHookRunTime                         0
+
+    jobSstoppedTime                             0
+
+    coreHours                                   0
+
+    nodeUsages
+        execNode             resGroup resIndex utime    stime    wallclockDuration    s
+stoppedTime     cpuUtil          gpuUtil          npuUtil          memResource
+
+        cn10579              0        0/1      0        0        0                    0
+                0/0              -                -                0/0/0/0/1/1/0/0
+
+    nodePids
+        execNode             pids
+        cn10579              1229138,1229406,1229485
+    traceMessages                               2026/11/06 13:37:18    :    [JOB_ADD] J
+ob 2049788 is submitted by nsls_yangyb, job state is PENDING.
+                                                2026/11/06 13:37:23    :    [JOB_START]
+ Job 2049788 start message has been sent.
+                                                2026/11/06 13:37:23    :    [JOB_START_
+ACK] Job 2049788 start message has been received by agent cn10579.
+                                                2026/11/06 13:37:23    :    [JOB_EXECUT
+ION] Job 2049788 state is from PENDING to RUNNING.
+                                                2026/11/06 13:37:24    :    [HOST_PRE-H
+OOK_START] Job 2049788 host-pre-hook started at 2026/11/06 13:37:24 .
+                                                2026/11/06 13:37:35    :    [HOST_PRE-H
+OOK_END] Job 2049788 host-pre-hook is finished successfully at 2026/11/06 13:37:35 , co
+st time: 11647 ms.
+(base) nsls_yangyb@login02:~$

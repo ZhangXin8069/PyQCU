@@ -1,0 +1,54 @@
+(base) nsls_yangyb@login02:~$ tar -xzf /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm
+_opt_20261106/profile_sources_20261106_1523.tar.gz -C /home/share/nsls_yangyb/PyQCU-mai
+n
+(base) nsls_yangyb@login02:~$ chmod 640 /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu
+/include/kupl/lattice_geometry.h /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/la
+ttice_geometry.cpp /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/lattice_clover_d
+slash.cpp /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/lattice_multigrid.cpp /ho
+me/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/backend.cpp /home/share/nsls_yangyb/Py
+QCU-main/cpp/kupl/qcu/src/apply_init.cpp
+(base) nsls_yangyb@login02:~$ sha256sum /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu
+/include/kupl/lattice_geometry.h /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/la
+ttice_geometry.cpp /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/lattice_clover_d
+slash.cpp /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/lattice_multigrid.cpp /ho
+me/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/backend.cpp /home/share/nsls_yangyb/Py
+QCU-main/cpp/kupl/qcu/src/apply_init.cpp
+e7ee529f2f85305913a2f1f9fbce3777766bfa6a111823876adb20d1dedaa739  /home/share/nsls_yang
+yb/PyQCU-main/cpp/kupl/qcu/include/kupl/lattice_geometry.h
+1822e392aa0e7d0cccb519b84026bad630726fce99e5fea208fa5faf0befafd4  /home/share/nsls_yang
+yb/PyQCU-main/cpp/kupl/qcu/src/lattice_geometry.cpp
+5715a3d53d2a44b231224b261d5af039cb355f97d2d4b48d07d60f316456dcc5  /home/share/nsls_yang
+yb/PyQCU-main/cpp/kupl/qcu/src/lattice_clover_dslash.cpp
+20c43c04e371d2b064e4332cfdc4f455fd3a40997c8ef3b1e01072ac6d4642de  /home/share/nsls_yang
+yb/PyQCU-main/cpp/kupl/qcu/src/lattice_multigrid.cpp
+f958f7a204ef48f3eb74be4e56ae23efeec8c8c0512419b0980adc86e20e8cab  /home/share/nsls_yang
+yb/PyQCU-main/cpp/kupl/qcu/src/backend.cpp
+fda226cb3ca74b833fe9e25118fe64ad5ce9ee8e281cb27fc4575bb9d1e8c090  /home/share/nsls_yang
+yb/PyQCU-main/cpp/kupl/qcu/src/apply_init.cpp
+(base) nsls_yangyb@login02:~$ cmake --build /home/share/nsls_yangyb/PyQCU-main/data/kup
+l_hbm_opt_20261106/build-ht2split-generic -j 8 > /home/share/nsls_yangyb/PyQCU-main/dat
+a/kupl_hbm_opt_20261106/build_profile_rebuild_20261106_1735.log 2>&1
+(base) nsls_yangyb@login02:~$ tail -n 8 /home/share/nsls_yangyb/PyQCU-main/data/kupl_hb
+m_opt_20261106/build_profile_rebuild_20261106_1735.log
+/usr/bin/ld: warning: LLVM gold plugin: <unknown>:0:0: loop not vectorized: the optimiz
+er was unable to perform the requested transformation; the transformation might be disa
+bled or specified as part of an unsupported transformation ordering
+LLVM gold plugin: <unknown>:0:0: loop not vectorized: Cannot vectorize early exit loop
+/usr/bin/ld: warning: LLVM gold plugin: <unknown>:0:0: loop not vectorized: the optimiz
+er was unable to perform the requested transformation; the transformation might be disa
+bled or specified as part of an unsupported transformation ordering
+LLVM gold plugin: <unknown>:0:0: loop not vectorized: call instruction cannot be vector
+ized
+/usr/bin/ld: warning: LLVM gold plugin: <unknown>:0:0: loop not vectorized: the optimiz
+er was unable to perform the requested transformation; the transformation might be disa
+bled or specified as part of an unsupported transformation ordering
+LLVM gold plugin: <unknown>:0:0: loop not vectorized: Cannot vectorize early exit loop
+/usr/bin/ld: warning: LLVM gold plugin: <unknown>:0:0: loop not vectorized: the optimiz
+er was unable to perform the requested transformation; the transformation might be disa
+bled or specified as part of an unsupported transformation ordering
+[100%] Built target kupl_qcu
+(base) nsls_yangyb@login02:~$ sha256sum /home/share/nsls_yangyb/PyQCU-main/data/kupl_hb
+m_opt_20261106/build-ht2split-generic/libqcu.so
+d6a3075bfd8788eb525467edd241933e3240e11c2b8fc70ddd7dad212f0cc9da  /home/share/nsls_yang
+yb/PyQCU-main/data/kupl_hbm_opt_20261106/build-ht2split-generic/libqcu.so
+(base) nsls_yangyb@login02:~$

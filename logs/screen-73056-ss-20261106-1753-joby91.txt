@@ -1,0 +1,54 @@
+(base) nsls_yangyb@login02:~$ djob -ll 2050850 | grep -E "jobWallclockDuration|jobExitC
+ode|JOB_FINISH"
+    jobWallclockDuration                        48
+
+(base) nsls_yangyb@login02:~$ cat /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_
+20261106/compute_y101_init_profile_v4/start.txt
+START 2026-11-06T15:29:14+08:00
+END rc=0 2026-11-06T15:31:17+08:00
+(base) nsls_yangyb@login02:~$ djob -ll 2050850 | grep -E "jobWallclockDuration|jobExitC
+ode|JOB_FINISH"
+    jobWallclockDuration                        124
+
+    jobExitCode                                 0
+
+                                                2026/11/06 15:31:18    :    [JOB_FINIS]
+ Job 2050850 state is from RUNNING to SUCCEEDED.
+(base) nsls_yangyb@login02:~$ grep -E "GEOMETRY_PROFILE|LATTICE_SET_PROFILE|SCRATCH_PRO
+FILE|INIT_APPLY" /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/compute_
+y101_init_profile_v4/mpirun.err | tail -n 30
+PYQCU::KUPL::GEOMETRY_PROFILE: stage=comm-duplicate elapsed=1.547918
+PYQCU::KUPL::GEOMETRY_PROFILE: stage=coordinates elapsed=1.547976
+PYQCU::KUPL::GEOMETRY_PROFILE: stage=metadata elapsed=1.547982
+PYQCU::KUPL::LATTICE_SET_PROFILE: stage=geometry elapsed=1.548046
+PYQCU::KUPL::LATTICE_SET_PROFILE: stage=parameters elapsed=1.548051
+PYQCU::KUPL::SCRATCH_PROFILE: stage=halo-scratch elapsed=0.011378
+PYQCU::KUPL::SCRATCH_PROFILE: stage=halo-scratch elapsed=0.011501
+PYQCU::KUPL::SCRATCH_PROFILE: stage=boundary-sites elapsed=0.012127
+PYQCU::KUPL::LATTICE_SET_PROFILE: stage=allocate-scratch elapsed=4.979268
+PYQCU::KUPL::INIT_APPLY: stage=register elapsed=6.654694
+PYQCU::KUPL::SCRATCH_PROFILE: stage=boundary-sites elapsed=0.012219
+PYQCU::KUPL::LATTICE_SET_PROFILE: stage=allocate-scratch elapsed=4.978854
+PYQCU::KUPL::INIT_APPLY: stage=register elapsed=6.673259
+PYQCU::KUPL::SCRATCH_PROFILE: stage=halo-scratch elapsed=0.013659
+PYQCU::KUPL::SCRATCH_PROFILE: stage=boundary-sites elapsed=0.014621
+PYQCU::KUPL::LATTICE_SET_PROFILE: stage=allocate-scratch elapsed=4.981993
+PYQCU::KUPL::INIT_APPLY: stage=register elapsed=6.652451
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=0.002958
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=0.002867
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=0.005796
+PYQCU::KUPL::SCRATCH_PROFILE: stage=halo-scratch elapsed=0.499349
+PYQCU::KUPL::SCRATCH_PROFILE: stage=boundary-sites elapsed=0.744412
+PYQCU::KUPL::LATTICE_SET_PROFILE: stage=allocate-scratch elapsed=5.460634
+PYQCU::KUPL::INIT_APPLY: stage=register elapsed=7.192680
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=0.237188
+PYQCU::KUPL::SCRATCH_PROFILE: stage=halo-scratch elapsed=12.842387
+PYQCU::KUPL::SCRATCH_PROFILE: stage=boundary-sites elapsed=12.843161
+PYQCU::KUPL::LATTICE_SET_PROFILE: stage=allocate-scratch elapsed=14.391297
+PYQCU::KUPL::INIT_APPLY: stage=register elapsed=19.482394
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=0.002174
+(base) nsls_yangyb@login02:~$ find /home/share/nsls_yangyb/logs -maxdepth 1 -type f -na
+me "job_y91*" -print
+/home/share/nsls_yangyb/logs/job_y91_slab16.sh
+/home/share/nsls_yangyb/logs/job_y91_kill.sh
+(base) nsls_yangyb@login02:~$

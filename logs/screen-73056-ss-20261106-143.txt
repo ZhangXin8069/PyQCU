@@ -1,0 +1,54 @@
+  /home/share/nsls_yangyb/PyQCU/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang is
+unavailable; TileLang-specific acceleration and tests will be skipped (ModuleNotFoundEr
+ror: No module named 'tilelang')
+    _tilelang = import_tilelang()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+28 passed, 1 warning in 1.94s
+SDMA ERROR (sdma_constructor|75): [login02] Open SDMA fail:No such file or directory
+(base) nsls_yangyb@login02:~$ djob
+----------------------------------------
+query successfully, no matches.
+(base) nsls_yangyb@login02:~$ duser
+USER            TOTAL_JOBS              WAITING_JOBS            PENDING_JOBS
+ RUNNING_JOBS            STOPPED_JOBS            SSTOPPED_JOBS
+nsls_yangyb     0                       0                       0
+ 0                       0                       0
+(base) nsls_yangyb@login02:~$ sed -n "1,80p" /home/share/nsls_yangyb/job_probe_y79.sh
+#!/bin/bash
+#DSUB --mpi hmpi
+#DSUB -q q_hpcapp
+#DSUB -n qcu_y79
+#DSUB -x job
+#DSUB -nn 1
+#DSUB -N 1
+#DSUB -rpn 1
+#DSUB -R "cpu=1;mem=1G"
+#DSUB -oo /home/share/nsls_yangyb/y79.out
+#DSUB -eo /home/share/nsls_yangyb/y79.err
+#DSUB -T 60
+
+set -u
+date --iso-8601=seconds
+hostname
+id
+printf 'DSUB_PROBE_OK\n'
+(base) nsls_yangyb@login02:~$ dsub /home/share/nsls_yangyb/job_probe_y79.sh
+----------------- PRE SUBMISSIONHOOK MESSAGE -----------------
+[Hook:toolkit_submissionhook.sh]
+The -q parameter must be specified when a job is submitted.
+--------------------------------------------------------------
+Error: job was refused by hook.
+(base) nsls_yangyb@login02:~$ dsub -q q_hpcapp /home/share/nsls_yangyb/job_probe_y79.sh
+Submit job <2048748> successfully.
+(base) nsls_yangyb@login02:~$ djob
+ID           NAME         STATE      USER         ACCOUNT      QUEUE                STA
+RT_TIME           END_TIME             EXEC_NODES
+2048748      default      RUNNING    nsls_yangyb  common       q_hpcapp             202
+6/11/06 10:50:47  -                    cn10579
+(base) nsls_yangyb@login02:~$ djob
+----------------------------------------
+query successfully, no matches.
+(base) nsls_yangyb@login02:~$ cat /home/share/nsls_yangyb/y79.out
+cat: /home/share/nsls_yangyb/y79.out: No such file or directory
+(base) nsls_yangyb@login02:~$

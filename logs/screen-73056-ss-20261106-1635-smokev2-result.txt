@@ -1,0 +1,54 @@
+kupl_hbm_opt_20261106/login_y101_init_profile_smoke_v1 PYQCU_KUPL_LIB=/home/share/nsls_
+yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/build-ht2split-generic/libqcu.so LD_LIBRAR
+Y_PATH=/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/build-ht2split-gen
+eric:/Users/zhangxin/configure/lib:/Users/zhangxin/.local/lib:/Users/zhangxin/slib:/Use
+rs/zhangxin/lib:/usr/local/lib:/usr/lib:/usr/lib64:/usr/libx32:/usr/lib32:/lib:/lib64:/
+libx32:/lib32: KUPL_PROFILE_INIT=1 KUPL_OMP_THREADS=1 OMP_NUM_THREADS=1 KUPL_NUMA_BIND=
+0 timeout -k 5s 60s mpirun --oversubscribe -np 1 --bind-to none --map-by slot --allow-r
+un-as-root python -B /home/share/nsls_yangyb/logs/probe_prebind.py > /home/share/nsls_y
+angyb/PyQCU-main/data/kupl_hbm_opt_20261106/login_y101_init_profile_smoke_v1/mpirun.out
+ 2> /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/login_y101_init_profi
+le_smoke_v1/mpirun.err
+(base) nsls_yangyb@login02:~$ ls -lh /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_o
+pt_20261106/login_y101_init_profile_smoke_v1
+total 32K
+-rw-r----- 1 nsls_yangyb eapp 123 Nov  6 15:10 mpirun.err
+-rw-r----- 1 nsls_yangyb eapp   0 Nov  6 15:10 mpirun.out
+(base) nsls_yangyb@login02:~$ cat /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_
+20261106/login_y101_init_profile_smoke_v1/rank_0000.txt
+cat: /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/login_y101_init_prof
+ile_smoke_v1/rank_0000.txt: No such file or directory
+(base) nsls_yangyb@login02:~$ cat /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_
+20261106/login_y101_init_profile_smoke_v1/mpirun.err
+mpirun: error while loading shared libraries: libopen-rte.so.40: cannot open shared obj
+ect file: No such file or directory
+(base) nsls_yangyb@login02:~$ source /home/share/nsls_yangyb/PyQCU/env.sh
+###env.sh in /home/share/nsls_yangyb/PyQCU is sourcing...:2026-11-06-15-11-31###
+###env.sh in /home/share/nsls_yangyb/PyQCU is done......:2026-11-06-15-11-31###
+(base) nsls_yangyb@login02:~$ export PREBIND_WORK=/home/share/nsls_yangyb/PyQCU-main/da
+ta/kupl_hbm_opt_20261106/login_y101_init_profile_smoke_v2
+(base) nsls_yangyb@login02:~$ export PYQCU_KUPL_LIB=/home/share/nsls_yangyb/PyQCU-main/
+data/kupl_hbm_opt_20261106/build-ht2split-generic/libqcu.so
+(base) nsls_yangyb@login02:~$ export KUPL_PROFILE_INIT=1
+(base) nsls_yangyb@login02:~$ export KUPL_OMP_THREADS=1 OMP_NUM_THREADS=1 KUPL_NUMA_BIN
+D=0
+(base) nsls_yangyb@login02:~$ mkdir -p
+mkdir: missing operand
+Try 'mkdir --help' for more information.
+(base) nsls_yangyb@login02:~$ timeout -k 5s 60s mpirun --oversubscribe -np 1 --bind-to
+none --map-by slot --allow-run-as-root python -B /home/share/nsls_yangyb/logs/probe_pre
+bind.py > /mpirun.out 2> /mpirun.err
+-bash: /mpirun.out: Permission denied
+(base) nsls_yangyb@login02:~$ ls -lh /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_o
+pt_20261106/login_y101_init_profile_smoke_v2
+ls: cannot access '/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/login_
+y101_init_profile_smoke_v2': No such file or directory
+(base) nsls_yangyb@login02:~$ cat /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_
+20261106/login_y101_init_profile_smoke_v2/rank_0000.txt
+cat: /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/login_y101_init_prof
+ile_smoke_v2/rank_0000.txt: No such file or directory
+(base) nsls_yangyb@login02:~$ cat /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_
+20261106/login_y101_init_profile_smoke_v2/mpirun.err
+cat: /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/login_y101_init_prof
+ile_smoke_v2/mpirun.err: No such file or directory
+(base) nsls_yangyb@login02:~$

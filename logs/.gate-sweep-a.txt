@@ -1,0 +1,54 @@
+r: No module named 'tilelang')
+  _tilelang = import_tilelang()
+/home/share/nsls_yangyb/PyQCU/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang is un
+available; TileLang-specific acceleration and tests will be skipped (ModuleNotFoundErro
+r: No module named 'tilelang')
+  _tilelang = import_tilelang()
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=6 local_size=8 numa_nodes=4 cpu_node=-1 cpuset=none memory_node=-1 memory_p
+olicy=default memory_bound=false threads=16 bound_threads=0 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=2 local_size=8 numa_nodes=4 cpu_node=-1 cpuset=none memory_node=-1 memory_p
+olicy=default memory_bound=false threads=16 bound_threads=0 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=4 local_size=8 numa_nodes=4 cpu_node=-1 cpuset=none memory_node=-1 memory_p
+olicy=default memory_bound=false threads=16 bound_threads=0 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=0 local_size=8 numa_nodes=4 cpu_node=-1 cpuset=none memory_node=-1 memory_p
+olicy=default memory_bound=false threads=16 bound_threads=0 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=5 local_size=8 numa_nodes=4 cpu_node=-1 cpuset=none memory_node=-1 memory_p
+olicy=default memory_bound=false threads=16 bound_threads=0 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=1 local_size=8 numa_nodes=4 cpu_node=-1 cpuset=none memory_node=-1 memory_p
+olicy=default memory_bound=false threads=16 bound_threads=0 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=7 local_size=8 numa_nodes=4 cpu_node=-1 cpuset=none memory_node=-1 memory_p
+olicy=default memory_bound=false threads=16 bound_threads=0 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=3 local_size=8 numa_nodes=4 cpu_node=-1 cpuset=none memory_node=-1 memory_p
+olicy=default memory_bound=false threads=16 bound_threads=0 source=sysfs
+PYQCU::KUPL::MG_PROFILE:
+ total=1.582225 fine_apply=1.186102 fine_calls=32 coarse_apply=0.069365 coarse_calls=19
+ restrict=0.005708 restrict_calls=2 prolong=0.007291 prolong_calls=2 coarse_correction=
+0.265231 coarse_correction_calls=2 prepare=0.025029 store=0.028982 full_residual=0.0494
+85
+{"backend": "kupl", "solver": "applyCloverMultigridQcu", "lattice": [24, 24, 24, 64], "
+local_lattice": [24, 24, 24, 8], "local_starts": [0, 0, 0, 0], "grid": [1, 1, 1, 8], "g
+rid_coordinate": [0, 0, 0, 0], "mpi_rank": 0, "mpi_size": 8, "dtype": "complex64", "mas
+s": -0.277, "kappa": 0.13430029546065003, "mass_normalization": "kappa", "csw": 1.16092
+0226, "atol": 0.0001, "max_iter": 50, "levels": 2, "dof": [12, 4], "mg_grid": [2, 2, 2,
+ 1], "restart": 10, "coarse_max_iter": 20, "coarse_tol_factor": 10.0, "deflate": true,
+"builder_seconds": 2.33229495305568, "input_prebind_seconds": 0.0, "hdf5_mpio_read": fa
+lse, "gauge_slab_dir": "/home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_20261106/y91_ga
+uge_slabs_1118", "source_slab_dir": "/home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_20
+261106/y91_source_slabs_1118", "gauge_read_seconds": 0.03655244316905737, "source_read_
+seconds": 0.01566084404475987, "coarse_source": "/home/share/nsls_yangyb/PyQCU/data/kup
+l_hbm_opt_20261106/mg_e4_tblock1_L24_v1/cache_E4_mg2x2x2x1.h5", "wall_seconds": 1.58653
+05608604103, "residual_seconds": 4.658196121454239e-05, "verify_status": 0, "residual_a
+cceptance": 0.0001, "residual_source": "KUPL native fail-closed solve; independent chec
+k skipped", "converged": true, "memory": {"available": true, "max_rss_kib": 821940, "re
+sident_kib": 676016, "omp_threads": "16"}, "status": "PASS"}
+[1]+  Done                    nohup bash /home/share/nsls_yangyb/logs/run_y91_login_111
+8_mg.sh > /home/share/nsls_yangyb/logs/login_y91_1118_mg.log 2>&1
+(base) nsls_yangyb@login02:~$

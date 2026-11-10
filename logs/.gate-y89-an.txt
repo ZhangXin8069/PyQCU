@@ -1,0 +1,54 @@
+  "coarse_max_iter": 200,
+  "coarse_tol_factor": 10000.0,
+  "deflate": true,
+  "builder_seconds": 0.0,
+  "input_prebind_seconds": 12.889966779999668,
+  "coarse_source": "unused: restart=0",
+  "wall_seconds": 164.74992410000414,
+  "iterations": 16,
+  "residual_seconds": 1.2370001059025526e-05,
+  "residual_acceptance": 0.0001,
+  "residual_source": "KUPL native fail-closed solve; independent check skipped",
+  "converged": true,
+  "memory": {
+    "available": true,
+    "max_rss_kib": 1282116,
+    "resident_kib": 1114496,
+    "omp_threads": "32"
+  },
+  "status": "PASS"
+}(base) nsls_yangyb@login02:~$ find /home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_202
+61106/compute_y89_ab_v1 -maxdepth 2 -type f -printf %P%s
+bicgstab_1/stdout.txt976bicgstab_1/stderr.txt2400bicgstab_1/solution.h584941280bicgstab
+_1/report.json1193mg_1/stdout.txt0mg_1/stderr.txt1674(base) nsls_yangyb@login02:~$ tail
+ -n 30 /home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_20261106/compute_y89_ab_v1/mg_1/
+stderr.txt
+/home/share/nsls_yangyb/PyQCU/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang is un
+available; TileLang-specific acceleration and tests will be skipped (ModuleNotFoundErro
+r: No module named 'tilelang')
+  _tilelang = import_tilelang()
+/home/share/nsls_yangyb/PyQCU/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang is un
+available; TileLang-specific acceleration and tests will be skipped (ModuleNotFoundErro
+r: No module named 'tilelang')
+  _tilelang = import_tilelang()
+/home/share/nsls_yangyb/PyQCU/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang is un
+available; TileLang-specific acceleration and tests will be skipped (ModuleNotFoundErro
+r: No module named 'tilelang')
+  _tilelang = import_tilelang()
+/home/share/nsls_yangyb/PyQCU/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang is un
+available; TileLang-specific acceleration and tests will be skipped (ModuleNotFoundErro
+r: No module named 'tilelang')
+  _tilelang = import_tilelang()
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=3 local_size=4 numa_nodes=16 cpu_node=3 cpuset=114-145 memory_node=19 memor
+y_policy=bind memory_bound=true threads=32 bound_threads=32 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=0 local_size=4 numa_nodes=16 cpu_node=0 cpuset=0-31 memory_node=16 memory_p
+olicy=bind memory_bound=true threads=32 bound_threads=32 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=2 local_size=4 numa_nodes=16 cpu_node=2 cpuset=76-107 memory_node=18 memory
+_policy=bind memory_bound=true threads=32 bound_threads=32 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=1 local_size=4 numa_nodes=16 cpu_node=1 cpuset=38-69 memory_node=17 memory_
+policy=bind memory_bound=true threads=32 bound_threads=32 source=sysfs
+(base) nsls_yangyb@login02:~$

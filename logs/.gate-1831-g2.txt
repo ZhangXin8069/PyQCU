@@ -1,0 +1,54 @@
+  "mg_grid": [
+    2,
+    2,
+    2,
+    2
+  ],
+  "restart": 0,
+  "coarse_max_iter": 200,
+  "coarse_tol_factor": 10000.0,
+  "deflate": true,
+  "builder_seconds": 0.0,
+  "input_prebind_seconds": 6.059328992007067,
+  "hdf5_mpio_read": false,
+  "gauge_slab_dir": "/home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_20261106/y91_gauge
+_slabs_t16",
+  "source_slab_dir": "/home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_20261106/y91_sour
+ce_slabs_t16",
+  "gauge_read_seconds": 7.866151073001674,
+  "source_read_seconds": 3.485138652002206,
+  "coarse_source": "unused: restart=0",
+  "wall_seconds": 213.44090568200045,
+  "iterations": 16,
+  "residual_seconds": 21.046182211997802,
+  "final_true_residual": 3.5410827126526993e-06,
+  "residual_acceptance": 0.000244140625,
+  "residual_source": "independent distributed NumPy full Wilson-Clover reconstruction w
+ith MPI halo exchange",
+  "converged": true,
+  "memory": {
+    "available": true,
+    "max_rss_kib": 579256,
+    "resident_kib": 486140,
+    "omp_threads": "8"
+  },
+  "status": "PASS"
+}(base) nsls_yangyb@login02:~$ tail -n 25 /home/share/nsls_yangyb/PyQCU-main/data/kupl_
+hbm_opt_20261106/compute_y91_slab16_manualgeom_v1/bicgstab_1/stdout.txt
+{"backend": "kupl", "solver": "applyCloverMultigridQcu", "lattice": [24, 24, 24, 64], "
+local_lattice": [24, 24, 24, 4], "local_starts": [0, 0, 0, 0], "grid": [1, 1, 1, 16], "
+grid_coordinate": [0, 0, 0, 0], "mpi_rank": 0, "mpi_size": 16, "dtype": "complex64", "m
+ass": -0.277, "kappa": 0.13430029546065003, "mass_normalization": "kappa", "csw": 1.160
+920226, "atol": 0.0001, "max_iter": 50, "levels": 1, "dof": [12], "mg_grid": [2, 2, 2,
+2], "restart": 0, "coarse_max_iter": 200, "coarse_tol_factor": 10000.0, "deflate": true
+, "builder_seconds": 0.0, "input_prebind_seconds": 6.059328992007067, "hdf5_mpio_read":
+ false, "gauge_slab_dir": "/home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_20261106/y91
+_gauge_slabs_t16", "source_slab_dir": "/home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_
+20261106/y91_source_slabs_t16", "gauge_read_seconds": 7.866151073001674, "source_read_s
+econds": 3.485138652002206, "coarse_source": "unused: restart=0", "wall_seconds": 213.4
+4090568200045, "iterations": 16, "residual_seconds": 21.046182211997802, "final_true_re
+sidual": 3.5410827126526993e-06, "residual_acceptance": 0.000244140625, "residual_sourc
+e": "independent distributed NumPy full Wilson-Clover reconstruction with MPI halo exch
+ange", "converged": true, "memory": {"available": true, "max_rss_kib": 579256, "residen
+t_kib": 486140, "omp_threads": "8"}, "status": "PASS"}
+(base) nsls_yangyb@login02:~$

@@ -1,0 +1,54 @@
+PYQCU::KUPL::INIT_PROFILE rank=2 stage=topology-report elapsed=0.524134
+PYQCU::KUPL::INIT_PROFILE rank=6 stage=omp-team-affinity elapsed=0.276306
+PYQCU::KUPL::INIT_PROFILE rank=6 stage=memory-policy elapsed=0.276418
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=6 local_size=16 numa_nodes=16 cpu_node=6 cpuset=228-235 memory_node=6 memor
+y_policy=default memory_bound=false threads=8 bound_threads=8 source=sysfs
+PYQCU::KUPL::INIT_PROFILE rank=6 stage=topology-report elapsed=0.276462
+PYQCU::KUPL::INIT_PROFILE rank=5 stage=omp-team-affinity elapsed=0.615918
+PYQCU::KUPL::INIT_PROFILE rank=5 stage=memory-policy elapsed=0.616074
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=5 local_size=16 numa_nodes=16 cpu_node=5 cpuset=190-197 memory_node=5 memor
+y_policy=default memory_bound=false threads=8 bound_threads=8 source=sysfs
+PYQCU::KUPL::INIT_PROFILE rank=5 stage=topology-report elapsed=0.616158
+(base) nsls_yangyb@login02:~$ cp -p /home/share/nsls_yangyb/PyQCU/cpp/kupl/qcu/src/appl
+y_init.cpp /home/share/nsls_yangyb/PyQCU/cpp/kupl/qcu/src/apply_init.cpp.bak-20261106-1
+438
+(base) nsls_yangyb@login02:~$ cp -p /home/share/nsls_yangyb/PyQCU/cpp/kupl/qcu/src/appl
+y_end.cpp /home/share/nsls_yangyb/PyQCU/cpp/kupl/qcu/src/apply_end.cpp.bak-20261106-143
+8
+(base) nsls_yangyb@login02:~$ printf '%s' 'H4sIAI927WoAA+1VW2/aMBTuc37FWaZNoWIQegHJK5Wm
+rZPQqo5u7UPVVZabGLAwtuc4vU389zk3CIWOPrC1nTiCOLaPz+U7x/kCperDWPH6zyCuRzqoE6X4LWaCmVqg1MY
+qxPf95s4OJGOruZuO/lY2T1+3fR8au1utbftrtJrgb/n+TmsD/JV4XyJxZIi2odwNiOjfMPGQnlXr9f5gJ8sFJu
+MLkddMBDwOKbhFF9QGruNMl4liOJCjkRS1gVLlrb1goKWQ++WVyIRsboWzy33HoTeGagHuRxd+Oc6VZCGkvdaxr
+XYcxB6Xog/pA0fUYGV0VIXSoiKajGaXiO5fVaw1gCR4hGz0CNmAEerHRIc09NzOUefErcL524tUDyCQIjJwKSUH
+pWWPcQptsEHaM9RQceW53bPjj6f4y2n3EHe/ff3cOTzAqZUKvGqDiDm3ob0v2SKxkZB0kaFhYSuDBqHIUBLe4oD
+L' > /home/share/nsls_yangyb/b64/sync_apply_profile_20261106.b64
+aZT3k8xhwum+N0GtMhfc5kBGJgdwgZ1sAyvJhC2RlyvOmLE79h/SmwfCSPe8kpv8NOuBl4Z3nmpcJBD6lbwUAMb
+CdJ0hpmNh2IhiqrXUnmtLAEVCEHFp3UdAuE7ghClioZs7Gt9HVdM+s+hrzIkxLKAJPF7udr5fEg94SG+9Uu+Vs5
+mZVR80M4Ew7cw8tJn85+Ebfre+T+SQiilkeWdOgcqqEMo46QTKiYrmey2MNTFMir1MbX+aLSxtSnhXdHClFkhbi
+qIN86M9pW1mPc9ObIGqJcsTye4NQsnFQSi5MfhDt3t4hhLLfdouClKE335Ta/Z+CHehsVynVNyxfR87zhjqdZh+
+Spyn/n6+dAkW8z8V4crofxn/N5rNxiz/20dze83//0Kenv8PRPh4+l/C9gdHn54j2a+Uy/8+jc8cLKlRTSI6w6e
+PodHc2mI' >> /home/share/nsls_yangyb/b64/sync_apply_profile_20261106.b64
+printf '%s' 'y
+9P9vzksRWxPeWtaylmcpvwHgjL4iABIAAA==' >> /home/share/nsls_yangyb/b64/sync_apply_profile
+_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' '
+> YIiQkNdeJTtaCji5a4xwdkfxSLFCYZrmpiGXaZT3k8xhwum+N0GtMhfc5kBGJgdwgZ1sAyvJhC2RlyvOmLE79
+h/SmwfCSPe8kpv8NOuBl4Z3nmpcJBD6lbwUAMbCdJ0hpmNh2IhiqrXUnmtLAEVCEHFp3UdAuE7ghClioZs7Gt9H
+VdM+s+hrzIkxLKAJPF7udr5fEg94SG+9Uu+Vs5mZVR80M4Ew7cw8tJn85+Ebfre+T+SQiilkeWdOgcqqEMo46QT
+KiYrmey2MNTFMir1MbX+aLSxtSnhXdHClFkhbiqIN86M9pW1mPc9ObIGqJcsTye4NQsnFQSi5MfhDt3t4hhLLfd
+ouClKE335Ta/Z+CHehsVynVNyxfR87zhjqdZh+Spyn/n6+dAkW8z8V4crofxn/N5rNxiz/20dze83//0Kenv8PR
+Ph4+l/C9gdHn54j2a+Uy/8+jc8cLKlRTSI6w6ePodHc2mI' >> /home/share/nsls_yangyb/b64/sync_app
+ly_profile_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'y
+> 9P9vzksRWxPeWtaylmcpvwHgjL4iABIAAA==' >> /home/share/nsls_yangyb/b64/sync_apply_profi
+le_20261106.b64
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/b64/sync_apply_profile_
+20261106.b64 > /home/share/nsls_yangyb/b64/sync_apply_profile_20261106.tgz
+(base) nsls_yangyb@login02:~$ tar -xzf /home/share/nsls_yangyb/b64/sync_apply_profile_2
+0261106.tgz -C /home/share/nsls_yangyb/PyQCU
+(base) nsls_yangyb@login02:~$ nohup bash /home/share/nsls_yangyb/logs/build_ht2split_ge
+neric.sh > /home/share/nsls_yangyb/logs/build_apply_profile.log 2>&1 &
+[1] 860695
+(base) nsls_yangyb@login02:~$

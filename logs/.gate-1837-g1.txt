@@ -1,0 +1,54 @@
+    1,
+(base) nsls_yangyb@login02:~$ sed -n 26,55p /home/share/nsls_yangyb/PyQCU-main/data/kup
+l_hbm_opt_20261106/compute_y91_slab16_manualgeom_v1/bicgstab_1/report.json
+    16
+  ],
+  "grid_coordinate": [
+    0,
+    0,
+    0,
+    0
+  ],
+  "mpi_rank": 0,
+  "mpi_size": 16,
+  "dtype": "complex64",
+  "mass": -0.277,
+  "kappa": 0.13430029546065003,
+  "mass_normalization": "kappa",
+  "csw": 1.160920226,
+  "atol": 0.0001,
+  "max_iter": 50,
+  "levels": 1,
+  "dof": [
+    12
+  ],
+  "mg_grid": [
+    2,
+    2,
+    2,
+    2
+  ],
+  "restart": 0,
+  "coarse_max_iter": 200,
+  "coarse_tol_factor": 10000.0,
+(base) nsls_yangyb@login02:~$ find /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt
+_20261106/compute_y91_slab16_manualgeom_v1 -maxdepth 2 -type f -printf "%p %s\n"
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/compute_y91_slab16_manual
+geom_v1/bicgstab_1/stdout.txt 1360
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/compute_y91_slab16_manual
+geom_v1/bicgstab_1/stderr.txt 61220
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/compute_y91_slab16_manual
+geom_v1/bicgstab_1/solution.h5 84941280
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/compute_y91_slab16_manual
+geom_v1/bicgstab_1/report.json 1589
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/compute_y91_slab16_manual
+geom_v1/mg_1/stdout.txt 0
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/compute_y91_slab16_manual
+geom_v1/mg_1/stderr.txt 32217
+(base) nsls_yangyb@login02:~$ djob -ll 2050917 | grep -A2 cn10579 | head -n 3
+        cn10579              0        0/1      -                -                -
+
+Runtime Details:
+    execNodes                                   cn10579
+
+(base) nsls_yangyb@login02:~$

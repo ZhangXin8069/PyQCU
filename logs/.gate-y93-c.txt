@@ -1,0 +1,54 @@
+b/logs/run_y91_login_t16_mg.sh > /home/share/nsls_yangyb/logs/login_y91_t16_mg_ht2_base
+_a2.log 2>&1
+(base) nsls_yangyb@login02:~$ ls -lh /home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_20
+261106/mg_e4_tblock1_L24_v1
+total 385M
+-rw-r----- 1 nsls_yangyb eapp 1.2K Nov  6 02:44 cache_build_report.json
+-rw-r----- 1 nsls_yangyb eapp 385M Nov  6 02:44 cache_E4_mg2x2x2x1.h5
+-rw-r----- 1 nsls_yangyb eapp 2.7K Nov  6 02:44 cache_E4_mg2x2x2x1.json
+(base) nsls_yangyb@login02:~$ find /home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_2026
+1106 -maxdepth 3 -type f -name cache_E2\*.h5 -ls
+72057817164456000   1056 -rw-r-----   1 nsls_yangyb eapp      1064960 Nov  6 01:28 /hom
+e/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_20261106/mg_sweep_L8/cache_E2_mg2x2x2x2.h5
+72057817164518848   1056 -rw-r-----   1 nsls_yangyb eapp      1064960 Nov  6 02:01 /hom
+e/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_20261106/mg_sweep_L8/cache_E2_mg2x2x2x2_par
+allel_stencil.h5
+ 9007422336796992   1056 -rw-r-----   1 nsls_yangyb eapp      1064960 Nov  6 01:33 /hom
+e/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_20261106/mg_variant_builds_L8_v1/cache_E2_m
+g2x2x2x2_nv4.h5
+     223177951680  16544 -rw-r-----   1 nsls_yangyb eapp     16916480 Nov  6 01:42 /hom
+e/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_20261106/mg_sweep_L16/cache_E2_mg2x2x2x2.h5
+     223177954944  16544 -rw-r-----   1 nsls_yangyb eapp     16916480 Nov  6 01:54 /hom
+e/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_20261106/mg_sweep_L16/cache_E2_mg2x2x2x2_ba
+tch16.h5
+     223177957056  16544 -rw-r-----   1 nsls_yangyb eapp     16916480 Nov  6 02:02 /hom
+e/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_20261106/mg_sweep_L16/cache_E2_mg2x2x2x2_pa
+rallel_stencil.h5
+27021820560755520 111488 -rw-r-----   1 nsls_yangyb eapp     114139136 Nov  6 02:04 /ho
+me/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_20261106/mg_sweep_L24/cache_E2_mg2x2x2x2_p
+arallel_stencil.h5
+(base) nsls_yangyb@login02:~$ printf '%s' 'H4sICIFn7WoAA2pvYl95OTNfbWFwcGluZzE2LnNoAMVS
+XU/bMBR9z6+4M0VsD8ZJEVVhyiY+KoQEhUH7hhQ5qUey1r6u7ZT13++myBU8DDEJaS/Ryck9Jz7Hd+eTKBsjSun
+rZOf8fnoKnGvbQE2PSCxhWdS2ktZGxsCyaov10UEkfsMvLLdfDWQRjyEbROysefF2B6yybT78qpXOhxcs8oggat
+RK+Fo6JYxf+GItzeO6FPTDfWxDnFRvTyrn4uQEDtI0SbwKwNvEY+sq9Vft7frH2VQos9qnThxiyN+cTJ7QzXPW6
+ybFTAYp5q1dFHWpC7Sh6Kf9QZalA1Ghtm1QXWuFpi4b85gNilXGEj2fNQ64BdbrvFhCGfNnLKzDUnWhWUJ5XrNE
+sMS6xoSfsHc/ObmbwK5/MHvk85kOougqG498OEiz3KsKzcx/YfCN9TZ2W+HVzaQ4HV1cjt+ljvLQaEUA+BwOPRy
+l' > /home/share/nsls_yangyb/b64/sync_job_y93_mapping16_20261106.b64
+%s' '
+HmhjXGtIhivlfFv6yjUl2RhLt0407dmMBwSDRsFDAt2mScvLNfgFkhGXiwU+cfLg0vOuTuKcsujCRkuFeajRByP
+1s0E8DPQ79LqOLtVofA6uynf9Ntl39s540Wc8vT75z+1Y646zY9Nq+cEdbbJ9QEdnN9e3V6PJ6J8a+gOtZLqmeQ
+QAAA==' >> /home/share/nsls_yangyb/b64/sync_job_y93_mapping16_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' '
+> HmhjXGtIhivlfFv6yjUl2RhLt0407dmMBwSDRsFDAt2mScvLNfgFkhGXiwU+cfLg0vOuTuKcsujCRkuFeajRB
+yP1s0E8DPQ79LqOLtVofA6uynf9Ntl39s540Wc8vT75z+1Y646zY9Nq+cEdbbJ9QEdnN9e3V6PJ6J8a+gOtZLqm
+eQQAAA==' >> /home/share/nsls_yangyb/b64/sync_job_y93_mapping16_20261106.b64
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/b64/sync_job_y93_mappin
+g16_20261106.b64 > /home/share/nsls_yangyb/b64/sync_job_y93_mapping16_20261106.tgz
+(base) nsls_yangyb@login02:~$ gzip -dc /home/share/nsls_yangyb/b64/sync_job_y93_mapping
+16_20261106.tgz > /home/share/nsls_yangyb/logs/job_y93_mapping16.sh
+(base) nsls_yangyb@login02:~$ chmod 750 /home/share/nsls_yangyb/logs/job_y93_mapping16.
+sh
+(base) nsls_yangyb@login02:~$ dsub -q q_hpcapp /home/share/nsls_yangyb/logs/job_y93_map
+ping16.sh
+Submit job <2049788> successfully.
+(base) nsls_yangyb@login02:~$

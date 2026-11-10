@@ -1,0 +1,54 @@
+ACK] Job 2049798 start message has been received by agent cn10579.
+                                                2026/11/06 13:38:53    :    [JOB_EXECUT
+ION] Job 2049798 state is from PENDING to RUNNING.
+                                                2026/11/06 13:38:54    :    [HOST_PRE-H
+OOK_START] Job 2049798 host-pre-hook started at 2026/11/06 13:38:54 .
+                                                2026/11/06 13:39:05    :    [HOST_PRE-H
+OOK_END] Job 2049798 host-pre-hook is finished successfully at 2026/11/06 13:39:05 , co
+st time: 11316 ms.
+                                                2026/11/06 13:39:50    :    [JOB_FINISH
+] Job 2049798 state is from RUNNING to FAILED, reason: job failed.
+(base) nsls_yangyb@login02:~$ tail -n 50 /home/share/nsls_yangyb/y94.err
+tail: cannot open '/home/share/nsls_yangyb/y94.err' for reading: No such file or direct
+ory
+(base) nsls_yangyb@login02:~$ find /home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_2026
+1106/compute_y94_prebind16_v1 -maxdepth 2 -type f -ls
+(base) nsls_yangyb@login02:~$ bash -n /home/share/nsls_yangyb/logs/job_y94_prebind16.sh
+; echo Y94_SYNTAX_RC=0
+Y94_SYNTAX_RC=0
+(base) nsls_yangyb@login02:~$ printf '%s' 'H4sICIpp7WoAA2pvYl95OTRfcHJlYmluZDE2LnNoAI1T
+YW/TMBD9nl9xZJvGhNw0ZVQFFFC7Rl21tsmyVKjSJCtJzRKa2J7tbAuI/47T4sImBnyJnHfv3t3Z7w5eOGlBnTS
+RuXUwvlqOAKGKF5DrjwFu4RbnPEs4NwiF26zGzdtTAzzAF5buoxRcc16A2zdnwelvfxHYGa+9wfuKVN5gYhucMX
+ByVhFH5okgDpWlxE1Cb5rU0QU7rFaGSf7OJEIYZgyvu13LkkQBqi3BmPKeywyby7Oldc/ExrMPW6azTlTibGpe4
+jytMOMK97q9vut2+07GKl4r0t4E5oLom1y7fXzn2la1WRcCEAf7sNWyLS4Kqj7D8VU8jGI4ktf0WMdeanGir7yQ
+DA36XdeTJGN0LU9s+LDLdKRKhOqoB2VbktUiI88OvW3dIfSuox+TPHAmFISRP5ouxvhTEF14phcTW2k+vliGMzy
+b' > /home/share/nsls_yangyb/b64/sync_job_y94_prebind16_retry_20261106.b64
+jv5j3LQuyjVSva9pybINuiGUiCJzyiLVduhItleejVvFaBitcDiMz7120ELQpCJ65sdl7ZN3h9+e8L/vhYJ5iBf
+LOY7PI384vvIGsM1r4T1kuNuIJg9xO7Hn7oC5Pw9a2WA2PVt57Qs94v8ML4Kx7+mhkvKV299FIv9yOY18w9hpPs
+o9X078cDjxTak40FWCyUqnhkEUa7YqKqINC2gDbyT0TrsS9F6JmuonZ3dEyDqVmShSbQHK9W5ouO0QKQaUUQLXF
+rT7mHCUNiBLppVQUpbsHmkNlEjUvhjwRuVMS462/OfcUbIb6XDBUmKs2uHNNsM4bddau2E29J6Aepl+edhfjEFk
+3pHc+/ij/Q8z/8HNPwBtUvX8ewQAAA==' >> /home/share/nsls_yangyb/b64/sync_job_y94_prebind16
+_retry_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' '
+> jv5j3LQuyjVSva9pybINuiGUiCJzyiLVduhItleejVvFaBitcDiMz7120ELQpCJ65sdl7ZN3h9+e8L/vhYJ5i
+BfLOY7PI384vvIGsM1r4T1kuNuIJg9xO7Hn7oC5Pw9a2WA2PVt57Qs94v8ML4Kx7+mhkvKV299FIv9yOY18w9hp
+Pso9X078cDjxTak40FWCyUqnhkEUa7YqKqINC2gDbyT0TrsS9F6JmuonZ3dEyDqVmShSbQHK9W5ouO0QKQaUUQL
+XFrT7mHCUNiBLppVQUpbsHmkNlEjUvhjwRuVMS462/OfcUbIb6XDBUmKs2uHNNsM4bddau2E29J6Aepl+edhfjE
+Fk3pHc+/ij/Q8z/8HNPwBtUvX8ewQAAA==' >> /home/share/nsls_yangyb/b64/sync_job_y94_prebind
+16_retry_20261106.b64
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/b64/sync_job_y94_prebin
+d16_retry_20261106.b64 > /home/share/nsls_yangyb/b64/sync_job_y94_prebind16_retry_20261
+106.tgz
+(base) nsls_yangyb@login02:~$ gzip -dc /home/share/nsls_yangyb/b64/sync_job_y94_prebind
+16_retry_20261106.tgz > /home/share/nsls_yangyb/logs/job_y94_prebind16.sh
+(base) nsls_yangyb@login02:~$ chmod 750 /home/share/nsls_yangyb/logs/job_y94_prebind16.
+sh
+(base) nsls_yangyb@login02:~$ dsub -q q_hpcapp /home/share/nsls_yangyb/logs/job_y94_pre
+bind16.sh
+Submit job <2049828> successfully.
+(base) nsls_yangyb@login02:~$ find /home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_2026
+1106/compute_y94_prebind16_v1 -maxdepth 1 -type f -printf %f%s
+start.txt32mpirun.out0mpirun.err0(base) nsls_yangyb@login02:~$ cat /home/share/nsls_yan
+gyb/PyQCU/data/kupl_hbm_opt_20261106/compute_y94_prebind16_v1/start.txt
+START 2026-11-06T13:46:19+08:00
+(base) nsls_yangyb@login02:~$

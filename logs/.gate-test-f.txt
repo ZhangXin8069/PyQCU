@@ -1,0 +1,54 @@
+ total=1.313531 fine_apply=0.592530 fine_calls=29 coarse_apply=0.021244 coarse_calls=9
+restrict=0.001089 restrict_calls=1 prolong=0.002251 prolong_calls=1 coarse_correction=0
+.092601 coarse_correction_calls=1 prepare=0.010601 store=0.009471 full_residual=0.04795
+9
+{"backend": "kupl", "solver": "applyCloverMultigridQcu", "lattice": [24, 24, 24, 64], "
+local_lattice": [24, 24, 24, 4], "local_starts": [0, 0, 0, 0], "grid": [1, 1, 1, 16], "
+grid_coordinate": [0, 0, 0, 0], "mpi_rank": 0, "mpi_size": 16, "dtype": "complex64", "m
+ass": -0.277, "kappa": 0.13430029546065003, "mass_normalization": "kappa", "csw": 1.160
+920226, "atol": 0.0001, "max_iter": 50, "levels": 2, "dof": [12, 4], "mg_grid": [2, 2,
+2, 1], "restart": 20, "coarse_max_iter": 20, "coarse_tol_factor": 10.0, "deflate": true
+, "builder_seconds": 2.2743145229760557, "input_prebind_seconds": 0.0, "hdf5_mpio_read"
+: false, "gauge_slab_dir": "/home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_20261106/y9
+1_gauge_slabs_t16", "source_slab_dir": "/home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt
+_20261106/y91_source_slabs_t16", "gauge_read_seconds": 0.038483499083667994, "source_re
+ad_seconds": 0.00982520799152553, "coarse_source": "/home/share/nsls_yangyb/PyQCU/data/
+kupl_hbm_opt_20261106/mg_e4_tblock1_L24_v1/cache_E4_mg2x2x2x1.h5", "wall_seconds": 1.31
+61811579484493, "residual_seconds": 1.0259174189995974, "verify_status": 0, "final_true
+_residual": 5.530824871339149e-05, "residual_acceptance": 0.000244140625, "residual_sou
+rce": "independent distributed NumPy full Wilson-Clover reconstruction with MPI halo ex
+change", "converged": true, "memory": {"available": true, "max_rss_kib": 571608, "resid
+ent_kib": 478892, "omp_threads": "8"}, "status": "PASS"}
+[1]+  Done                    nohup bash /home/share/nsls_yangyb/logs/run_y91_login_t16
+_mg_full.sh > /home/share/nsls_yangyb/logs/login_y91_t16_mg_full.log 2>&1
+(base) nsls_yangyb@login02:~$ printf '%s' 'H4sIAPhj7WoAA+1U246bMBDNM18x8hNExEsIyUor5bU/
+sYqQGwxxF4xrG23Sqv9ej02uylbqvlSVMoKAZ85MZs6cRB2+b4cny40VsnkyolMt98dSaa6Y5mWnRGla9pWqw+R
+zlmXZqigAn8+rpX9meTj71/mqgPkyf17kq/lztoAsX8yzYgLZJ7/vr2wwlmnXyo8dk81eyI9wDlbXf6gTZoHT8z
+8xt/BeW/hmehlF42G3VIfjuxw6dQBmQKooqnXfgULF0FExNCiG3ooFxvSOCVc3qngNd0VVvmvhAuW2l1Y0Qz+YU
+jP5Vtai5Sa2nSoVs7vkJQJnLbNWbDmsIc5TCFeR+FCjRYX+eQrhyoPf9IP2GcdS8ASkYUPD6W5JPKQfrBrsDQR7
+MyH+LpwLKaFfXFNxqJgCeScJ8uJkU7U8NIgWznSrObO8rJhlhtv4FEYj6CXplQ9da6koc+M3PF7AFPAu3J1f3EU
+K' > /home/share/nsls_yangyb/b64/sync_test_prepare_slab_20261106.b64
+MejTKD8djFtz2uZr8qEqq52THnXaTgLldkOnKZJJFPZ8bwcV3x66kgmc2EdOSQFIzV4+hJin6X77zTjqnYhdLjb
+pL0Mhm3coVCR8gPrM8qocfiwXGd/yYk5oeFjYRtElivIQttd0yK2unKbQ8VTB0jlYnHWrjHI4BimCARrCot39s4
+Sa4HD7hXgvIzZINfkt9HjKMGTCuMjY/D38d7Fs5gz8ElkniOS7ehfLkiIHsLQp7yPbLuNWBjGAgCyZOz5G4Uepq
++9sOUP/HzJSuqX6h5R6e+r9yLlkLoNQh1Q714cICzgE4/wBv9XRWgjhdtAqeBAXyL/vV/3sMe9rCHPWwy+Q2V78
+nrAAwAAA==' >> /home/share/nsls_yangyb/b64/sync_test_prepare_slab_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' '
+> lT0ojtC67ZldjIMejTKD8djFtz2uZr8qEqq52THnXaTgLldkOnKZJJFPZ8bwcV3x66kgmc2EdOSQFIzV4+hJi
+n6X77zTjqnYhdLjbpL0Mhm3coVCR8gPrM8qocfiwXGd/yYk5oeFjYRtElivIQttd0yK2unKbQ8VTB0jlYnHWrjH
+I4BimCARrCot39s4Sa4HD7hXgvIzZINfkt9HjKMGTCuMjY/D38d7Fs5gz8ElkniOS7ehfLkiIHsLQp7yPbLuNWB
+jGAgCyZOz5G4Uepq+9sOUP/HzJSuqX6h5R6e+r9yLlkLoNQh1Q714cICzgE4/wBv9XRWgjhdtAqeBAXyL/vV/3s
+Me9rCHPWwy+Q2V78nrAAwAAA==' >> /home/share/nsls_yangyb/b64/sync_test_prepare_slab_20261
+106.b64
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/b64/sync_test_prepare_s
+lab_20261106.b64 > /home/share/nsls_yangyb/b64/sync_test_prepare_slab_20261106.tgz
+(base) nsls_yangyb@login02:~$ tar -xzf /home/share/nsls_yangyb/b64/sync_test_prepare_sl
+ab_20261106.tgz -C /home/share/nsls_yangyb/PyQCU
+(base) nsls_yangyb@login02:~$ cd /home/share/nsls_yangyb/PyQCU && source ./env.sh && no
+hup python -m pytest -q pyqcu/testing/simple/test_prepare_mpi_slab.py pyqcu/testing/sim
+ple/mpi/test_mpi_contract.py > logs/pytest_slab_contract_20261106.log 2>&1 &
+[1] 313170
+###env.sh in /home/share/nsls_yangyb/PyQCU is sourcing...:2026-11-06-13-22-23###
+(base) nsls_yangyb@login02:~$ ###env.sh in /home/share/nsls_yangyb/PyQCU is done......:
+2026-11-06-13-22-23###
+

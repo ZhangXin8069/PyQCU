@@ -1,0 +1,54 @@
+h/__init__.py", line 202, in <module>
+    from torch._C import *  # noqa: F403
+ImportError: /usr/lib64/libstdc++.so.6: version `GLIBCXX_3.4.29' not found (required by
+ /work_ssd/software/soft/tool/anaconda3/2023.3/lib/python3.10/site-packages/torch/lib/l
+ibtorch_python.so)
+    from torch._C import *  # noqa: F403
+ImportError: /usr/lib64/libstdc++.so.6: version `GLIBCXX_3.4.29' not found (required by
+ /work_ssd/software/soft/tool/anaconda3/2023.3/lib/python3.10/site-packages/torch/lib/l
+ibtorch_python.so)
+Traceback (most recent call last):
+  File "/home/share/nsls_yangyb/logs/probe_prebind.py", line 12, in <module>
+    from pyqcu.testing.simple.kupl_bistabcg import prebind_kupl_inputs
+  File "/home/share/nsls_yangyb/PyQCU/pyqcu/testing/__init__.py", line 3, in <module>
+    import torch
+  File "/work_ssd/software/soft/tool/anaconda3/2023.3/lib/python3.10/site-packages/torc
+h/__init__.py", line 202, in <module>
+    from torch._C import *  # noqa: F403
+ImportError: /usr/lib64/libstdc++.so.6: version `GLIBCXX_3.4.29' not found (required by
+ /work_ssd/software/soft/tool/anaconda3/2023.3/lib/python3.10/site-packages/torch/lib/l
+ibtorch_python.so)
+Traceback (most recent call last):
+  File "/home/share/nsls_yangyb/logs/probe_prebind.py", line 12, in <module>
+    from pyqcu.testing.simple.kupl_bistabcg import prebind_kupl_inputs
+  File "/home/share/nsls_yangyb/PyQCU/pyqcu/testing/__init__.py", line 3, in <module>
+    import torch
+  File "/work_ssd/software/soft/tool/anaconda3/2023.3/lib/python3.10/site-packages/torc
+h/__init__.py", line 202, in <module>
+    from torch._C import *  # noqa: F403
+ImportError: /usr/lib64/libstdc++.so.6: version `GLIBCXX_3.4.29' not found (required by
+ /work_ssd/software/soft/tool/anaconda3/2023.3/lib/python3.10/site-packages/torch/lib/l
+ibtorch_python.so)
+Traceback (most recent call last):
+  File "/home/share/nsls_yangyb/logs/probe_prebind.py", line 12, in <module>
+    from pyqcu.testing.simple.kupl_bistabcg import prebind_kupl_inputs
+  File "/home/share/nsls_yangyb/PyQCU/pyqcu/testing/__init__.py", line 3, in <module>
+    import torch
+  File "/work_ssd/software/soft/tool/anaconda3/2023.3/lib/python3.10/site-packages/torc
+h/__init__.py", line 202, in <module>
+    from torch._C import *  # noqa: F403
+ImportError: /usr/lib64/libstdc++.so.6: version `GLIBCXX_3.4.29' not found (required by
+ /work_ssd/software/soft/tool/anaconda3/2023.3/lib/python3.10/site-packages/torch/lib/l
+ibtorch_python.so)
+--------------------------------------------------------------------------
+Primary job  terminated normally, but 1 process returned
+a non-zero exit code. Per user-direction, the job has been aborted.
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+mpirun detected that one or more processes exited with non-zero status, thus causing
+the job to be terminated. The first process to do so was:
+
+  Process name: [[60953,1],4]
+  Exit code:    1
+--------------------------------------------------------------------------
+(base) nsls_yangyb@login02:~$

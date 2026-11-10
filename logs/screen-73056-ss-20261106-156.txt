@@ -1,0 +1,54 @@
+toBjsdZ2Eme8bhlrdBokGSaELhFgtwx4NFBoT5fWclFuClLjZCRfhRBu05l+35lfqN2h8VAjnQlnP6SM1/IJHMt
+i/dplRkabxbfivo7gX+akf34jNwWHMd0hqOx05r2h0OpIddgYAPU55GSO9pyCH5' >> /home/share/nsls_ya
+ngyb/b64/sync_job_y80_20261106.b64
+printf '%s' '8tDkPweBjNJzVPo9WsxVxw3zede44to0JF9WBelwfpmPnGFLZGIkKRXf54wqjH3mppxCxYTa0v
+UFS6Wb0min3HMQG4/CvIPnzIHnwXkheYOQPGLu3hTBN6A6x0ewx2SnFZvq3DqCtRSlZEIL2nDPmTr/opUo//c/q
+tfxOl7H6/gxxj9b/DcDABAAAA==' >> /home/share/nsls_yangyb/b64/sync_job_y80_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'Rmqp7LWlcNwcz8moOb0B7XtwE7sRRQXw5LL29Qnom1rN
+1mDWJ9ObsdNsT4CPpSbfTqqfUYFVM+dOwzyQ953+UG5TZB+qa3FMPRi2nQYchBv+YtoHgLHzcdYdOyXwyA43s44
+zanacJ+LpEPYcdubgYTQcTx+1lePrdyTnr7s9aaykWUwkPd6foK8KQnk4KHQ9GjZqJgj4OliKvaLgkMyMXstBKq
+gqOYOJlCRpEIslejeZNsdT9DOH36f4HZJpcQWF/hJwpl3Yhtng1Gfxgp+oMlF7h0kAYUEXSaBZAFoeoCYYilksj
+SM30bwtSpL0El/GWeSCzA1D9qCBleZyTXIcfQJHEMlWrBm4ukI76idboJouKBdBvNJ5ECUhLcomykIRrNJgUU+2
+6s5c00JXIPhSFT/bAomEIDO/ILoSF7mcI82o4/NzWPn8AZl10zZ+hSLEtgxQsBCZVLNy7EYLBE3RmbG3X4htQpE
+PO6i1Px+3X7nZSpK4rGA9FxBsbYqfbRGwkXW2N9k1mYpNIXnRKKU5TfIM6sWi/pmzWAUdtFtoBjsdZ2Eme8bhlr
+dBokGSaELhFgtwx4NFBoT5fWclFuClLjZCRfhRBu05l+35lfqN2h8VAjnQlnP6SM1/IJHMti/dplRkabxbfivo7
+gX+akf34jNwWHMd0hqOx05r2h0OpIddgYAPU55GSO9pyCH5' >> /home/share/nsls_yangyb/b64/sync_jo
+b_y80_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' '8tDkPweBjNJzVPo9WsxVxw3zede44to0JF9WBelwfpmP
+nGFLZGIkKRXf54wqjH3mppxCxYTa0vUFS6Wb0min3HMQG4/CvIPnzIHnwXkheYOQPGLu3hTBN6A6x0ewx2SnFZv
+q3DqCtRSlZEIL2nDPmTr/opUo//c/qtfxOl7H6/gxxj9b/DcDABAAAA==' >> /home/share/nsls_yangyb/b
+64/sync_job_y80_20261106.b64
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/b64/sync_job_y80_202611
+06.b64 > /home/share/nsls_yangyb/b64/sync_job_y80_20261106.tgz
+(base) nsls_yangyb@login02:~$ tar -xzf /home/share/nsls_yangyb/b64/sync_job_y80_2026110
+6.tgz -C /home/share/nsls_yangyb
+(base) nsls_yangyb@login02:~$ ls -l /home/share/nsls_yangyb/logs/job_y80.sh
+-rw-r----- 1 nsls_yangyb eapp 2258 Nov  6 10:53 /home/share/nsls_yangyb/logs/job_y80.sh
+(base) nsls_yangyb@login02:~$ dsub -q q_hpcapp /home/share/nsls_yangyb/logs/job_y80.sh
+Submit job <2048778> successfully.
+(base) nsls_yangyb@login02:~$ djob
+ID           NAME         STATE      USER         ACCOUNT      QUEUE                STA
+RT_TIME           END_TIME             EXEC_NODES
+2048778      default      RUNNING    nsls_yangyb  common       q_hpcapp             202
+6/11/06 10:54:03  -                    cn10579
+(base) nsls_yangyb@login02:~$ djob
+----------------------------------------
+query successfully, no matches.
+(base) nsls_yangyb@login02:~$ cat /home/share/nsls_yangyb/y80.out
+cat: /home/share/nsls_yangyb/y80.out: No such file or directory
+(base) nsls_yangyb@login02:~$ find /home/share/nsls_yangyb -maxdepth 3 -iname "*y80*" -
+print
+/home/share/nsls_yangyb/logs/job_y80.sh
+/home/share/nsls_yangyb/b64/job_probe_y80.sh.b64
+/home/share/nsls_yangyb/b64/sync_job_y80_20261106.b64
+/home/share/nsls_yangyb/b64/sync_job_y80_20261106.tgz
+/home/share/nsls_yangyb/sh/job_probe_y80.sh
+(base) nsls_yangyb@login02:~$ find /home/share/nsls_yangyb/Job_Output -maxdepth 1 -type
+ f -printf "%f
+> " | tail -n 20
+(base) nsls_yangyb@login02:~$ chmod 750 /home/share/nsls_yangyb/logs/job_y80.sh
+(base) nsls_yangyb@login02:~$ ls -l /home/share/nsls_yangyb/logs/job_y80.sh
+-rwxr-x--- 1 nsls_yangyb eapp 2258 Nov  6 10:53 /home/share/nsls_yangyb/logs/job_y80.sh
+(base) nsls_yangyb@login02:~$ dsub -q q_hpcapp /home/share/nsls_yangyb/logs/job_y80.sh
+Submit job <2048785> successfully.
+(base) nsls_yangyb@login02:~$

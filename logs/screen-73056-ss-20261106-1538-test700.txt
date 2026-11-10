@@ -1,0 +1,54 @@
+/src/backend.cpp.sync.b64 > /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/backend
+.cpp
+(base) nsls_yangyb@login02:~$ chmod 640 /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu
+/src/backend.cpp
+(base) nsls_yangyb@login02:~$ sha256sum /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu
+/include/kupl/lattice_cpu.h /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/apply_i
+nit.cpp /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/apply_end.cpp /home/share/n
+sls_yangyb/PyQCU-main/cpp/kupl/qcu/src/lattice_cpu.cpp /home/share/nsls_yangyb/PyQCU-ma
+in/cpp/kupl/qcu/src/backend.cpp
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  /home/share/nsls_yang
+yb/PyQCU-main/cpp/kupl/qcu/include/kupl/lattice_cpu.h
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  /home/share/nsls_yang
+yb/PyQCU-main/cpp/kupl/qcu/src/apply_init.cpp
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  /home/share/nsls_yang
+yb/PyQCU-main/cpp/kupl/qcu/src/apply_end.cpp
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  /home/share/nsls_yang
+yb/PyQCU-main/cpp/kupl/qcu/src/lattice_cpu.cpp
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  /home/share/nsls_yang
+yb/PyQCU-main/cpp/kupl/qcu/src/backend.cpp
+(base) nsls_yangyb@login02:~$ wc -c /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/inc
+lude/kupl/lattice_cpu.h.sync.b64 /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/ap
+ply_init.cpp.sync.b64 /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/apply_end.cpp
+.sync.b64 /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/lattice_cpu.cpp.sync.b64
+/home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/backend.cpp.sync.b64
+0 /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/include/kupl/lattice_cpu.h.sync.b64
+0 /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/apply_init.cpp.sync.b64
+0 /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/apply_end.cpp.sync.b64
+0 /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/lattice_cpu.cpp.sync.b64
+0 /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/backend.cpp.sync.b64
+0 total
+(base) nsls_yangyb@login02:~$ printf %s "SGVsbG8=" > /home/share/nsls_yangyb/PyQCU-main
+/data/kupl_hbm_opt_20261106/upload_test.b64
+(base) nsls_yangyb@login02:~$ wc -c /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_op
+t_20261106/upload_test.b64
+8 /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/upload_test.b64
+(base) nsls_yangyb@login02:~$
+(base) nsls_yangyb@login02:~$ wc -c /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_op
+t_20261106/upload_test_1000.b64
+wc: /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/upload_test_1000.b64:
+ No such file or directory
+(base) nsls_yangyb@login02:~$ printf %s "I2luY2x1ZGUgImt1cGwvbGF0dGljZV9zZXQuaCIKI2luY2
+x1ZGUgImt1cGwvbGF0dGljZV9oYWxvLmgiCiNpbmNsdWRlICJrdXBsL2xhdHRpY2VfY3B1LmgiCgojaW5jbHVkZ
+SA8YWxnb3JpdGhtPgojaW5jbHVkZSA8YXJyYXk+CiNpbmNsdWRlIDxjaHJvbm8+CiNpbmNsdWRlIDxjbWF0aD4K
+I2luY2x1ZGUgPGNzdGRpbz4KI2luY2x1ZGUgPGNzdGRpbnQ+CiNpbmNsdWRlIDxsaW1pdHM+CiNpbmNsdWRlIDx
+zdGRleGNlcHQ+CgpuYW1lc3BhY2Uga3VwbDo6cWN1IHsKCnRlbXBsYXRlIDx0eXBlbmFtZSBSZWFsPgpMYXR0aW
+NlU2V0PFJlYWw+OjpMYXR0aWNlU2V0KGNvbnN0IGludDMyX3QgKnBhcmFtcywgY29uc3QgUmVhbCAqYXJndikKI
+CAgIDogdGhyZWFkc18oY29uZmlndXJlZF90aHJlYWRzKCkpIHsKICBjb25zdCBib29sIHByb2ZpbGUgPSBpbml0
+X3Byb2ZpbGVfZW5hYmxlZCgpOwogIGNvbnN0IGF1dG8gc3RhcnRlZCA9IHN0ZDo6Y2hyb25vOjpzdGVhZHlfY2x
+vY2s6Om5vdygpOwogIGNvbnN0IGF1dG8gbWFyayA9IFsm" > /home/share/nsls_yangyb/PyQCU-main/dat
+a/kupl_hbm_opt_20261106/upload_test_700.b64
+(base) nsls_yangyb@login02:~$ wc -c /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_op
+t_20261106/upload_test_700.b64
+700 /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/upload_test_700.b64
+(base) nsls_yangyb@login02:~$

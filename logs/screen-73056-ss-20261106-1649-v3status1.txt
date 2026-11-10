@@ -1,0 +1,54 @@
+PYQCU::KUPL::INIT_APPLY: stage=register elapsed=0.061190
+PYQCU::KUPL::SCRATCH_PROFILE: stage=boundary-sites elapsed=0.014488
+PYQCU::KUPL::LATTICE_SET_PROFILE: stage=allocate-scratch elapsed=0.025209
+PYQCU::KUPL::SCRATCH_PROFILE: stage=boundary-sites elapsed=0.014494
+PYQCU::KUPL::LATTICE_SET_PROFILE: stage=allocate-scratch elapsed=0.025206
+PYQCU::KUPL::INIT_APPLY: stage=register elapsed=0.060545
+PYQCU::KUPL::INIT_APPLY: stage=register elapsed=0.060343
+PYQCU::KUPL::SCRATCH_PROFILE: stage=boundary-sites elapsed=0.014547
+PYQCU::KUPL::LATTICE_SET_PROFILE: stage=allocate-scratch elapsed=0.025266
+PYQCU::KUPL::SCRATCH_PROFILE: stage=boundary-sites elapsed=0.014439
+PYQCU::KUPL::LATTICE_SET_PROFILE: stage=allocate-scratch elapsed=0.025277
+PYQCU::KUPL::INIT_APPLY: stage=register elapsed=0.060014
+PYQCU::KUPL::INIT_APPLY: stage=register elapsed=0.061978
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=0.009187
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=0.009348
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=0.009534
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=0.009595
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=0.009571
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=0.009538
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=0.009721
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=0.009597
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=0.009608
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=0.009811
+PYQCU::KUPL::INIT_APPLY: stage=erase elapsed=0.009724
+(base) nsls_yangyb@login02:~$ cat /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_
+20261106/login_y101_init_profile_smoke_v4/rank_0000.txt
+rank=0 size=16 before=1433777.841798 after=1433777.897710 elapsed=0.055912
+(base) nsls_yangyb@login02:~$ cp /home/share/nsls_yangyb/logs/job_y101_init_profile_v2.
+sh /home/share/nsls_yangyb/logs/job_y101_init_profile_v3.sh
+(base) nsls_yangyb@login02:~$ sed -i -e s/compute_y101_init_profile_v2/compute_y101_ini
+t_profile_v3/ -e s/qcu_y101b/qcu_y101c/ -e s#/y101b.out#/y101c.out# -e s#/y101b.err#/y1
+01c.err# /home/share/nsls_yangyb/logs/job_y101_init_profile_v3.sh
+(base) nsls_yangyb@login02:~$ dsub -q q_hpcapp /home/share/nsls_yangyb/logs/job_y101_in
+it_profile_v3.sh
+Submit job <2050689> successfully.
+(base) nsls_yangyb@login02:~$ djob -ll 2050689 | tail -n 8
+        execNode             pids
+        cn10579              1860013,1860062,1860064,1860140,1860141,1860142,1860143,18
+60144,1860145,1860146,1860155,1860168,1860182,1860184,1860185,1860186,1860187,1860188,1
+860189
+    traceMessages                               2026/11/06 15:14:20    :    [JOB_ADD] J
+ob 2050689 is submitted by nsls_yangyb, job state is PENDING.
+                                                2026/11/06 15:14:24    :    [JOB_START]
+ Job 2050689 start message has been sent.
+                                                2026/11/06 15:14:25    :    [JOB_START_
+ACK] Job 2050689 start message has been received by agent cn10579.
+                                                2026/11/06 15:14:25    :    [JOB_EXECUT
+ION] Job 2050689 state is from PENDING to RUNNING.
+                                                2026/11/06 15:14:26    :    [HOST_PRE-H
+OOK_START] Job 2050689 host-pre-hook started at 2026/11/06 15:14:26 .
+                                                2026/11/06 15:14:37    :    [HOST_PRE-H
+OOK_END] Job 2050689 host-pre-hook is finished successfully at 2026/11/06 15:14:37 , co
+st time: 11402 ms.
+(base) nsls_yangyb@login02:~$

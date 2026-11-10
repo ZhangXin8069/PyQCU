@@ -1,0 +1,54 @@
+    preHookRunTime                              0
+
+    jobWallclockDuration                        289
+
+    postHookRunTime                             0
+
+    hostPostHookRunTime                         0
+
+    jobSstoppedTime                             0
+
+    coreHours                                   289
+
+    nodeUsages
+        execNode             resGroup resIndex utime    stime    wallclockDuration    s
+stoppedTime     cpuUtil          gpuUtil          npuUtil          memResource
+
+        cn10579              0        0/1      26       25       289                  0
+                17/15            -                -                1425/205/0/0/1631/16
+31/473/1631
+    nodePids
+        execNode             pids
+        cn10579              793550,794083,794600,794607,794608,794613,794663,794664,79
+4724,794785,794802,794905,795054,795055,795059,795066,795067,795069
+    traceMessages                               2026/11/06 12:30:12    :    [JOB_ADD] J
+ob 2049394 is submitted by nsls_yangyb, job state is PENDING.
+                                                2026/11/06 12:30:16    :    [JOB_START]
+ Job 2049394 start message has been sent.
+                                                2026/11/06 12:30:16    :    [JOB_START_
+ACK] Job 2049394 start message has been received by agent cn10579.
+                                                2026/11/06 12:30:16    :    [JOB_EXECUT
+ION] Job 2049394 state is from PENDING to RUNNING.
+                                                2026/11/06 12:30:17    :    [HOST_PRE-H
+OOK_START] Job 2049394 host-pre-hook started at 2026/11/06 12:30:17 .
+                                                2026/11/06 12:30:29    :    [HOST_PRE-H
+OOK_END] Job 2049394 host-pre-hook is finished successfully at 2026/11/06 12:30:29 , co
+st time: 11549 ms.
+(base) nsls_yangyb@login02:~$ find /home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_2026
+1106/compute_y90_block16_v1 -maxdepth 2 -type f -printf %P%s
+bicgstab_1/stdout.txt0bicgstab_1/stderr.txt0(base) nsls_yangyb@login02:~$ find /home/sh
+are/nsls_yangyb/PyQCU/data/kupl_hbm_opt_20261106/compute_y90_block16_v1 -maxdepth 2 -ty
+pe f -printf %P%s
+bicgstab_1/stdout.txt0bicgstab_1/stderr.txt0(base) nsls_yangyb@login02:~$ printf '%s' '
+H4sICOpZ7WoAA2pvYl95OTBfa2lsbC5zaACF0D1PwzAQBuDdv+Joh07BTvMtlAW1QhWFoaEDElKUpIaEJrZjJxK
+V+uOJ6xrYWPzcvXfSSZ7f4LJhuCxUjearbH8PjtOJBurpsUEPfV6LqhDCJgz6asxPCTna5As+efkzZuDa+vm3lO
+JPvoNZJcbUvetol7oPM5tzDrjmHcWqLiTFTLUqPxXs41Rife+Wj4Ndpf+sUint6guEBCFFB3BGdGzadorWuyeIE
+i8IyIRPYk8TEmKIDPEF18zCK74mWhriQBOTpSYhugtI4BuuXXIhDA2RIYHzGQY5UqRaSgV46FAMdPr/RnEnDomb
+KlpxdlCo5mpgRUeRkA0b3mHxmpD8cbPd5pss269Xb2yBvgGHGONUyQEAAA==' > /home/share/nsls_yangyb
+/b64/sync_job_y90_kill_20261106.b64
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/b64/sync_job_y90_kill_2
+0261106.b64 > /home/share/nsls_yangyb/b64/sync_job_y90_kill_20261106.tgz
+(base) nsls_yangyb@login02:~$ gzip -dc /home/share/nsls_yangyb/b64/sync_job_y90_kill_20
+261106.tgz > /home/share/nsls_yangyb/logs/job_y90_kill.sh
+(base) nsls_yangyb@login02:~$ chmod 750 /home/share/nsls_yangyb/logs/job_y90_kill.sh
+(base) nsls_yangyb@login02:~$

@@ -1,0 +1,54 @@
+OuDF+Wqg1XpwwKH3/KeSbcsI+tD2/HGLQpH3pkQe5ns' >> /home/share/nsls_yangyb/b64/sync_prepar
+e_slab_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'vLHk
+> Jm5RE3fQiW3n38Eu9hB4uT2Ne7iM7aW/IJdzI15VosjCw5kg24Qs7HeH81mv61iwHDzodRvDC/S2q3Ck9HCJy
+nUNjszZfYEOPRjQV4XQOv+iMMxZjSzaG5vGLtLK30Sy3BuByjEZOuSBCSYcwiVBihPOY9+llULGCymJgEVbadvt
+CV30kZE58cGz7ciCCwLIsPhw0abjhYJzldd641UHzchEbkE66BUNEJrd/gc63YgtBzcEFf4SEW0rOcYVjFMOM9H
+TW0+hbcgXXa73pmyJvDhtwD2Kpi9Y9I5uj8Cm6KS3kfadL6bp2xtwcR8Nth93U1SVenO0DQ7j2jeMugVruk1o3q
+StyhdNBNmZY/uxEleCJX5Ca+4yVuPse+sY92WaGuTmK/VpGWgEFvRc7YGmX6z1v+f05+yHnZMvOo2kyOYxI3YeU
+rEqjLJ6W+mwEYVZK4OSM76BcrPQ+CMBHAtSxp84nOB' >> /home/share/nsls_yangyb/b64/sync_prepare
+_slab_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' '4UgX/
+> LDwgiCItIfjXcVCb1fj9mdqmoe+Z6tosChvPhkNbr7ot6DONTvbt2P94OYU+H/YhIfckCRUfSYJdf5IEC9ew4
+KHxt70G++DYMCF9EwAx/+2ffr6P7+P7+D8f/wbn9ADIACAAAA==' >> /home/share/nsls_yangyb/b64/syn
+c_prepare_slab_20261106.b64
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/b64/sync_prepare_slab_2
+0261106.b64 > /home/share/nsls_yangyb/b64/sync_prepare_slab_20261106.tgz
+(base) nsls_yangyb@login02:~$ tar -xzf /home/share/nsls_yangyb/b64/sync_prepare_slab_20
+261106.tgz -C /home/share/nsls_yangyb/PyQCU
+(base) nsls_yangyb@login02:~$ chmod 750 /home/share/nsls_yangyb/PyQCU/pyqcu/testing/sim
+ple/prepare_mpi_slab.py
+(base) nsls_yangyb@login02:~$ nohup python -B /home/share/nsls_yangyb/PyQCU/pyqcu/testi
+ng/simple/prepare_mpi_slab.py --input /home/share/nsls_yangyb/PyQCU/data/production_L24
+/gauge_24x24x24x64_c64.h5 --lat 24 24 24 64 --grid 1 1 2 8 --output-dir /home/share/nsl
+s_yangyb/PyQCU/data/kupl_hbm_opt_20261106/y91_gauge_slabs --kind gauge --dtype c64 > /h
+ome/share/nsls_yangyb/logs/prepare_y91_gauge.log 2>&1 & echo PREP_PID=
+[1] 71076
+PREP_PID=
+(base) nsls_yangyb@login02:~$ tail -n 12 /home/share/nsls_yangyb/logs/prepare_y91_gauge
+.log
+slab rank=5/16 shape=(3, 3, 4, 24, 24, 12, 8) bytes=15931608
+slab rank=6/16 shape=(3, 3, 4, 24, 24, 12, 8) bytes=15931608
+slab rank=7/16 shape=(3, 3, 4, 24, 24, 12, 8) bytes=15931608
+slab rank=8/16 shape=(3, 3, 4, 24, 24, 12, 8) bytes=15931608
+slab rank=9/16 shape=(3, 3, 4, 24, 24, 12, 8) bytes=15931608
+slab rank=10/16 shape=(3, 3, 4, 24, 24, 12, 8) bytes=15931608
+slab rank=11/16 shape=(3, 3, 4, 24, 24, 12, 8) bytes=15931608
+slab rank=12/16 shape=(3, 3, 4, 24, 24, 12, 8) bytes=15931608
+slab rank=13/16 shape=(3, 3, 4, 24, 24, 12, 8) bytes=15931608
+slab rank=14/16 shape=(3, 3, 4, 24, 24, 12, 8) bytes=15931608
+slab rank=15/16 shape=(3, 3, 4, 24, 24, 12, 8) bytes=15931608
+{"manifest": "/home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_20261106/y91_gauge_slabs/
+manifest.json", "ranks": 16}
+[1]+  Done                    nohup python -B /home/share/nsls_yangyb/PyQCU/pyqcu/testi
+ng/simple/prepare_mpi_slab.py --input /home/share/nsls_yangyb/PyQCU/data/production_L24
+/gauge_24x24x24x64_c64.h5 --lat 24 24 24 64 --grid 1 1 2 8 --output-dir /home/share/nsl
+s_yangyb/PyQCU/data/kupl_hbm_opt_20261106/y91_gauge_slabs --kind gauge --dtype c64 > /h
+ome/share/nsls_yangyb/logs/prepare_y91_gauge.log 2>&1
+(base) nsls_yangyb@login02:~$ nohup python -B /home/share/nsls_yangyb/PyQCU/pyqcu/testi
+ng/simple/prepare_mpi_slab.py --input /home/share/nsls_yangyb/PyQCU/data/production_L24
+/source_24x24x24x64_c64.h5 --lat 24 24 24 64 --grid 1 1 2 8 --output-dir /home/share/ns
+ls_yangyb/PyQCU/data/kupl_hbm_opt_20261106/y91_source_slabs --kind source --dtype c64 >
+ /home/share/nsls_yangyb/logs/prepare_y91_source.log 2>&1 &
+[1] 73855
+(base) nsls_yangyb@login02:~$

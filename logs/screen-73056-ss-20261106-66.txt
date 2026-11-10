@@ -1,0 +1,54 @@
+  "mass": -0.277,
+  "csw": 1.160920226,
+  "sub_volume": false
+}
+(base) nsls_yangyb@login02:~$ mkdir -p /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm
+_opt_20261106/mg_L32_e2_tblock4_v1
+(base) nsls_yangyb@login02:~$ printf '%s' 'H4sIAJww7WoAA+1U3Y+jNhC/Z/4KN+2rAzhf6kMe8sHe
+oiUfB0mrrSpZDnHAjcEUm73NnfK/1zaXbLRV9+mkttIOCDMzv/nNMIzNRSbduinxrmF8j1OS5hRHPdSV+YfvJZ7
+nDft9YNbRcGBXD7W6fe0N+8AfoFEP9TykHZ4/8j30AXjfrYI3pJGK1LqULzkps2dW/hNOww6HN3jabwHX9X8iP/
+7gNrJ2d6x0afkEdkTmjqQKQNoIULGKHgjjjlMLocZuLgrqypzU1C0ll/ikW3bauevTp9kWFoSVjo6n485PXw3+7
+O6JIu6xqTjOdwUWlcLIQ0Pf94Ydx86bgZqQs2tVqNCXHRfpEWa0pDVLO06qvXjP6lekVS32TaqYKM2w4ie/44hG
+vdAVmbVThJUl7FuInW4D0tiz2856gHCRoWdz9bv5oOM4xVHnA7AC34Adx3TmdweA1WKNl9sF3tzHwWSejHsIPGz
+XETb2G5tR54/LySKcje8mURJcg3+dhBu8XkXh7HG8niRJ+EvQMiQP4RqHy/VWu+NgGi7nY99GWW+wnEyjAG8Q/m
+0arWYPeJ5Ek+R+7P0NsviIk02wnIURXk/iSRQFkSayiBvXTa2GYP2o/5/xT7dhNNcFrD7GQZLowNZzCdeOuzAKb
+iuLg0/bMLZ5Z6s4DmabcLW0gZv71XK7nG7v7oI4uHzNDV8U' > /home/share/nsls_yangyb/b64/sync_bui
+ld_cache_L32_20261106.b64
++mHw1UnlouwBOAXXOalOmtFVVCpWZq5kRcVpO4xFwxXLarbvVqc2H9DcnCigG9Le+kSC0ECA/+26wAoiJYBeF41
+GWkvlZ+B3/aH3s55sNNQWogQHPoV9i32GTBcLBt41fq9OFQWpTcDpE+USIP1aU3MOqdtEWVsAspeB78UB+MjCyy
+dLbGKv9YuUcCgVLVPGX+twR1Saa5YLOhWklhTqYuGBpErUwPdezNfC0UvhGWkyatp72ZJn15pwDz2397CP9XeZT
+XQNkqKp01dRre3NsM+1zn4pxu7TlkK/nF9QNa2EbtllP7dq9w8pyo5JfWQVZOWeVlQ/SmVazPYN4c6/fea+y7u8
+y7v8F+Qv9oFKigAMAAA=' >> /home/share/nsls_yangyb/b64/sync_build_cache_L32_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'Tu3vMv/97HK2+zNtulJ0LE6xgurWAwgly0rCx5sgXmjt
+yDiH5KBoPe55EgxG+mHw1UnlouwBOAXXOalOmtFVVCpWZq5kRcVpO4xFwxXLarbvVqc2H9DcnCigG9Le+kSC0EC
+A/+26wAoiJYBeF41GWkvlZ+B3/aH3s55sNNQWogQHPoV9i32GTBcLBt41fq9OFQWpTcDpE+USIP1aU3MOqdtEWV
+sAspeB78UB+MjCyydLbGKv9YuUcCgVLVPGX+twR1Saa5YLOhWklhTqYuGBpErUwPdezNfC0UvhGWkyatp72ZJn1
+5pwDz2397CP9XeZTXQNkqKp01dRre3NsM+1zn4pxu7TlkK/nF9QNa2EbtllP7dq9w8pyo5JfWQVZOWeVlQ/SmVa
+zPYN4c6/fea+y7u8y7v8F+Qv9oFKigAMAAA=' >> /home/share/nsls_yangyb/b64/sync_build_cache_L
+32_20261106.b64
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/b64/sync_build_cache_L3
+2_20261106.b64 > /home/share/nsls_yangyb/b64/sync_build_cache_L32_20261106.tgz
+(base) nsls_yangyb@login02:~$ tar -xzf /home/share/nsls_yangyb/b64/sync_build_cache_L32
+_20261106.tgz -C /home/share/nsls_yangyb/py
+(base) nsls_yangyb@login02:~$ bash /home/share/nsls_yangyb/py/logs/run_build_cache_L32.
+sh
+[ROCE] roce3_user_log_init: [ERR]Failed to open libroce log file
+[ROCE] roce3_user_log_init: [ERR]Failed to open libroce log file
+[ROCE] roce3_user_log_init: [ERR]Failed to open libroce log file
+SDMA ERROR (sdma_constructor|75): [login02] Open SDMA fail:No such file or directory
+/home/share/nsls_yangyb/PyQCU/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang is un
+available; TileLang-specific acceleration and tests will be skipped (ModuleNotFoundErro
+r: No module named 'tilelang')
+  _tilelang = import_tilelang()
+PYQCU::KUPL::INIT:
+ KUPL_OMP_THREADS exceeds the process affinity CPU set; reduce threads or set KUPL_ALLO
+W_OVERSUBSCRIBE=1
+--------------------------------------------------------------------------
+MPI_ABORT was invoked on rank 0 in communicator MPI_COMM_WORLD
+with errorcode 2.
+
+NOTE: invoking MPI_ABORT causes Open MPI to kill all MPI processes.
+You may or may not see output from other processes, depending on
+exactly when Open MPI kills them.
+--------------------------------------------------------------------------
+(base) nsls_yangyb@login02:~$

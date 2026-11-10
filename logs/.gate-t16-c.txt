@@ -1,0 +1,54 @@
+slab rank=11/16 shape=(4, 3, 24, 24, 24, 4) bytes=5314776
+slab rank=12/16 shape=(4, 3, 24, 24, 24, 4) bytes=5314776
+slab rank=13/16 shape=(4, 3, 24, 24, 24, 4) bytes=5314776
+slab rank=14/16 shape=(4, 3, 24, 24, 24, 4) bytes=5314776
+slab rank=15/16 shape=(4, 3, 24, 24, 24, 4) bytes=5314776
+{"manifest": "/home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_20261106/y91_source_slabs
+_t16/manifest.json", "ranks": 16}
+[1]+  Done                    nohup python -B /home/share/nsls_yangyb/PyQCU/pyqcu/testi
+ng/simple/prepare_mpi_slab.py --input /home/share/nsls_yangyb/PyQCU/data/production_L24
+/source_24x24x24x64_c64.h5 --lat 24 24 24 64 --grid 1 1 1 16 --output-dir /home/share/n
+sls_yangyb/PyQCU/data/kupl_hbm_opt_20261106/y91_source_slabs_t16 --kind source --dtype
+c64 > /home/share/nsls_yangyb/logs/prepare_y91_source_t16.log 2>&1
+(base) nsls_yangyb@login02:~$ printf '%s' 'H4sIAGFg7WoAA+1WUXPaOBDus3+FjsvD3YOw5RjT3gwP
+kLiBqQPUwENubkZjG8X4kC3Xkgn0pv+9KxtypElzL5lee8eaQbD69pPW/qxdLhJpllVOd28I5SJJc6qIS6M0Ttp
+y9epFzLKsbsdC9eh26tGynWbUP21CEOnY3XPbtYhDkEW6HeK+QtbLLP+8VVKFJWzl4yrMk22afw0HsNvbZ3iaXN
+D9+IPYzz+ZUZqbUShXhmQK4cqQoipjhsyVyJgpV2HJzFxySXdwg3aROd29v1iYLN+APgyjFEL1noUawM16rTONN
+JehCs11VXC6ijIqCkVty3YJsdyWcSfKNeA03GyUqDWp1bghLSNbL9MS4QK1zjSwZbBtIUqFpjewBn23mPrUHw0O
+8VGV8iVW9seIi3iNE5azMo1NnkYf4qotxX24f6nDgn5wQ6f9+RDif4F18jBjsNBD7tavv5399QX+0z3R5HpKx4t
+r' > /home/share/nsls_yangyb/b64/sync_run_y91_login_t16_20261106.b64
+
+Oh8GXv9y1nuN6jjt/sIFqD4djMaXPesQXPuHiytv2r/yeqT5P59MJ/7k6oYG3nQSzMF9tJ/rKzoNJm9HPsAfsAz
+8ycU7ejnz+7MhvR6N6bDvv6Wz0dyb9Yh7/tppYN64P/A9Orfp78cRsCVDpRkTFUhhjToSnVuWRFmRwhmBMBYbVs
+oqknGZRgzhvEDEBTdICO62QLnIGfrDQODKwgJHOyS5ACYcci7uMHDgUGKthBpV7NRKAO0A7eVR7ODxmIpJleaJK
+dOs4KyRS1ZxlSZlumwXu9Z+CR4qBOdI83Ed8GgAIs3l7lFJWCUMSx5GWCtoLxAtrXqG6hmpZXagbfT/ZEQz9Tgk
+C6VE2Grb3S78i+UdIm3iWm9A3La+P6ESHBGGnRq7xaliJYIjsYleql3BUFxnwNmGcQn7x7hk+mhSyDpOBB2/SEU
+pllWsUpFT33bMJh/b2TYf16HA2V51Hib2HMM+v69TlKx' >> /home/share/nsls_yangyb/b64/sync_run_y
+91_login_t16_20261106.b64
+printf '%s' 'W
+WvMOmrpKwB6j9p9S5C0tj0oV1ePpoy2s0wKDWFjB4CtXOsl0WYXc+LcPwv+p8afrf/Zy1f+f63/HflT/oSc41f9
+vYT9M/Y/DeMUO01lCmUNVXdyJPrkAYtYI6jkgXnurL6IPnlPj8K0ah2OywHu/GAWeXu1iEgTexXw0GcOCp+biO2
+gu7KPmglg6KmmSs+uLHCLFLSI20oH5pmZtQmMRlpLBE+H4NoyVKDVJE7Kfut+Fbf3trF9PyLceW99tTwOV7+luB
+iZOfczJTnay/5B9BrTJWTcAFAAA' >> /home/share/nsls_yangyb/b64/sync_run_y91_login_t16_2026
+1106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' '
+> Oh8GXv9y1nuN6jjt/sIFqD4djMaXPesQXPuHiytv2r/yeqT5P59MJ/7k6oYG3nQSzMF9tJ/rKzoNJm9HPsAfs
+Az8ycU7ejnz+7MhvR6N6bDvv6Wz0dyb9Yh7/tppYN64P/A9Orfp78cRsCVDpRkTFUhhjToSnVuWRFmRwhmBMBYb
+VsoqknGZRgzhvEDEBTdICO62QLnIGfrDQODKwgJHOyS5ACYcci7uMHDgUGKthBpV7NRKAO0A7eVR7ODxmIpJlea
+JKdOs4KyRS1ZxlSZlumwXu9Z+CR4qBOdI83Ed8GgAIs3l7lFJWCUMSx5GWCtoLxAtrXqG6hmpZXagbfT/ZEQz9T
+gkC6VE2Grb3S78i+UdIm3iWm9A3La+P6ESHBGGnRq7xaliJYIjsYleql3BUFxnwNmGcQn7x7hk+mhSyDpOBB2/S
+EUpllWsUpFT33bMJh/b2TYf16HA2V51Hib2HMM+v69TlKx' >> /home/share/nsls_yangyb/b64/sync_run
+_y91_login_t16_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'W
+> WvMOmrpKwB6j9p9S5C0tj0oV1ePpoy2s0wKDWFjB4CtXOsl0WYXc+LcPwv+p8afrf/Zy1f+f63/HflT/oSc41
+f9vYT9M/Y/DeMUO01lCmUNVXdyJPrkAYtYI6jkgXnurL6IPnlPj8K0ah2OywHu/GAWeXu1iEgTexXw0GcOCp+bi
+O2gu7KPmglg6KmmSs+uLHCLFLSI20oH5pmZtQmMRlpLBE+H4NoyVKDVJE7Kfut+Fbf3trF9PyLceW99tTwOV7+l
+uBiZOfczJTnay/5B9BrTJWTcAFAAA' >> /home/share/nsls_yangyb/b64/sync_run_y91_login_t16_20
+261106.b64
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/b64/sync_run_y91_login_
+t16_20261106.b64 > /home/share/nsls_yangyb/b64/sync_run_y91_login_t16_20261106.tgz
+(base) nsls_yangyb@login02:~$ tar -xzf /home/share/nsls_yangyb/b64/sync_run_y91_login_t
+16_20261106.tgz -C /home/share/nsls_yangyb
+(base) nsls_yangyb@login02:~$ chmod 750 /home/share/nsls_yangyb/logs/run_y91_login_t16_
+bicg.sh /home/share/nsls_yangyb/logs/run_y91_login_t16_mg.sh
+(base) nsls_yangyb@login02:~$

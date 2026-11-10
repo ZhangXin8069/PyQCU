@@ -1,0 +1,54 @@
+    totalUtime                                  87
+
+    totalStime                                  82
+
+    totalMaxMemSwp                              0
+
+    totalMaxMem                                 0
+
+    hostPreHookRunTime                          11
+
+    preHookRunTime                              0
+
+    jobWallclockDuration                        57
+
+    postHookRunTime                             0
+
+    hostPostHookRunTime                         0
+
+    jobSstoppedTime                             0
+
+    coreHours                                   57
+
+    jobExitCode                                 0
+
+    systemExitCode                              0
+
+    exitMessage                                 Job execution succeeded
+
+    nodeUsages
+        execNode             resGroup resIndex utime    stime    wallclockDuration    s
+stoppedTime     cpuUtil          gpuUtil          npuUtil          memResource
+
+        cn10579              0        0/1      87       82       57                   0
+                298/105          -                -                0/5/0/0/1784/1784/27
+5/0
+    nodePids
+        execNode             pids
+        cn10579              -
+    traceMessages                               2026/11/06 14:42:31    :    [JOB_ADD] J
+ob 2050424 is submitted by nsls_yangyb, job state is PENDING.
+                                                2026/11/06 14:42:35    :    [JOB_START]
+ Job 2050424 start message has been sent.
+                                                2026/11/06 14:42:35    :    [JOB_START_
+ACK] Job 2050424 start message has been received by agent cn10579.
+                                                2026/11/06 14:42:35    :    [JOB_EXECUT
+ION] Job 2050424 state is from PENDING to RUNNING.
+                                                2026/11/06 14:42:36    :    [HOST_PRE-H
+OOK_START] Job 2050424 host-pre-hook started at 2026/11/06 14:42:36 .
+                                                2026/11/06 14:42:47    :    [HOST_PRE-H
+OOK_END] Job 2050424 host-pre-hook is finished successfully at 2026/11/06 14:42:47 , co
+st time: 11243 ms.
+                                                2026/11/06 14:43:44    :    [JOB_FINISH
+] Job 2050424 state is from RUNNING to SUCCEEDED.
+(base) nsls_yangyb@login02:~$

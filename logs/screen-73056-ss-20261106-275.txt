@@ -1,0 +1,54 @@
+SyntaxError: invalid syntax
+(base) nsls_yangyb@login02:~$ h5dump -H /home/share/nsls_yangyb/PyQCU/data/production_L
+24/gauge_24x24x24x64_c64.h5
+HDF5 "/home/share/nsls_yangyb/PyQCU/data/production_L24/gauge_24x24x24x64_c64.h5" {
+GROUP "/" {
+   ATTRIBUTE "csw" {
+      DATATYPE  H5T_IEEE_F64LE
+      DATASPACE  SCALAR
+   }
+   ATTRIBUTE "format" {
+      DATATYPE  H5T_STRING {
+         STRSIZE H5T_VARIABLE;
+         STRPAD H5T_STR_NULLTERM;
+         CSET H5T_CSET_UTF8;
+         CTYPE H5T_C_S1;
+      }
+      DATASPACE  SCALAR
+   }
+   ATTRIBUTE "lattice" {
+      DATATYPE  H5T_STD_I64LE
+      DATASPACE  SIMPLE { ( 4 ) / ( 4 ) }
+   }
+   ATTRIBUTE "mass" {
+      DATATYPE  H5T_IEEE_F64LE
+      DATASPACE  SCALAR
+   }
+   ATTRIBUTE "provenance" {
+      DATATYPE  H5T_STRING {
+         STRSIZE H5T_VARIABLE;
+         STRPAD H5T_STR_NULLTERM;
+         CSET H5T_CSET_UTF8;
+         CTYPE H5T_C_S1;
+      }
+      DATASPACE  SCALAR
+   }
+   ATTRIBUTE "source_path" {
+      DATATYPE  H5T_STRING {
+         STRSIZE H5T_VARIABLE;
+         STRPAD H5T_STR_NULLTERM;
+         CSET H5T_CSET_UTF8;
+         CTYPE H5T_C_S1;
+      }
+      DATASPACE  SCALAR
+   }
+   DATASET "data" {
+      DATATYPE  H5T_COMPOUND {
+         H5T_IEEE_F64LE "r";
+         H5T_IEEE_F64LE "i";
+      }
+      DATASPACE  SIMPLE { ( 3, 3, 4, 24, 24, 24, 64 ) / ( 3, 3, 4, 24, 24, 24, 64 ) }
+   }
+}
+}
+(base) nsls_yangyb@login02:~$

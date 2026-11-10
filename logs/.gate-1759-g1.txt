@@ -1,0 +1,54 @@
+
+run_bicg() {
+  unset KUPL_REQUIRE_MG_CORRECTION
+  run_case "$1" --levels 1 --restart 0
+}
+
+run_mg() {
+  export KUPL_REQUIRE_MG_CORRECTION=1
+  run_case "$1" --levels 2 --restart 10 --mg-grid 2 2 2 1 \
+    --dof 12 4 --nv-iters 2 --coarse-tol-factor 10 \
+    --coarse-max-iter 20 --coarse-cache "$cache"
+}
+
+run_bicg bicgstab_1
+run_mg mg_1
+printf 'COMPLETE %s\n' "$(date --iso-8601=seconds)"
+(base) nsls_yangyb@login02:~$ sed -n 1,35p /home/share/nsls_yangyb/logs/job_y91_slab16.
+sh
+#!/bin/bash
+#DSUB --mpi hmpi
+#DSUB -q q_hpcapp
+#DSUB -n qcu_y91
+#DSUB -x job
+#DSUB -nn 1
+#DSUB -N 16
+#DSUB -rpn 16
+#DSUB -R "cpu=8;mem=8G"
+#DSUB -oo /home/share/nsls_yangyb/y91.out
+#DSUB -eo /home/share/nsls_yangyb/y91.err
+#DSUB -T 600
+
+set -u
+unset OMP_PROC_BIND OMP_PLACES GOMP_CPU_AFFINITY KMP_AFFINITY
+export OMP_DYNAMIC=FALSE
+export OMP_WAIT_POLICY=PASSIVE
+source /home/share/nsls_yangyb/PyQCU/env.sh
+
+root=/home/share/nsls_yangyb/PyQCU
+base="$root/data/kupl_hbm_opt_20261106"
+case_dir="$root/data/production_L24"
+gauge_slabs="$base/y91_gauge_slabs"
+source_slabs="$base/y91_source_slabs"
+work="$base/compute_y91_slab16_v1"
+cache="$base/mg_e4_tblock1_L24_v1/cache_E4_mg2x2x2x1.h5"
+lib="$base/build-t2zblock-generic/libqcu.so"
+mkdir -p "$work"
+
+export PYQCU_KUPL_LIB="$lib"
+export LD_LIBRARY_PATH="$(dirname "$lib"):${LD_LIBRARY_PATH}"
+export OMP_NUM_THREADS=8
+export KUPL_OMP_THREADS=8
+export KUPL_NUMA_BIND=1
+export KUPL_MEMORY_POLICY=bind
+(base) nsls_yangyb@login02:~$

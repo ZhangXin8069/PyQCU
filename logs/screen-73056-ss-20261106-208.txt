@@ -1,0 +1,54 @@
+                                                2026/11/06 11:52:13    :    [JOB_EXECUT
+ION] Job 2049145 state is from PENDING to RUNNING.
+                                                2026/11/06 11:52:14    :    [HOST_PRE-H
+OOK_START] Job 2049145 host-pre-hook started at 2026/11/06 11:52:14 .
+                                                2026/11/06 11:52:26    :    [HOST_PRE-H
+OOK_END] Job 2049145 host-pre-hook is finished successfully at 2026/11/06 11:52:26 , co
+st time: 11918 ms.
+(base) nsls_yangyb@login02:~$ find /home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_2026
+1106/compute_y85_ab_v1 -maxdepth 2 -type f -printf "%P %s
+> " 2>/dev/null
+bicgstab_1/stdout.txt 0
+bicgstab_1/stderr.txt 20617
+mg_1/stdout.txt 0
+mg_1/stderr.txt 20617
+mg_2/stdout.txt 0
+mg_2/stderr.txt 0
+(base) nsls_yangyb@login02:~$ tail -n 35 /home/share/nsls_yangyb/PyQCU/data/kupl_hbm_op
+t_20261106/compute_y85_ab_v1/bicgstab_1/stderr.txt
+       [--dtype {c64,c128}]
+       [--levels LEVELS]
+       [--dof DOF [DOF ...]]
+       [--mg-grid MG_GRID MG_GRID MG_GRID MG_GRID]
+       [--restart RESTART]
+       [--coarse-max-iter COARSE_MAX_ITER]
+       [--coarse-tol-factor COARSE_TOL_FACTOR]
+       [--nv-iters NV_ITERS]
+       [--coarse-cache COARSE_CACHE]
+       [--write-coarse-cache WRITE_COARSE_CACHE]
+       [--build-device {cpu,cuda}]
+       [--no-deflate]
+       [--verbose]
+       [--verbose-build]
+       [--local-stencil]
+       [--local-stencil-batch LOCAL_STENCIL_BATCH]
+       [--legacy-layout {auto,odd-schur,full-site}]
+       [--gauge GAUGE]
+       [--source SOURCE]
+       [--seed SEED]
+       [--skip-independent-residual]
+       [--output OUTPUT]
+       [--report REPORT]
+kupl_multigrid.py: error: --grid (1, 1, 1, 32) must contain 16 ranks
+--------------------------------------------------------------------------
+Primary job  terminated normally, but 1 process returned
+a non-zero exit code. Per user-direction, the job has been aborted.
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+mpirun detected that one or more processes exited with non-zero status, thus causing
+the job to be terminated. The first process to do so was:
+
+  Process name: [[54424,1],5]
+  Exit code:    2
+--------------------------------------------------------------------------
+(base) nsls_yangyb@login02:~$

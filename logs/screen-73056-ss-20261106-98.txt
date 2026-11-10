@@ -1,0 +1,54 @@
+(base) nsls_yangyb@login02:~$ printf '%s' 'TOD6frnYLCabu7sgDi6LveGLwok5Td0WZ4fR7Z9p0xW8
+Y3CSFkSdDLBtQbMSs9E6iOdKO1DGbLyXpB71XAEGQ/XS+Ookc172gD0B1zaqTorRkURIWmaOoEXFSNurRcMkzWq
+661anNh9Q3AxLoDakffy+smgI8L6OC6zAQgDb7cLhUGmp+Ay8rue7v6rGh76yYMkZ8IjdN9gnm6piwcC9xu/kqS
+IgNQkYORImAFSfNdG/KXmbKGsLgGZo+I7vgQcNvDwaYnGDV7cAM1tIUqaUvdTtLZZprlgu6JTjWhBbFWvvcSp5D
+Tz32XwtHD4XnuEmI3p7Lzf27BgT6sGn9vH7SK1L37FrkOBNnb6Iam2vhn2uVfZLMeYatxTq4/yMqknF1ZZdrnur
+dv8QvOzo1Ada2bTckYqoVyn1FtNdg5n1X/+S3+RN3uRN/hX5G6ljIMYADAAA' >> /home/share/nsls_yangy
+b/b64/sync_build_cache_L32_v3_20261106.b64
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/b64/sync_build_cache_L3
+2_v3_20261106.b64 > /home/share/nsls_yangyb/b64/sync_build_cache_L32_v3_20261106.tgz
+(base) nsls_yangyb@login02:~$ tar -xzf /home/share/nsls_yangyb/b64/sync_build_cache_L32
+_v3_20261106.tgz -C /home/share/nsls_yangyb/py
+(base) nsls_yangyb@login02:~$ bash /home/share/nsls_yangyb/py/logs/run_build_cache_L32.
+sh
+[ROCE] roce3_user_log_init: [ERR]Failed to open libroce log file
+[ROCE] roce3_user_log_init: [ERR]Failed to open libroce log file
+[ROCE] roce3_user_log_init: [ERR]Failed to open libroce log file
+SDMA ERROR (sdma_constructor|75): [login02] Open SDMA fail:No such file or directory
+/home/share/nsls_yangyb/PyQCU/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang is un
+available; TileLang-specific acceleration and tests will be skipped (ModuleNotFoundErro
+r: No module named 'tilelang')
+  _tilelang = import_tilelang()
+^Z
+[1]+  Stopped                 bash /home/share/nsls_yangyb/py/logs/run_build_cache_L32.
+sh
+(base) nsls_yangyb@login02:~$ pgrep -af "kupl_multigrid.py --lat 32"
+3134138 timeout --signal=TERM --kill-after=30s 570s python3 -B /home/share/nsls_yangyb/
+PyQCU-main/pyqcu/testing/simple/kupl_multigrid.py --lat 32 32 32 64 --grid 1 1 1 1 --ma
+ss -0.277 --csw 1.160920226 --atol 1e-4 --max-iter 50 --dtype c64 --levels 2 --restart
+1 --mg-grid 2 2 2 4 --dof 12 2 --nv-iters 1 --local-stencil --local-stencil-batch 4 --c
+oarse-tol-factor 10 --coarse-max-iter 20 --gauge /home/share/nsls_yangyb/PyQCU-main/dat
+a/production_L32_v1/gauge_32x32x32x64_c64.h5 --source /home/share/nsls_yangyb/PyQCU-mai
+n/data/production_L32_v1/source_32x32x32x64_c64.h5 --write-coarse-cache /home/share/nsl
+s_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/mg_L32_e2_tblock4_v2/cache_E2_mg2x2x2x4.
+h5 --report /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/mg_L32_e2_tbl
+ock4_v2/report.json --skip-independent-residual
+3134139 python3 -B /home/share/nsls_yangyb/PyQCU-main/pyqcu/testing/simple/kupl_multigr
+id.py --lat 32 32 32 64 --grid 1 1 1 1 --mass -0.277 --csw 1.160920226 --atol 1e-4 --ma
+x-iter 50 --dtype c64 --levels 2 --restart 1 --mg-grid 2 2 2 4 --dof 12 2 --nv-iters 1
+--local-stencil --local-stencil-batch 4 --coarse-tol-factor 10 --coarse-max-iter 20 --g
+auge /home/share/nsls_yangyb/PyQCU-main/data/production_L32_v1/gauge_32x32x32x64_c64.h5
+ --source /home/share/nsls_yangyb/PyQCU-main/data/production_L32_v1/source_32x32x32x64_
+c64.h5 --write-coarse-cache /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_202611
+06/mg_L32_e2_tblock4_v2/cache_E2_mg2x2x2x4.h5 --report /home/share/nsls_yangyb/PyQCU-ma
+in/data/kupl_hbm_opt_20261106/mg_L32_e2_tblock4_v2/report.json --skip-independent-resid
+ual
+(base) nsls_yangyb@login02:~$ ps -o pid=,stat=,etime=,%cpu=,%mem=,rss= -p 3134139
+3134139 Rl         04:28  100  1.0 5276856
+(base) nsls_yangyb@login02:~$ fg
+bash /home/share/nsls_yangyb/py/logs/run_build_cache_L32.sh
+PYQCU::KUPL::NULL_VECTOR:
+ column=1/2 elapsed=0.000s
+PYQCU::KUPL::NULL_VECTOR:
+ column=2/2 elapsed=63.560s
+

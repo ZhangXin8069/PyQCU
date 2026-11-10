@@ -1,0 +1,54 @@
+from pyqcu.kupl import qcu
+
+
+class NumpyTensor:
+    def __init__(self, value):
+        self.array = np.ascontiguousarray(value)
+
+    def is_contiguous(self):
+        return bool(self.array.flags.c_contiguous)
+
+    def data_ptr(self):
+        return int(self.array.ctypes.data)
+
+
+def main() -> int:
+    comm = MPI.COMM_WORLD
+    rank = int(comm.Get_rank())
+    size = int(comm.Get_size())
+    work = Path(os.environ["PREBIND_WORK"])
+    work.mkdir(parents=True, exist_ok=True)
+    local = (24, 24, 24, 4)
+    params = np.zeros(58, dtype=np.int32)
+    params[0:4] = local
+    params[4] = int(np.prod(local))
+    params[5:9] = (1, 1, 1, 16)
+    params[9] = 0
+    params[10] = rank
+    params[11] = size
+    params[13] = 50
+    params[14] = 2
+    params[15] = 0
+    params[16] = 2
+    argv = np.zeros(8, dtype=np.float32)
+    argv[0], argv[1], argv[7] = -0.277, 1.0e-4, 1.160920226
+    set_ptrs = np.zeros(100, dtype=np.int64)
+    before = time.perf_counter()
+    set_ptrs_arg = NumpyTensor(set_ptrs)
+    params_arg = NumpyTensor(params)
+    argv_arg = NumpyTensor(argv)
+    qcu.applyInitQcu(set_ptrs_arg, params_arg, argv_arg)
+    qcu.applyEndQcu(set_ptrs_arg, params_arg)
+    after = time.perf_counter()
+    (work / f"rank_{rank:04d}.txt").write_text(
+        f"rank={rank} size={size} before={before:.6f} after={after:.6f} "
+        f"elapsed={after - before:.6f}\n",
+        encoding="utf-8")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+(base) nsls_yangyb@login02:~$ mkdir -p /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm
+_opt_20261106/login_y101_init_profile_smoke_v1
+(base) nsls_yangyb@login02:~$

@@ -1,0 +1,54 @@
+                                                2026/11/06 12:18:31    :    [HOST_PRE-H
+OOK_START] Job 2049318 host-pre-hook started at 2026/11/06 12:18:31 .
+                                                2026/11/06 12:18:43    :    [HOST_PRE-H
+OOK_END] Job 2049318 host-pre-hook is finished successfully at 2026/11/06 12:18:42 , co
+st time: 11475 ms.
+(base) nsls_yangyb@login02:~$ find /home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_2026
+1106/compute_y89_ab_v1 -maxdepth 2 -type f -printf %P%s
+bicgstab_1/stdout.txt0bicgstab_1/stderr.txt2400(base) nsls_yangyb@login02:~$ tail -n 35
+ /home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_20261106/compute_y89_ab_v1/bicgstab_1/
+stderr.txt
+/home/share/nsls_yangyb/PyQCU/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang is un
+available; TileLang-specific acceleration and tests will be skipped (ModuleNotFoundErro
+r: No module named 'tilelang')
+  _tilelang = import_tilelang()
+/home/share/nsls_yangyb/PyQCU/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang is un
+available; TileLang-specific acceleration and tests will be skipped (ModuleNotFoundErro
+r: No module named 'tilelang')
+  _tilelang = import_tilelang()
+/home/share/nsls_yangyb/PyQCU/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang is un
+available; TileLang-specific acceleration and tests will be skipped (ModuleNotFoundErro
+r: No module named 'tilelang')
+  _tilelang = import_tilelang()
+/home/share/nsls_yangyb/PyQCU/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang is un
+available; TileLang-specific acceleration and tests will be skipped (ModuleNotFoundErro
+r: No module named 'tilelang')
+  _tilelang = import_tilelang()
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=3 local_size=4 numa_nodes=16 cpu_node=3 cpuset=114-145 memory_node=19 memor
+y_policy=bind memory_bound=true threads=32 bound_threads=32 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=0 local_size=4 numa_nodes=16 cpu_node=0 cpuset=0-31 memory_node=16 memory_p
+olicy=bind memory_bound=true threads=32 bound_threads=32 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=1 local_size=4 numa_nodes=16 cpu_node=1 cpuset=38-69 memory_node=17 memory_
+policy=bind memory_bound=true threads=32 bound_threads=32 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=2 local_size=4 numa_nodes=16 cpu_node=2 cpuset=76-107 memory_node=18 memory
+_policy=bind memory_bound=true threads=32 bound_threads=32 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=3 local_size=4 numa_nodes=16 cpu_node=3 cpuset=114-145 memory_node=19 memor
+y_policy=bind memory_bound=true threads=32 bound_threads=32 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=2 local_size=4 numa_nodes=16 cpu_node=2 cpuset=76-107 memory_node=18 memory
+_policy=bind memory_bound=true threads=32 bound_threads=32 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=0 local_size=4 numa_nodes=16 cpu_node=0 cpuset=0-31 memory_node=16 memory_p
+olicy=bind memory_bound=true threads=32 bound_threads=32 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=1 local_size=4 numa_nodes=16 cpu_node=1 cpuset=38-69 memory_node=17 memory_
+policy=bind memory_bound=true threads=32 bound_threads=32 source=sysfs
+(base) nsls_yangyb@login02:~$ find /home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_2026
+1106/compute_y89_ab_v1 -maxdepth 2 -type f -printf %P%s
+bicgstab_1/stdout.txt976bicgstab_1/stderr.txt2400bicgstab_1/solution.h584941280bicgstab
+_1/report.json1193mg_1/stdout.txt0mg_1/stderr.txt0(base) nsls_yangyb@login02:~$

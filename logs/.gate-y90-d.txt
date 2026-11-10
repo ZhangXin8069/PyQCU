@@ -1,0 +1,54 @@
+] Job 2049318 state is from RUNNING to FAILED, reason: job failed.
+(base) nsls_yangyb@login02:~$ printf '%s' 'H4sICMJX7WoAA2pvYl95OTBfYmxvY2sxNi5zaACVVX+P
+ozYQ/Z9P4XKp7lYVIXC5XG4r2pKEzaIlPy4hrVKdZAHxJtwC9mKzm/R0371jCFmy2lu1AiX2zJs3xvPGfvOTHsa
+ZHgZ8p7wZLVcDpGkpi9EOfmrDPbrHOxYFjNWWDN1HBT586tSGPfpKw5M3Q0Y9niKjV49zljVmC6RGrLD6v6Yktf
+pjtbZTivQdTYnOd0FO9IwnHB+CbHsIdUjYpoWokeR1JMnzGumjXqejKJwIpBVKkcnBbDLH88VsiAfudFTNPHvoL
+NFYjofzFbavrtyp66/RDRjqiUL2jOZV+Gg9tSfu0LqyvaXTdPxluz6ezzx3uLbm9nLp/ukonBZ5RH644vnh83Cl
+k+yhDZVQckqF9SpUgZIRS21JpL4JRKDfFSzBuzDFlAlsdsyeYXR6qhIBDm/i/AzLcropIhHTDHtmV1UeaX4HAMm
+p' > /home/share/nsls_yangyb/b64/sync_job_y90_block16_20261106.b64
+RzRlhSCyvDhMaHRn9PCDIYmiHalB6RaTLhaVX3IARC8R2OnidGvu5WO0dx9UJYnDOiws4mSjCfOfMlDbkozkcaQ
+DAgTV5lRV0jtYK9IYUltyUapS7+t8DV+Nb1ZzD3vuAAghSK2d3kgaF/Zijee2fw3ed0CTBSlBFfDisvXtGei72i
+zZdDXB/vXCsUdLq187ymzS+7IHYuxSPpZxZp84k5lMUgkA+mvzkns6GzkWbEOQ/AJd0QQsnM8rd+HUwBcyXK/Gz
+tweO8/M/gxyzsZrYJjPFv6Tt7F5k7GU/ZXrPQ8eeLPhDR4tPXt5jSfuFF/b3hVeur6ztIze+373DO1M7YHnYN/E
+fzcDLWizvMiwVN27C/RNQaj8RJQEIUmslgEGvotvxclRSVPWWm+VIBVcDRXAQFpYHmfiFr1d+vbCRz9zeL9kb5E
+sdCAInFoxp1q/1zEsTiKabfiFKkt/ImQxLAtg9IHkvAh' >> /home/share/nsls_yangyb/b64/sync_job_y
+90_block16_20261106.b64
+printf '%s' '5
+lMchhGUMjiQwyyJpgqKMZgR9gQAkD8KAaeEBMZZfGpdZkQZgC5KEPmrApQVckw11RLOD2FFIMEDHPmMHkLQuCBd
+xttV5nLKEVD2aFomIt3m8abODekqWBAKZ3ePb64JFQpABj4n6jTVxjrRO2/z4EWYRf0RG2+h1PkHDm/JDAkETZB
+CtW2L3WixIjj50TvEbcWAERZBAbf3xlH0bFFvZK/VpoZcGbHb31dvrYoiR7XwKOR5ojZjK8mpQTkoJlWXVq0n7K
+6eZKktTCDh4jj5Ok0KeT+cp72KmQaUII/CTCaDj8aYAFf12jBIbYGmLvVCR+WSDq6C0nUSXR1br94aqHLgCSk1J
+z/9Qlix2JGlzIoo8O06/Vz0QxtH22APVlXPe3GM8nC0WztB3Z1PJcOwa4DDkbiTkgSQcqi83jYsAdq1TM6c174u
+nRpPYMn5MbTaojY7Uy7bSnFk+xpNm6C0yTCQllT2Uiq' >> /home/share/nsls_yangyb/b64/sync_job_y9
+0_block16_20261106.b64
+printf '%s' 'qC
+IxrknEDbJNptEAmaS5o66Og8adDsPBnLi6JUDvyf7ReSP7CkEBvHL0Vw1RhKXaghnMae4zv/of2VfwHMKb9E3Ag
+AAA==' >> /home/share/nsls_yangyb/b64/sync_job_y90_block16_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' '
+> RzRlhSCyvDhMaHRn9PCDIYmiHalB6RaTLhaVX3IARC8R2OnidGvu5WO0dx9UJYnDOiws4mSjCfOfMlDbkozkc
+aQDAgTV5lRV0jtYK9IYUltyUapS7+t8DV+Nb1ZzD3vuAAghSK2d3kgaF/Zijee2fw3ed0CTBSlBFfDisvXtGei7
+2izZdDXB/vXCsUdLq187ymzS+7IHYuxSPpZxZp84k5lMUgkA+mvzkns6GzkWbEOQ/AJd0QQsnM8rd+HUwBcyXK/
+GztweO8/M/gxyzsZrYJjPFv6Tt7F5k7GU/ZXrPQ8eeLPhDR4tPXt5jSfuFF/b3hVeur6ztIze+373DO1M7YHnYN
+/EfzcDLWizvMiwVN27C/RNQaj8RJQEIUmslgEGvotvxclRSVPWWm+VIBVcDRXAQFpYHmfiFr1d+vbCRz9zeL9kb
+5EsdCAInFoxp1q/1zEsTiKabfiFKkt/ImQxLAtg9IHkvAh' >> /home/share/nsls_yangyb/b64/sync_job
+_y90_block16_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' '5
+> lMchhGUMjiQwyyJpgqKMZgR9gQAkD8KAaeEBMZZfGpdZkQZgC5KEPmrApQVckw11RLOD2FFIMEDHPmMHkLQuC
+BdxttV5nLKEVD2aFomIt3m8abODekqWBAKZ3ePb64JFQpABj4n6jTVxjrRO2/z4EWYRf0RG2+h1PkHDm/JDAkET
+ZBCtW2L3WixIjj50TvEbcWAERZBAbf3xlH0bFFvZK/VpoZcGbHb31dvrYoiR7XwKOR5ojZjK8mpQTkoJlWXVq0n
+7K6eZKktTCDh4jj5Ok0KeT+cp72KmQaUII/CTCaDj8aYAFf12jBIbYGmLvVCR+WSDq6C0nUSXR1br94aqHLgCSk
+1Jz/9Qlix2JGlzIoo8O06/Vz0QxtH22APVlXPe3GM8nC0WztB3Z1PJcOwa4DDkbiTkgSQcqi83jYsAdq1TM6c17
+4unRpPYMn5MbTaojY7Uy7bSnFk+xpNm6C0yTCQllT2Uiq' >> /home/share/nsls_yangyb/b64/sync_job_
+y90_block16_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'qC
+> IxrknEDbJNptEAmaS5o66Og8adDsPBnLi6JUDvyf7ReSP7CkEBvHL0Vw1RhKXaghnMae4zv/of2VfwHMKb9E3
+AgAAA==' >> /home/share/nsls_yangyb/b64/sync_job_y90_block16_20261106.b64
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/b64/sync_job_y90_block1
+6_20261106.b64 > /home/share/nsls_yangyb/b64/sync_job_y90_block16_20261106.tgz
+(base) nsls_yangyb@login02:~$ gzip -dc /home/share/nsls_yangyb/b64/sync_job_y90_block16
+_20261106.tgz > /home/share/nsls_yangyb/logs/job_y90_block16.sh
+(base) nsls_yangyb@login02:~$ chmod 750 /home/share/nsls_yangyb/logs/job_y90_block16.sh
+(base) nsls_yangyb@login02:~$ dsub -q q_hpcapp /home/share/nsls_yangyb/logs/job_y90_blo
+ck16.sh
+Submit job <2049394> successfully.
+(base) nsls_yangyb@login02:~$

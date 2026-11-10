@@ -1,0 +1,54 @@
+PYQCU::KUPL::MG_PROFILE:
+ total=0.924661 fine_apply=0.540436 fine_calls=29 coarse_apply=0.026623 coarse_calls=9
+restrict=0.001830 restrict_calls=1 prolong=0.002246 prolong_calls=1 coarse_correction=0
+.128777 coarse_correction_calls=1 prepare=0.018003 store=0.018532 full_residual=0.03633
+2
+{"backend": "kupl", "solver": "applyCloverMultigridQcu", "lattice": [24, 24, 24, 64], "
+local_lattice": [24, 24, 24, 4], "local_starts": [0, 0, 0, 0], "grid": [1, 1, 1, 16], "
+grid_coordinate": [0, 0, 0, 0], "mpi_rank": 0, "mpi_size": 16, "dtype": "complex64", "m
+ass": -0.277, "kappa": 0.13430029546065003, "mass_normalization": "kappa", "csw": 1.160
+920226, "atol": 0.0001, "max_iter": 50, "levels": 2, "dof": [12, 4], "mg_grid": [2, 2,
+2, 1], "restart": 20, "coarse_max_iter": 20, "coarse_tol_factor": 10.0, "deflate": true
+, "builder_seconds": 2.342339408118278, "input_prebind_seconds": 0.0, "hdf5_mpio_read":
+ false, "gauge_slab_dir": "/home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_20261106/y91
+_gauge_slabs_t16", "source_slab_dir": "/home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_
+20261106/y91_source_slabs_t16", "gauge_read_seconds": 0.03824250679463148, "source_read
+_seconds": 0.009189938893541694, "coarse_source": "/home/share/nsls_yangyb/PyQCU/data/k
+upl_hbm_opt_20261106/mg_e4_tblock1_L24_v1/cache_E4_mg2x2x2x1.h5", "wall_seconds": 0.927
+870683837682, "residual_seconds": 5.6371092796325684e-05, "verify_status": 0, "residual
+_acceptance": 0.0001, "residual_source": "KUPL native fail-closed solve; independent ch
+eck skipped", "converged": true, "memory": {"available": true, "max_rss_kib": 576560, "
+resident_kib": 483776, "omp_threads": "8"}, "status": "PASS"}
+[1]+  Done                    nohup env RESTART=20 KUPL_EXPERIMENT_LIB=/home/share/nsls
+_yangyb/PyQCU/data/kupl_hbm_opt_20261106/build-ht2split-generic/libqcu.so KUPL_BLOCK_DS
+LASH_MIN_HALF_SITES=65536 KUPL_ENABLE_HT2_TBOUNDARY_SPLIT=0 bash /home/share/nsls_yangy
+b/logs/run_y91_login_t16_mg.sh > /home/share/nsls_yangyb/logs/login_y91_t16_mg_ht2_base
+_a2.log 2>&1
+(base) nsls_yangyb@login02:~$ ls -lh /home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_20
+261106/mg_e4_tblock1_L24_v1
+total 385M
+-rw-r----- 1 nsls_yangyb eapp 1.2K Nov  6 02:44 cache_build_report.json
+-rw-r----- 1 nsls_yangyb eapp 385M Nov  6 02:44 cache_E4_mg2x2x2x1.h5
+-rw-r----- 1 nsls_yangyb eapp 2.7K Nov  6 02:44 cache_E4_mg2x2x2x1.json
+(base) nsls_yangyb@login02:~$ find /home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_2026
+1106 -maxdepth 3 -type f -name cache_E2\*.h5 -ls
+72057817164456000   1056 -rw-r-----   1 nsls_yangyb eapp      1064960 Nov  6 01:28 /hom
+e/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_20261106/mg_sweep_L8/cache_E2_mg2x2x2x2.h5
+72057817164518848   1056 -rw-r-----   1 nsls_yangyb eapp      1064960 Nov  6 02:01 /hom
+e/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_20261106/mg_sweep_L8/cache_E2_mg2x2x2x2_par
+allel_stencil.h5
+ 9007422336796992   1056 -rw-r-----   1 nsls_yangyb eapp      1064960 Nov  6 01:33 /hom
+e/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_20261106/mg_variant_builds_L8_v1/cache_E2_m
+g2x2x2x2_nv4.h5
+     223177951680  16544 -rw-r-----   1 nsls_yangyb eapp     16916480 Nov  6 01:42 /hom
+e/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_20261106/mg_sweep_L16/cache_E2_mg2x2x2x2.h5
+     223177954944  16544 -rw-r-----   1 nsls_yangyb eapp     16916480 Nov  6 01:54 /hom
+e/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_20261106/mg_sweep_L16/cache_E2_mg2x2x2x2_ba
+tch16.h5
+     223177957056  16544 -rw-r-----   1 nsls_yangyb eapp     16916480 Nov  6 02:02 /hom
+e/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_20261106/mg_sweep_L16/cache_E2_mg2x2x2x2_pa
+rallel_stencil.h5
+27021820560755520 111488 -rw-r-----   1 nsls_yangyb eapp     114139136 Nov  6 02:04 /ho
+me/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_20261106/mg_sweep_L24/cache_E2_mg2x2x2x2_p
+arallel_stencil.h5
+(base) nsls_yangyb@login02:~$

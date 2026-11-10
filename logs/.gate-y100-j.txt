@@ -1,0 +1,54 @@
+
+    hostPreHookFilePath                         /home/share/software/donau/hook/hosthoo
+k/no_exclusive/hostPreHook.sh
+    hostPreHookTimeout                          300
+
+    totalUtime                                  1
+
+    totalStime                                  5
+
+    totalMaxMemSwp                              100
+
+    totalMaxMem                                 100
+
+    hostPreHookRunTime                          12
+
+    preHookRunTime                              0
+
+    jobWallclockDuration                        108
+
+    postHookRunTime                             0
+
+    hostPostHookRunTime                         0
+
+    jobSstoppedTime                             0
+
+    coreHours                                   108
+
+    nodeUsages
+        execNode             resGroup resIndex utime    stime    wallclockDuration    s
+stoppedTime     cpuUtil          gpuUtil          npuUtil          memResource
+
+        cn10579              0        0/1      1        5        108                  0
+                5/5              -                -                85/14/0/0/100/100/24
+/100
+    nodePids
+        execNode             pids
+        cn10579              1521832,1523441,1523684,1525875,1525876,1525877,1525878,15
+25893,1525908,1525909,1526000,1526007,1526008,1526019,1526068,1526095,1526243,1526358,1
+526366,1526368,1526372,1526437,1526473,1526481,1526490,1526554,1526571,1526678,1526778,
+1527017,1527030,1527031,1527050,1527183,1527238
+    traceMessages                               2026/11/06 14:23:54    :    [JOB_ADD] J
+ob 2050223 is submitted by nsls_yangyb, job state is PENDING.
+                                                2026/11/06 14:23:59    :    [JOB_START]
+ Job 2050223 start message has been sent.
+                                                2026/11/06 14:23:59    :    [JOB_START_
+ACK] Job 2050223 start message has been received by agent cn10579.
+                                                2026/11/06 14:23:59    :    [JOB_EXECUT
+ION] Job 2050223 state is from PENDING to RUNNING.
+                                                2026/11/06 14:24:00    :    [HOST_PRE-H
+OOK_START] Job 2050223 host-pre-hook started at 2026/11/06 14:24:00 .
+                                                2026/11/06 14:24:13    :    [HOST_PRE-H
+OOK_END] Job 2050223 host-pre-hook is finished successfully at 2026/11/06 14:24:12 , co
+st time: 12357 ms.
+(base) nsls_yangyb@login02:~$

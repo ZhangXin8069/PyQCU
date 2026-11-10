@@ -1,0 +1,54 @@
+ngyb/PyQCU/data/kupl_hbm_opt_20261106/compute_y94_prebind16_v1 -maxdepth 1 -type f -pri
+ntf %f%s
+start.txt32mpirun.out0mpirun.err0(base) nsls_yangyb@login02:~$ find /home/share/nsls_ya
+ngyb/PyQCU/data/kupl_hbm_opt_20261106/compute_y94_prebind16_v1 -maxdepth 1 -type f -pri
+ntf %f%s
+start.txt69mpirun.out0mpirun.err0(base) nsls_yangyb@login02:~$ cat /home/share/nsls_yan
+gyb/PyQCU/data/kupl_hbm_opt_20261106/compute_y94_prebind16_v1/start.txt
+START 2026-11-06T13:50:52+08:00
+END rc=124 2026-11-06T13:54:58+08:00
+(base) nsls_yangyb@login02:~$ printf '%s' 'H4sIAANs7WoAA+1WbW/bNhDuZ/2Kq5qgLQpZlBIr6QZt
+cGohCepYrmKjCFCAkGQm0iyRDCklcYv995F25SaB8wIsSztA98Gk7o5HnvkcnyvYmbT/Ygmev+9iLkiS0ymmDNO
+6jDsye/EUghDa6SJYjF53MSJ3eznqqdN1wOm6O1uu5yG0BchFaHvnBaAn2f0BqWUVC3WUr1lMz65yepefcjs9vS
+fOMhdYjf8TefXSVlduJ7HMjFf948keWFbJc8jUT6M4h3Oc8TTmvNFQOE9rDZlGcQUKQysrBaeZD8Hxmrng9NpXB
+GbKa3/395KU/u6+2egZAztjJbFlFgtiU1lIPFd3M09stWGH1VXjSe73JEI0nmPYQsgwJKnAqg3JapGSO9eO5p8+
+TGxCLxT+DcFY5d/raVwyMfPNDe1pT+Mqtmc1L3CWlJjxCrvI9RwHeXbKSl5XZF2h4QvHNMrZNBdgcTA3dETT4CK
+n' > /home/share/nsls_yangyb/b64/sync_prebind_ablation_20261106.b64
+h73ojFsyi/0tbK9UVsQdUm5ZNauhxxfkpTRqXxrwh/LlbZGdNWprirTIFeciQpGUbB3OOzjz2H00W/iN7YTlQT+
+OBkN8OBw7xGJJHVeTK3K/ZoULJ1ZZ4QSkad2kScKFB3JVpEHfR0x6kUneNQbH/j68LmgcUlUHje3Nd/+tvHtlv/
+fq0Dh0QgPJ0d4fBAFvf6xvwuLdVq9UjW+C4ty7mGdsY+WioPJfjDq7QfN9zgchYNw/wRHwSiMxr5j1FSjY2E8Co
+5CfYZwcPjh5IZqGPaDpSIKPk0Oo6Ax6L2MKi+JgidYM+hKcLeRBFVFoqbqutgFEbJOZCryRF0f5aoSlFqjwKoYU
+EYJfDFAV1/MrWQOsmAqkhUXBbu0VAwrlpa+GeDzKmMq5N7C/y5oFvpd54IlpAFbh88XKxqULI+m68kE95ZSlc4P
+/AXDPojU35QrDP5pPgDENUj82Q9dK2ul+MH/3up' >> /home/share/nsls_yangyb/b64/sync_prebind_ab
+lation_20261106.b64
+printf '%s' 'Z
++v42ZfxpOoCH+N9VnH+L/7e6bsv/zyH/jv+95+Z/79H87/26/L+m0NoO4D/rAJw1pO7rP/6G/zWC91VScfFO8fN
+dTK/ahetrH24u2s6g7QxaaaWVVn4t+QdFiJ+LABQAAA==' >> /home/share/nsls_yangyb/b64/sync_preb
+ind_ablation_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' '
+> 1Sm8Ph73ojFsyi/0tbK9UVsQdUm5ZNauhxxfkpTRqXxrwh/LlbZGdNWprirTIFeciQpGUbB3OOzjz2H00W/iN
+7YTlQT+OBkN8OBw7xGJJHVeTK3K/ZoULJ1ZZ4QSkad2kScKFB3JVpEHfR0x6kUneNQbH/j68LmgcUlUHje3Nd/+
+tvHtlv/fq0Dh0QgPJ0d4fBAFvf6xvwuLdVq9UjW+C4ty7mGdsY+WioPJfjDq7QfN9zgchYNw/wRHwSiMxr5j1FS
+jY2E8Co5CfYZwcPjh5IZqGPaDpSIKPk0Oo6Ax6L2MKi+JgidYM+hKcLeRBFVFoqbqutgFEbJOZCryRF0f5aoSlF
+qjwKoYUEYJfDFAV1/MrWQOsmAqkhUXBbu0VAwrlpa+GeDzKmMq5N7C/y5oFvpd54IlpAFbh88XKxqULI+m68kE9
+5ZSlc4P/AXDPojU35QrDP5pPgDENUj82Q9dK2ul+MH/3up' >> /home/share/nsls_yangyb/b64/sync_pre
+bind_ablation_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'Z
+> +v42ZfxpOoCH+N9VnH+L/7e6bsv/zyH/jv+95+Z/79H87/26/L+m0NoO4D/rAJw1pO7rP/6G/zWC91VScfFO8
+fNdTK/ahetrH24u2s6g7QxaaaWVVn4t+QdFiJ+LABQAAA==' >> /home/share/nsls_yangyb/b64/sync_pr
+ebind_ablation_20261106.b64
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/b64/sync_prebind_ablati
+on_20261106.b64 > /home/share/nsls_yangyb/b64/sync_prebind_ablation_20261106.tgz
+(base) nsls_yangyb@login02:~$ tar -xzf /home/share/nsls_yangyb/b64/sync_prebind_ablatio
+n_20261106.tgz -C /home/share/nsls_yangyb
+(base) nsls_yangyb@login02:~$ chmod 750 /home/share/nsls_yangyb/logs/job_y95_prebind_no
+_numa.sh /home/share/nsls_yangyb/logs/job_y96_prebind_bind_nohp.sh
+(base) nsls_yangyb@login02:~$ dsub -q q_hpcapp /home/share/nsls_yangyb/logs/job_y95_pre
+bind_no_numa.sh
+Submit job <2049939> successfully.
+(base) nsls_yangyb@login02:~$ find /home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_2026
+1106/compute_y95_prebind_no_numa_v1 -maxdepth 1 -type f -printf %f%s
+start.txt32mpirun.out0mpirun.err0(base) nsls_yangyb@login02:~$ find /home/share/nsls_ya
+ngyb/PyQCU/data/kupl_hbm_opt_20261106/compute_y95_prebind_no_numa_v1 -maxdepth 1 -type
+f -printf %f%s
+start.txt67mpirun.out0mpirun.err9673(base) nsls_yangyb@login02:~$

@@ -1,0 +1,54 @@
+(base) nsls_yangyb@login02:~$ cat /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_
+20261106/login_y101_init_profile_smoke_v2/rank_0000.txt
+cat: /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/login_y101_init_prof
+ile_smoke_v2/rank_0000.txt: No such file or directory
+(base) nsls_yangyb@login02:~$ cat /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_
+20261106/login_y101_init_profile_smoke_v2/mpirun.err
+cat: /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/login_y101_init_prof
+ile_smoke_v2/mpirun.err: No such file or directory
+(base) nsls_yangyb@login02:~$ mkdir -p /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm
+_opt_20261106/login_y101_init_profile_smoke_v3
+(base) nsls_yangyb@login02:~$ export PREBIND_WORK=/home/share/nsls_yangyb/PyQCU-main/da
+ta/kupl_hbm_opt_20261106/login_y101_init_profile_smoke_v3
+(base) nsls_yangyb@login02:~$ export PYQCU_KUPL_LIB=/home/share/nsls_yangyb/PyQCU-main/
+data/kupl_hbm_opt_20261106/build-ht2split-generic/libqcu.so
+(base) nsls_yangyb@login02:~$ export KUPL_PROFILE_INIT=1
+(base) nsls_yangyb@login02:~$ export KUPL_OMP_THREADS=1 OMP_NUM_THREADS=1 KUPL_NUMA_BIN
+D=0
+(base) nsls_yangyb@login02:~$ timeout -k 5s 60s mpirun --oversubscribe -np 1 --bind-to
+none --map-by slot --allow-run-as-root python -B /home/share/nsls_yangyb/logs/probe_pre
+bind.py > /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/login_y101_init
+_profile_smoke_v3/mpirun.out 2> /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20
+261106/login_y101_init_profile_smoke_v3/mpirun.err
+(base) nsls_yangyb@login02:~$ ls -lh /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_o
+pt_20261106/login_y101_init_profile_smoke_v3
+total 64K
+-rw-r----- 1 nsls_yangyb eapp 872 Nov  6 15:12 mpirun.err
+-rw-r----- 1 nsls_yangyb eapp  85 Nov  6 15:12 mpirun.out
+(base) nsls_yangyb@login02:~$ cat /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_
+20261106/login_y101_init_profile_smoke_v3/rank_0000.txt
+cat: /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/login_y101_init_prof
+ile_smoke_v3/rank_0000.txt: No such file or directory
+(base) nsls_yangyb@login02:~$ cat /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_
+20261106/login_y101_init_profile_smoke_v3/mpirun.err
+[ROCE] roce3_user_log_init: [ERR]Failed to open libroce log file
+[ROCE] roce3_user_log_init: [ERR]Failed to open libroce log file
+[ROCE] roce3_user_log_init: [ERR]Failed to open libroce log file
+PYQCU::KUPL::INIT_PROFILE rank=0 stage=start elapsed=0.000000
+PYQCU::KUPL::INIT_PROFILE rank=0 stage=uniform-config elapsed=0.000018
+PYQCU::KUPL::INIT_PROFILE rank=0 stage=early-return elapsed=0.000021
+PYQCU::KUPL::INIT:
+ process-grid product does not equal MPI_COMM_WORLD size
+--------------------------------------------------------------------------
+MPI_ABORT was invoked on rank 0 in communicator MPI_COMM_WORLD
+with errorcode 2.
+
+NOTE: invoking MPI_ABORT causes Open MPI to kill all MPI processes.
+You may or may not see output from other processes, depending on
+exactly when Open MPI kills them.
+--------------------------------------------------------------------------
+(base) nsls_yangyb@login02:~$ mkdir -p /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm
+_opt_20261106/login_y101_init_profile_smoke_v4
+(base) nsls_yangyb@login02:~$ export PREBIND_WORK=/home/share/nsls_yangyb/PyQCU-main/da
+ta/kupl_hbm_opt_20261106/login_y101_init_profile_smoke_v4
+(base) nsls_yangyb@login02:~$

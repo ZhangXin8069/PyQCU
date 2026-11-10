@@ -1,0 +1,54 @@
+    execNodes                                   cn10579
+
+    execNodeCnt                                 1
+
+    jobWallclockDuration                        349
+
+    nodeUsages
+        execNode             resGroup resIndex utime    stime    wallclockDuration    s
+stoppedTime     cpuUtil          gpuUtil          npuUtil          memResource
+
+        execNode             pids
+(base) nsls_yangyb@login02:~$ djob -ll 2050917 | grep -A2 cn10579
+        cn10579              0        0/1      -                -                -
+
+Runtime Details:
+    execNodes                                   cn10579
+
+    execNodeCnt                                 1
+
+    execPath                                    /home/share/nsls_yangyb
+
+--
+        cn10579              0        0/1      1347     1921     349                  0
+                936/1124         -                -                6364/681/0/0/7053/70
+53/3710/7053
+    nodePids
+        execNode             pids
+        cn10579              1984959,1985059,1985214,1985216,1985222,1985231,1985243,19
+85257,1985273,1985284,1985291,1985308,1985321,1985332,1985344,1985356,1985369,1985387
+    traceMessages                               2026/11/06 15:35:26    :    [JOB_ADD] J
+ob 2050917 is submitted by nsls_yangyb, job state is PENDING.
+                                                2026/11/06 15:35:28    :    [JOB_START]
+ Job 2050917 start message has been sent.
+                                                2026/11/06 15:35:28    :    [JOB_START_
+ACK] Job 2050917 start message has been received by agent cn10579.
+                                                2026/11/06 15:35:28    :    [JOB_EXECUT
+ION] Job 2050917 state is from PENDING to RUNNING.
+                                                2026/11/06 15:35:29    :    [HOST_PRE-H
+OOK_START] Job 2050917 host-pre-hook started at 2026/11/06 15:35:29 .
+(base) nsls_yangyb@login02:~$ find /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt
+_20261106/compute_y91_slab16_manualgeom_v1 -maxdepth 2 -type f -printf "%p %s\n"
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/compute_y91_slab16_manual
+geom_v1/bicgstab_1/stdout.txt 1360
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/compute_y91_slab16_manual
+geom_v1/bicgstab_1/stderr.txt 61220
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/compute_y91_slab16_manual
+geom_v1/bicgstab_1/solution.h5 84941280
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/compute_y91_slab16_manual
+geom_v1/bicgstab_1/report.json 1589
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/compute_y91_slab16_manual
+geom_v1/mg_1/stdout.txt 0
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/compute_y91_slab16_manual
+geom_v1/mg_1/stderr.txt 0
+(base) nsls_yangyb@login02:~$

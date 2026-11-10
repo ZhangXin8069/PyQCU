@@ -1,0 +1,54 @@
+renamed '/home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/apply_init.cpp' -> '/home/
+share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/apply_init.cpp.2026-11-06-15-22-00.bak'
+renamed '/home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/apply_end.cpp' -> '/home/s
+hare/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/apply_end.cpp.2026-11-06-15-22-00.bak'
+renamed '/home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/lattice_cpu.cpp' -> '/home
+/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/lattice_cpu.cpp.2026-11-06-15-22-00.bak'
+renamed '/home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/backend.cpp' -> '/home/sha
+re/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/backend.cpp.2026-11-06-15-22-00.bak'
+(base) nsls_yangyb@login02:~$ : > /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/inclu
+de/kupl/lattice_cpu.h.sync.b64
+(base) nsls_yangyb@login02:~$
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu
+/include/kupl/lattice_cpu.h.sync.b64 > /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/
+include/kupl/lattice_cpu.h
+(base) nsls_yangyb@login02:~$ chmod 640 /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu
+/include/kupl/lattice_cpu.h
+(base) nsls_yangyb@login02:~$ : > /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/a
+pply_init.cpp.sync.b64
+(base) nsls_yangyb@login02:~$
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu
+/src/apply_init.cpp.sync.b64 > /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/appl
+y_init.cpp
+(base) nsls_yangyb@login02:~$ chmod 640 /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu
+/src/apply_init.cpp
+(base) nsls_yangyb@login02:~$ : > /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/a
+pply_end.cpp.sync.b64
+(base) nsls_yangyb@login02:~$
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu
+/src/apply_end.cpp.sync.b64 > /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/apply
+_end.cpp
+(base) nsls_yangyb@login02:~$ chmod 640 /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu
+/src/apply_end.cpp
+(base) nsls_yangyb@login02:~$ : > /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/l
+attice_cpu.cpp.sync.b64
+(base) nsls_yangyb@login02:~$
+(base) nsls_yangyb@login02:~$
+(base) nsls_yangyb@login02:~$
+(base) nsls_yangyb@login02:~$
+(base) nsls_yangyb@login02:~$
+(base) nsls_yangyb@login02:~$
+(base) nsls_yangyb@login02:~$
+(base) nsls_yangyb@login02:~$
+(base) nsls_yangyb@login02:~$
+(base) nsls_yangyb@login02:~$
+(base) nsls_yangyb@login02:~$
+(base) nsls_yangyb@login02:~$
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu
+/src/lattice_cpu.cpp.sync.b64 > /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/lat
+tice_cpu.cpp
+(base) nsls_yangyb@login02:~$ chmod 640 /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu
+/src/lattice_cpu.cpp
+(base) nsls_yangyb@login02:~$ : > /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/b
+ackend.cpp.sync.b64
+(base) nsls_yangyb@login02:~$

@@ -1,0 +1,54 @@
+2048748      default      RUNNING    nsls_yangyb  common       q_hpcapp             202
+6/11/06 10:50:47  -                    cn10579
+(base) nsls_yangyb@login02:~$ djob
+----------------------------------------
+query successfully, no matches.
+(base) nsls_yangyb@login02:~$ cat /home/share/nsls_yangyb/y79.out
+cat: /home/share/nsls_yangyb/y79.out: No such file or directory
+(base) nsls_yangyb@login02:~$ find /home/share/nsls_yangyb/sh -maxdepth 1 -type f -name
+ "qcu_y*.sh" -printf "%f
+> " | sort | tail -n 20
+(base) nsls_yangyb@login02:~$ find /home/share/nsls_yangyb/sh -maxdepth 1 -type f -prin
+tf "%f
+> " | sort | tail -n 40
+job_y5.sh
+job_y60.sh
+job_y61.sh
+job_y62.sh
+job_y63.sh
+job_y64.sh
+job_y65.sh
+job_y66.sh
+job_y67.sh
+job_y68.sh
+job_y69.sh
+job_y6.sh
+job_y70.sh
+job_y71.sh
+job_y72.sh
+job_y73.sh
+job_y74.sh
+job_y75.sh
+job_y76.sh
+job_y77_profile.sh
+job_y7.sh
+job_y8.sh
+job_y9.sh
+job_z.sh
+mkjob.sh
+opt_a.sh
+opt_b.sh
+opt_c1.sh
+opt_d.sh
+opt_e.sh
+prep_l32.sh
+rebuild_hbm.sh
+rebuild_lto.sh
+resume_build.sh
+sleep.sh
+stage_run.sh
+stream_probe.sh
+sub-env.sh
+_sub.sh
+sub.sh
+(base) nsls_yangyb@login02:~$

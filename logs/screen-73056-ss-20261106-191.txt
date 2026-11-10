@@ -1,0 +1,54 @@
+    bisheng/hmpi26.1.RC1/release
+Currently Loaded Modulefiles:
+ 1) anaconda3/2023.3    3) bisheng/compiler5.2.0/bishengmodule   5) cmake/2026.1.RC1
+ 2) hpckit/2026.1.RC1   4) bisheng/hmpi26.1.RC1/release
+
+Key:
+auto-loaded
+###env.sh in /home/share/nsls_yangyb/PyQCU is sourcing...:2026-11-06-11-37-39###
+###env.sh in /home/share/nsls_yangyb/PyQCU is done......:2026-11-06-11-37-39###
+(base) nsls_yangyb@login02:~$ djob
+ID           NAME         STATE      USER         ACCOUNT      QUEUE                STA
+RT_TIME           END_TIME             EXEC_NODES
+2048816      default      RUNNING    nsls_yangyb  common       q_hpcapp             202
+6/11/06 11:00:42  -                    cn10579
+(base) nsls_yangyb@login02:~$ strings /opt/batch/cli/bin/dsub | grep -i -E "kill|cancel
+|terminate|delete" | head -n 40
+(base) nsls_yangyb@login02:~$ file /opt/batch/cli/bin/dsub /opt/batch/cli/bin/djob
+/opt/batch/cli/bin/dsub: ELF 64-bit LSB pie executable, ARM aarch64, version 1 (SYSV),
+dynamically linked, interpreter /lib/ld-linux-aarch64.so.1, BuildID[sha1]=49898ad8f67bb
+7aab52276e1b605a737ce420835, for GNU/Linux 3.7.0, stripped
+/opt/batch/cli/bin/djob: ELF 64-bit LSB pie executable, ARM aarch64, version 1 (SYSV),
+dynamically linked, interpreter /lib/ld-linux-aarch64.so.1, BuildID[sha1]=f0a8bd5d4a58d
+7855e34e3287a4e08f138adf3fd, for GNU/Linux 3.7.0, stripped
+(base) nsls_yangyb@login02:~$ env PYQCU_MG_RESTART=20 PYQCU_MG_AB_OUT=l24_true_mg_vs_bi
+cg_r20_v1 python3 -B /home/share/nsls_yangyb/py/logs/run_l24_true_mg_vs_bicg.py
+{"converged": true, "gate": "PASS", "iterations": 16, "label": "bicgstab_1", "mode": "b
+icgstab", "process_seconds": 5.756928925169632, "returncode": 0, "status": "PASS", "tim
+ed_out": false, "verify_status": null, "wall_seconds": 1.6146742848213762}
+{"coarse_calls": 9, "converged": true, "fine_calls": 29, "gate": "PASS", "iterations":
+null, "label": "mg_1", "mode": "mg", "process_seconds": 7.49493826017715, "returncode":
+ 0, "status": "PASS", "timed_out": false, "verify_status": 0, "wall_seconds": 0.6422034
+350689501}
+{"coarse_calls": 9, "converged": true, "fine_calls": 29, "gate": "PASS", "iterations":
+null, "label": "mg_2", "mode": "mg", "process_seconds": 7.477705849800259, "returncode"
+: 0, "status": "PASS", "timed_out": false, "verify_status": 0, "wall_seconds": 0.681973
+285973072}
+{"converged": true, "gate": "PASS", "iterations": 16, "label": "bicgstab_2", "mode": "b
+icgstab", "process_seconds": 5.220408477121964, "returncode": 0, "status": "PASS", "tim
+ed_out": false, "verify_status": null, "wall_seconds": 1.2736822261940688}
+{"converged": true, "gate": "PASS", "iterations": 16, "label": "bicgstab_3", "mode": "b
+icgstab", "process_seconds": 4.992267007008195, "returncode": 0, "status": "PASS", "tim
+ed_out": false, "verify_status": null, "wall_seconds": 1.1525702469516546}
+{"coarse_calls": 9, "converged": true, "fine_calls": 29, "gate": "PASS", "iterations":
+null, "label": "mg_3", "mode": "mg", "process_seconds": 7.5464541770052165, "returncode
+": 0, "status": "PASS", "timed_out": false, "verify_status": 0, "wall_seconds": 0.89240
+68671185523}
+{"coarse_calls": 9, "converged": true, "fine_calls": 29, "gate": "PASS", "iterations":
+null, "label": "mg_4", "mode": "mg", "process_seconds": 7.349281194154173, "returncode"
+: 0, "status": "PASS", "timed_out": false, "verify_status": 0, "wall_seconds": 0.728318
+0989325047}
+{"converged": true, "gate": "PASS", "iterations": 16, "label": "bicgstab_4", "mode": "b
+icgstab", "process_seconds": 5.116234841989353, "returncode": 0, "status": "PASS", "tim
+ed_out": false, "verify_status": null, "wall_seconds": 1.1878842441365123}
+(base) nsls_yangyb@login02:~$

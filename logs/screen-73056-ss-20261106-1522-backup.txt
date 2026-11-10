@@ -1,0 +1,54 @@
+PYQCU::KUPL::INIT_PROFILE rank=5 stage=uniform-config elapsed=0.470102
+PYQCU::KUPL::INIT_PROFILE rank=12 stage=uniform-config elapsed=0.523847
+PYQCU::KUPL::INIT_PROFILE rank=0 stage=local-rank elapsed=0.524796
+PYQCU::KUPL::INIT_PROFILE rank=0 stage=read-numa elapsed=0.526475
+PYQCU::KUPL::INIT_PROFILE rank=4 stage=local-rank elapsed=0.456443
+(base) nsls_yangyb@login02:~$ readlink -f /home/share/nsls_yangyb/PyQCU
+/home/share/nsls_yangyb/PyQCU-main
+(base) nsls_yangyb@login02:~$ ls -l /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src
+/backend.cpp /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/apply_init.cpp /home/s
+hare/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/apply_end.cpp /home/share/nsls_yangyb/PyQC
+U-main/cpp/kupl/qcu/src/lattice_cpu.cpp /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu
+/include/kupl/lattice_cpu.h
+-rw-r----- 1 nsls_yangyb eapp   842 Nov  5 07:48 /home/share/nsls_yangyb/PyQCU-main/cpp
+/kupl/qcu/include/kupl/lattice_cpu.h
+-rw-r----- 1 nsls_yangyb eapp   945 Nov  6 14:41 /home/share/nsls_yangyb/PyQCU-main/cpp
+/kupl/qcu/src/apply_end.cpp
+-rw-r----- 1 nsls_yangyb eapp  1216 Nov  6 14:41 /home/share/nsls_yangyb/PyQCU-main/cpp
+/kupl/qcu/src/apply_init.cpp
+-rw-r----- 1 nsls_yangyb eapp 19072 Nov  5 07:48 /home/share/nsls_yangyb/PyQCU-main/cpp
+/kupl/qcu/src/backend.cpp
+-rw-r----- 1 nsls_yangyb eapp 30479 Nov  6 14:36 /home/share/nsls_yangyb/PyQCU-main/cpp
+/kupl/qcu/src/lattice_cpu.cpp
+(base) nsls_yangyb@login02:~$ sha256sum /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu
+/include/kupl/lattice_cpu.h /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/apply_i
+nit.cpp /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/apply_end.cpp /home/share/n
+sls_yangyb/PyQCU-main/cpp/kupl/qcu/src/lattice_cpu.cpp /home/share/nsls_yangyb/PyQCU-ma
+in/cpp/kupl/qcu/src/backend.cpp
+63ff572cbff43bdfa4be0cdbe47172c4e14f34380aaa509032d3d3b13415fe13  /home/share/nsls_yang
+yb/PyQCU-main/cpp/kupl/qcu/include/kupl/lattice_cpu.h
+63f7654bca5a0643fb3a772b4c3569385a5b18524b69a68b52e4ccd83795c37f  /home/share/nsls_yang
+yb/PyQCU-main/cpp/kupl/qcu/src/apply_init.cpp
+7b7f049a5a0920c3e90ca3ed74cee2de7c44946095a049483ed6aea67036d585  /home/share/nsls_yang
+yb/PyQCU-main/cpp/kupl/qcu/src/apply_end.cpp
+71b6432c4d29aa2fd1e66fb5cff785fa7d30f91c59b1d178d7b1614f0b36f85d  /home/share/nsls_yang
+yb/PyQCU-main/cpp/kupl/qcu/src/lattice_cpu.cpp
+e7b16fe102694e4bbb40f29d35fb9ced689fd331935283a995d698697ee5fd72  /home/share/nsls_yang
+yb/PyQCU-main/cpp/kupl/qcu/src/backend.cpp
+(base) nsls_yangyb@login02:~$ for f in /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/
+include/kupl/lattice_cpu.h /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/apply_in
+it.cpp /home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/apply_end.cpp /home/share/ns
+ls_yangyb/PyQCU-main/cpp/kupl/qcu/src/lattice_cpu.cpp /home/share/nsls_yangyb/PyQCU-mai
+n/cpp/kupl/qcu/src/backend.cpp; do mv -v "$f" "$f.2026-11-06-15-22-00.bak"; done
+renamed '/home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/include/kupl/lattice_cpu.h' ->
+ '/home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/include/kupl/lattice_cpu.h.2026-11-06
+-15-22-00.bak'
+renamed '/home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/apply_init.cpp' -> '/home/
+share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/apply_init.cpp.2026-11-06-15-22-00.bak'
+renamed '/home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/apply_end.cpp' -> '/home/s
+hare/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/apply_end.cpp.2026-11-06-15-22-00.bak'
+renamed '/home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/lattice_cpu.cpp' -> '/home
+/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/lattice_cpu.cpp.2026-11-06-15-22-00.bak'
+renamed '/home/share/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/backend.cpp' -> '/home/sha
+re/nsls_yangyb/PyQCU-main/cpp/kupl/qcu/src/backend.cpp.2026-11-06-15-22-00.bak'
+(base) nsls_yangyb@login02:~$

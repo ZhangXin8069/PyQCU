@@ -1,0 +1,54 @@
+y_20261106.tgz > /home/share/nsls_yangyb/logs/job_y98_prebind_cpu_only.sh
+(base) nsls_yangyb@login02:~$ chmod 750 /home/share/nsls_yangyb/logs/job_y98_prebind_cp
+u_only.sh
+(base) nsls_yangyb@login02:~$ dsub -q q_hpcapp /home/share/nsls_yangyb/logs/job_y98_pre
+bind_cpu_only.sh
+Submit job <2050032> successfully.
+(base) nsls_yangyb@login02:~$ find /home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_2026
+1106/compute_y98_prebind_cpu_only_v1 -maxdepth 1 -type f -printf %f%s
+start.txt32mpirun.out0mpirun.err0(base) nsls_yangyb@login02:~$ find /home/share/nsls_ya
+ngyb/PyQCU/data/kupl_hbm_opt_20261106/compute_y98_prebind_cpu_only_v1 -maxdepth 1 -type
+ f -printf %f%s
+start.txt32mpirun.out0mpirun.err2970rank_0004.txt73rank_0002.txt73rank_0009.txt73rank_0
+000.txt73rank_0003.txt73rank_0014.txt74rank_0008.txt73rank_0011.txt74rank_0012.txt74ran
+k_0010.txt74rank_0015.txt74rank_0006.txt73rank_0013.txt74rank_0001.txt73rank_0007.txt73
+rank_0005.txt73(base) nsls_yangyb@login02:~$ cat /home/share/nsls_yangyb/PyQCU/data/kup
+l_hbm_opt_20261106/compute_y98_prebind_cpu_only_v1/start.txt; tail -n 20 /home/share/ns
+ls_yangyb/PyQCU/data/kupl_hbm_opt_20261106/compute_y98_prebind_cpu_only_v1/mpirun.err
+START 2026-11-06T14:11:29+08:00
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=10 local_size=16 numa_nodes=16 cpu_node=10 cpuset=380-387 memory_node=10 me
+mory_policy=default memory_bound=false threads=8 bound_threads=8 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=2 local_size=16 numa_nodes=16 cpu_node=2 cpuset=76-83 memory_node=2 memory_
+policy=default memory_bound=false threads=8 bound_threads=8 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=8 local_size=16 numa_nodes=16 cpu_node=8 cpuset=304-311 memory_node=8 memor
+y_policy=default memory_bound=false threads=8 bound_threads=8 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=4 local_size=16 numa_nodes=16 cpu_node=4 cpuset=152-159 memory_node=4 memor
+y_policy=default memory_bound=false threads=8 bound_threads=8 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=14 local_size=16 numa_nodes=16 cpu_node=14 cpuset=532-539 memory_node=14 me
+mory_policy=default memory_bound=false threads=8 bound_threads=8 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=12 local_size=16 numa_nodes=16 cpu_node=12 cpuset=456-463 memory_node=12 me
+mory_policy=default memory_bound=false threads=8 bound_threads=8 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=6 local_size=16 numa_nodes=16 cpu_node=6 cpuset=228-235 memory_node=6 memor
+y_policy=default memory_bound=false threads=8 bound_threads=8 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=1 local_size=16 numa_nodes=16 cpu_node=1 cpuset=38-45 memory_node=1 memory_
+policy=default memory_bound=false threads=8 bound_threads=8 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=5 local_size=16 numa_nodes=16 cpu_node=5 cpuset=190-197 memory_node=5 memor
+y_policy=default memory_bound=false threads=8 bound_threads=8 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=7 local_size=16 numa_nodes=16 cpu_node=7 cpuset=266-273 memory_node=7 memor
+y_policy=default memory_bound=false threads=8 bound_threads=8 source=sysfs
+(base) nsls_yangyb@login02:~$ find /home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_2026
+1106/compute_y98_prebind_cpu_only_v1 -maxdepth 1 -type f -printf %f%s
+start.txt69mpirun.out0mpirun.err3006rank_0004.txt73rank_0002.txt73rank_0009.txt73rank_0
+000.txt73rank_0003.txt73rank_0014.txt74rank_0008.txt73rank_0011.txt74rank_0012.txt74ran
+k_0010.txt74rank_0015.txt74rank_0006.txt73rank_0013.txt74rank_0001.txt73rank_0007.txt73
+rank_0005.txt73(base) nsls_yangyb@login02:~$

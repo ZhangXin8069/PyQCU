@@ -1,0 +1,54 @@
+geom_v1/bicgstab_1/solution.h5 84941280
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/compute_y91_slab16_manual
+geom_v1/bicgstab_1/report.json 1589
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/compute_y91_slab16_manual
+geom_v1/mg_1/stdout.txt 0
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/compute_y91_slab16_manual
+geom_v1/mg_1/stderr.txt 32217
+(base) nsls_yangyb@login02:~$ djob -ll 2050917 | grep -A2 cn10579 | head -n 3
+        cn10579              0        0/1      -                -                -
+
+Runtime Details:
+    execNodes                                   cn10579
+
+(base) nsls_yangyb@login02:~$ djob -ll 2050917 | grep -E "jobWallclockDuration|jobExitC
+ode|JOB_FINISH"
+    jobWallclockDuration                        529
+
+(base) nsls_yangyb@login02:~$ cat /home/share/nsls_yangyb/logs/job_y91_kill.sh
+#!/bin/bash
+#DSUB --mpi hmpi
+#DSUB -q q_hpcapp
+#DSUB -n qcu_y91k
+#DSUB -x job
+#DSUB -nn 1
+#DSUB -N 1
+#DSUB -rpn 1
+#DSUB -R "cpu=1;mem=1G"
+#DSUB -oo /home/share/nsls_yangyb/y91k.out
+#DSUB -eo /home/share/nsls_yangyb/y91k.err
+#DSUB -T 60
+
+set -u
+kill -TERM 905937 906096 906510 906511 906512 906513 906520 906522 906523 906524 906525
+ 906526 906531 906536 906595 906596 906605 906607 || true
+sleep 3
+date --iso-8601=seconds
+hostname
+printf 'Y91_KILL_ISSUED\n'
+(base) nsls_yangyb@login02:~$ find /home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt
+_20261106/compute_y91_slab16_manualgeom_v1/mg_1 -maxdepth 1 -type f -printf "%p %s\n"
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/compute_y91_slab16_manual
+geom_v1/mg_1/stdout.txt 0
+/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/compute_y91_slab16_manual
+geom_v1/mg_1/stderr.txt 32540
+(base) nsls_yangyb@login02:~$ djob -ll 2050917 | grep -E "jobWallclockDuration|jobExitC
+ode|JOB_FINISH"
+    jobWallclockDuration                        649
+
+(base) nsls_yangyb@login02:~$ djob -ll 2050917 | grep -A2 nodePids
+    nodePids
+        execNode             pids
+        cn10579              1984959,2026084,2026307,2026308,2026310,2026312,2026313,20
+26314,2026315,2026316,2026317,2026318,2026324,2026340,2026354,2026358,2026359,2026362
+(base) nsls_yangyb@login02:~$

@@ -1,0 +1,54 @@
+ 1], "restart": 10, "coarse_max_iter": 20, "coarse_tol_factor": 10.0, "deflate": true,
+"builder_seconds": 2.33229495305568, "input_prebind_seconds": 0.0, "hdf5_mpio_read": fa
+lse, "gauge_slab_dir": "/home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_20261106/y91_ga
+uge_slabs_1118", "source_slab_dir": "/home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_20
+261106/y91_source_slabs_1118", "gauge_read_seconds": 0.03655244316905737, "source_read_
+seconds": 0.01566084404475987, "coarse_source": "/home/share/nsls_yangyb/PyQCU/data/kup
+l_hbm_opt_20261106/mg_e4_tblock1_L24_v1/cache_E4_mg2x2x2x1.h5", "wall_seconds": 1.58653
+05608604103, "residual_seconds": 4.658196121454239e-05, "verify_status": 0, "residual_a
+cceptance": 0.0001, "residual_source": "KUPL native fail-closed solve; independent chec
+k skipped", "converged": true, "memory": {"available": true, "max_rss_kib": 821940, "re
+sident_kib": 676016, "omp_threads": "16"}, "status": "PASS"}
+[1]+  Done                    nohup bash /home/share/nsls_yangyb/logs/run_y91_login_111
+8_mg.sh > /home/share/nsls_yangyb/logs/login_y91_1118_mg.log 2>&1
+(base) nsls_yangyb@login02:~$ printf '%s' 'H4sICCNi7WoAA3J1bl95OTFfbG9naW5fdDE2X21nLnNo
+AH1UXXOjNhR951eo1A/tg8zHEvZjxg84YWPPEsNi/JBOZzQCazG1QKwknNBM/nslwKmTdnfE2HB1zrnS1bn69Rc
+rrxorx+JgCCIB7AzBOl4QYB1YTSxxwJxYjaAC9bgp+9xK+q/XO4s0p7miGJwxufgp1FDaZGHONNLaY4mtY9dSdM
+hrxFqJXNv1Hcf2TeOB8aPCabhFWVk1qP/oIOn46OSYRoGLAzlP1yUiHpI5ZcXRQZHrKYg1IFDoobp0H/Vw5ocr0
++BESMzlYvaUhtssSLNP0LGfjfq4rziALTBnOrFpkMeWcQmSe7Vm9GWXRChaL88J866ieyjdv4eUsCQN4VVh0Sr/
+XnRzwV7o0Y2mpUF6j5IgWyn+bypPg2uiEr3WNn//NHt6g39+EYrvErTZ3aFslYbBzXbxAQw8HX4TUqgALdebm4V
+9' > /home/share/nsls_yangyb/b64/sync_run_y91_login_t16_mg_sweep_20261106.b64
+TIUv1nN3i5I0/ryOFPyVyjKKr7+gm20UbFfobr1BqyD6jLbrLNwuHP/dB2+EhZtgGYUoc9Efl4w3S0rDr7t1Gup
+s13GahtfZOt6ohIasasI6Zb8juBLgnW0LULcV7xoAITsRLrpcFLzKCYBNCxxfhZVt1Ykw0LCGgD8NoEI1bmHeA0
+GZUoKYUvYAlQbEAmr3Dai2lwemZJdgsmTbqyO0pHJJ1ZSWqOqWktGidUdlVfJqP297c0pBsQSuNz2+pyIaAJxx+
+BOqxF1JoKA4h9plk4m0nYcZpGeEtvZZduy5/2WMU/+l1FgIAO25+/69+irEA3Dmjm9/VA3l6vpgyShwCPQG7COs
+JOHgyp7Ye9m3BBTDDig5ESqAq16nZtG1Gd9MzS7HTbrDcM4K7BtwXKAFmtOgPkoUDHNB1MlQ+A0XknHgnJNOUy+
+rce1/g0P3qrz' >> /home/share/nsls_yangyb/b64/sync_run_y91_login_t16_mg_sweep_20261106.b
+64
+printf '%s' 'D
+v3lZR3B5d7Sc7btCVqzRbW+N5XS9x/HxPaS2pNv+VV1/pjCV98cSnAz+Ha8JffPMnqbaPM//EqzRFVLWbbsfYC4
+Wc6xaqFxLWqJ+GqmrXe07TI1/AOb3hDyGBQAA' >> /home/share/nsls_yangyb/b64/sync_run_y91_logi
+n_t16_mg_sweep_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' '
+> Jg/x1e42TILbcOGM31mcxFF8e4/SMInTTIUv1nN3i5I0/ryOFPyVyjKKr7+gm20UbFfobr1BqyD6jLbrLNwuH
+P/dB2+EhZtgGYUoc9Efl4w3S0rDr7t1Gups13GahtfZOt6ohIasasI6Zb8juBLgnW0LULcV7xoAITsRLrpcFLzK
+CYBNCxxfhZVt1Ykw0LCGgD8NoEI1bmHeA0GZUoKYUvYAlQbEAmr3Dai2lwemZJdgsmTbqyO0pHJJ1ZSWqOqWktG
+idUdlVfJqP297c0pBsQSuNz2+pyIaAJxx+BOqxF1JoKA4h9plk4m0nYcZpGeEtvZZduy5/2WMU/+l1FgIAO25+/
+69+irEA3Dmjm9/VA3l6vpgyShwCPQG7COsJOHgyp7Ye9m3BBTDDig5ESqAq16nZtG1Gd9MzS7HTbrDcM4K7BtwX
+KAFmtOgPkoUDHNB1MlQ+A0XknHgnJNOUy+rce1/g0P3qrz' >> /home/share/nsls_yangyb/b64/sync_run
+_y91_login_t16_mg_sweep_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'D
+> v3lZR3B5d7Sc7btCVqzRbW+N5XS9x/HxPaS2pNv+VV1/pjCV98cSnAz+Ha8JffPMnqbaPM//EqzRFVLWbbsfY
+C4Wc6xaqFxLWqJ+GqmrXe07TI1/AOb3hDyGBQAA' >> /home/share/nsls_yangyb/b64/sync_run_y91_lo
+gin_t16_mg_sweep_20261106.b64
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/b64/sync_run_y91_login_
+t16_mg_sweep_20261106.b64 > /home/share/nsls_yangyb/b64/sync_run_y91_login_t16_mg_sweep
+_20261106.tgz
+(base) nsls_yangyb@login02:~$ gzip -dc /home/share/nsls_yangyb/b64/sync_run_y91_login_t
+16_mg_sweep_20261106.tgz > /home/share/nsls_yangyb/logs/run_y91_login_t16_mg.sh
+(base) nsls_yangyb@login02:~$ chmod 750 /home/share/nsls_yangyb/logs/run_y91_login_t16_
+mg.sh
+(base) nsls_yangyb@login02:~$ nohup env RESTART=20 bash /home/share/nsls_yangyb/logs/ru
+n_y91_login_t16_mg.sh > /home/share/nsls_yangyb/logs/login_y91_t16_mg_r20.log 2>&1 &
+[1] 257840
+(base) nsls_yangyb@login02:~$

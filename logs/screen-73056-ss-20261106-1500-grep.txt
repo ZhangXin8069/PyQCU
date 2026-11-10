@@ -1,0 +1,54 @@
+PYQCU::KUPL::INIT_PROFILE rank=13 stage=omp-team-affinity elapsed=0.410448
+PYQCU::KUPL::INIT_PROFILE rank=13 stage=memory-policy elapsed=0.410517
+PYQCU::KUPL::TOPOLOGY:
+PYQCU::KUPL::INIT_PROFILE rank=13 stage=topology-report elapsed=0.410547
+PYQCU::KUPL::INIT_PROFILE rank=11 stage=omp-team-affinity elapsed=0.392173
+PYQCU::KUPL::INIT_PROFILE rank=11 stage=memory-policy elapsed=0.392212
+PYQCU::KUPL::TOPOLOGY:
+PYQCU::KUPL::INIT_PROFILE rank=11 stage=topology-report elapsed=0.392237
+PYQCU::KUPL::INIT_PROFILE rank=5 stage=omp-team-affinity elapsed=0.518938
+PYQCU::KUPL::INIT_PROFILE rank=5 stage=memory-policy elapsed=0.519035
+PYQCU::KUPL::TOPOLOGY:
+PYQCU::KUPL::INIT_PROFILE rank=5 stage=topology-report elapsed=0.519084
+PYQCU::KUPL::INIT_PROFILE rank=1 stage=omp-team-affinity elapsed=0.443044
+PYQCU::KUPL::INIT_PROFILE rank=1 stage=memory-policy elapsed=0.443105
+PYQCU::KUPL::TOPOLOGY:
+PYQCU::KUPL::INIT_PROFILE rank=1 stage=topology-report elapsed=0.443129
+PYQCU::KUPL::INIT_PROFILE rank=15 stage=omp-team-affinity elapsed=0.536441
+PYQCU::KUPL::INIT_PROFILE rank=15 stage=memory-policy elapsed=0.536489
+PYQCU::KUPL::TOPOLOGY:
+PYQCU::KUPL::INIT_PROFILE rank=15 stage=topology-report elapsed=0.536518
+PYQCU::KUPL::INIT_PROFILE rank=2 stage=process-affinity elapsed=0.400467
+PYQCU::KUPL::INIT_PROFILE rank=3 stage=omp-team-affinity elapsed=0.522207
+PYQCU::KUPL::INIT_PROFILE rank=3 stage=memory-policy elapsed=0.522272
+PYQCU::KUPL::TOPOLOGY:
+PYQCU::KUPL::INIT_PROFILE rank=3 stage=topology-report elapsed=0.522304
+PYQCU::KUPL::INIT_PROFILE rank=8 stage=omp-team-affinity elapsed=0.297380
+PYQCU::KUPL::INIT_PROFILE rank=8 stage=memory-policy elapsed=0.297449
+PYQCU::KUPL::TOPOLOGY:
+PYQCU::KUPL::INIT_PROFILE rank=8 stage=topology-report elapsed=0.297476
+PYQCU::KUPL::INIT_PROFILE rank=0 stage=omp-team-affinity elapsed=0.572092
+PYQCU::KUPL::INIT_PROFILE rank=0 stage=memory-policy elapsed=0.572156
+PYQCU::KUPL::TOPOLOGY:
+PYQCU::KUPL::INIT_PROFILE rank=0 stage=topology-report elapsed=0.572184
+PYQCU::KUPL::INIT_PROFILE rank=12 stage=omp-team-affinity elapsed=0.575607
+PYQCU::KUPL::INIT_PROFILE rank=12 stage=memory-policy elapsed=0.575677
+PYQCU::KUPL::TOPOLOGY:
+PYQCU::KUPL::INIT_PROFILE rank=12 stage=topology-report elapsed=0.575716
+PYQCU::KUPL::INIT_PROFILE rank=4 stage=omp-team-affinity elapsed=0.502559
+PYQCU::KUPL::INIT_PROFILE rank=4 stage=memory-policy elapsed=0.502642
+PYQCU::KUPL::TOPOLOGY:
+PYQCU::KUPL::INIT_PROFILE rank=4 stage=topology-report elapsed=0.502685
+PYQCU::KUPL::INIT_PROFILE rank=14 stage=omp-team-affinity elapsed=0.356886
+PYQCU::KUPL::INIT_PROFILE rank=14 stage=memory-policy elapsed=0.357086
+PYQCU::KUPL::TOPOLOGY:
+PYQCU::KUPL::INIT_PROFILE rank=14 stage=topology-report elapsed=0.357122
+PYQCU::KUPL::INIT_PROFILE rank=6 stage=omp-team-affinity elapsed=0.633258
+PYQCU::KUPL::INIT_PROFILE rank=6 stage=memory-policy elapsed=0.633368
+PYQCU::KUPL::TOPOLOGY:
+PYQCU::KUPL::INIT_PROFILE rank=6 stage=topology-report elapsed=0.633409
+PYQCU::KUPL::INIT_PROFILE rank=2 stage=omp-team-affinity elapsed=0.570105
+PYQCU::KUPL::INIT_PROFILE rank=2 stage=memory-policy elapsed=0.570225
+PYQCU::KUPL::TOPOLOGY:
+PYQCU::KUPL::INIT_PROFILE rank=2 stage=topology-report elapsed=0.570266
+(base) nsls_yangyb@login02:~$

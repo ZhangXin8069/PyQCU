@@ -1,0 +1,54 @@
+    _LIBRARY.applyInitQcu(_pointer(set_ptrs), _pointer(params), _pointer(argv))
+  File "/home/share/nsls_yangyb/PyQCU/pyqcu/kupl/qcu.py", line 148, in _pointer
+    raise ValueError(
+ValueError: KUPL QCU adapters must wrap a contiguous host array
+--------------------------------------------------------------------------
+Primary job  terminated normally, but 1 process returned
+a non-zero exit code. Per user-direction, the job has been aborted.
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+mpirun detected that one or more processes exited with non-zero status, thus causing
+the job to be terminated. The first process to do so was:
+
+  Process name: [[58961,1],0]
+  Exit code:    1
+--------------------------------------------------------------------------
+(base) nsls_yangyb@login02:~$ printf '%s' 'H4sICP5s7WoAA3Byb2JlX3ByZWJpbmQucHkAfVRdb9ow
+FH3Pr/CyFyOFECjQFil72FpN1daPdZX20FWWSRxqkdiZ7bRQxH+fbxwg6bpGkI9zzzm2r6/vxw+DSqvBnIsBE0+
+oXJtHKY68TMkCEZJVplKMEMSLUiqDqBDSUMOl0J7XYFLv3gwvmFOW1DzmfL6T3djPPV9URblGVCNROnJR8rFFmv
+DlzYXXmKz/JFW4rMp8F7PfnuclOdUaXYHNHRNaqpmH7JWyzM6YC24IwZrlWYCeaF6xngvDBWhIlaJrFNvhQ6oTK
+QxfVLLSNYydwtsbck0OlNq1ZaeYzY5AcylzfLAOs5wudJi0hC3DlBpKSqP+48WFaVslZl0yHYLIenhgUFAucA/1
+PwHX6RNZFHZBNnPhl+vLS/Lr+vb7WR1RVCxtBFyBFH5lhgCGe706rvkLex0HbBd/lgr0sH9Y6tBWCFdS3Ps3t+e
+f' > /home/share/nsls_yangyb/b64/sync_probe_prebind_direct2_20261106.b64
+lCtcUsWE0fGdqliA2IprQ+Sy/nTcXCY0t8Z4NA7Q7j92MSumhXYb9MKU1HhyEqAUMhFbyM71aNRm3kez8YOl155
+tvEZhaVZVKpnimtHraCezU2DhYYCa37QTr6NRGxlGAEESO+gQUEhdBz0CdNLV19MadaDJv6NMDyyqFk/tdLSzke
+WS7vMBxPvoIXAvw93LMVj1o3B0fGzXF0asP4bncBqdjqLRaOoqwe68LctO3odR1E38tNmiOcukgsKBEx+WTGW22
+CthmMK9jhuxE7C01lnFu1A7zW/QXOCwrjcoADsC9Alalvn6wp7+H0mF2+MHrUGCvdcr4blI39M188jsCt9ZNa6P
+ywBlPpQH2cB9Fo3TbWhWxu+Fz4obRgxbGbw/944b19xtXUDxBu7bJsnxxj1n4TTbuhnEm/rhEL/lxHJaapY2cdR
+HLelv4Qd7KhOJTLlYxH5lsv6J76b' >> /home/share/nsls_yangyb/b64/sync_probe_prebind_direct2
+_20261106.b64
+printf '%s' 'f
+tKDINhoOrVTQAlp/HCOfEGg7hPizpq1wzdDPtTasOF9xg11T6nl/AQFnmoVOBgAA' >> /home/share/nsls_y
+angyb/b64/sync_probe_prebind_direct2_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' '
+> L67OYKRv/sOBGxbLlCtcUsWE0fGdqliA2IprQ+Sy/nTcXCY0t8Z4NA7Q7j92MSumhXYb9MKU1HhyEqAUMhFby
+M71aNRm3kez8YOl155tvEZhaVZVKpnimtHraCezU2DhYYCa37QTr6NRGxlGAEESO+gQUEhdBz0CdNLV19MadaDJ
+v6NMDyyqFk/tdLSzkeWS7vMBxPvoIXAvw93LMVj1o3B0fGzXF0asP4bncBqdjqLRaOoqwe68LctO3odR1E38tNm
+iOcukgsKBEx+WTGW22CthmMK9jhuxE7C01lnFu1A7zW/QXOCwrjcoADsC9Alalvn6wp7+H0mF2+MHrUGCvdcr4b
+lI39M188jsCt9ZNa6PywBlPpQH2cB9Fo3TbWhWxu+Fz4obRgxbGbw/944b19xtXUDxBu7bJsnxxj1n4TTbuhnEm
+/rhEL/lxHJaapY2cdRHLelv4Qd7KhOJTLlYxH5lsv6J76b' >> /home/share/nsls_yangyb/b64/sync_pro
+be_prebind_direct2_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'f
+> tKDINhoOrVTQAlp/HCOfEGg7hPizpq1wzdDPtTasOF9xg11T6nl/AQFnmoVOBgAA' >> /home/share/nsls
+_yangyb/b64/sync_probe_prebind_direct2_20261106.b64
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/b64/sync_probe_prebind_
+direct2_20261106.b64 > /home/share/nsls_yangyb/b64/sync_probe_prebind_direct2_20261106.
+tgz
+(base) nsls_yangyb@login02:~$ gzip -dc /home/share/nsls_yangyb/b64/sync_probe_prebind_d
+irect2_20261106.tgz > /home/share/nsls_yangyb/logs/probe_prebind.py
+(base) nsls_yangyb@login02:~$ dsub -q q_hpcapp /home/share/nsls_yangyb/logs/job_y95_pre
+bind_no_numa.sh
+Submit job <2049977> successfully.
+(base) nsls_yangyb@login02:~$ find /home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_2026
+1106/compute_y95_prebind_no_numa_v1 -maxdepth 1 -type f -printf %f%s
+start.txt32mpirun.out0mpirun.err0(base) nsls_yangyb@login02:~$

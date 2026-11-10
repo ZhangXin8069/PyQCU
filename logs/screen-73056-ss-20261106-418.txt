@@ -1,0 +1,54 @@
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=8 local_size=16 numa_nodes=4 cpu_node=-1 cpuset=none memory_node=-1 memory_
+policy=default memory_bound=false threads=8 bound_threads=0 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=15 local_size=16 numa_nodes=4 cpu_node=-1 cpuset=none memory_node=-1 memory
+_policy=default memory_bound=false threads=8 bound_threads=0 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=0 local_size=16 numa_nodes=4 cpu_node=-1 cpuset=none memory_node=-1 memory_
+policy=default memory_bound=false threads=8 bound_threads=0 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=12 local_size=16 numa_nodes=4 cpu_node=-1 cpuset=none memory_node=-1 memory
+_policy=default memory_bound=false threads=8 bound_threads=0 source=sysfs
+PYQCU::KUPL::TOPOLOGY:
+ local_rank=4 local_size=16 numa_nodes=4 cpu_node=-1 cpuset=none memory_node=-1 memory_
+policy=default memory_bound=false threads=8 bound_threads=0 source=sysfs
+PYQCU::KUPL::MULTIGRID::WARNING:
+ Legacy-MultiGrid levels=2, coarsest=[12,12,12,2], next=[6,6,6,2], volume=3456. Legacy
+defaults to 2 levels; deep or small coarse hierarchies are experimental.
+PYQCU::KUPL::MULTIGRID::WARNING:
+ Legacy-MultiGrid levels=2, coarsest=[12,12,12,2], next=[6,6,6,2], volume=3456. Legacy
+defaults to 2 levels; deep or small coarse hierarchies are experimental.
+PYQCU::KUPL::MG_PROFILE:
+ total=0.919267 fine_apply=0.446818 fine_calls=29 coarse_apply=0.019770 coarse_calls=9
+restrict=0.001873 restrict_calls=1 prolong=0.002710 prolong_calls=1 coarse_correction=0
+.095371 coarse_correction_calls=1 prepare=0.008201 store=0.008422 full_residual=0.04036
+2
+{"backend": "kupl", "solver": "applyCloverMultigridQcu", "lattice": [24, 24, 24, 64], "
+local_lattice": [24, 24, 24, 4], "local_starts": [0, 0, 0, 0], "grid": [1, 1, 1, 16], "
+grid_coordinate": [0, 0, 0, 0], "mpi_rank": 0, "mpi_size": 16, "dtype": "complex64", "m
+ass": -0.277, "kappa": 0.13430029546065003, "mass_normalization": "kappa", "csw": 1.160
+920226, "atol": 0.0001, "max_iter": 50, "levels": 2, "dof": [12, 4], "mg_grid": [2, 2,
+2, 1], "restart": 20, "coarse_max_iter": 20, "coarse_tol_factor": 10.0, "deflate": true
+, "builder_seconds": 2.3169406361412257, "input_prebind_seconds": 0.0, "hdf5_mpio_read"
+: false, "gauge_slab_dir": "/home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_20261106/y9
+1_gauge_slabs_t16", "source_slab_dir": "/home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt
+_20261106/y91_source_slabs_t16", "gauge_read_seconds": 0.03416434582322836, "source_rea
+d_seconds": 0.008220433024689555, "coarse_source": "/home/share/nsls_yangyb/PyQCU/data/
+kupl_hbm_opt_20261106/mg_e4_tblock1_L24_v1/cache_E4_mg2x2x2x1.h5", "wall_seconds": 0.93
+25242098420858, "residual_seconds": 7.052207365632057e-05, "verify_status": 0, "residua
+l_acceptance": 0.0001, "residual_source": "KUPL native fail-closed solve; independent c
+heck skipped", "converged": true, "memory": {"available": true, "max_rss_kib": 578428,
+"resident_kib": 485916, "omp_threads": "8"}, "status": "PASS"}
+[1]+  Done                    nohup env RESTART=20 KUPL_EXPERIMENT_LIB=/home/share/nsls
+_yangyb/PyQCU/data/kupl_hbm_opt_20261106/build-ht2split-generic/libqcu.so KUPL_BLOCK_DS
+LASH_MIN_HALF_SITES=65536 KUPL_ENABLE_HT2_TBOUNDARY_SPLIT=1 bash /home/share/nsls_yangy
+b/logs/run_y91_login_t16_mg.sh > /home/share/nsls_yangyb/logs/login_y91_t16_mg_ht2_spli
+t_b2.log 2>&1
+(base) nsls_yangyb@login02:~$ nohup env RESTART=20 KUPL_EXPERIMENT_LIB=/home/share/nsls
+_yangyb/PyQCU/data/kupl_hbm_opt_20261106/build-ht2split-generic/libqcu.so KUPL_BLOCK_DS
+LASH_MIN_HALF_SITES=65536 KUPL_ENABLE_HT2_TBOUNDARY_SPLIT=0 bash /home/share/nsls_yangy
+b/logs/run_y91_login_t16_mg.sh > /home/share/nsls_yangyb/logs/login_y91_t16_mg_ht2_base
+_a2.log 2>&1 &
+[1] 402283
+(base) nsls_yangyb@login02:~$

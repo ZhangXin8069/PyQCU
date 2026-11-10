@@ -1,0 +1,54 @@
+q5zAVb7q1VB/x/dDbY+IqtuzxTJpOv2kL8aVmqTBawta0QcGz4hHYNiY9ukbGoorpQ/EnkiSwysQu9tRSPI9I3Y
+iBOqDj4U+AUYMIEFzbCO33OtB/tEr5qqENbxz+yjCOnoQH' >> /home/share/nsls_yangyb/b64/sync_pre
+pare_slab_20261106.b64
+/b64/sync_prepare_slab_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'd
+> FwUop3PIi6wRA/AC5mEJRcaV4vsR+3HEHmEdC4y4UwjC3hZVbRJfwutA/BoYn/N2q3yVSnLIqzis766wUE76p
+SxcSmny7LzaD+gFpSDM/IWJto+ZVKF90PHfVQ17JGAzTVI+0uPQsSgjCbTEjJksKfhWQAREB3qFT8fogA46Ro7c
+4b3NzzgoCaIt0ScJ2HKUIxZ8uZwMcbi0l0LeA5wgLLQwYYA3gYVJDCjhujvICC8hzjgonoiCqFX6PkAwBQ+wKry
+5QqfLWqWCKAF5YQe0a8JdaiAuMs8aBa/BZrOvBBoN+3U3uyYFIXkqwkbty2XgppAMTBP4cI24w/GpWj+OX66cAH
+7mBJsGXi7Fgv5UjH37vByHLjgwq5ynIuy2bAXryHMPl3AwNNSEfx2enKnNbF3ksnhsT8wtl0UINc1TjBFHoQdGL
+Jqo0UKByU3NE/1RresthNpnmgkzoVMlKyyQ4iTJyjRJhh' >> /home/share/nsls_yangyb/b64/sync_prep
+are_slab_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' '5n
+> xLMs4Y4lDMZjAh5AnpZrU5wSv9ZSiawfrJeYAXjAWsArHc+cDMoZLxdBYPxGGWVtYBFjSDv/6UJcAsDQFyte5
+ya2qeAqE4X6iKWbEmJSx2Gw5vVawJsmuIevMgEN74lL72YoLH178x5FtZbh+6uisFRsN5anhAWAewl1tAEzgvMD
+oI0QkVdxgPzMbLCMx9bOCHsOMr6CypHh0Qp9HwOw22LeGYM7SNmcbKILWqUJysPB5YMDa7KvVRwoJAJCq4aKnxe
+xUKVnqwZIUNolKwhpaDYyynguk5PrbRqgW6SxS9/dzai+Q3GOKma0AUzkULh1hLBJrhxsMzlI9Av+kKTQ9Ih195
+AbKshLNQavs8fiOQE8n4poN474O7rR6YsLUmEdWEl29kVSJys8Mc/qUTxHfynNp7IuMluWnp5PnqYXnvdbXsgVN
+AaNa7xFTljQzEbYrAWNvT2eC0m0s/YjzVlbe+heBUqsa' >> /home/share/nsls_yangyb/b64/sync_prepa
+re_slab_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'o2A
+> NSUrn4Si0tBaiG8Rwq0iduipxPLalZ0pHFQIofuHrvHqao7OPRCwypYdNgn0jgOLI5tr3GackXXr6nUFh07FE
+XtBYGeNpIMv941qmgKCtiOJnZ57n/TBt80GlJvBLrMS9+PZAkq/NzFVvdctPEspq8AmDQOkOTq67WvOdRxRB/U7
+nukVbJzcfTXU+9IW49lDJwKCQKRGZEkrK7wdMfibDdvtwCxOUW2zt43rEE6i26HvHicB7DwR+nq/HFq9x0bswV6
+tH04U+D7BlWMy6xojSm0ndcWz3RE4oNeON93aeQGnRS7o4ECffcxzWWmpR0Pon+1unLcQOeytq55sF9codT3dT3
+6HNzx3y7MtXzPsjrti7bQuP5PnYHHfLuShqenof1802LmmIOklpRVVuQk1IIvpLDtGm3nQ48OwIdZnCrwOEVdzV
+OuDF+Wqg1XpwwKH3/KeSbcsI+tD2/HGLQpH3pkQe5ns' >> /home/share/nsls_yangyb/b64/sync_prepar
+e_slab_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'vLHk
+> Jm5RE3fQiW3n38Eu9hB4uT2Ne7iM7aW/IJdzI15VosjCw5kg24Qs7HeH81mv61iwHDzodRvDC/S2q3Ck9HCJy
+nUNjszZfYEOPRjQV4XQOv+iMMxZjSzaG5vGLtLK30Sy3BuByjEZOuSBCSYcwiVBihPOY9+llULGCymJgEVbadvt
+CV30kZE58cGz7ciCCwLIsPhw0abjhYJzldd641UHzchEbkE66BUNEJrd/gc63YgtBzcEFf4SEW0rOcYVjFMOM9H
+TW0+hbcgXXa73pmyJvDhtwD2Kpi9Y9I5uj8Cm6KS3kfadL6bp2xtwcR8Nth93U1SVenO0DQ7j2jeMugVruk1o3q
+StyhdNBNmZY/uxEleCJX5Ca+4yVuPse+sY92WaGuTmK/VpGWgEFvRc7YGmX6z1v+f05+yHnZMvOo2kyOYxI3YeU
+rEqjLJ6W+mwEYVZK4OSM76BcrPQ+CMBHAtSxp84nOB' >> /home/share/nsls_yangyb/b64/sync_prepare
+_slab_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' '4UgX/
+> LDwgiCItIfjXcVCb1fj9mdqmoe+Z6tosChvPhkNbr7ot6DONTvbt2P94OYU+H/YhIfckCRUfSYJdf5IEC9ew4
+KHxt70G++DYMCF9EwAx/+2ffr6P7+P7+D8f/wbn9ADIACAAAA==' >> /home/share/nsls_yangyb/b64/syn
+c_prepare_slab_20261106.b64
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/b64/sync_prepare_slab_2
+0261106.b64 > /home/share/nsls_yangyb/b64/sync_prepare_slab_20261106.tgz
+(base) nsls_yangyb@login02:~$ tar -xzf /home/share/nsls_yangyb/b64/sync_prepare_slab_20
+261106.tgz -C /home/share/nsls_yangyb/PyQCU
+(base) nsls_yangyb@login02:~$ chmod 750 /home/share/nsls_yangyb/PyQCU/pyqcu/testing/sim
+ple/prepare_mpi_slab.py
+(base) nsls_yangyb@login02:~$ nohup python -B /home/share/nsls_yangyb/PyQCU/pyqcu/testi
+ng/simple/prepare_mpi_slab.py --input /home/share/nsls_yangyb/PyQCU/data/production_L24
+/gauge_24x24x24x64_c64.h5 --lat 24 24 24 64 --grid 1 1 2 8 --output-dir /home/share/nsl
+s_yangyb/PyQCU/data/kupl_hbm_opt_20261106/y91_gauge_slabs --kind gauge --dtype c64 > /h
+ome/share/nsls_yangyb/logs/prepare_y91_gauge.log 2>&1 & echo PREP_PID=
+[1] 71076
+PREP_PID=
+(base) nsls_yangyb@login02:~$

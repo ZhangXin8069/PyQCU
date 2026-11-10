@@ -1,0 +1,54 @@
+    hostPreHookRunTime                          11
+
+    preHookRunTime                              0
+
+    jobWallclockDuration                        45
+
+    postHookRunTime                             0
+
+    hostPostHookRunTime                         0
+
+    jobSstoppedTime                             0
+
+    coreHours                                   45
+
+    jobExitCode                                 1
+
+    systemExitCode                              10001
+
+    exitMessage                                 Job command execution failed, errCode:
+1
+    nodeUsages
+        execNode             resGroup resIndex utime    stime    wallclockDuration    s
+stoppedTime     cpuUtil          gpuUtil          npuUtil          memResource
+
+        cn10579              0        0/1      20       22       45                   0
+                93/93            -                -                0/120/0/0/1496/1496/
+30/0
+    nodePids
+        execNode             pids
+        cn10579              -
+    traceMessages                               2026/11/06 13:38:49    :    [JOB_ADD] J
+ob 2049798 is submitted by nsls_yangyb, job state is PENDING.
+                                                2026/11/06 13:38:53    :    [JOB_START]
+ Job 2049798 start message has been sent.
+                                                2026/11/06 13:38:53    :    [JOB_START_
+ACK] Job 2049798 start message has been received by agent cn10579.
+                                                2026/11/06 13:38:53    :    [JOB_EXECUT
+ION] Job 2049798 state is from PENDING to RUNNING.
+                                                2026/11/06 13:38:54    :    [HOST_PRE-H
+OOK_START] Job 2049798 host-pre-hook started at 2026/11/06 13:38:54 .
+                                                2026/11/06 13:39:05    :    [HOST_PRE-H
+OOK_END] Job 2049798 host-pre-hook is finished successfully at 2026/11/06 13:39:05 , co
+st time: 11316 ms.
+                                                2026/11/06 13:39:50    :    [JOB_FINISH
+] Job 2049798 state is from RUNNING to FAILED, reason: job failed.
+(base) nsls_yangyb@login02:~$ tail -n 50 /home/share/nsls_yangyb/y94.err
+tail: cannot open '/home/share/nsls_yangyb/y94.err' for reading: No such file or direct
+ory
+(base) nsls_yangyb@login02:~$ find /home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_2026
+1106/compute_y94_prebind16_v1 -maxdepth 2 -type f -ls
+(base) nsls_yangyb@login02:~$ bash -n /home/share/nsls_yangyb/logs/job_y94_prebind16.sh
+; echo Y94_SYNTAX_RC=0
+Y94_SYNTAX_RC=0
+(base) nsls_yangyb@login02:~$

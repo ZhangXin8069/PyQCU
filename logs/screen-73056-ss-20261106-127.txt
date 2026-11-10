@@ -1,0 +1,54 @@
+e": 0, "status": "PASS", "timed_out": false, "verify_status": 0, "wall_seconds": 0.8379
+83715115115}
+{"coarse_calls": 19, "converged": true, "fine_calls": 34, "gate": "PASS", "iterations":
+ null, "label": "mg_2", "mode": "mg", "process_seconds": 7.774582476122305, "returncode
+": 0, "status": "PASS", "timed_out": false, "verify_status": 0, "wall_seconds": 1.15965
+60380421579}
+{"converged": true, "gate": "PASS", "iterations": 16, "label": "bicgstab_2", "mode": "b
+icgstab", "process_seconds": 5.259124870179221, "returncode": 0, "status": "PASS", "tim
+ed_out": false, "verify_status": null, "wall_seconds": 1.3902570500504225}
+{"converged": true, "gate": "PASS", "iterations": 16, "label": "bicgstab_3", "mode": "b
+icgstab", "process_seconds": 5.169879044871777, "returncode": 0, "status": "PASS", "tim
+ed_out": false, "verify_status": null, "wall_seconds": 1.2005568521562964}
+{"coarse_calls": 19, "converged": true, "fine_calls": 34, "gate": "PASS", "iterations":
+ null, "label": "mg_3", "mode": "mg", "process_seconds": 7.411920572863892, "returncode
+": 0, "status": "PASS", "timed_out": false, "verify_status": 0, "wall_seconds": 0.79611
+95390671492}
+{"coarse_calls": 19, "converged": true, "fine_calls": 34, "gate": "PASS", "iterations":
+ null, "label": "mg_4", "mode": "mg", "process_seconds": 8.29262894904241, "returncode"
+: 0, "status": "PASS", "timed_out": false, "verify_status": 0, "wall_seconds": 1.394851
+4689691365}
+{"converged": true, "gate": "PASS", "iterations": 16, "label": "bicgstab_4", "mode": "b
+icgstab", "process_seconds": 5.152696033939719, "returncode": 0, "status": "PASS", "tim
+ed_out": false, "verify_status": null, "wall_seconds": 1.2058932960499078}
+(base) nsls_yangyb@login02:~$ env PYQCU_MG_RESTART=10 PYQCU_MG_AB_OUT=l24_true_mg_vs_bi
+cg_r10_v1 python3 -B /home/share/nsls_yangyb/py/logs/run_l24_true_mg_vs_bicg.py
+{"converged": true, "gate": "PASS", "iterations": 16, "label": "bicgstab_1", "mode": "b
+icgstab", "process_seconds": 5.446019330061972, "returncode": 0, "status": "PASS", "tim
+ed_out": false, "verify_status": null, "wall_seconds": 1.5286181832198054}
+{"coarse_calls": 19, "converged": true, "fine_calls": 32, "gate": "PASS", "iterations":
+ null, "label": "mg_1", "mode": "mg", "process_seconds": 7.49444190505892, "returncode"
+: 0, "status": "PASS", "timed_out": false, "verify_status": 0, "wall_seconds": 0.735290
+4700674117}
+{"coarse_calls": 19, "converged": true, "fine_calls": 32, "gate": "PASS", "iterations":
+ null, "label": "mg_2", "mode": "mg", "process_seconds": 7.672287582885474, "returncode
+": 0, "status": "PASS", "timed_out": false, "verify_status": 0, "wall_seconds": 1.06488
+7208165601}
+{"converged": true, "gate": "PASS", "iterations": 16, "label": "bicgstab_2", "mode": "b
+icgstab", "process_seconds": 5.232209665002301, "returncode": 0, "status": "PASS", "tim
+ed_out": false, "verify_status": null, "wall_seconds": 1.265867411158979}
+{"converged": true, "gate": "PASS", "iterations": 16, "label": "bicgstab_3", "mode": "b
+icgstab", "process_seconds": 5.23342235898599, "returncode": 0, "status": "PASS", "time
+d_out": false, "verify_status": null, "wall_seconds": 1.1714725631754845}
+{"coarse_calls": 19, "converged": true, "fine_calls": 32, "gate": "PASS", "iterations":
+ null, "label": "mg_3", "mode": "mg", "process_seconds": 7.707210458815098, "returncode
+": 0, "status": "PASS", "timed_out": false, "verify_status": 0, "wall_seconds": 0.76510
+98619680852}
+{"coarse_calls": 19, "converged": true, "fine_calls": 32, "gate": "PASS", "iterations":
+ null, "label": "mg_4", "mode": "mg", "process_seconds": 7.559942559106275, "returncode
+": 0, "status": "PASS", "timed_out": false, "verify_status": 0, "wall_seconds": 0.81440
+1658019051}
+{"converged": true, "gate": "PASS", "iterations": 16, "label": "bicgstab_4", "mode": "b
+icgstab", "process_seconds": 5.488476912025362, "returncode": 0, "status": "PASS", "tim
+ed_out": false, "verify_status": null, "wall_seconds": 1.5592493389267474}
+(base) nsls_yangyb@login02:~$

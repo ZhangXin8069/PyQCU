@@ -1,0 +1,54 @@
+WORK_DIR="$CASE_DIR/y76"
+mkdir -p "$WORK_DIR"
+export PYQCU_KUPL_LIB=/home/share/nsls_yangyb/PyQCU/cpp/kupl/qcu/build-native-lto/libqc
+u.so
+export LD_LIBRARY_PATH="$(dirname "$PYQCU_KUPL_LIB"):${LD_LIBRARY_PATH}"
+export OMP_NUM_THREADS=12
+export KUPL_OMP_THREADS=12
+export KUPL_NUMA_BIND=1
+export KUPL_MEMORY_POLICY=bind
+export KUPL_MEMORY_NODE=local+16
+export KUPL_HUGEPAGE=1
+export KUPL_TOPOLOGY_REPORT=1
+exec mpirun -np 32 --bind-to none --map-by ppr:2:numa --allow-run-as-root \
+  python -B /home/share/nsls_yangyb/PyQCU/pyqcu/testing/simple/kupl_multigrid.py \
+  --lat 24 24 24 64 --grid 1 1 1 32 \
+  --mass -0.277 --csw 1.160920226 --atol 1e-4 --dtype c64 \
+  --levels 1 --restart 0 \
+  --gauge "$CASE_DIR/gauge_24x24x24x64_c64.h5" \
+  --source "$CASE_DIR/source_24x24x24x64_c64.h5" \
+  --seed 42 \
+  --report "$WORK_DIR/report.json" \
+  --output "$WORK_DIR/solution.h5"
+(base) nsls_yangyb@login02:~$ sed -n "1,220p" /home/share/nsls_yangyb/sh/stream_probe.s
+h
+#!/bin/bash
+#DSUB --mpi hmpi
+#DSUB -q q_hpcapp
+#DSUB -n qcu_stream
+#DSUB -x job
+#DSUB -nn 1
+#DSUB -N 1
+#DSUB -rpn 1
+#DSUB -R "cpu=38;mem=16G"
+#DSUB -oo /home/share/nsls_yangyb/stream.out
+#DSUB -eo /home/share/nsls_yangyb/stream.err
+#DSUB -T 600
+
+set -euo pipefail
+source /home/share/nsls_yangyb/PyQCU/env.sh
+cd /home/share/nsls_yangyb/PyQCU/refer/kunpeng/lx2-stream-source
+
+export OMP_DYNAMIC=FALSE
+export OMP_PROC_BIND=FALSE
+export OMP_WAIT_POLICY=PASSIVE
+export KMP_BLOCKTIME=0
+
+./build.sh
+./run.sh --batch smoke --domain 2 --threads 1 --tier DDR --output results/dg-smoke-ddr
+./run.sh --batch smoke --domain 2 --threads 36 --tier HBM --output results/dg-smoke-hbm
+echo "=== DDR summary ==="
+cat results/dg-smoke-ddr/summary.json
+echo "=== HBM summary ==="
+cat results/dg-smoke-hbm/summary.json
+(base) nsls_yangyb@login02:~$

@@ -1,0 +1,54 @@
+mkdir -p "$work"
+
+export PYQCU_KUPL_LIB="$lib"
+export LD_LIBRARY_PATH="$(dirname "$lib"):${LD_LIBRARY_PATH}"
+export OMP_NUM_THREADS=8
+export KUPL_OMP_THREADS=8
+export KUPL_NUMA_BIND=1
+export KUPL_MEMORY_POLICY=bind
+export KUPL_MEMORY_NODE=local+16
+export KUPL_REQUIRE_MEMORY_BIND=1
+export KUPL_HUGEPAGE=1
+export KUPL_TOPOLOGY_REPORT=1
+export PYQCU_KUPL_MG_PROFILE=1
+export KUPL_BLOCK_DSLASH_MIN_HALF_SITES=16384
+export KUPL_ENABLE_T2_ZBLOCK_DSLASH=0
+
+run_case() {
+  local label=$1
+  shift
+  local dir="$work/$label"
+  mkdir -p "$dir"
+  printf 'START %s %s\n' "$(date --iso-8601=seconds)" "$label"
+  mpirun --oversubscribe -np 16 --bind-to none \
+    --map-by ppr:1:numa --allow-run-as-root \
+    python -B "$root/pyqcu/testing/simple/kupl_multigrid.py" \
+    --lat 24 24 24 64 --grid 1 1 2 8 \
+    --gauge-slab-dir "$gauge_slabs" --source-slab-dir "$source_slabs" \
+    --mass -0.277 --csw 1.160920226 --atol 1e-4 --max-iter 50 \
+    --dtype c64 "$@" \
+    --gauge "$case_dir/gauge_24x24x24x64_c64.h5" \
+    --source "$case_dir/source_24x24x24x64_c64.h5" \
+    --report "$dir/report.json" --output "$dir/solution.h5" \
+    --skip-independent-residual >"$dir/stdout.txt" 2>"$dir/stderr.txt"
+  local rc=$?
+  printf 'END %s %s rc=%s\n' "$(date --iso-8601=seconds)" "$label" "$rc"
+  return "$rc"
+}
+
+run_bicg() {
+  unset KUPL_REQUIRE_MG_CORRECTION
+  run_case "$1" --levels 1 --restart 0
+}
+
+run_mg() {
+  export KUPL_REQUIRE_MG_CORRECTION=1
+  run_case "$1" --levels 2 --restart 10 --mg-grid 2 2 2 1 \
+    --dof 12 4 --nv-iters 2 --coarse-tol-factor 10 \
+    --coarse-max-iter 20 --coarse-cache "$cache"
+}
+
+run_bicg bicgstab_1
+run_mg mg_1
+printf 'COMPLETE %s\n' "$(date --iso-8601=seconds)"
+(base) nsls_yangyb@login02:~$

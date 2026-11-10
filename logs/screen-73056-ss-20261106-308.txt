@@ -1,0 +1,54 @@
+lab16_20261106.tgz > /home/share/nsls_yangyb/logs/run_y91_login_slab16.sh
+(base) nsls_yangyb@login02:~$ chmod 750 /home/share/nsls_yangyb/logs/run_y91_login_slab
+16.sh
+(base) nsls_yangyb@login02:~$ nohup bash /home/share/nsls_yangyb/logs/run_y91_login_sla
+b16.sh > /home/share/nsls_yangyb/logs/login_y91_slab16.log 2>&1 &
+[1] 179541
+(base) nsls_yangyb@login02:~$ tail -n 35 /home/share/nsls_yangyb/logs/login_y91_slab16.
+log
+nohup: ignoring input
+###env.sh in /home/share/nsls_yangyb/PyQCU is sourcing...:2026-11-06-13-03-07###
+###env.sh in /home/share/nsls_yangyb/PyQCU is done......:2026-11-06-13-03-07###
+--------------------------------------------------------------------------
+Your job has requested more processes than the ppr for
+this topology can support:
+
+  App: python
+  Number of procs:  16
+  PPR: 2:numa
+
+Please revise the conflict and try again.
+--------------------------------------------------------------------------
+[1]+  Exit 1                  nohup bash /home/share/nsls_yangyb/logs/run_y91_login_sla
+b16.sh > /home/share/nsls_yangyb/logs/login_y91_slab16.log 2>&1
+(base) nsls_yangyb@login02:~$ printf '%s' 'H4sICLNf7WoAA3J1bl95OTFfbG9naW5fc2xhYjE2LnNo
+AH1UXW/aMBR9z6/wsj5sDyYfpWk7iYdQKKAGyPh46DTJcoIVPBzbsx3abNp/n8PHBl1XxYqUe88599742O/feRn
+lXob12tHEAFg5WlQqJ8Bbi5J4eo0V8bhmGtWYF3XmpfXnu6VH+LZlKY4SwnTehDpWm3TciwbprbDB3qaSDK2zEg
+lpUOiHURD4kes8CbWxuAbuMVFQjurbAGmGsyBC28B1ys2KKgAlcC8arOs45FkKZUD6aOugh2WaoGTUPWpkFWUra
+MIfGRP5BhaEE0Vzj9Hse161tHCP9KTX0Gbx7BGl8WJo+R9sIY5LYiuda7sfP138fIH/9UdoOk7RZDlGi+GsH/fm
+nZtjYkdvsq9nLCdG3dGk1/HP4sPloJ/Gg34nOAsvpuk0mQ4e0ayfTmeLv9mTXscDlM6m96PkJbmbTO8eUG+exPM
+h' > /home/share/nsls_yangyb/b64/sync_run_y91_login_slab16_20261106.b64
+n92g+WvTnnSC6vGmfofuTuJv00SJEX06Jtk/H0JKIyjpmA640uPR9DUpJVcUBhGJLlK4ynSuaEQC5BEFkw9Zpdk
+ME4IIT8NUBNlRiCbMaaCasEsSMiSdoNSDWsDHMDiVrsxZWtgsOLpK13UHPEG0oLzxNS8nI3lVlxQwtFF21ZO0eS
+jBsQNg+rKhtIw0ABPYJwc0BVOCqILAxG2xMdrBQY8BdZmdDfVTcn5BX0fvUObzEWgPot8Lra/uV6ycQtILIv7XW
+D5vfgo1gICCwvcM+Q2qIAlf+gb0ytSQg3zXOyJYwbRuHUNnpsd0m/3QAcHrMpBKrKjdUcJSEbW8/R9h+3q+ojax
+ma311PtRbCofZ/i+hyM45++Np75W8sD1mrW9acLdxRWVk9W/6pIUNldB6hEhiX9w0Q9JVhZnzG0TjOR6nBAAA'
+>> /home/share/nsls_yangyb/b64/sync_run_y91_login_slab16_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' '
+> Go8maBgn92g+WvTnnSC6vGmfofuTuJv00SJEX06Jtk/H0JKIyjpmA640uPR9DUpJVcUBhGJLlK4ynSuaEQC5B
+EFkw9ZpdkME4IIT8NUBNlRiCbMaaCasEsSMiSdoNSDWsDHMDiVrsxZWtgsOLpK13UHPEG0oLzxNS8nI3lVlxQwt
+FF21ZO0eSjBsQNg+rKhtIw0ABPYJwc0BVOCqILAxG2xMdrBQY8BdZmdDfVTcn5BX0fvUObzEWgPot8Lra/uV6yc
+QtILIv7XWD5vfgo1gICCwvcM+Q2qIAlf+gb0ytSQg3zXOyJYwbRuHUNnpsd0m/3QAcHrMpBKrKjdUcJSEbW8/R9
+h+3q+ojaxma311PtRbCofZ/i+hyM45++Np75W8sD1mrW9acLdxRWVk9W/6pIUNldB6hEhiX9w0Q9JVhZnzG0TjO
+R6nBAAA' >> /home/share/nsls_yangyb/b64/sync_run_y91_login_slab16_20261106.b64
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/b64/sync_run_y91_login_
+slab16_20261106.b64 > /home/share/nsls_yangyb/b64/sync_run_y91_login_slab16_20261106.tg
+z
+(base) nsls_yangyb@login02:~$ gzip -dc /home/share/nsls_yangyb/b64/sync_run_y91_login_s
+lab16_20261106.tgz > /home/share/nsls_yangyb/logs/run_y91_login_slab16.sh
+(base) nsls_yangyb@login02:~$ chmod 750 /home/share/nsls_yangyb/logs/run_y91_login_slab
+16.sh
+(base) nsls_yangyb@login02:~$ nohup bash /home/share/nsls_yangyb/logs/run_y91_login_sla
+b16.sh > /home/share/nsls_yangyb/logs/login_y91_slab16.log 2>&1 &
+[1] 184665
+(base) nsls_yangyb@login02:~$

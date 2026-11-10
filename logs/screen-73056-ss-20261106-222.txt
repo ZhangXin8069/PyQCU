@@ -1,0 +1,54 @@
+ACK] Job 2049224 start message has been received by agent cn10579.
+                                                2026/11/06 12:00:28    :    [JOB_EXECUT
+ION] Job 2049224 state is from PENDING to RUNNING.
+                                                2026/11/06 12:00:29    :    [HOST_PRE-H
+OOK_START] Job 2049224 host-pre-hook started at 2026/11/06 12:00:29 .
+                                                2026/11/06 12:00:40    :    [HOST_PRE-H
+OOK_END] Job 2049224 host-pre-hook is finished successfully at 2026/11/06 12:00:40 , co
+st time: 11253 ms.
+                                                2026/11/06 12:13:35    :    [JOB_FINISH
+] Job 2049224 state is from RUNNING to FAILED, reason: job failed.
+(base) nsls_yangyb@login02:~$ printf '%s' 'H4sIADdU7WoAA+1WbW/bNhDuZ/0KTvXQBoOsl8hKlsHb
+HFtxjPqtftlgoAAhybStRhIZkUrsFv3vO0qWXwIn2D4UQ4FQgkjePXekeM+dFNEl1z9TH28uL6t89eZ7NMMwHNt
+Gsr9wanlvWMVcNvvcqiGzZl1Abxm1GjJM27HP3yDju+zmScu48FLYypeVlyzXYfIcDmCLxQt+indBu/4HaW9/0v
+0w0X2Pr5S3rfH0GmlazEK0gkcpuEf3eMUCj7FSkqD7IJOUKQVrBBzaaRNkluM+ssthypL9ZITUgGX1c+u3mMR10
+2mrpYZSpK9oTHS+8lKiJzzieAOx2fi65CjNRIkkLyNJmpbICXIMQ1E4EUjLlCyRg0FviIejQRNfd/qtYtZtNN0x
+astxczjFjZubTr8zmaEPICgnClkzmhbmrVm/0es06zeN7tg9VPzd6EzwcNDtNGf1YWM87vzlKpxmaUCe3fFw87E
+51UnyAFmoKCmlov4iVIGQkbpakUh97glPv8tYhFd+jCkT2DIsxzQNR1UCwOF5mB5hWUrnWSBCmuCuZavKI03vAC
+B96gGNWSaIDC/2fPxgSh/BipT6eImJjYUf0eDOlOYA0XMEdm0cL621vMzqqqYqUeiXZn4WRnNNWF9yQ21JEpKGg
+Q4I4FKVU1WJ72CbSGNIrcj9qEp5pMMZvDD+MB12cbdzDQ7B' > /home/share/nsls_yangyb/b64/sync_job
+_y88_20261106.b64
+CeXVW+PgF9Uw+j1Z/28OR25DZaYyBkqcmXk+pnVGDVyLlTN4/kPbc3kMsU0Yfkmp9S9wcttw4H4UW/mM4RYOR+n
+HZGbgk8scLttO0OG233iXgygDUH7Rl4GA5Gk7324Ph6bcn5m05XGitplmBJj/dn6KuCUL4dFHk+ieoVEwR8FS7E
+TlFwSEZGr+QgFVQHMYOBlLA0TMQCvRtPGqMJ+pnD/Sl5h2RYPEGgvIScapeOYdY5CWgy52eqDNTOIQthW1BEGLI
+BLM9PExQlNJG2scc0f4MYS6/MqySLPfQJbBBovCiijxqYah7XJNG3GrYRKwr+rtGW/2wDfNMF4SJMljoPYxaRIn
+fiLBLhMg3nVbZRd44jTyD4WhW3I/ckIcjML3sHiz3OkWZUrYsLmAX8EZlV0zF+hUS0HLk/QSNkEs3OsWstFCRFN
+WNnPxcbRlAAC6iVP/erL71sKYlcZrGeC7Blr4vbsTHYyFzbmWwLzYFNIXnRKCU5VfIo6sWk+pnTRAUdlFwoCFsd
+p1Em68bxknch0yBShBF4JALc8XCeAWl+31qJOXipirVQkbWXQYnOZTuOpUG98scBiVwozTmFpOY/EEkGO5BuUyK
+yNNlOvxWU98NguaV88Sk4zrs2bg5GI7c56Qz60sM2ScCHKU8jIg8k4hB7eWjy' >> /home/share/nsls_yang
+yb/b64/sync_job_y88_20261106.b64
+printf '%s' '50Ego/Qcl35PJvSh47r5vGvrwLVpSL4sC85Z+WXuOUMXyLTyPEkeckYVxgH1Uk4gbSJt4QWCpt
+JNabRV7jhoGXthXsVz5kB/dF5IPmBLPja3b4rgO3A4tk5gT8nOD2wOx/YJrK0oJROaUIq77sT9F+VE+b9/ql7ba
+3ttr+0HaP8A0OQXVwAQAAA=' >> /home/share/nsls_yangyb/b64/sync_job_y88_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' 'SC2V3ZYUjhqjGR42JregfQ9uEi8mqACeXVW+PgF9Uw+j
+1Z/28OR25DZaYyBkqcmXk+pnVGDVyLlTN4/kPbc3kMsU0Yfkmp9S9wcttw4H4UW/mM4RYOR+nHZGbgk8scLttO0
+OG233iXgygDUH7Rl4GA5Gk7324Ph6bcn5m05XGitplmBJj/dn6KuCUL4dFHk+ieoVEwR8FS7ETlFwSEZGr+QgFV
+QHMYOBlLA0TMQCvRtPGqMJ+pnD/Sl5h2RYPEGgvIScapeOYdY5CWgy52eqDNTOIQthW1BEGLIBLM9PExQlNJG2s
+cc0f4MYS6/MqySLPfQJbBBovCiijxqYah7XJNG3GrYRKwr+rtGW/2wDfNMF4SJMljoPYxaRInfiLBLhMg3nVbZR
+d44jTyD4WhW3I/ckIcjML3sHiz3OkWZUrYsLmAX8EZlV0zF+hUS0HLk/QSNkEs3OsWstFCRFNWNnPxcbRlAAC6i
+VP/erL71sKYlcZrGeC7Blr4vbsTHYyFzbmWwLzYFNIXnRKCU5VfIo6sWk+pnTRAUdlFwoCFsdp1Em68bxknch0y
+BShBF4JALc8XCeAWl+31qJOXipirVQkbWXQYnOZTuOpUG98scBiVwozTmFpOY/EEkGO5BuUyKyNNlOvxWU98Ngu
+aV88Sk4zrs2bg5GI7c56Qz60sM2ScCHKU8jIg8k4hB7eWjy' >> /home/share/nsls_yangyb/b64/sync_jo
+b_y88_20261106.b64
+(base) nsls_yangyb@login02:~$ printf '%s' '50Ego/Qcl35PJvSh47r5vGvrwLVpSL4sC85Z+WXuOUMX
+yLTyPEkeckYVxgH1Uk4gbSJt4QWCptJNabRV7jhoGXthXsVz5kB/dF5IPmBLPja3b4rgO3A4tk5gT8nOD2wOx/Y
+JrK0oJROaUIq77sT9F+VE+b9/ql7ba3ttr+0HaP8A0OQXVwAQAAA=' >> /home/share/nsls_yangyb/b64/s
+ync_job_y88_20261106.b64
+(base) nsls_yangyb@login02:~$ base64 -d /home/share/nsls_yangyb/b64/sync_job_y88_202611
+06.b64 > /home/share/nsls_yangyb/b64/sync_job_y88_20261106.tgz
+(base) nsls_yangyb@login02:~$ tar -xzf /home/share/nsls_yangyb/b64/sync_job_y88_2026110
+6.tgz -C /home/share/nsls_yangyb
+(base) nsls_yangyb@login02:~$ chmod 750 /home/share/nsls_yangyb/logs/job_y88.sh
+(base) nsls_yangyb@login02:~$ dsub -q q_hpcapp /home/share/nsls_yangyb/logs/job_y88.sh
+Submit job <2049296> successfully.
+(base) nsls_yangyb@login02:~$

@@ -1,0 +1,54 @@
+/home/share/nsls_yangyb/PyQCU/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang is un
+available; TileLang-specific acceleration and tests will be skipped (ModuleNotFoundErro
+r: No module named 'tilelang')
+  _tilelang = import_tilelang()
+/home/share/nsls_yangyb/PyQCU/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang is un
+available; TileLang-specific acceleration and tests will be skipped (ModuleNotFoundErro
+r: No module named 'tilelang')
+  _tilelang = import_tilelang()
+/home/share/nsls_yangyb/PyQCU/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang is un
+available; TileLang-specific acceleration and tests will be skipped (ModuleNotFoundErro
+r: No module named 'tilelang')
+  _tilelang = import_tilelang()
+/home/share/nsls_yangyb/PyQCU/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang is un
+available; TileLang-specific acceleration and tests will be skipped (ModuleNotFoundErro
+r: No module named 'tilelang')
+  _tilelang = import_tilelang()
+/home/share/nsls_yangyb/PyQCU/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang is un
+available; TileLang-specific acceleration and tests will be skipped (ModuleNotFoundErro
+r: No module named 'tilelang')
+  _tilelang = import_tilelang()
+/home/share/nsls_yangyb/PyQCU/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang is un
+available; TileLang-specific acceleration and tests will be skipped (ModuleNotFoundErro
+r: No module named 'tilelang')
+  _tilelang = import_tilelang()
+/home/share/nsls_yangyb/PyQCU/pyqcu/tools/_define.py:39: RuntimeWarning: TileLang is un
+available; TileLang-specific acceleration and tests will be skipped (ModuleNotFoundErro
+r: No module named 'tilelang')
+  _tilelang = import_tilelang()
+PYQCU::KUPL::MULTIGRID::WARNING:
+ Legacy-MultiGrid levels=2, coarsest=[12,12,12,2], next=[6,6,6,2], volume=3456. Legacy
+defaults to 2 levels; deep or small coarse hierarchies are experimental.
+PYQCU::KUPL::MULTIGRID::WARNING:
+ Legacy-MultiGrid levels=2, coarsest=[12,12,12,2], next=[6,6,6,2], volume=3456. Legacy
+defaults to 2 levels; deep or small coarse hierarchies are experimental.
+PYQCU::KUPL::MG_PROFILE:
+ total=0.944912 fine_apply=0.508240 fine_calls=29 coarse_apply=0.023494 coarse_calls=9
+restrict=0.001391 restrict_calls=1 prolong=0.002332 prolong_calls=1 coarse_correction=0
+.086834 coarse_correction_calls=1 prepare=0.008382 store=0.015777 full_residual=0.01647
+7
+{"backend": "kupl", "solver": "applyCloverMultigridQcu", "lattice": [24, 24, 24, 64], "
+local_lattice": [24, 24, 24, 4], "local_starts": [0, 0, 0, 0], "grid": [1, 1, 1, 16], "
+grid_coordinate": [0, 0, 0, 0], "mpi_rank": 0, "mpi_size": 16, "dtype": "complex64", "m
+ass": -0.277, "kappa": 0.13430029546065003, "mass_normalization": "kappa", "csw": 1.160
+920226, "atol": 0.0001, "max_iter": 50, "levels": 2, "dof": [12, 4], "mg_grid": [2, 2,
+2, 1], "restart": 50, "coarse_max_iter": 20, "coarse_tol_factor": 10.0, "deflate": true
+, "builder_seconds": 2.2474710361566395, "input_prebind_seconds": 0.0489149778150022, "
+coarse_source": "/home/share/nsls_yangyb/PyQCU-main/data/kupl_hbm_opt_20261106/mg_e4_tb
+lock1_L24_v1/cache_E4_mg2x2x2x1.h5", "wall_seconds": 0.9473317482043058, "residual_seco
+nds": 1.6877972949296236, "verify_status": 0, "final_true_residual": 5.530824871339149e
+-05, "residual_acceptance": 0.000244140625, "residual_source": "independent distributed
+ NumPy full Wilson-Clover reconstruction with MPI halo exchange", "converged": true, "m
+emory": {"available": true, "max_rss_kib": 586284, "resident_kib": 394636, "omp_threads
+": "8"}, "status": "PASS"}
+(base) nsls_yangyb@login02:~$
