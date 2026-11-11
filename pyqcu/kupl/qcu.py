@@ -27,23 +27,30 @@ from __future__ import annotations
 
 import ctypes
 import os
+import sys
 from pathlib import Path
 from typing import Any
 
 
 _PACKAGE_DIR = Path(__file__).resolve().parent
 _REPO = Path(__file__).resolve().parents[2]
-_DEFAULT_LIB = _REPO / "cpp/kupl/qcu/libqcu.so"
+# CMake names the shared library after the platform's convention: ELF uses
+# libqcu.so while Mach-O uses libqcu.dylib. Both names are searchable so a macOS
+# build is discoverable without an explicit PYQCU_KUPL_LIB.
+_LIBRARY_NAMES = (
+    ("libqcu.dylib", "libqcu.so") if sys.platform == "darwin"
+    else ("libqcu.so", "libqcu.dylib")
+)
 
 
 def _library_candidates() -> list[Path]:
     requested = os.environ.get("PYQCU_KUPL_LIB")
     candidates = [Path(requested).expanduser()] if requested else []
-    candidates.extend([
-        _PACKAGE_DIR / "libqcu.so",
-        _PACKAGE_DIR / "build" / "libqcu.so",
-        _DEFAULT_LIB,
-    ])
+    for name in _LIBRARY_NAMES:
+        candidates.append(_PACKAGE_DIR / name)
+        candidates.append(_PACKAGE_DIR / "build" / name)
+        candidates.append(_REPO / "cpp" / "kupl" / "qcu" / name)
+        candidates.append(_REPO / "cpp" / "kupl" / "qcu" / "build" / name)
     return candidates
 
 
@@ -58,6 +65,89 @@ def library_path() -> Path:
         f"{tried}\n"
         "build it with `bash install.sh kupl` or set PYQCU_KUPL_LIB")
 
+
+def _loaded_openmp_runtimes() -> list[str]:
+    """Return the OpenMP runtimes already mapped into this process."""
+    if sys.platform != "darwin":
+        return []
+    try:
+        libc = ctypes.CDLL(None)
+        libc._dyld_get_image_name.restype = ctypes.c_char_p
+        images = [
+            libc._dyld_get_image_name(index).decode()
+            for index in range(libc._dyld_image_count())
+        ]
+    except (AttributeError, OSError):
+        return []
+    return [name for name in images if "libomp" in name]
+
+
+def _library_openmp_install_name(path: Path) -> str | None:
+    """Read the OpenMP install name ``path`` links against, if any."""
+    import subprocess
+
+    try:
+        listing = subprocess.run(
+            ["otool", "-L", str(path)],
+            capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if listing.returncode != 0:
+        return None
+    for line in listing.stdout.splitlines()[1:]:
+        name = line.strip().split(" (")[0]
+        if "libomp" in name:
+            return name
+    return None
+
+
+def _openmp_conflict() -> str | None:
+    """Refuse to load a KUPL library that would map a second OpenMP runtime.
+
+    macOS can host two different ``libomp.dylib`` builds in one process only if
+    nothing shares ``__kmp_*`` state between them. PyTorch maps its own copy, and
+    a ``libqcu`` whose ``@rpath/libomp.dylib`` resolves elsewhere then faults at
+    ``__kmp_suspend_initialize_thread`` the first time a worker thread parks.
+
+    Relinking ``libqcu`` against the copy that PyTorch already mapped makes the
+    two libraries share one runtime and removes the crash. This check runs
+    before ``ctypes.CDLL`` because loading is what triggers the fault.
+    """
+    loaded = _loaded_openmp_runtimes()
+    if not loaded:
+        return None
+    # A single OpenMP thread never starts a worker pool, so the second runtime
+    # is never entered and the process stays valid.
+    try:
+        if int(os.environ.get("OMP_NUM_THREADS", "0")) == 1:
+            return None
+        if int(os.environ.get("KUPL_OMP_THREADS", "0")) == 1:
+            return None
+    except ValueError:
+        pass
+    candidates = [path for path in _library_candidates() if path.is_file()]
+    if not candidates:
+        return None
+    library = candidates[0]
+    install_name = _library_openmp_install_name(library)
+    if install_name is None:
+        return None
+    if install_name.startswith(str(Path(loaded[0]).parent)):
+        return None
+    return (
+        f"{library} links {install_name}, but this process already mapped "
+        f"{loaded[0]} and {len(loaded)} OpenMP runtime(s) are present. "
+        "A second runtime faults inside libomp's thread pool.\n"
+        "Sharing one runtime is required. Any of these works (all verified):\n"
+        f"  1. relink the library: install_name_tool -change {install_name} "
+        f"{loaded[0]} {library} && codesign --force --sign - {library}\n"
+        "  2. import pyqcu.kupl.qcu before torch\n"
+        "  3. set OMP_NUM_THREADS=1 for this process")
+
+
+_conflict = _openmp_conflict()
+if _conflict is not None:
+    raise RuntimeError(f"KUPL QCU library cannot be loaded safely. {_conflict}")
 
 
 _LIBRARY = ctypes.CDLL(str(library_path()), mode=ctypes.RTLD_LOCAL)

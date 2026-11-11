@@ -1,0 +1,68 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-11-11 11:05:24 +0800
+批次: qcu-l24-env-bw-20261111
+主任务: 并行派发子代理整理各计算环境配置与带宽统计，与 L24 性能对照归档
+触发原因: 任务完成
+摘要: 3 子代理并行核查 7 个环境硬件字段与带宽口径，产出 2 份新文档；纠正 16×t24 下界性质、36 线程饱和点与 JSON 1000 倍量纲错误
+Git 根目录: /Users/zhangxin/PyQCU
+
+## 关键日志
+
+### S1 - 任务定义
+- 目标: 并行派发子代理整理各计算环境配置（含带宽统计），与 L24 性能统计对照，归档到 docs/。
+- 身份: {物理+代码}。物理侧裁决带宽口径与聚合效率，工程侧做证据核验与文档落地。
+
+### S2 - 派发（3 个子代理并行）
+- 通道: /Users/zhangxin/configure/bin/agent-dispatch.sh（--task-file 继承父 provider/model/strength）
+- 子任务1 鲲鹏三节点: run 20261111T104317（s1zmsvps）
+- 子任务2 x86/V100: run 20261111T104313（s2vtnq19）
+- 子任务3 DCU/A100: run 20261111T104110.fDto5z（s05q8319）
+- 结果: 3/3 返回 ok=True, state=finished, exit_code=0, timed_out=False
+- 派发失败时的降级: 未触发；无需回退到串行
+
+### S3 - 子代理核查到的新事实
+- 带宽: 576 线程 / (16×t24) = 122.5%(1.55GHz) / 129.6%(2.0GHz) -> 16×t24 是**下界不是上限**
+- 每线程: t36=9.473 与 576 节点=9.489 GB/s/thread 几乎相同 -> 36 线程/域即饱和
+- DDR/HBM: 全节点 8.87×/11.04×；单域仅 1.85×/2.17×
+- 抄录错误第3处: JSON inferred_384_thread_hbm_tbps 也取自 Add 列，应为 4.4621 / [5.1050,5.3912]
+- JSON modeled_global_bytes = 64,974,526,144,512，按 per_rank×applies×ranks 应为 64,971,669,504（比值 1000.044）
+- cn10579 核数: 577 只是"已观测最大 CPU 号"，608 可由 38/域步长自洽推出（子代理纠正我方表述）
+- 源 HTML 无 "SVE2" 字样，仅 "SVE VL=64B"；SVE2 属文档表述+编译参数推断
+- login03 无任何 TOPOLOGY 记录，4 NUMA 只能代表 login02
+- DCU 用户态驱动版本不可得（rocm-smi 返回内核版本）
+
+### S4 - 产物
+- docs/qcu_l24_solver_timing_20261111.md（427 行 / 24 表）
+- docs/qcu_l24_environment_bandwidth_20261111.md（410 行 / 19 表）
+- 在 timing 文档插入 §9.1「与各环境硬件配置的对照」（有效带宽表 + 4 个分母占比）
+- 索引同步: docs/AGENTS.md、project-docs-map.md、extracted-guidance.md、pyqcu-docs/SKILL.md（40→42 计数）
+
+## 验证与证据
+- 测试/检查: audit-docs-skills.py、git diff --check、form-audit.sh、自写 python 校验链接/表格列数
+- 结果: PASS docs=42 skills=36；DIFF_OK；两文档 0 断链、24+19 表格列数全部一致
+- form 审计: 剩 2 个 TAG_NAME_IN_PATH，指向 b026c90e 既有文件，非本次引入
+- 未验证项: 子代理的数值未逐条回源复核（已抽查 STREAM 表、DDR/HBM 比、聚合效率、JSON 1000× 四项，全部与本地重算一致）
+
+## 变更与产物
+- 文件: docs/qcu_l24_solver_timing_20261111.md（新）、docs/qcu_l24_environment_bandwidth_20261111.md（新）、docs/AGENTS.md、skills/pyqcu-docs/{SKILL.md,references/project-docs-map.md,references/extracted-guidance.md}
+- 未改动范围: 未改任何源码/日志/数据实体；未提交、未推送、未打标签
+
+## 风险、限制与下一步
+- 风险: 子代理结论多为文档转引，DCU 硬件审计原文件不在工作树
+- 阻塞: 计算节点 true-MG 仍 BLOCKED（2050917 exit 143）
+- 下一步: ① 修 JSON modeled_global_bytes 与 inferred_384_thread_hbm_tbps 两个字段 ② 在 solve 期间采集 numastat/numa_maps 完成 HBM 页验收 ③ 恢复计算节点 dsub 输出健康
+
+## 用户输入指令
+同步派发子代理整理各个计算环境配置[添加带宽统计],与上述的性能统计做对照
+
+## Agent 全文报告
+--- report begin ---
+已并行派发 3 个子代理（鲲鹏三节点 / x86+V100 / DCU+A100），全部 ok=True 返回，并把结果汇编成两份新文档。
+
+新增 docs/qcu_l24_solver_timing_20261111.md（427 行、24 表）与 docs/qcu_l24_environment_bandwidth_20261111.md（410 行、19 表），并在前者插入 §9.1 有效带宽对照。
+
+对照的核心发现：只有 cn10579 有带宽实测分母；y76 的 149.5 GB/s 只有本机 DDR 的 24.3%、HBM 的 2–3%，再次确认瓶颈不是带宽。同时纠正三处口径：16×t24 是保守下界而非上限（576 实测比它高 22–30%）、36 线程/域即已饱和、JSON 的 modeled_global_bytes 有 1000 倍量纲错误（不影响结论）。
+
+审计 PASS docs=42 skills=36，两文档 0 断链、43 个表格列数一致。未提交未推送。
+--- report end ---

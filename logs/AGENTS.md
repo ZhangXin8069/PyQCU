@@ -986,3 +986,11 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: 汇总 2026-11-05~11-10 鲲鹏计算节点与登录节点性能数据、dev108 以来代码改动与硬件实测，写入 docs 并同步三处索引
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
+## qcu-l24-env-bw-20261111 - final - 2026-11-11 11:05:24 +0800
+- 主任务: 并行派发子代理整理各计算环境配置与带宽统计，与 L24 性能对照归档
+- 日志文件: logs/v2026111111.txt
+- 文件大小: 4689 bytes
+- 触发原因: 任务完成
+- 关键内容: 3 子代理并行核查 7 个环境硬件字段与带宽口径，产出 2 份新文档；纠正 16×t24 下界性质、36 线程饱和点与 JSON 1000 倍量纲错误
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete

@@ -136,6 +136,15 @@ def _kupl_build_directory() -> Path:
             else HOME / "cpp" / "kupl" / "qcu" / "build").resolve()
 
 
+def _platform_library_name() -> str:
+    """Return the shared-library file name CMake emits on this platform."""
+    return "libqcu.dylib" if sys.platform == "darwin" else "libqcu.so"
+
+
+def _kupl_built_library() -> Path:
+    return _kupl_build_directory() / _platform_library_name()
+
+
 def _build_kupl() -> bool:
     problem = _toolchain_problem("kupl")
     if problem is not None:
@@ -150,7 +159,7 @@ def _build_kupl() -> bool:
     environment.setdefault("KUPL_ENABLE_LTO", "OFF")
     if not _run_build(["bash", "cpp/kupl/qcu/make.sh"], "KUPL", environment):
         return False
-    library = _kupl_build_directory() / "libqcu.so"
+    library = _kupl_built_library()
     if not library.is_file():
         _warn(f"KUPL library was not produced: {library}")
         return False
@@ -189,11 +198,70 @@ def _copy_library(source: Path, destination: Path) -> bool:
     return True
 
 
+def _relink_openmp(destination: Path) -> None:
+    """Point a macOS KUPL library at the OpenMP runtime PyTorch already maps.
+
+    macOS cannot share ``__kmp_*`` state between two ``libomp.dylib`` builds, so
+    a library that resolves ``@rpath/libomp.dylib`` to a different file faults as
+    soon as a worker thread parks. Rewriting the install name to the copy inside
+    the active environment lets both libraries share one runtime. The change is
+    best-effort: without ``install_name_tool`` the library still installs and the
+    runtime guard reports the conflict with relink instructions.
+    """
+    if sys.platform != "darwin":
+        return
+    tool = shutil.which("install_name_tool")
+    codesign = shutil.which("codesign")
+    if tool is None:
+        return
+    try:
+        listing = subprocess.run(
+            [tool, "-L", str(destination)],
+            capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.SubprocessError):
+        return
+    install_name = None
+    for line in listing.stdout.splitlines()[1:]:
+        name = line.strip().split(" (")[0]
+        if "libomp" in name and not Path(name).is_absolute():
+            install_name = name
+            break
+    target = _environment_openmp()
+    if install_name is None or target is None:
+        return
+    changed = subprocess.run(
+        [tool, "-change", install_name, str(target), str(destination)],
+        capture_output=True, text=True)
+    if changed.returncode != 0:
+        return
+    if codesign is not None:
+        subprocess.run(
+            [codesign, "--force", "--sign", "-", str(destination)],
+            capture_output=True, text=True)
+    _notify_progress(
+        f"relinked {destination.name} to the environment OpenMP runtime")
+
+
+def _environment_openmp() -> Path | None:
+    """Return the libomp.dylib that would be mapped first in this process."""
+    if sys.platform != "darwin":
+        return None
+    for root in sys.path:
+        if not root:
+            continue
+        candidate = Path(root) / "torch" / "lib" / "libomp.dylib"
+        if candidate.is_file():
+            return candidate
+    return None
+
+
 def _install_native_libraries() -> None:
     if _NATIVE["kupl"]:
-        _copy_library(
-            _kupl_build_directory() / "libqcu.so",
-            HOME / "pyqcu" / "kupl" / "libqcu.so")
+        # Keep the staged copy under the platform's own name so the installed
+        # wheel is valid on that platform; the runtime searches both names.
+        destination = HOME / "pyqcu" / "kupl" / _platform_library_name()
+        if _copy_library(_kupl_built_library(), destination):
+            _relink_openmp(destination)
     if _NATIVE["gpu"]:
         _copy_library(
             HOME / "cpp" / "cuda" / "qcu" / "libqcu.so",
@@ -300,8 +368,9 @@ setup(
         exclude=["pyqcu.testing", "pyqcu.testing.*"],
     ),
     package_data={
-        "pyqcu.kupl": ["libqcu.so"],
-        "pyqcu.cuda": ["libqcu.so", "qcu.pyi", "qcu/*.pyi", "qcu/*.pxd"],
+        "pyqcu.kupl": ["libqcu.so", "libqcu.dylib"],
+        "pyqcu.cuda": ["libqcu.so", "libqcu.dylib", "qcu.pyi", "qcu/*.pyi",
+                       "qcu/*.pxd"],
     },
     ext_modules=(
         [Extension("pyqcu.cuda.qcu", ["pyqcu/cuda/qcu/qcu.pyx"])]

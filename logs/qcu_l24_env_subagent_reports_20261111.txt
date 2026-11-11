@@ -1,0 +1,413 @@
+PyQCU L24 环境配置与带宽 —— 三个只读子代理的完整报告原文
+导出时间：2026-11-11　通道：agent-dispatch.sh（继承父 provider/model/strength）
+用途：docs/qcu_l24_environment_bandwidth_20261111.md 的证据底稿。
+限制：子代理结论多为文档二次转引；DCU 硬件审计原文件 logs/qcu_solver_test34_20261029/ 不在工作树。
+
+==============================================================================
+子代理报告：鲲鹏三节点（cn10579 / login02-03 / 控制节点）
+run_id=20261111T104131.ovBHQq  state=finished  exit_code=0  timed_out=False
+==============================================================================
+
+已按只读方式核对仓库文件，未修改任何内容。下面四节中的每个数值都附来源；计数类证据给出可复现的 grep 命令。
+
+---
+
+## 表1　cn10579 计算节点
+
+| 字段 | 值 | 来源 |
+|---|---|---|
+| 主机名 | `cn10579` | kupl_kunpeng_progress_20261110.md:39（`djob -ll` 的 `execNode`） |
+| CPU 型号 | **文档未记录型号**（仅写“Kunpeng 608 核 / SVE2”） | kupl_qcu_mg_performance_reference_20261105.txt:9；kupl_kunpeng_progress_20261110.md:45 |
+| CPU 核数上界 | 实测 cpuset 最大 CPU 号为 **577**（`570-577`）；物理核数按 STREAM 拓扑为 **16 域 × 38 核 = 608**；全节点测试实际只用 **576** 线程（每域 36） | progress:43；progress:44；report.html:25；report.html:34（`node_t36_*` 行 `总线程=576`） |
+| NUMA 域数 | **16**（CPU） | progress:41；`grep -h 'numa_nodes=16' logs/screen-73056-ss-20261106-*.txt \| wc -l` → **224** 条 |
+| 片上内存域数与编号偏移 | **16** 个，编号 = CPU 节点 **+16**（0→16 … 15→31） | progress:42；progress:66-69；实例如 logs/screen-73056-ss-20261106-213.txt:7（`cpu_node=5 cpuset=190-197 memory_node=21`）；全部绑定成功记录的 memory_node 集合为 16–31（脚本解析） |
+| 每域核数 | **38 物理核/域** | progress:44（16 个域起点 0,38,…,570 逐一核对）；report.html:25（每域 38 物理核） |
+| cpuset 步长 | **38** | progress:44；`grep -ho 'cpuset=[0-9][0-9-]*' … \| sort -u`（0-7、38-45、76-83 … 570-577） |
+| SVE 版本/向量长度 | **SVE，VL=64B**；文档称 SVE2，但源 HTML 无 “SVE2” 字样（该词计数为 0），SVE2 由 `-march=armv9-a` 编译参数间接支撑 | report.html:14（“FP64，SVE VL=64B”）；progress:45；refer/kunpeng/lx2-stream-source/README.txt:29 |
+| SMT 状态 | **未知**（仓库内 `grep -rni 'smt\|超线程'` 无命中） | — |
+| 内存总量 | **未知**（仅作业申请值：`#DSUB -R "cpu=576;mem=48G"`，不是节点容量） | logs/job_hw_stream_20261106.sh:9 |
+| MPI 实现 | **HMPI**（`#DSUB --mpi hmpi`，36 个作业脚本一致）；**HMPI 版本未记录** | logs/job_y91_slab16.sh:2；`grep -h '#DSUB --mpi' logs/*.sh \| sort \| uniq -c` → 36×`hmpi` |
+| 调度器与队列 | `dsub`/`djob`/`djob -ll`，队列 **`q_hpcapp`** | progress:40；`grep -h '#DSUB -q' logs/*.sh` → 36×`q_hpcapp` |
+| 编译栈 | **名称/版本未记录**；性能构建目录为 `build-native-lto`（`-march=native` + LTO）。STREAM 探针本身用 BiSheng Enterprise 5.2.0 / clang 19.1.7，但那不是 PyQCU KUPL 的编译栈 | progress:218；progress:738；README.txt:23 |
+| 构建选项 | **native=ON、LTO=ON**（`KUPL_ENABLE_NATIVE=ON KUPL_ENABLE_LTO=ON`）；存在另一通用构建 `build-t2zblock-generic` | progress:218；kupl_kunpeng_guide.md:54-61；progress:738 |
+
+> 核数读法提醒：`577` 是**已观测分配**中的最大 CPU 号（每 rank 只拿到每域前 8 个 CPU），不是核数上界。按 38/域步长与 STREAM 拓扑，硬件为 608 物理核；全节点实测配置只用 576 线程。progress:43 把它写成“实测 CPU 编号上界”本身无误，但**不能当作 608 的否证**。
+
+---
+
+## 表2　login02 / login03 登录节点
+
+| 字段 | 值 | 来源 |
+|---|---|---|
+| 主机名 | `login02` / `login03` | progress:125；`grep -rho 'nsls_yangyb@login0[0-9]' logs/screen-73056-…` → login02 × **3351**；login03 仅出现在 logs/screen-74049-lingsheng-20261106*.txt（19 次），该组文件**无 TOPOLOGY 记录** |
+| CPU 型号 | `Kunpeng-920`（历史参考文档，非现场 lscpu） | progress:126；kupl_qcu_mg_performance_reference_20261105.txt:4 |
+| CPU 核数上界 | **128 核、2 socket、128 MB L3**（历史参考文档）；另有 `load average ≈ 91/48 CPUs` 的 48-CPU 口径，无法同时成立 | reference txt:4；progress:127；progress:131；ledger:585 |
+| NUMA 域数 | 实测 **4**；历史文档写 **2 NUMA**、另一处写 **2 socket** —— 见下方冲突证据 | progress:129；ledger:15；reference txt:4 |
+| 片上内存域数与编号偏移 | **无**（无片上内存域，`memory_node=-1`） | progress:130；`grep -h 'numa_nodes=4' … \| grep -c 'memory_node=-1'` → **560** |
+| 每域核数 | **文档未记录**（若按 128 核/4 域平均为 32，属推算，未核实） | — |
+| cpuset 步长 | **未记录**；4-NUMA 记录全部 `cpuset=none` | `grep -h 'numa_nodes=4' … \| grep -c 'cpuset=none'` → **560** |
+| SVE 版本/向量长度 | **无 SVE**，走 **NEON** 路径 | progress:128；reference txt:5（“NEON 路径，无 HBM 绑定”） |
+| SMT 状态 | **未知** | — |
+| 内存总量 | **未知** | — |
+| MPI 实现 | 实测为 **Open MPI**（屏记录含 `A "slot" is the Open MPI term…` 等 Open MPI 帮助文本）；**版本未记录**；ledger 明确“不是 HMPI” | logs/screen-73056-ss-20261106-162.txt:34；ledger:15 |
+| 调度器与队列 | **无队列**：交互式共享登录节点（screen 会话 + `mpirun` 直跑），审计时 `load average ≈ 91/48`、约 106 用户 | progress:131；ledger:585-586 |
+| 编译栈 | **名称/版本未记录**；登录节点为 NEON 构建（非 SVE），另有 `build-t2zblock-generic` | progress:538；progress:738 |
+| 构建选项 | 文档未记录登录节点使用的 native/LTO 开关 | — |
+
+**NUMA 域数 2 还是 4：冲突原句与实测**
+
+- 历史：“登录节点（Kunpeng-920，128 核、**2 socket**、无 SVE、128 MB L3）”（kupl_qcu_mg_performance_reference_20261105.txt:4；同一句在 logs/resume-20261105T080514.gnF1tz.txt:448）
+- 账本：“CPU 对照平台 | Kunpeng-920 控制节点，**2 NUMA**；不是 HMPI/片上内存鲲鹏”（docs/qcu_mg_performance_ledger_20261029.md:15）
+- 实测：“NUMA 域 | **4**（实测 `numa_nodes=4`）”（progress:129）；逐条记录如 logs/screen-73056-ss-20261106-310.txt:2：`numa_nodes=4 cpu_node=-1 cpuset=none memory_node=-1`
+- 计数：`grep -h 'numa_nodes=4' logs/screen-73056-ss-20261106-*.txt | wc -l` → **560**；对照 `numa_nodes=16` → **224**（166 条 bind=true + 58 条 default），合计 784 条记录（另有 811 个 `PYQCU::KUPL::TOPOLOGY` 标记，差 27 个来自屏幕 hardcopy 截断/重复头）。与 progress:54-60 的 166/58/560 完全一致。
+- 结论：以 **4** 为最新实测值；2 与 2 socket 属历史描述。差异可能来自 login02 与 login03 的不同分组（progress:137-139 自述“未验证”）。实测记录只来自 login02 会话，login03 没有 TOPOLOGY 证据，因此**不能把 4 NUMA 推广到所有登录节点**。
+
+---
+
+## 表3　鲲鹏控制节点（qcu_mg_performance_ledger_20261029 的 CPU 对照平台）
+
+**出处**：`docs/qcu_mg_performance_ledger_20261029.md` **§1.1“仓库与硬件”表格的“CPU 对照平台”行**（第 15 行）；运行细节见 **§7.4“KUPL Strict-MG 1/2/4-rank 性能门”**（第 562 行起，第 585-588 行给出节点性质）。
+
+| 字段 | 值 | 来源 |
+|---|---|---|
+| 主机名 | **文档未记录** | — |
+| CPU 型号 | `Kunpeng-920` | ledger:15 |
+| CPU 核数上界 | **文档未记录**（ledger 全文未给核数；若视作同一登录节点，则为历史值 128 核） | ledger:15；progress:127 |
+| NUMA 域数 | **2**（账本口径）；与实测 4 冲突，未解 | ledger:15 vs progress:129/135-139 |
+| 片上内存域数与编号偏移 | **无**（“不是 HMPI/片上内存鲲鹏”） | ledger:15 |
+| 每域核数 | **文档未记录** | — |
+| cpuset 步长 | **未记录** | — |
+| SVE 版本/向量长度 | 无 SVE（按 `Kunpeng-920` + 登录节点描述推断，账本本身未写） | progress:128（仅对登录节点） |
+| SMT 状态 | **未知** | — |
+| 内存总量 | **未知** | — |
+| MPI 实现 | **不是 HMPI**；实际启动器为 `mpirun`，账本未写实现名 | ledger:15；ledger:568（12 OpenMP threads/rank） |
+| 调度器与队列 | **无队列**：共享控制/登录节点，审计时 `load average≈91/48`、106 用户 | ledger:585-586 |
+| 编译栈 | **KUPL Release 构建**；编译器名称/版本未记录 | ledger:471 |
+| 构建选项 | Release；native/LTO 未记录（该节 CTest 在 `taskset -c 0-23` 单 NUMA cpuset 下运行） | ledger:471；ledger:661-662 |
+
+**是否与前两个节点同一台机器**：**未确定**。账本 §1.1 只说“Kunpeng-920 **控制节点**”，§7.4 又说该批“运行在**共享 Kunpeng-920 登录节点**”，措辞指向与登录节点同类甚至同机；但它与 cn10579 **明确不是同一台**（“不是 HMPI/片上内存鲲鹏”，ledger:15）。账本没有 hostname，无法证实就是 login02 或 login03。
+
+---
+
+## 表4　带宽统计（LX2 STREAM，FP64）
+
+**口径**（必须先读）：FP64、**SVE VL=64B**、普通 temporal store、Triad 用 FMA；每线程独立数组、显式绑核、`mbind` 分配；每配置每操作 **5 轮**，每轮共同计时窗口 **0.15 s**；带宽 = **逻辑读写字节 ÷ 窗口时间**，**不是内存控制器实际传输字节**；这是**自定义 STREAM-style 固定窗口**测试，不是官方 STREAM reference 计时流程（report.html:14,20,22；README.txt:90-103）。Copy/Scale 逻辑 16 B/元素，Add/Triad 24 B/元素（README.txt:94）。
+
+单位 GB/s；“—”表示报告该配置未给出区间（单样本）。
+
+| 频率 | 配置 / 层级 | 总线程 | n | Copy | Scale | Add | **Triad** | 最大轮内 CV % |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| 1.55 | 全节点 DDR `node_t36_DDR` | 576 | 7 | 588.45–590.14 | 588.66–589.51 | 615.43–616.19 | **615.74–616.48** | 0.23 |
+| 1.55 | 全节点 HBM `node_t36_HBM` | 576 | 7 | 5391.36–5577.78 | 5391.04–5579.33 | 5453.54–5474.28 | **5455.05–5475.92** | 1.23 |
+| 2.00 | 全节点 DDR `node_t36_DDR` | 576 | 6 | 588.39–589.23 | 588.38–589.71 | 615.30–615.83 | **615.30–616.35** | 0.16 |
+| 2.00 | 全节点 HBM `node_t36_HBM` | 576 | 6 | 6915.37–6932.22 | 6914.63–6932.50 | 6788.25–6809.24 | **6790.91–6811.21** | 0.10 |
+| 1.55 | 单域 HBM `numa_d10_t24_HBM` | 24 | 1 | 301.33 | 301.44 | 278.65 | **278.88** | 0.06 |
+| 1.55 | 单域 HBM `numa_d10_t36_HBM` | 36 | 7 | 327.63–360.43 | 356.52–360.64 | 338.67–343.28 | **338.71–343.37** | 4.10 |
+| 2.00 | 单域 HBM `numa_d10_t24_HBM` | 24 | 6 | 345.75–367.31 | 346.27–367.32 | 319.14–336.93 | **319.06–336.95** | 0.10 |
+| 2.00 | 单域 HBM `numa_d10_t36_HBM` | 36 | 6 | 434.95–435.37 | 434.99–435.42 | 425.99–427.63 | **425.93–427.69** | 0.17 |
+| 1.55 | 单域 DDR `numa_d10_t24_DDR`（比值用） | 24 | 1 | 140.80 | 140.82 | 150.62 | **150.68** | 0.11 |
+| 2.00 | 单域 DDR `numa_d10_t24_DDR`（比值用） | 24 | 6 | 140.68–141.17 | 140.83–141.07 | 150.85–151.02 | **150.91–151.08** | 0.27 |
+
+全部行取自 refer/kunpeng/lx2-stream-source/report.html，代表性表在 :34，完整筛选表在 :49（`<tr data-frequency=...>` 行；可用 `python3` 去标签后按 `<td>` 解析复算）。区间含义为“样本内先取 5 轮中位数，再取这些中位数的最小–最大值”，**不是置信区间**（report.html:20 附近说明；progress:98-99）。
+
+**样本选择差异（不是数值错误）**：progress:96 的 2.00 GHz 36 线程行用的是 `numa_d2_t36_HBM`（Copy 434.94–435.80、Scale 434.94–435.82、Add 427.32–427.99、Triad 427.36–427.97），而我上表统一用 `numa_d10`（与 1.55 GHz 各行同域）。两者差 <0.5%，但跨频率用了不同 sample，引用时应写明。
+
+**384 线程上限：是推断值，不是实测聚合**
+- 16 × 单域 `t24` Triad 推算：**4.462 TB/s @1.55 GHz**、**5.105–5.391 TB/s @2.0 GHz**（按上表 278.88 与 319.06–336.95 计算；progress:101-102 写 4.46 / 5.11–5.40，一致）。
+- 明确声明“由 16 × 单域 `t24` 结果推算，**不是**同时运行 384 线程的实测聚合样本”（progress:101-102；logs/kupl_hbm_opt_20261106.md:96-98；“384-thread row is an inference from 16 measured single-domain t24 results, not a simultaneous aggregate sample”）。
+
+**实测 DDR 与 HBM 带宽比**（用 Triad）
+- 全节点 576 线程：HBM/DDR = **8.85–8.89×**（1.55 GHz，5455.05/616.48 至 5475.92/615.74）；**11.02–11.07×**（2.00 GHz）。反向为 **11.3%** 与 **9.0–9.1%**。
+- 单域 24 线程：HBM/DDR = **1.85×**（1.55 GHz，278.88/150.68）；**2.11–2.23×**（2.00 GHz，319.06/151.08 至 336.95/150.91）。
+- 读法：单域内 HBM 仅比本地 DDR 快约 2 倍；全节点 HBM 的 9–11 倍来自 16 个片上内存域并行，**不是单线程/单域带宽提升**。
+
+**576 线程 HBM 相对 24 线程单域的聚合效率**
+- 576 线程 HBM ÷ (24 × 单域 24 线程 HBM Triad) = **81.5–81.8%** @1.55 GHz、**84.0–88.9%** @2.0 GHz。
+- 作为对照，同线程布局比较（576 ÷ 16 × 单域 36 线程）= **99.3–101.0%** @1.55 GHz、**99.2–99.6%** @2.0 GHz，即 36 线程/域时近线性；24 线程/域推算的 384 线程上限相对 576 实测只有约 82–89% 的每线程效率。
+
+**文档抄录与源 HTML 不一致（已发现 2 处，都是 Add 被当作 Triad）**
+1. `logs/kupl_hbm_opt_20261106.md:91`：“one domain, 24 threads, HBM | **278.65** GB/s | **319.23-337.31** GB/s” —— 这两个数来自对应行 **Add** 列。正确 Triad：**278.88**（1.55 GHz，n=1）与 **319.06–336.95**（2.0 GHz，n=6，d10；若取 d2 为 319.14–337.26）。
+2. `data/kupl_roofline_20261106.json:38-41` 的 `single_domain_t24_hbm_triad_gbps` 同样记为 278.65 / [319.23, 337.31]。progress:104-109 已指出该偏差并给出正确值。
+3. **未被 progress 指出的延伸问题**：同一 JSON 的 `inferred_384_thread_hbm_tbps`（:42-46）= 4.4584 / [5.10768, 5.39696] TB/s 也是由 **Add** 列推算；按 Triad 应为 **4.46208 / [5.10496, 5.39120] TB/s**。数值差异极小，但口径应与 Triad 一致。
+4. 全节点 576 线程四列在 progress:89-92 与源 HTML 完全一致，无需更正（progress:108 的自述成立）。
+
+---
+
+## 证据缺口清单（仓库内确实没有）
+
+**cn10579 计算节点**
+- CPU 型号（只有“Kunpeng 608 核 / SVE2”的描述，无型号字符串如 920B/920F）。
+- SMT 状态、每核线程数。
+- 内存总量（只有作业申请值 `mem=48G`/`mem=8G`，非节点容量）。
+- HMPI 实际版本（仓库仅引用 HPCKit 26.1.RC1 **指南 PDF**，kupl_kunpeng_guide.md:475-479，不能当作部署版本）。
+- PyQCU KUPL 的编译器名称与版本（只有 `build-native-lto` 与 `-march=native`）。
+- 完整 608 核的 cpuset 全量映射（记录只覆盖每域前 8 个 CPU，最大号 577）。
+- 频率的 PMU 实测值与 sysfs 值逐行对照（report.html 提到两者都保留，但 JSON 未入库）。
+- 实际 HBM 页落点（`numastat -p` / `numa_maps`）：progress §4.2 自述“本轮 live 页分布证据未采集”。
+
+**login02 / login03**
+- NUMA 域数到底是 2 还是 4 的最终裁决（2 socket、2 NUMA、4 NUMA 三说并存，progress:133-139 自认未验证）。
+- 每域核数与 cpuset 步长（4-NUMA 记录全部 `cpuset=none`）。
+- SMT 状态、内存总量。
+- Open MPI 版本号（屏记录只有帮助文本，无版本横幅）。
+- KUPL 编译栈名称/版本与 native/LTO 开关。
+- login03 的 TOPOLOGY 现场记录（仓库只有 login02 的 560 条）。
+- 128 核与 `load average 91/48 CPUs` 的 48-CPU 口径矛盾的解释。
+
+**控制节点（ledger §1.1）**
+- 主机名；是否就是 login02/login03（ledger 无 hostname，只有“控制节点”与“共享登录节点”两种措辞）。
+- 核数、每域核数、内存总量、SMT。
+- MPI 实现名与版本、编译器版本、native/LTO 开关。
+- 2 NUMA 与实测 4 NUMA 的裁决。
+
+**带宽**
+- 384 线程同时运行的实测聚合样本（现值为 16 × t24 推断）。
+- `1.55 GHz` 单域 24 线程只有 **n=1** 单样本；`2.0 GHz` 单域 24/36 线程为 n=6。
+- STREAM 报告未写主机名，无法证明测量节点就是 `cn10579`；只能由“16 NUMA / 每域 38 核”与 progress §2.1 拓扑一致推断为同类节点。
+- 源 HTML 只写 “SVE VL=64B”，**没有 “SVE2” 字样**；SVE2 属文档表述 + `-march=armv9-a` 推断。
+- `data/kupl_roofline_20261106.json` 未被 Git 跟踪（progress §10.1 自述），且其单域 Triad 与 384 线程推断字段取错列。
+
+**阻塞/注意**：以上结论全部来自工作区文件与屏记录 grep，未连接远端、未重跑任何 HPC 作业；未访问工作目录之外的文件。只读完成，无文件改动。
+
+==============================================================================
+子代理报告：x86 Xeon E5-2696v3 + WSL2 V100
+run_id=20261111T104131.iiFWtL  state=finished  exit_code=0  timed_out=False
+==============================================================================
+
+我已核对三份文档、两个阶段日志（当前工作树不存在，只能从提交 `b1404bec` 读取）以及相关旁证文档。下面按要求给出四张表与证据缺口，全部为只读分析，未修改任何文件。
+
+---
+
+## 表1 `ENV-XEON-E5-2696v3-18C`
+
+| 字段 | 值 | 来源（文档:行号） |
+|---|---|---|
+| CPU 型号 | Intel Xeon E5-2696 v3 | `docs/three_way_benchmark_20261022.md:55`；`docs/profiler_solver_performance_history.md:45`；`docs/qcu_six_way_benchmark_20261023.md:27` |
+| 物理核数 | 18 | 同上三处；`docs/three_way_benchmark_20261022.md:171` |
+| socket 数 | 1 | `docs/three_way_benchmark_20261022.md:55,171`；`docs/profiler_solver_performance_history.md:45` |
+| NUMA 域数 | 1 | 同上；`docs/three_way_benchmark_20261022.md:172,272` |
+| L3 大小 | 未知（仓库无任何记录） | — |
+| 内存容量 | 未知（仓库无任何记录） | — |
+| OpenMP 线程配置范围 | 每 rank 1–16 线程；总线程 4–18。实测配置：1×4、1×16、2×4、4×4、8×2、6×3、9×2、12×1、16×1、18×1（六版本批次为 1 rank×16 线程） | `docs/three_way_benchmark_20261022.md:171-173,177-183,208-215`；`docs/profiler_solver_performance_history.md:45`；`docs/qcu_six_way_benchmark_20261023.md:18,160-161` |
+| MPI 实现与版本 | 实现 = OpenMPI；版本未知（未记录） | 实现：`docs/three_way_benchmark_20261022.md:248`（`OpenMPI --bind-to none`）；版本：`docs/profiler_solver_performance_history.md:45`（“MPI、编译器版本未完整记录”） |
+| 编译器与版本 | C++17 编译器；具体编译器与版本未知 | `docs/profiler_solver_performance_history.md:45`；`docs/three_way_benchmark_20261022.md:359` |
+| 构建选项 | 默认：`-O3 -DNDEBUG -march=native`；另有 LTO：`-O3 -DNDEBUG -flto -fno-semantic-interposition` | `docs/three_way_benchmark_20261022.md:359,362-368,374-375`；`docs/profiler_solver_performance_history.md:163-164` |
+
+补充：该节点 CPU 频率（基频/睿频）与 OS/内核版本同样未记录（`docs/profiler_solver_performance_history.md:45`）。
+
+---
+
+## 表2 `ENV-WSL2-V100`
+
+| 字段 | 值 | 来源（文档:行号） |
+|---|---|---|
+| GPU 型号与显存 | Tesla V100-SXM2-32GB，sm_70，32 GiB（设备总量记录 `34,359,345,152 bytes`） | `docs/profiler_solver_performance_history.md:44`；`docs/three_way_benchmark_20261022.md:54,299`；`docs/qcu_six_way_benchmark_20261023.md:25`；`docs/legacy_vs_strict_mg_status_20261022.md:204` |
+| 驱动版本 | 551.78（`dev78_2` / 六版本环境表） | `docs/profiler_solver_performance_history.md:44`；`docs/qcu_six_way_benchmark_20261023.md:26` |
+| CUDA 版本 | PyTorch 侧 CUDA 12.8（`2.10.0+cu128`）；QUDA 侧报告 driver 12.4 | `docs/profiler_solver_performance_history.md:44`；`docs/qcu_six_way_benchmark_20261023.md:26,28` |
+| GPU 架构 sm 值 | sm_70 | `docs/profiler_solver_performance_history.md:44`；`docs/three_way_benchmark_20261022.md:299` |
+| Torch 版本 | PyTorch `2.10.0+cu128` | `docs/qcu_six_way_benchmark_20261023.md:28`；`docs/profiler_solver_performance_history.md:44` |
+| 主机 CPU 型号 | 环境矩阵写“不明确”（`ENV-WSL2-V100`）；同一 WSL2 主机族另有 `ENV-WSL2-GPU` 也写“CPU 不明确”。六版本文档另记当轮 CPU 为 Xeon E5-2696 v3 / 18 物理核 / 1 NUMA，但注明来自历史 `environment.json`、当前未保留 | `docs/profiler_solver_performance_history.md:43-44`；`docs/qcu_six_way_benchmark_20261023.md:27` |
+| WSL2 这一虚拟化条件的已知记录 | ① OS = WSL2，发行版与内核版本不明确；② `test27` 全部记录使用 “WSL2 QUDA reduce-sync patch”；③ V100 为共享设备、未锁频；④ 计时前做 3 s 矩阵预热，空闲 405 MHz、满载 1530 MHz | `docs/profiler_solver_performance_history.md:44,202`；`docs/qcu_six_way_benchmark_20261023.md:176`；`docs/three_way_benchmark_20261022.md:36-38` |
+
+文档对 WSL2 只做了上述条件陈述，未给出任何 WSL2 对性能影响的具体数值，此处不补充推测。
+
+---
+
+## 表3 带宽
+
+### 3.1 是否存在这两个环境的 STREAM / 带宽实测
+
+**无实测。** 仓库内唯一带实测数值的带宽探针是鲲鹏 LX2 STREAM（`refer/kunpeng/lx2-stream-source/report.html`、`docs/kupl_kunpeng_progress_20261110.md:81-99`），与 V100 / E5-2696v3 无关。`pyqcu/testing/benchmark/env.py:172-210` 有一个 vector-add 带宽探针代码，但没有任何 V100 或 Xeon 的记录值落到 `docs/**` 或 `logs/**`，因此仍记为“无实测”。V100 与 Xeon E5-2696v3 的实测带宽按任务要求只写“仓库无实测”，不列厂商峰值。
+
+### 3.2 文档中出现的带宽 / 吞吐类数字及其性质
+
+| 数值 | 环境 | 性质 | 来源 |
+|---|---|---|---|
+| `20.8641847757 GFLOP/s` | V100，`8³×16` Legacy 辅助记录 | **操作数模型**，文档明写 `lower-bound estimate` | `docs/legacy_vs_strict_mg_status_20261022.md:166`（设备见 :160） |
+| `estimated GFLOP/s` 各列（QCU 1162–1239、QUDA 80.433） | A100（非本两环境） | **操作数模型**，文档明写“不是硬件计数器” | `docs/progress_kupl_cuda_mg_20261021.md:140,199-205,211-214` |
+| `149.5 GB/s`、`199.4 GFLOP/s` | 鲲鹏计算节点 | **流量模型估算**（`60.51 GiB` / `86.63 GFLOP` 除以 `0.43456 s`） | `docs/kupl_kunpeng_progress_20261110.md:264-269`；`logs/v202611061446.txt:41,107` |
+| `650 GB/s`、`0.87 TFLOP/s` | 鲲鹏计算节点 | 同一模型反推的 `0.1 s` 目标需求，非实测 | `docs/kupl_kunpeng_progress_20261110.md:276`；`logs/v202611061446.txt:43` |
+| Triad `5455.05–5475.92 GB/s @1.55 GHz`、`6790.91–6811.21 GB/s @2.0 GHz`（全节点 HBM）；单域 `278.88` / `319.06–336.95 GB/s` | 鲲鹏计算节点 | **STREAM 实测**（自定义固定窗口 probe，其他环境） | `docs/kupl_kunpeng_progress_20261110.md:89-96,158`；`logs/v202611061446.txt:37-38` |
+| `gmem BW util 71.77%` / `22.18%` | A100（非本两环境） | GPU 性能计数器给出的**利用率百分比**，不是 GB/s | `docs/progress_kupl_cuda_mg_20261021.md:228` |
+| “this bandwidth-bound update at only a few GB/s on V100” | V100 | 内核源码注释中的定性描述，非测量 | `cpp/cuda/qcu/include/lattice_clover_multigrid.h:522-523` |
+
+### 3.3 `24³×64` 上 CUDA / QUDA / KUPL 的相对关系
+
+数据：CUDA `0.147801 s / 18 it / 8.211 ms`、QUDA `0.156680 s / 19 it / 8.246 ms`、KUPL 8×2 `7.532 s / 19 it / 396.4 ms`（`docs/three_way_benchmark_20261022.md:82-86`）。
+
+| 比值 | 数值 | 说明 |
+|---|---|---|
+| CUDA wall / QUDA wall | `0.147801 / 0.156680 = 0.9432`（CUDA 低 `5.68%`；QUDA/CUDA = `1.0601`，即文档“快 `6.01%`”） | 迭代比 `18/19 = 0.9474` × 每迭代比 `8.211/8.246 = 0.9958` ≈ `0.9432` |
+| CUDA per-iter / QUDA per-iter | `0.9958`（CUDA 低 `0.42%`，文档记 `0.43%`） | 见 `docs/three_way_benchmark_20261022.md:90-91` |
+| KUPL wall / QUDA wall | `7.532 / 0.156680 = 48.07`；因同为 19 迭代，每迭代比亦约 `48.07`（`396.4/8.246`） | CPU 与 GPU 不可作硬件吞吐比较（`docs/three_way_benchmark_20261022.md:28-29`） |
+| KUPL wall / CUDA wall | `7.532 / 0.147801 = 50.96` | 同上，仅说明后端类别差距 |
+
+文档原句（已核实与表中数字一致）：
+> “CUDA standalone BiCGStab 每迭代 `8.211 ms`，比 QUDA 的 `8.246 ms` 低 `0.43%`；它靠少 1 次迭代把总 wall 拉快 `6.01%`。” —— `docs/three_way_benchmark_20261022.md:90-92`
+
+即 **wall 优势主要来自少 1 次迭代（约 5.3%），每迭代成本只贡献约 0.4%**；文档亦明确 per-iteration 差异受窗口影响、不能当作稳定优势（`docs/three_way_benchmark_20261022.md:92-94`；`docs/profiler_solver_performance_history.md:74`）。早期低负载窗口的同组数字另有 `0.121856 / 0.137938 s`、每迭代 `6.770 vs 7.260 ms`、快 `7.17%`、wall 快 `13.20%`（`logs/v2026102203.txt:15`，仅在该提交中可读）。
+
+---
+
+## 表4 环境 ID 与性能表的对应
+
+| 环境 ID | 对应表格行 | 对应关系证据 | 环境字段完整性 |
+|---|---|---|---|
+| `ENV-WSL2-V100` | three_way §3.1 的 CUDA/QUDA 行（:82,:84）、§3.2 GPU 行（:107-109）、§6.1 三行（:348-350）；six_way 主表 Torch/CUDA/QUDA 五行（:68-71,:74）；profiler `D103-001/002/003`、`006-008`、`010-012`、`014-016`、`048-050`、`052`、`054-057`、`059-060`、`062-063`、`T27-031…066`、`ST48-001…047` | profiler:44 定义；three_way:54 设备；six_way:18,25 | 缺主机 CPU、OS/内核、WSL 发行版；six_way 行无环境 ID 列 |
+| `ENV-XEON-E5-2696v3-18C` | three_way §3.1 KUPL 行（:85-86）、§3.2 KUPL 行（:107-109 末列）、§4（:127-130）、§5.1（:177-183）、§5.2（:208-215,:223-232）、§6.2（:374-375）；six_way 的 KUPL Legacy/Strict 两行（:72-73）；profiler `D103-004/005`、`009`、`013`、`017-047`、`058`、`061` | profiler:45 定义；three_way:55,171 | 缺 L3、内存容量、MPI/编译器版本、OS；官方数据全为 `perf_counter` 口径 |
+| `ENV-WSL2-GPU` | P100 相关行：three_way:321-338；profiler `D103-051`、`053`、`T27-001…030`、`ST48-048/049`、`T13-*`、`T14-*`、`DV76`、`DV78` | profiler:43 | 主机 CPU/主板/X99 未确认；`test27` 仅主机名 `68bb03cf529b` |
+| `ENV-X86-18C` | profiler `D99-022`–`D99-029`（:350-357） | profiler:46 | CPU 型号、socket/NUMA 拓扑均不明确；与 `ENV-XEON-*` 是否同一台机器**无法证明** |
+| `ENV-A1002-SLURM` | profiler `D99-014`–`020`、`D99-030`–`032`；`docs/progress_kupl_cuda_mg_20261021.md:128-132,199-228` | profiler:48 | A100 SXM/PCIe 与显存不明确；`64 CPU` 是申请量不是型号；版本不完整 |
+| `ENV-KUNPENG-2NUMA` | profiler `D99-001`–`013` | profiler:47 | 型号不明确；每 NUMA 24 核已确认 |
+
+**明确“没有完整环境字段”的性能行**（均按源文档原文）：
+
+1. **three_way 的 KUPL 全部行**：只有 CPU 型号/核数/socket/NUMA 与 `OMP_NUM_THREADS=4`，没有 MPI 版本、编译器版本、L3、内存容量、OS（`docs/three_way_benchmark_20261022.md:55`；`docs/profiler_solver_performance_history.md:45`）。
+2. **three_way 的 CUDA/QUDA 行**：正文只写“单张 V100-SXM2-32GB”，未记录主机 CPU、驱动、CUDA、MPI、编译器；完整字段只在 profiler/six_way 里（`docs/three_way_benchmark_20261022.md:54`）。
+3. **six_way 全部七行**：没有环境 ID 列；`environment.json` 当前未保留，GPU 驱动/CUDA 可读但 CPU 型号属历史 JSON，编译器/OS 完全缺失（`docs/qcu_six_way_benchmark_20261023.md:6-9,22-32,195-197`）。
+4. **Legacy/Strict 四尺寸主表**：JSON 无 `device_name`，“只能确认总显存为 `34,359,345,152` bytes”；无驱动、CUDA、编译器、`libqcu.so` SHA256、PyTorch、主机 CPU/NUMA（`docs/legacy_vs_strict_mg_memory_20261023.md:82-83`；`docs/legacy_vs_strict_mg_status_20261022.md:210-214`）。
+5. **`D99-014`–`020` A100 行**：A100 形态/显存不明确，CPU 仅“64 CPU 申请量”，工具链版本不全（`docs/profiler_solver_performance_history.md:48`）。
+6. **`ENV-X86-18C` 行**：只有“18 核 x86”，型号/socket/NUMA 均不明确，与 `ENV-XEON-*` 的物理同一性无证据（`docs/profiler_solver_performance_history.md:46`）。
+7. **`qcu_l24_solver_timing` §4 的 X 系列**：为文档转述（等级 C），未新增任何环境字段（`docs/qcu_l24_solver_timing_20261111.md:363-367`）。
+
+---
+
+## 证据缺口
+
+1. **两个阶段日志不在工作树**：`logs/v2026102203.txt`、`logs/v2026102206.txt` 在当前 HEAD 不存在，只存在于提交 `b1404bec`（`docs(bench): 归档三方性能测评与阶段日志`），需 `git show b1404bec:logs/...` 读取；两者都不含 CPU 型号、MPI/编译器版本、内存或 L3（`logs/v2026102203.txt:13-38`、`logs/v2026102206.txt:12-59`）。
+2. **Xeon 节点的 L3、内存容量、频率、OS/内核、MPI 版本、编译器版本全部缺失**（`docs/profiler_solver_performance_history.md:45`）。因此无法在本仓库内把任何 GFLOP/s 或 GB/s 与算术强度/roofline 对齐。
+3. **WSL2 V100 主机 CPU 自相矛盾**：环境矩阵写“不明确”（`docs/profiler_solver_performance_history.md:44`），six_way 却记 Xeon E5-2696 v3 18 核（`docs/qcu_six_way_benchmark_20261023.md:27`），且该 JSON 未保留；也**没有**证据表明 V100 主机与 KUPL 的 Xeon 主机是同一台（three_way 只并列写设备，未声明同机：`docs/three_way_benchmark_20261022.md:54-55`）。
+4. **CUDA 版本口径不一致**：six_way 同时写“CUDA 12.8（PyTorch）”与“QUDA 报告 driver 12.4”（`docs/qcu_six_way_benchmark_20261023.md:26`）；仓库未说明后者是 driver 还是 runtime。
+5. **无 V100 / Xeon 的 STREAM 或 roofline 实测**；唯一实测带宽属鲲鹏 LX2 STREAM。V100 唯一的吞吐数字 `20.864 GFLOP/s` 是操作数模型下界（`docs/legacy_vs_strict_mg_status_20261022.md:166`）。
+6. **six_way 的 `environment.json`/`inputs.json`/`summary.json` 当前均未保留**（`docs/qcu_six_way_benchmark_20261023.md:8-9,54-55,195-197`），其环境字段只能按文档转述引用。
+7. **three_way 全部原始 JSON 位于 `data/**` 且 gitignored**（`docs/three_way_benchmark_20261022.md:523`），本次只读核查无法复核原始样本，仅能核对文档内部算术一致性（已验证 wall/per-iter/迭代分解自洽到 <0.02%）。
+8. **`ENV-X86-18C` 与 `ENV-XEON-E5-2696v3-18C` 的物理同一性无证据**（`docs/profiler_solver_performance_history.md:45-46`），跨节引用 CPU 数据时不能合并。
+9. **Legacy/Strict 主表缺 GPU 型号字段**，只能凭 `34,359,345,152 bytes` 推断为 32 GiB 级设备（`docs/legacy_vs_strict_mg_memory_20261023.md:82-83`）。
+
+==============================================================================
+子代理报告：DCU D160A1 + A100-PCIE-40GB
+run_id=20261111T104110.fDto5z  state=finished  exit_code=0  timed_out=False
+==============================================================================
+
+我已读完全部 5 份必读文档，并核对硬件审计文件。先说明证据状态：`logs/qcu_solver_test34_20261029/` 整个目录（含 `dcu-hardware-audit.txt`）**不在当前工作树**，所以所有硬件数字只能是文档转引。
+
+来源缩写：`dcu` = `docs/qcu_quda_solver_dcu_20261029.md`；`l24` = `docs/qcu_quda_solver_dcu_l24_20261029.md`；`l32` = `docs/qcu_quda_solver_dcu_l32_20261029.md`；`l48` = `docs/qcu_quda_solver_dcu_l48_20261029.md`；`ledger` = `docs/qcu_mg_performance_ledger_20261029.md`；`p21` = `docs/progress_kupl_cuda_mg_20261021.md`；`legacy22` = `docs/legacy_vs_strict_mg_status_20261022.md`；`kp` = `docs/kupl_kunpeng_progress_20261110.md`；`sixway` = `docs/qcu_six_way_benchmark_20261023.md`；`unified` = `docs/qcu_mg_unified_interfaces_and_reuse_20261029.md`；`rpttex` = `docs/qcu_mg_performance_report_20261029.tex`；`timing` = `docs/qcu_l24_solver_timing_20261111.md`；`prof` = `docs/profiler_solver_performance_history.md`。
+
+## 1. DCU（Pre-Wukong D160A1）
+
+| 字段 | 值 | 来源 |
+|---|---|---|
+| Card SKU | `D160A1` | dcu:63；l24:22；l32:43 |
+| rocminfo 名称 | `ZIFANG` | dcu:63；l24:22；l32:43 |
+| Chip ID | `0x66a1` | dcu:63；l24:22；l32:43 |
+| ISA（gfx） | `amdgcn-amd-amdhsa--gfx906:sramecc-:xnack-` | dcu:64；l32:44；l24:23（简写 gfx906） |
+| CU 数 | 64 | dcu:65；l24:23；l32:45 |
+| SIMD/CU | 4 | dcu:65；l24:23；l32:45 |
+| wavefront | 64 | dcu:65；l24:23；l32:45 |
+| 最高频率 | 1.7 GHz | dcu:65；l24:23；l32:45 |
+| 显存（字节） | `17,163,091,968 B` | dcu:66；l32:46；l24:24 |
+| 显存（MiB） | `16,368 MiB`（rocm-smi）；rocminfo `16,760,832 KiB` | dcu:66；l32:46 |
+| VBIOS | `113-D160A1SG-F42` | dcu:67；l24:25；l32:47 |
+| 主机 CPU | Hygon C86 7185 32-core，最高 2.0 GHz | dcu:68；l24:26；l32:48 |
+| NUMA 域数 | 4 | dcu:68；l24:26；l32:48 |
+| 内存总量 | `126,500 MiB` | dcu:69；l24:26；l32:48 |
+| OS | CentOS 7.6，Linux `3.10.0-957.el7.x86_64`，`amdgpu` 已加载 | dcu:71 |
+| DTK | 23.10（QCU 栈） | dcu:72；l24:28 |
+| HIP | `5.4.23453` | dcu:72；l24:28；l32:50 |
+| MPI | HPC-X 2.11.0，`PYQCU_MPI_DEVICE_AWARE=0` | dcu:72；l32:31,50 |
+| QUDA 辅助栈 | DTK 25.04.4、QUDA 1.1.0 `d615172-dirty-gfx906`，独立进程 | dcu:73；l32:51 |
+| 调度器资源类型 | `dcu:Hygon:4` | dcu:59；l24:18；l32:39 |
+| 执行拓扑 | 1 Python 进程 = 1 MPI rank = 1 DCU | dcu:69；l24:27；l32:49 |
+
+补充两条口径（非新数据）：`16,368 MiB × 1,048,576 = 17,163,091,968 B`，即两条显存写法是同一数值的两种单位；`timing:311` 的“16 GB”是概述性约数。
+
+## 2. A100-PCIE-40GB
+
+| 字段 | 值 | 来源 |
+|---|---|---|
+| 卡型号/显存 | NVIDIA A100-PCIE-40GB；device 总容量 `39.39 GiB` | ledger:14,215 |
+| 典型占用 | Strict 1-rank：已用 `39.37 GiB`，再请求 `96 MiB` 即 OOM | ledger:215；unified:157-158 |
+| L48 1-rank | 加载 `hdg` 已用 `35.79 GiB`，再请求 `8.54 GiB`，仅剩 `3.59 GiB` | ledger:419 |
+| 架构 | `sm_80`（PyQCU 与 QUDA 同构架构建） | ledger:16；unified:108 |
+| 节点 GPU 数 | 文档只写“**单节点**”，未给节点卡数 | ledger:14；rpttex:68 |
+| 作业级卡数（非节点规格） | L48 builder 4 MPI/4 A100；L32 Strict 2-rank 2 GPU、4-rank 4 GPU；L24 smoke 曾申请 4 GPU/128 CPU | ledger:365,219,236,357 |
+| CPU 对照平台 | Kunpeng-920 控制节点，2 NUMA；“不是 HMPI/片上内存鲲鹏” | ledger:15 |
+| CUDA 版本 / 驱动 | **未记录 → 未知** | ledger 无该字段；prof:48 明写“CUDA toolkit、MPI 和编译器版本未完整记录” |
+| QUDA 构建 | `QUDA_BUILD_NATIVE_LAPACK=ON`、`QUDA_INTERFACE_QDP=ON`、`QUDA_MULTIGRID_NVEC_LIST=12,24`、`QUDA_PRECISION=12`、`QUDA_RECONSTRUCT=7` | ledger:434-438 |
+| `QUDA_QIO` | A100 构建状态**未记录**；仓库唯一 QIO 记录是 sm70/V100 的 `QUDA_QIO=OFF`，不得套用 | sixway:117-120 |
+
+## 3. 带宽与算力口径
+
+**STREAM/带宽实测：无实测。** 仓库内唯一 STREAM 实测是鲲鹏 LX2 FP64（`kp:81-96`，全节点 5455–6811 GB/s、单域 279–428 GB/s Triad），属于 CPU/HBM，不是 DCU 或 A100。`pyqcu/testing/benchmark/env.py:172-210` 只是可运行代码，无落盘结果。
+
+**estimated GFLOP/s（全部为操作数模型，非硬件计数器）**
+
+| 数字 | 对象 | 来源 |
+|---|---|---|
+| 1162.347 / 1227.675 / 1189.774 / 1235.714 / 1238.660 GFLOP/s | A100 CUDA QCU L24 c64，31 it（triad/backend/dot/formal/final gate） | p21:199-205 |
+| 80.433 GFLOP/s | A100 QUDA L24（smoke 与 formal 同值） | p21:211-214 |
+| 20.8641847757 GFLOP/s（lower-bound） | V100 8³×16 Legacy 参考记录（非 A100/DCU） | legacy22:166 |
+| ~199.4 GFLOP/s（建模） | 鲲鹏 y76 计算节点，按 34 次 Schur apply 折算 | kp:264-276 |
+
+模型声明：`GFLOP/s 是操作数模型，不是硬件计数器`（p21:140）；`pyqcu/testing/simple/_common.py:282` 与 `pyqcu/testing/qcu/benchmark_qcu_lime_mpi.py:1287` 同样标注 documented operation-count model。p21:216 明确：QCU 与 QUDA 的 GFLOP/s 模型和计时边界不同，不得用于跨后端加速比。**5 份 DCU/A100 必读文档中没有任何 estimated GFLOP/s 数字**。
+
+**DCU 显存容量墙**
+
+| 数字 | 说明 | 位置 |
+|---|---|---|
+| `lonv` 6,115,295,232 B；`hnn` 3,057,647,616 B；`hdg` 9,172,942,848 B；`sit` 382,205,952 B | L48 canonical odd-Schur，dof=12/12，mg-grid=2⁴，coarse 24⁴=331,776 点 | l48:31-36 |
+| 合计 `18,728,091,648 B`（17.44 GiB） | 逻辑 payload，不含 HDF5 chunk/属性/manifest | l48:37,41 |
+| 卡容量 `17,163,091,968 B` | payload 已超单卡容量 | dcu:66 + l48:37 |
+| 公共文件系统可用约 14 GB | 该窗口不具备发布完整 cache 条件 | l48:39 |
+| “单 rank 容量/时间均不足” | L32 1-rank 恢复作业 126255388，14m44s、rc=124，**无具体 OOM 字节数** | dcu:239 |
+
+**没有任何 DCU VRAM OOM 阈值数字**；文档反而明确 `batch_size=128` 失败“不是显存不足”（dcu:247-248；l32:105-107），L32 审计值只是占用快照（9.35 GiB / 7.1 GiB / 8.5 GiB / 4,704 MiB / 3,232 MiB，dcu:250,265,275；l32:76,93,112,121）。
+
+**A100 L48 三条硬数字**
+
+| 指标 | 值 | 来源 |
+|---|---|---|
+| cache payload（已发布 HDF5） | `18,728,105,984 B` | ledger:395；rpttex:379 |
+| cache 逻辑 payload（4 tensor 合计） | `18,728,091,648 B` | l48:37 |
+| cgroup 上限 | `54,976 MiB` | ledger:380,402,408；rpttex:371 |
+| OOM 时 MaxRSS（1604062，8m50s，rc=137） | `35,000,128 KiB` | ledger:380 |
+| OOM 时 batch MaxRSS（1604161，8m32s） | `29,410,048 KiB`，写入时进程 RSS 合计约 `44.8 GiB` | ledger:384-385 |
+| 额外 2-rank 残差作业 1604536 | 约 `52.68 GiB` RSS 后仍同 cgroup OOM | ledger:422-423 |
+
+两个 payload 相差 14,336 B（文件开销），文档未直接解释该差值。
+
+## 4. 硬件能力与性能结果的对应
+
+**DCU L24 Legacy-MG（c64，1 warmup + 5 cold solve，20 iterations，n_vcycles=1，coarse_iters=8）**
+
+| ranks/grid | median (s) | MAD (s) | 迭代 | native 残差 | 强扩展 | 效率 |
+|---:|---:|---:|---:|---:|---:|---:|
+| 1 / `1x1x1x1` | `0.301689520` | `0.002222990` | 20 | `2.582429e-7` | 1.000x | 100.00% |
+| 2 / `2x1x1x1` | `0.461907550` | `0.001445631` | 20 | `2.582687e-7` | 0.653x | 32.66% |
+| 4 / `2x2x1x1` | `1.024669448` | `0.004110831` | 20 | `2.581189e-7` | 0.294x | 7.36% |
+
+来源：l24:99-103（表）、l24:105-107（扩展）；dcu:197-201、216-220；timing:316-320。**只有 native full-operator 残差**：独立真残差按任务要求 `--skip-independent-residual` 跳过，不得写成 independent residual PASS（l24:12,110-111；dcu:205-206,353-354）。
+
+**QUDA on DCU：`BLOCKED-RUNTIME`。** 根因不是输入或 rank：torch 与 cupy 两种后端都在 `pyquda.dirac.general.loadClover → quda::GaugeField::copy → quda::qudaMemcpy_ → quda::QudaMem::apply → hipMemcpy` 触发 SIGSEGV（`rc=139`）；attempt 5（Slurm 126253707，177 s）留 fault-handler 栈（l24:78,83-90；dcu:222-226）。QUDA 侧用 DTK 25.04.4，与 QCU 的 DTK 23.10 隔离加载，二者混载会报 `undefined symbol: rocfft_field_create`（dcu:110-116）。
+
+**A100 QUDA nvec 分配失败：** `nvec=24` 时 level-0 请求 `21,743,271,936 B` gauge 内存并报 `cudaErrorMemoryAllocation`（Slurm 1603591，约 28 s）（ledger:452,461-465；rpttex:346-347）。按约定 24 应是 coarse-color 实例化，fine null-vector 应为 12；改用 nvec=12 且 no-MMA 后 1/2/4-rank GCR-MG 通过（rpttex:337-353）。更早还有一次 `Unsupported nVec 12`（1582721，p21:106），属另一道构建/接口门。
+
+**不得外推的结论**
+
+1. L24 的 0.653x/0.294x 效率只属于 `24³×64` 短 solve 口径：单次 0.3–1.0 s，通信与固定开销主导（l24:105-107；dcu:213-215,355-356）。
+2. L32 全部 `BLOCKED-CACHE`：`batch_size ≤ 64` 是 native 硬门（`cpp/cuda/qcu/src/multigrid.cu:2589`），加 rank 只缩短 stencil（431–459 s → 87 s → 59 s），不能解决共享 HDF5 哈希/写入的 `D` 状态（dcu:244-248,280-286,357-359；l32:101-123）。
+3. L48 DCU：逻辑 payload 18.73 GB 超单卡 17.16 GB，且全程 `BLOCKED-BY-USER`，不提交 1-rank 容量尝试（l48:37,45-52）。
+4. A100 L48 1-rank 在加载 `hdg` 时 GPU OOM；independent residual 在该 54,976 MiB 单节点资源下不可完成，不得改写成 independent PASS（ledger:415-424）。
+5. A100 L32 Strict 1-rank OOM 说明“L32 full-coarse Strict 不能按小格点单卡容量外推”，多 MPI 是必要容量路径而非单纯优化（ledger:214-217；unified:157-159）。
+6. `8³×16` 上 QUDA 固定开销更优，不得外推到 L32 生产点；反之 L32 Legacy 入口级胜出也不得外推到小格（ledger:189-190,617-624）。
+7. QUDA `nvec=24` 与 QCU `dof=12` 粗空间不等价，禁止计算倍率（timing:350）。
+8. DCU 结果不可与 A100 或其它 DCU 混算；QUDA 历史数字不得与 DCU QCU 拼加速比（dcu:298,363-364）。
+
+## 证据缺口
+
+- `logs/qcu_solver_test34_20261029/dcu-hardware-audit.txt` 不存在，且 `find` 显示整个 `qcu_solver_test34_20261029` 目录不在工作树；`data/` 下只有 `kupl_roofline_20261106.json`。本报告所有 DCU 硬件值均为文档二次转引，无法回到 rocminfo/rocm-smi 原始输出。
+- DCU 用户态驱动版本不可得：`rocm-smi` 的 `Driver version` 返回内核版本 `3.10.0-957.el7.x86_64`（dcu:75-77；l24:31-32）。
+- DCU 无 STREAM/带宽实测，无 GFLOP/s，无显存 OOM 阈值（仅有占用快照与 payload 对比）。
+- A100 的 CUDA 版本、驱动版本、单节点卡数、`QUDA_QIO` 状态四项均未记录。
+- A100 L48 的 18,728,105,984 B（文件）与 18,728,091,648 B（逻辑 payload）差额 14,336 B 无文档解释。
+- 全部 A100 GFLOP/s 数字来自 2026-10-21 的 L24 smoke/formal 记录（p21），不在 2026-10-29 账本的正式表内，且模型边界与 QUDA 不同。
