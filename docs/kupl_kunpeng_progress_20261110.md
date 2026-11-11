@@ -50,6 +50,21 @@
 - `--skip-independent-residual` 时报告写入的 `acceptance` 就是 `args.atol`
   本身（`kupl_multigrid.py:885-890`），不是计算值。
 
+**源场（`src`）是什么**：本文全部求解的右端项是**固定种子的 PCG64 正态随机
+复数场**，不是点源、wall source 或 Z2 噪声源。生成式
+（`prepare_case.py:98-100`）：
+
+```python
+rng = np.random.default_rng(42)
+src = (rng.normal(size=(4,3,*lat)) + 1j*rng.normal(size=(4,3,*lat))).astype(np.complex64)
+```
+
+HDF5 元数据记录 `seed=42`、`generator="numpy PCG64 normal float64, cast to
+complex64"`、`layout="[spin,color,x,y,z,t]"`。
+**gauge 是真实 LIME 组态，source 是自造随机场，两者无物理关联**；因此本文
+迭代数不代表物理源的迭代数。详见
+[`qcu_l24_solver_timing_20261111.md`](qcu_l24_solver_timing_20261111.md) §0.9。
+
 **粗层容差**（`kupl_multigrid.py:188-189`）：
 `coarse_atol(k) = atol × coarse_tol_factor × 3^(k−1)`。
 

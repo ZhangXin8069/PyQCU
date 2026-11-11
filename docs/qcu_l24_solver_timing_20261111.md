@@ -374,6 +374,96 @@ payload `18,728,091,648 B` 的对比，属于**容量可行性**判断，不是�
 **在这些文件入库前，本文任何"内存/显存"表述都只能引用 §0.8.3 的 9 行实测值，
 其余一律标"无数据"。**
 
+### 0.9 求解测试使用的源场（`src`）是什么
+
+本文所有求解数据的右端项（RHS / source）**不是点源，也不是物理源**，而是
+**固定种子的伪随机复数场**。具体生成方式按代码路径分三类，必须逐行区分。
+
+#### 0.9.1 三类源场
+
+| 类型 | 生成方式 | 代码位置 | 用于 |
+|---|---|---|---|
+| **A. PCG64 正态随机（NumPy，float64→c64）** | `rng = np.random.default_rng(seed)`；`rng.normal(size=(4,3,*lat)) + 1j*rng.normal(...)` 后 `astype(complex64)` | `prepare_case.py:98-100`；`kupl_bistabcg.py:209-212` | 本文**全部** L24 表格行（K/V/X/A/C/D 系列） |
+| **B. Torch 正态随机（c64）** | `torch.Generator().manual_seed(seed)`；`torch.complex(randn, randn)` | `_selftest.py:86-93` | 仅 CLI `--selftest` 的 torch/KUPL 层 |
+| **C. LIME 文件内源（若存在）** | 直接读 LIME/HDF5 中的 source dataset | `kupl_bistabcg.py:213-218` | 仅当显式传 `--source <file>` 且文件含该 dataset |
+
+**没有点源、wall source、one-end-trick 或 Z2 噪声源**参与本文任何数值。
+
+#### 0.9.2 生产运行的源是哪一种
+
+本文的 K 系列（`cn10579`）与 E 系列作业都在命令行显式传入
+`--source .../source_24x24x24x64_c64.h5`：
+
+```bash
+# logs/job_y89.sh:52-53
+--gauge  "$case_dir/gauge_24x24x24x64_c64.h5"
+--source "$case_dir/source_24x24x24x64_c64.h5"
+```
+
+这个 `source_24x24x24x64_c64.h5` 由 `prepare_case.py` 生成，即 **A 类**：
+
+```python
+# prepare_case.py:98-100
+rng = np.random.default_rng(seed)                    # 默认 seed=42
+array = (rng.normal(size=(4,3,*target)) +
+         1j * rng.normal(size=(4,3,*target))).astype(np.complex64)
+```
+
+HDF5 元数据里写死了来源声明（`prepare_case.py:101-105`）：
+
+```json
+{"seed": 42,
+ "generator": "numpy PCG64 normal float64, cast to complex64",
+ "layout": "[spin,color,x,y,z,t]"}
+```
+
+**因此：本文所有 L24 求解的 `src` = PCG64 正态随机复数场，seed=42，
+实部虚部各自独立采样自标准正态分布，转 complex64。**
+
+#### 0.9.3 种子在本仓库各处的实际取值
+
+| 位置 | seed | 说明 |
+|---|---|---|
+| `prepare_case.py` 默认 | **42** | 生产 case 的源 |
+| `kupl_multigrid.py --seed` 默认 | **42** | 与生产一致 |
+| `_selftest.py` torch 层 | 61 | 仅自检 |
+| `_selftest.py` KUPL 层 | 61 | 仅自检 |
+| `_selftest.py` gauge（torch 层） | 7 | 仅自检 |
+| `_selftest.py` gauge（KUPL/CUDA 层） | 59 | 仅自检 |
+| `compare_kupl_bistabcg.py` | `args.seed + 1` | 对比脚本，故意错开 |
+| `compare_kupl_multigrid.py` | `args.seed + 1` | 同上 |
+| `check_clover.py` | 7 | 仅 6×6 块测试 |
+
+**注意 `args.seed + 1`**：对比脚本用 `seed+1` 生成源，是为了避免与同目录下
+用 `seed` 生成的 gauge 或其他产物撞种子；这不影响同一脚本内 gauge/source
+的一致性。
+
+#### 0.9.4 为什么不用点源
+
+| 考量 | 说明 |
+|---|---|
+| **残差门敏感性** | 点源只有单个非零分量，`‖b‖` 很小，Krylov 求解退化为近似单模式；无法反映真实多模式收敛行为 |
+| **跨后端可比性** | 随机源在 CUDA/KUPL/QUDA 上给出相同的 `‖b‖` 与相近的迭代轨迹，便于同窗 A/B |
+| **独立真残差** | 检查的是 `‖b − A·x‖ / ‖b‖`；随机源的 `‖b‖` 有统计意义，点源的 `‖b‖` 只依赖 κ 与单点值 |
+| **可复现性** | PCG64 + 固定 seed 保证逐位可复现，且 HDF5 里记录了 generator 与 seed |
+
+**代价**：随机源的收敛不代表物理传播子（propagator）行为；本文所有迭代数
+**不能**作为物理计算的迭代数预期。这一点在引用 K/V/A/C 系列迭代数时必须说明。
+
+#### 0.9.5 必须保留的口径警告
+
+1. **源是随机的，不是物理的**。本文的任何迭代数、残差、耗时都不代表用实际
+   物理源（如 wall source、点源、或规范场上的物理关联函数）时的结果。
+2. **`seed=42` 是约定，不是"正确"**。换种子会改变迭代数与耗时（同分布，
+   均值相近但单次不同）；本文所有数据固定 seed=42，跨文献比较时必须确认对方
+   的种子与生成器一致。
+3. **`source` 与 `gauge` 是独立资产**。gauge 来自真实 LIME 组态
+   （`beta6.20_mu-0.2770_ms-0.2310_L24x64_cfg_9950.lime`），source 是自造随机场；
+   两者没有物理关联，只是"在真实背景场里解一个随机右端项"。
+4. **点名源与文件源的差别**：`--source` 未指定时 `load_source` 会**临时**生成
+   一个同种子的 A 类源（`kupl_bistabcg.py:209-212`），不落盘。因此判断一次
+   运行用的是"文件源"还是"临时源"，要看命令行是否传了 `--source`。
+
 ## 1. 为什么没有单一数值
 
 | 维度 | 取值 | 对耗时的影响 |
