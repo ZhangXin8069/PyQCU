@@ -15,7 +15,7 @@
 | 记号 | 展开 | 含义 | 证据 |
 |---|---|---|---|
 | `c64` / `c128` | complex64 / complex128 | 复数量子场精度（实部 float32 / float64） | `pyqcu/kupl/define.py:47-48` |
-| `cc` | `coarse_calls` | MG 粗层算子调用次数 | `lattice_clover_multigrid.cpp:1039` |
+| `cc` | `coarse_calls` | MG 粗层算子调用次数。**所有 `level≥1` 合并计数**，`levels≥3` 时会把多层加在一起；本文数据只有 `levels=1/2`，故 `cc == restrict_calls` | `lattice_clover_multigrid.cpp:714-718`、`:1039` |
 | `fc` | `fine_calls` | MG 细层算子调用次数 | 同上 |
 | `屏` | screen hardcopy | GNU `screen` 终端快照文件 `logs/screen-*.txt` | 文件名模式 |
 | `yNN` | 远端结果目录 | `data/kupl_hbm_opt_20261106/yNN/`，**不是作业号** | 屏记录 `job_y76.sh` 内 `WORK_DIR` |

@@ -559,6 +559,120 @@ levels=<N>  restart=<N>  coarse_max_iter=<N>  coarse_tol_factor=<N>
 `coarse_max_iter`（每次粗解质量）。本文所有 MG 行已按此四元组标注；
 若发现某行只写了 `restart`，该行的重现已不可保证。
 
+### 0.11 `cc` 到底统计什么：多层级时是全层合并
+
+你指出的问题成立：**`cc` 不是"第一粗层调用次数"，而是"所有 level ≥ 1 的算子调用
+总次数"**。当 `levels > 2` 时，这一列会把多个粗层加在一起，因此单独看 `cc` 无法
+判断修正在第几层发生。
+
+#### 0.11.1 计数代码
+
+`cpp/kupl/qcu/src/lattice_clover_multigrid.cpp:714-718`：
+
+```cpp
+void apply_level(int level, std::vector<Complex<Real>> &out,
+                 const std::vector<Complex<Real>> &in) {
+    MgProfileTimer timer(profile_, level == 0 ? prof_fine_apply_seconds_
+                                              : prof_coarse_apply_seconds_);
+    ++(level == 0 ? prof_fine_apply_calls_ : prof_coarse_apply_calls_);
+    ...
+}
+```
+
+`level == 0` 计 `fine_calls`；**所有 `level >= 1` 一律累加到同一个
+`prof_coarse_apply_calls_`**。没有按层拆分的计数器。
+
+#### 0.11.2 多层级时的实际后果
+
+设 `levels = 3`，一次 V-cycle 从 level 0 递归到 level 2：
+
+| 调用 | `apply_level` 参数 | 计入 |
+|---|---|---|
+| 细层 | `level=0` | `fine_calls` +1 |
+| 第 1 粗层 | `level=1` | `coarse_calls` +1 |
+| 第 2 粗层 | `level=2` | **`coarse_calls` +1（同一计数器）** |
+
+更准确地说，`cc` 的增量按 `bicgstab_chunk` 内的 `apply_level` 调用次数累计
+（`lattice_clover_multigrid.cpp:817`、`:849` 各一次/迭代），**每个 level ≥ 1 都各自
+贡献**。所以：
+
+```text
+cc(levels=2) = Σ_{level=1}  该层 apply_level 次数
+cc(levels=3) = Σ_{level=1..2} 各层 apply_level 次数   → 更大
+```
+
+**同一份 `cc` 数值在 `levels=2` 与 `levels=3` 下含义不同，不能跨层数比较。**
+
+**实测边界**：本地归档的 L24 数据里 `levels` 只有 `1`（32 条）与 `2`（54 条），
+没有 `levels≥3` 的记录。因此本文所有 `cc` 都只来自**单一粗层**，
+`cc == restrict_calls == prolong_calls` 恒成立（见 §0.11.3 的实测配对表）。
+多层合并的风险**在原理上成立，但不影响已归档数据**。
+
+#### 0.11.3 实测佐证：`cc` 与 `restrict_calls` 的关系
+
+本文所有数据都是 `levels=2`，所以 `cc == restrict_calls == prolong_calls`：
+
+| `coarse_calls` | `restrict_calls` | `prolong_calls` | `coarse_correction_calls` | 样本数 |
+|---:|---:|---:|---:|---:|
+| 9 | 1 | 1 | **1** | 34 |
+| 19 | 2 | 2 | **2** | 18 |
+
+如果 `levels=3`，这三个数会分叉：`restrict_calls` 每层各 +1（一次 V-cycle 加 2），
+而 `coarse_calls` 也会加 2 —— **但 `coarse_correction_calls` 仍按"修正事件"计数**，
+不会因为层数而翻倍。
+
+#### 0.11.4 五个计数器各自统计什么
+
+`lattice_clover_multigrid.cpp:1080-1084` 定义了 5 个独立计数器：
+
+| 字段 | 计数器 | 统计对象 | 递增位置 |
+|---|---|---|---|
+| `fine_calls` | `prof_fine_apply_calls_` | **level 0** 的算子应用次数 | `:718`（`level==0`） |
+| `coarse_calls` | `prof_coarse_apply_calls_` | **level ≥ 1 全部层合并**的算子应用次数 | `:718`（`level!=0`） |
+| `restrict_calls` | `prof_restrict_calls_` | 限制算子调用次数（每层各一次） | `:744` |
+| `prolong_calls` | `prof_prolong_calls_` | 延拓算子调用次数（每层各一次） | `:756` |
+| `coarse_correction_calls` | `prof_coarse_correction_calls_` | **修正事件**次数（与层数无关） | `:958` |
+
+**关键区别**：
+
+- `coarse_calls` 是**算子调用次数**（层数越多越大）；
+- `coarse_correction_calls` 是**修正尝试次数**（每次尝试算 1，不论内部跑几层）。
+
+#### 0.11.5 为什么本文的 `cc` 看起来"大"
+
+以 wI 窗口 `cc=29, fc=37` 为例：
+
+```text
+fc = 37   细层算子调用 37 次
+cc = 29   粗层算子调用 29 次（levels=2，所以等于 restrict_calls=29）
+correction_calls 未记录在该行
+```
+
+29 次粗调用对应"每 5 次细层迭代做一次修正"（`restart=5`）+ 阻尼搜索的重复尝试。
+`fc ≈ 2×迭代` 的关系在 §0.6.1 已给；`cc` 与迭代数没有简单线性关系。
+
+#### 0.11.6 引用 `cc` 时必须同时给出的字段
+
+单写 `cc=19` 无法解读。最小完整集：
+
+```text
+levels=<N>  cc=<N>  fc=<N>  restrict_calls=<N>  coarse_correction_calls=<N>
+```
+
+其中 `levels` 决定 `cc` 是否被多层合并。**本文全表都是 `levels=2`**，因此
+`cc == restrict_calls == prolong_calls` 恒成立；若将来出现 `levels≥3` 的数据，
+必须显式标注，不能与本文 `cc` 直接比较。
+
+#### 0.11.7 本文数据的一个限制
+
+本地屏记录中**只保存了 5 个计数器里的 4 个**（`coarse_correction_calls` 在部分
+hardcopy 中被折行截断）。因此本文表格只能引用 `cc`/`fc`，无法给出
+"每次修正在第几层发生"。要完整还原多层级行为，需要在后续运行中：
+
+1. 打开 `PYQCU_KUPL_MG_PROFILE=1`；
+2. 保存**完整**的 `MG_PROFILE` 行（不截断）；
+3. 对 `levels≥3` 单独标注。
+
 ## 1. 为什么没有单一数值
 
 | 维度 | 取值 | 对耗时的影响 |
