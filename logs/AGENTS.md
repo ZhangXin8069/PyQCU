@@ -1002,3 +1002,11 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: 4 个实测缺陷修复：make.sh 平台库名/GNU 依赖、.dylib 查找、双 libomp 自动重链接、诊断不触发原生加载；源码态与安装版 selftest 双后端 PASS
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
+## pyqcu-release-0.1.14-20261111 - final - 2026-11-11 15:50:40 +0800
+- 主任务: 检查本库功能与文档后发布 0.1.14 并打 stab63 标签
+- 日志文件: logs/v2026111115.txt
+- 文件大小: 7125 bytes
+- 触发原因: 任务完成
+- 关键内容: macOS 上完成功能/文档验证、0.1.14 版本推进与门禁修复，提交并推双远端，创建 stab63；PyPI 上传缺令牌阻塞
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete

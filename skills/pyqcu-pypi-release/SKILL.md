@@ -310,6 +310,27 @@ site-packages/pyqcu/cuda/qcu.cpython-312-x86_64-linux-gnu.so   # Cython 桥
   在 `--json` 下返回 `status=FAIL`/exit 2，不再走 argparse 文本错误。
   CLI 25、全量 153/4；sdist 606,860 B，sha256 adf2ebb7…6ad998。
 
+### 0.1.14 macOS 发布路径
+
+- `python -m build` 在仓库根会被本地 `build/` 目录遮蔽（`import build` 命中
+  namespace package，报 `No module named build.__main__`）。必须在仓库外调用：
+  `cd <非仓库目录> && python -m build --sdist --outdir <repo>/dist <repo>`。
+- `--no-build-isolation` 在 Python 3.11 的裸 venv（自带 setuptools 65）失败：
+  PEP 639 的 `license = "MIT"` 需要 `build-system.requires` 里的
+  `setuptools>=77`。隔离构建正常，别把它当成打包缺陷。
+- 文档门禁曾要求 Sphinx 英文横幅 `build succeeded`；`LC_ALL=zh_CN` 下输出
+  「构建成功。」，`-W` 通过也会判 FAIL。0.1.14 起改判退出码 + `index.html`。
+- macOS 全量 `pytest pyqcu/testing` 有 44 项环境性失败：39 项缺 CUDA 桥、1 项
+  无 `/proc`、1 项无 `cuobjdump`、1 项 `/var`→`/private/var`、2 项缺
+  `data/report_multigrid_comprehensive_20260928`；这些测试文件自 0.1.13 起零改动。
+- `import torch` 之后 numpy 点积在 macOS arm64 可能 SIGSEGV/SIGABRT（OpenMP
+  与 BLAS 冲突，纯 torch+numpy 可复现）；用 `OMP_NUM_THREADS=1` 跑测试可稳定。
+- 0.1.14：sdist 927,252 B，sha256 `5b594ab9…d9d241`，273 成员 / 88 个 `.py` /
+  0 二进制；离线门禁 12/12；干净 venv 隔离安装后 `--json` 指向 site-packages、
+  `kupl` 报告 `libqcu.dylib`，`--selftest` 为 torch PASS / kupl PASS / cuda SKIP。
+- 0.1.14 提交 `b0cdf355`，标签 `stab63`（follow `dev110`）；PyPI 上传需先导出
+  `PYPI_ZHANGXIN8069_API_KEY`，缺令牌时不要尝试上传或宣称已上架。
+
 发布门 12 项（`release_check --offline` 顺序）：version、sdist exists、sdist no
 testing、sdist no binaries、sdist native sources、sdist no home paths、sdist
 Chinese README、twine check、bilingual blocks、docs examples、sphinx en、

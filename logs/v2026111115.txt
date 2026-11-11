@@ -1,0 +1,120 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-11-11 15:50:40 +0800
+批次: pyqcu-release-0.1.14-20261111
+主任务: 检查本库功能与文档后发布 0.1.14 并打 stab63 标签
+触发原因: 任务完成
+摘要: macOS 上完成功能/文档验证、0.1.14 版本推进与门禁修复，提交并推双远端，创建 stab63；PyPI 上传缺令牌阻塞
+Git 根目录: /Users/zhangxin/PyQCU
+
+## 关键日志
+
+### S1 - 任务与身份
+- 目标: 检查本库功能与文档，确认无误后发布并打标。
+- 身份: {代码}。发布工程与打包验证。
+- 技能: log（常驻）、pyqcu-pypi-release、pyqcu-tag/pyqcu-docs。
+
+### S2 - 现场与版本判据
+- 命令: git status/log/remote、PyPI JSON、git for-each-ref、git merge-base
+- 关键输出: 工作树 clean；HEAD=1507ef6a，Gitee/GitLab 同 hash；PyPI latest=0.1.13；
+  最新标签 dev110(2026-11-09)；0.1.13 写入于 728e4435，其后 6f6d9f5b 等提交改动发行内容
+- 判断: 0.1.13 已上架且早于 macOS KUPL 修复，需 0.1.14
+
+### S3 - 功能验证（macOS, python 3.11.11）
+- 命令: python -m pyqcu --json / --selftest
+- 关键输出: torch PASS 78it/1.560e-06、kupl PASS 17it/2.408e-07、cuda SKIP、overall PASS
+- 命令: cd pyqcu/testing && pytest .
+- 关键输出: 默认 OMP 线程下 SIGSEGV(139)；OMP_NUM_THREADS=1 得 44 failed / 576 passed / 33 skipped
+- 归因: 39 项缺 CUDA 桥、1 项无 /proc、1 项无 cuobjdump、1 项 /var→/private/var、
+  2 项缺 data/report_multigrid_comprehensive_20260928；相关测试文件自 0.1.13 起零改动
+- 段错误归因: 纯 `import torch` + numpy 点积即可复现，与本库代码无关；OMP_NUM_THREADS=1 稳定
+
+### S4 - 文档验证
+- 命令: python -B skills/pyqcu-docs/scripts/audit-docs-skills.py -> PASS docs=42 skills=36
+- 命令: python -m pyqcu.testing.docs_examples --keep-going -> ok=30 skipped=8 failed=0
+- 命令: python -m sphinx -b html -W docs/{en,zh} -> 两站 exit=0
+
+### S5 - 版本推进与门禁修复
+- 改动: pyproject/__init__/docs/{en,zh}/conf.py 4 处权威版本 + install.md 四条断言 +
+  overview 双语散文 + performance 双语版本史
+- 缺陷: release_check.check_sphinx 依赖英文 "build succeeded"，LC_ALL=zh_CN 下
+  输出「构建成功。」导致 exit 0 仍判 FAIL
+- 修复: 改判 `returncode == 0 and (output / "index.html").is_file()`，同步
+  skills/pyqcu-docs/references/readthedocs-release.md 判据描述
+
+### S6 - 构建与安装复验
+- 命令: cd <仓库外> && python -m build --sdist --outdir <repo>/dist <repo>
+- 说明: 仓库根 build/ 目录遮蔽 PyPI build 包，必须在仓库外调用
+- 产物: dist/pyqcu-0.1.14.tar.gz，927,252 B，sha256 5b594ab951fcc5c3039161cff36f2c2e68a4c20325ec0649245843cbb7d9d241
+- 成员: 273 个，88 个 .py，0 个 .so/.o
+- 命令: python -m pyqcu.testing.release_check --offline -> 12/12 PASS
+- 命令: 干净 venv 隔离安装 sdist -> pyqcu --json version=0.1.14，kupl 落位
+  site-packages/pyqcu/kupl/libqcu.dylib；--selftest = torch PASS / kupl PASS / cuda SKIP
+
+### S7 - 提交、标签与推送
+- 命令: git add <12 个文件> && git commit -> b0cdf355
+- 命令: bash skills/pyqcu-tag/tag-chain.sh --check -> FAIL 1 项（bug45 peeled commit
+  非 dev106 祖先、无共同 follow 祖先；2026-10-28 既有并行分支，非本次引入，未改写）
+- 命令: git tag -a stab63 -> tag object 383f586d -> commit b0cdf355
+- 命令: git push origin main/stab63、git push gitlab main/stab63 -> 均成功
+- 核验: local/gitee/gitlab 的 main 均为 b0cdf355，stab63 peeled 均为 b0cdf355
+
+### S8 - PyPI 上传门
+- 探测: 当前 shell 与 zsh/bash 登录环境均无 PYPI_ZHANGXIN8069_API_KEY；
+  /Users/zhangxin/configure 内无该变量引用
+- 动作: 未执行 twine upload（凭据缺失，不虚构上传结果）
+- 状态: blocked（唯一剩余步骤）
+
+## 验证与证据
+- 测试/检查: 本机 selftest、全量 pytest（OMP_NUM_THREADS=1）、docs 审计、
+  docs_examples、双站 sphinx -W、release_check --offline 12 项、twine check、
+  干净 venv 安装 + selftest、tag-chain 自检、双远端 ls-remote
+- 结果: 功能自检 PASS；576 passed；文档审计与示例全通过；门禁 12/12；
+  sdist 干净安装后三层自检 PASS；双远端 hash 一致
+- 未验证项: PyPI 上传与在线门禁（--online）因缺令牌未执行；Linux/鲲鹏与 CUDA 真实
+  编译未在本机复跑；GitHub 镜像未直接核验（无该远端配置）
+
+## 变更与产物
+- 文件: pyproject.toml、pyqcu/__init__.py、pyqcu/testing/release_check.py、
+  docs/{en,zh}/{conf.py,install.md,overview.md,performance.md}、
+  skills/pyqcu-docs/references/readthedocs-release.md
+- 产物: dist/pyqcu-0.1.14.tar.gz；标签 stab63；提交 b0cdf355
+- 未改动范围: 未改 C++ 内核与求解器数值路径；未删除任何文件；未改写已推送标签
+
+## 风险、限制与下一步
+- 风险: 本机为 macOS，CUDA/QUDA 路径与鲲鹏侧未在此环境复验
+- 阻塞: PyPI 上传缺 PYPI_ZHANGXIN8069_API_KEY（唯一剩余步骤）
+- 下一步: 导出令牌后执行 twine upload 该单个 sdist，再跑 release_check --online
+  与 RTD 双语标题核验；bug45 历史链异常留待人工裁决
+
+## 用户输入指令
+resume[20261110T183643.SBeoER]
+检查本库功能与文档,确认无误后发布并~tag
+
+## Agent 全文报告
+--- report begin ---
+已按要求完成功能与文档检查、0.1.14 版本推进、标签与双远端推送；PyPI 上传因本机缺
+PYPI_ZHANGXIN8069_API_KEY 未执行，是唯一剩余步骤。
+
+功能检查：本机 selftest 为 torch PASS（78 it/1.560e-06）、kupl PASS（17 it/2.408e-07）、
+cuda SKIP、overall PASS；全量 pytest 在 OMP_NUM_THREADS=1 下 576 passed / 33 skipped /
+44 failed，44 项全部为环境性（39 项缺 CUDA 桥、1 项无 /proc、1 项无 cuobjdump、1 项
+/var→/private/var、2 项缺 report_multigrid_comprehensive_20260928 数据），相关测试文件
+自 0.1.13 起零改动。默认线程下的 SIGSEGV 由 torch 与 numpy 的 OpenMP 冲突引起，
+纯 torch+numpy 即可复现，与本库代码无关。
+
+文档检查：docs/skills 审计 PASS（docs=42、skills=36）；docs_examples ok=30 skipped=8
+failed=0；中英站点 sphinx -W 均 exit 0。发现并修复一处门禁可移植性缺陷：
+release_check 只认英文 "build succeeded"，在 zh_CN 语言环境下 exit 0 仍判 FAIL。
+
+发布：版本 0.1.14 已同步到 pyproject、pyqcu.__version__、双语 conf.py、两语 install.md
+断言与性能版本史；sdist 927,252 B（sha256 5b594ab9…d9d241，273 成员、0 二进制）；
+离线门禁 12/12；干净 venv 隔离安装后 --json 指向 site-packages、kupl 报告
+libqcu.dylib，--selftest 三层 PASS。提交 b0cdf355 已推 Gitee 与 GitLab（main 同 hash）。
+
+标签：stab63（follow dev110）指向 b0cdf355，已推双远端并核验一致。tag-chain 自检
+报 1 项既有异常（bug45 peeled commit 非 dev106 祖先），属 2026-10-28 并行分支，
+未自动改写。
+
+未完成：PyPI 上传与 --online 门禁需先导出 PYPI_ZHANGXIN8069_API_KEY。
+--- report end ---
