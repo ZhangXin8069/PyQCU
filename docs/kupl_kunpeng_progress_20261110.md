@@ -50,6 +50,14 @@
 - `--skip-independent-residual` 时报告写入的 `acceptance` 就是 `args.atol`
   本身（`kupl_multigrid.py:885-890`），不是计算值。
 
+**`restart` 是什么**：不是"重启次数"，而是 **MG 粗修正的检查间隔**。
+`restart=N` 表示每 N 次细层 BiCGStab 迭代插一次粗修正
+（`lattice_clover_multigrid.cpp:220-223`）；`restart=0` 或 `levels=1` 都表示
+**不走 MG**，直接调用 parity-Schur BiCGStab（`:1115-1124`）。名称沿用 QUDA 的
+`num_restart`，但语义已变为"分段节奏"，**不是方向重置**。
+与 `coarse_max_iter`（每次粗解允许多少迭代，默认 200）是两件独立的事。
+详见 [`qcu_l24_solver_timing_20261111.md`](qcu_l24_solver_timing_20261111.md) §0.10。
+
 **源场（`src`）是什么**：本文全部求解的右端项是**固定种子的 PCG64 正态随机
 复数场**，不是点源、wall source 或 Z2 噪声源。生成式
 （`prepare_case.py:98-100`）：

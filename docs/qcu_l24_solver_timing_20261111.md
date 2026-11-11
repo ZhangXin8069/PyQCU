@@ -464,6 +464,101 @@ HDF5 元数据里写死了来源声明（`prepare_case.py:101-105`）：
    一个同种子的 A 类源（`kupl_bistabcg.py:209-212`），不落盘。因此判断一次
    运行用的是"文件源"还是"临时源"，要看命令行是否传了 `--source`。
 
+### 0.10 `restart` 到底是什么
+
+`restart` 是我见过最容易被误读的参数名。它**不是**"求解器重启次数"，也
+**不是**"重启迭代"，而是 **MG 粗修正的检查间隔（coarse-correction interval）**。
+
+#### 0.10.1 定义
+
+`cpp/kupl/qcu/src/lattice_clover_multigrid.cpp:220-223`：
+
+```cpp
+levels_[0].correction_interval =
+    params_[kMgLevel1NumRestart] > 0
+        ? params_[kMgLevel1NumRestart]
+        : 3;                                  // 未配置时的默认
+```
+
+即 `restart = N` 的语义是：**每跑 N 次细层 BiCGStab 迭代，就检查一次是否
+插入粗层修正**。它不是"重启"，而是"分段（chunk）"。
+
+#### 0.10.2 为什么叫 restart
+
+名称来自 QUDA 的 `num_restart`（`pyqcu/cuda/_multi_gpu.py:343`、
+`pyqcu/torch/solver/_legacy_multigrid.py:72` 的 `num_restart: int = 5`）。
+在 QUDA 语境里它表示"Krylov 求解器每多少次迭代重启一次（重置搜索方向）"。
+PyQCU 沿用了这个名字，但**在 Legacy-MG 里它实际控制的是粗修正节奏**，
+不是方向重置。
+
+**这是命名遗留，不是语义一致**。读本文任何 `restart=` 都必须按 §0.10.1 理解。
+
+#### 0.10.3 三种取值的行为
+
+| 取值 | 行为 | 代码依据 |
+|---|---|---|
+| `restart = 0` | **完全不进入 MG**，直接调用 optimized parity-Schur BiCGStab | `lattice_clover_multigrid.cpp:1115-1124`：`if (num_levels <= 1 \|\| kMgLevel1NumRestart == 0) { clover_bistabcg(...); return; }` |
+| `restart = N > 0` | 每 N 次细层迭代插一次粗修正 | `:386-434` 的主循环：`chunk = min(剩余, N − since_correction)` |
+| `restart = N > max_iter` | 只会在开头做 1 次 deflation，之后全是细层 BiCGStab | 主循环在最开始有一次 `:358-385` 的 deflation 分支 |
+
+**因此 `restart=50` 配 `max_iter=50` 时只发生 1 次修正**（本文 §3.2 的
+`0.9473 s` 就是这种情况），必须写成"initial deflation + fine BiCGStab"，
+**不能**写成周期 V-cycle。
+
+#### 0.10.4 与 `levels` 的联合判据
+
+`restart` 只在 `levels > 1` 时才有意义。C++ 的分派条件是两个一起判断的
+（`:1115`）：
+
+```cpp
+if (params[kMgNumLevel] <= 1 || params[kMgLevel1NumRestart] == 0) {
+    // 退化为 parity-Schur BiCGStab
+}
+```
+
+所以 **`levels=1` 与 `restart=0` 等价**，都表示"不走 MG"。本文表格里凡写
+`levels=1, restart=0` 的行，都是同一条 BiCGStab 路径。
+
+#### 0.10.5 与 `coarse_max_iter` 的区别
+
+两者常被混淆：
+
+| 参数 | 控制什么 | 默认 | ABI 槽位 |
+|---|---|---|---|
+| `restart` | **多久插一次**粗修正（细层迭代间隔） | 5 | `params[26 + 8k]` |
+| `coarse_max_iter` | **每次粗层求解允许多少迭代** | 200 | `params[24 + 8k]` |
+
+一个管"节奏"，一个管"每次粗解多努力"。本文 §6.4 的 `mg-grid` 扫描与
+`coarse_max_iter` 扫描是两件独立的事。
+
+#### 0.10.6 本文数据中 `restart` 的实际取值分布
+
+| 取值 | 出现处 | 含义 |
+|---|---|---|
+| `restart=0` | K1–K9 全部（`levels=1`） | parity-Schur BiCGStab，非 MG |
+| `restart=5` | 早期登录节点窗口 wI（`cc=29`） | 每 5 次迭代一次修正 |
+| `restart=8` | `r8_tol10_*` 系列 | 每 8 次 |
+| `restart=10` | wIII（`cc=19`）、`r10_tol10_t16` | 每 10 次 |
+| `restart=20` | wIV（`cc=9`，`r20` 族） | 每 20 次 |
+| `restart=50` | wIV（`r50` full-residual，`0.9473 s`） | 只 1 次 deflation |
+| `restart=1/2` | `dev99` 期 L8 筛（`0.02242/0.02249 s`） | 最频繁修正 |
+
+**注意 `restart=20` 与 `restart=50` 的 `cc` 都是 9**：因为 `max_iter=50`
+时两者都只够做 1–2 次修正，粗层调用次数相同。这解释了为何 `cc` 相同但
+`restart` 不同——**`cc` 反映的是实际发生的修正，不是配置值**。
+
+#### 0.10.7 引用时必须写全的四个字段
+
+只写 `restart=10` 是不完整的。可复现的最小集合是：
+
+```text
+levels=<N>  restart=<N>  coarse_max_iter=<N>  coarse_tol_factor=<N>
+```
+
+因为 `restart` 的实际效果同时取决于 `levels`（是否启用 MG）与
+`coarse_max_iter`（每次粗解质量）。本文所有 MG 行已按此四元组标注；
+若发现某行只写了 `restart`，该行的重现已不可保证。
+
 ## 1. 为什么没有单一数值
 
 | 维度 | 取值 | 对耗时的影响 |
