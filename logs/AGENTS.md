@@ -978,3 +978,11 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: HMPI Cartesian 拓扑挂起已由周期手工几何修复；计算节点 BiCGStab 213.44 s/PASS，MG 10 分钟无报告已终止
 - 验证: path, size, required sections, conflict markers
 - 批次状态: in-progress
+## kupl-kunpeng-progress-20261110 - final - 2026-11-10 18:57:22 +0800
+- 主任务: 鲲鹏真实环境进展汇报（性能数据+代码改动+硬件环境）到 docs
+- 日志文件: logs/v2026111018.txt
+- 文件大小: 6264 bytes
+- 触发原因: 任务完成
+- 关键内容: 汇总 2026-11-05~11-10 鲲鹏计算节点与登录节点性能数据、dev108 以来代码改动与硬件实测，写入 docs 并同步三处索引
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete

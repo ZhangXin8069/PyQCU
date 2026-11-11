@@ -1,6 +1,6 @@
 # PyQCU `docs/**` 来源映射
 
-本表覆盖当前 `docs/` 顶层的 39 份 Markdown 文档。`docs/AGENTS.md` 是文件索引；
+本表覆盖当前 `docs/` 顶层的 40 份 Markdown 文档。`docs/AGENTS.md` 是文件索引；
 需要判断“原文应保留在哪里”时先读该文件和 `docs/ORGANIZATION.md`。
 
 ## 权威级别
@@ -30,6 +30,8 @@
 | [`docs/kupl_only_deployment.md`](../../../docs/kupl_only_deployment.md) | A | `pyqcu-kupl` | `pyqcu-testing-cpu`, `pyqcu-benchmark`, `pyqcu-tools` | 纯 KUPL 无 CUDA 构建、旧版 PyTorch dtype、CTest/Python 测试、环境检测、生产 BiStabCG/真实 Legacy-MG、HBM 放置、升级和排错。 |
 | [`docs/examples.md`](../../../docs/examples.md) | A | `pyqcu-testing` | — | 旧 `examples/` 到 `pyqcu/testing/` 的迁移映射、目录分类和常用入口。 |
 | [`docs/kupl_kunpeng_guide.md`](../../../docs/kupl_kunpeng_guide.md) | A | `pyqcu-kupl` | `pyqcu-testing-cpu`, `pyqcu-benchmark`, `pyqcu-docs` | KUPL 通用 C++17 兼容边界、鲲鹏 HMPI/MPI/OpenMP 放置、NUMA/片上内存/大页策略、环境检测、生产 MG/BiStabCG 选路、专项测试和性能证据模板。 |
+| [`docs/kupl_kunpeng_progress_20261110.md`](../../../docs/kupl_kunpeng_progress_20261110.md) | C | `pyqcu-benchmark` | `pyqcu-kupl`, `pyqcu-testing-cpu`, `pyqcu-docs` | 2026-11-05 至 11-10 鲲鹏真实环境时点证据：计算节点（`cn10579`，16 CPU NUMA + 16 片上 NUMA）与登录节点（`Kunpeng-920`，4 NUMA、无 SVE）实测拓扑、LX2 STREAM 带宽、HBM `set_mempolicy` 早期失败与后期成功、计算节点 `0.4346 s` 基线、登录节点 true-MG 筛选、dev108 以来代码改动与已否决路线。未打 tag，不得升级为永久承诺；证据实体多在远端未入库。 |
+| [`docs/kupl_kunpeng_figures_20261110.tex`](../../../docs/kupl_kunpeng_figures_20261110.tex) / [`.pdf`](../../../docs/kupl_kunpeng_figures_20261110.pdf) | C | `pyqcu-benchmark` | `pyqcu-kupl`, `pyqcu-docs` | 与 `kupl_kunpeng_progress_20261110.md` 同源的 9 页图表集（13 图 2 表）：对数轴柱标签必须用 `point meta=explicit symbolic` 输出真实值；误差条只表示 min–max 半幅；含作业台账、几何不可比性外推、HBM 绑定统计与 NUMA→片上内存映射。两遍 `xelatex` 实测 `Overfull=0`/`Float too large=0`/`Missing character=0`。未打 tag。 |
 | [`docs/profiler.md`](../../../docs/profiler.md) | A | `pyqcu-testing-profiler` | — | `torch.profiler` 入口、Chrome trace 与 Perfetto 使用。 |
 | [`docs/cuda_execution_topology.md`](../../../docs/cuda_execution_topology.md) | A | `pyqcu-cuda` | `pyqcu-testing`, `pyqcu-benchmark` | 一进程一 rank 一设备、MPI 跨设备分域、`MultiGpuMultigrid` 测试专用例外与检查清单。 |
 | [`docs/torch_backend_layout.md`](../../../docs/torch_backend_layout.md) | A | `pyqcu-solver` | `pyqcu-dslash`, `pyqcu-smear`, `pyqcu-tools` | Torch 实现位于 `pyqcu/torch`；公共 lattice/tools/selector 与兼容门面的边界。 |

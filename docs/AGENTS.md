@@ -5,7 +5,7 @@ PyQCU 参考文档。
 > 2026-09-27 迁移：顶层 `examples/` 已迁入 `pyqcu/testing/`。本目录旧报告中若
 > 出现 `examples/...`，应映射为 `pyqcu/testing/...`；现行文档已统一使用新路径。
 
-当前 `docs/` 顶层共有 **39 份 Markdown 文档（含本索引）**。下表只维护文件职责；
+当前 `docs/` 顶层共有 **40 份 Markdown 文档（含本索引）**。下表只维护文件职责；
 权威级别、唯一主责技能和提取边界见
 [`skills/pyqcu-docs/references/project-docs-map.md`](../skills/pyqcu-docs/references/project-docs-map.md)。
 
@@ -32,6 +32,8 @@ PyQCU 参考文档。
 | `kupl_only_deployment.md` | 纯 KUPL 无 CUDA 安装、旧版 PyTorch 兼容、环境检测、生产 BiStabCG/真实 Legacy-MG、HBM、升级和故障排查手册 |
 | `examples.md` | 测试与示例迁移映射、运行入口与结果解读 |
 | `kupl_kunpeng_guide.md` | KUPL CPU 后端在鲲鹏上的构建、MPI/OpenMP 绑定、NUMA/HBM 策略、环境检测、生产算法选路、测试与性能证据规范 |
+| `kupl_kunpeng_progress_20261110.md` | 2026-11-05 至 11-10 鲲鹏真实环境进展：计算节点/登录节点硬件实测、HBM 早期失败与后期成功、计算节点与登录节点性能数据、dev108 以来代码改动、已否决路线与阻塞项（C 级时点证据，未打 tag） |
+| `kupl_kunpeng_figures_20261110.tex` / `.pdf` | 上述进展的同源图表集（9 页、13 图 2 表）：绝对耗时与加速比、作业台账与几何不可比性、瓶颈归属与 roofline、STREAM 带宽、HBM 绑定统计、NUMA→片上内存映射、登录节点 A/B 与分格扫描、setup/初始化成本、证据台账。两遍 `xelatex` 通过 `Overfull=0`、`Float too large=0`、`Missing character=0` |
 | `profiler.md` | 剖析指南 — torch.profiler 与 Perfetto |
 | `cuda_execution_topology.md` | CUDA 生产拓扑：一 Python 进程 = 一 MPI rank = 一 GPU/DCU/GPGPU；`MultiGpuMultigrid` 测试专用例外 |
 | `torch_backend_layout.md` | Torch/CANN 实现目录、顶层公共层、兼容门面与 multigrid 选择器边界 |
