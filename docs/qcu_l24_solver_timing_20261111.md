@@ -86,6 +86,70 @@ M = (sizeof(Real) == sizeof(float)) ? 2048 : 128
 `residual_source` 字段直接写入报告，取值见
 `pyqcu/testing/simple/kupl_multigrid.py:890-905`（三种：跳过 / 分布式 NumPy / 单 rank NumPy）。
 
+### 0.3.1 相对值还是绝对值？——三重口径
+
+**本文所有 `atol`、`tolerance`、`residual` 都是相对值**，但"相对"的分母有三个
+版本，必须按行判断：
+
+| 口径 | 公式 | 出现位置 | 分母是什么 |
+|---|---|---|---|
+| **A. 相对 `‖b‖`**（标准） | `rel = ‖b − A·x‖ / ‖b‖` | 本文所有表格、`report.json` 的 `final_true_residual` | 该求解 RHS 的 2-范数 |
+| **B. 相对 `max(‖b‖, 1)`** | `rel = ‖b − A·x‖ / max(‖b‖, 1)` | C++ 内部日志 `full_true_residual=... relative=...`（`lattice_solver.cpp:489-491`、`:637-641`） | 同上但**下限为 1**；当 `‖b‖ < 1` 时该口径会**系统性地偏小** |
+| **C. 绝对量** | `‖b − A·x‖`，不除任何东西 | C++ 日志的 `full_true_residual=` 与 `recomputed_residual=` 字段；验收比较 `residual > tolerance` 两边都是**绝对值** | — |
+
+**为什么容易混淆**：C++ 把 `tolerance` 算成 `max(atol, ε·M) · ‖b‖`（绝对值），
+再与同样绝对值的 `residual` 相比 —— 这等价于 A 口径的相对判据。因此
+"`atol` 是相对目标"与"比较用绝对值"**同时成立**，不矛盾。
+
+**必须注意的例外**：`Clover-BiCGStab` 的真实比较式是
+`max(atol, ε·M) · max(‖b‖, 1)`（`lattice_solver.cpp:636`），即 B 口径。
+因此凡本文引用 `CLOVER_BISTABCG_SCHUR` 的 `tolerance=` 字段，都与表格里的
+A 口径相对残差**不完全可比**；当 `‖b‖ ≥ 1` 时两者等价。
+
+**`--skip-independent-residual` 的影响**：
+`pyqcu/testing/simple/kupl_multigrid.py:885-890` 直接把
+`acceptance = float(args.atol)` 写进报告，`final_true_residual` 置为 `null`。
+所以这类行的"验收门"是**配置值**，不是算出来的；本文所有标"仅 native"
+的行都属于此类。
+
+### 0.3.2 单奇偶还是完整场？——三种残差作用域
+
+| 作用域 | 枚举值 | 覆盖的格点 | 代码位置 |
+|---|---|---|---|
+| **Schur（单奇偶）** | `ResidualScope.SCHUR` | 只覆盖一个 parity（`params[kParity]`），是奇偶预条件后的 Schur 补方程 | `pyqcu/api/models.py:40`；`lattice_solver.cpp:150-300` |
+| **MATPC** | `ResidualScope.MATPC` | 单奇偶的 `M†M` 正规方程 | `models.py:39` |
+| **FULL（完整场）** | `ResidualScope.FULL` | 两个 parity 都覆盖，即完整 4 分量旋量场 | `models.py:38`；`lattice_solver.cpp:473-496` |
+
+本文表格中的 `独立真残差` **一律是 FULL 口径**：它由
+`pyqcu/testing/simple/kupl_residual.py:170-208` 的
+`distributed_relative_residual_streaming()` 计算，内部对 `target in range(2)`
+两个 parity 分别累加 `‖r‖²` 与 `‖b‖²`，最后取 `sqrt(Σ分子 / Σ分母)`：
+
+```text
+rel_full = sqrt( Σ_p ‖b_p − A_p·x‖² / Σ_p ‖b_p‖² ),  p ∈ {even, odd}
+```
+
+**C++ 内部的 native 残差不是 FULL**：`applyCloverMultigridQcu` 在
+`compact_fine_` 模式下走 `clover_bistabcg_dslash`，其残差是 **Schur 单奇偶**；
+只有 `full_to_canonical` 路径才覆盖整场。因此：
+
+- 报告 `residual_source = "KUPL native fail-closed solve"` → **Schur**
+- 报告 `residual_source = "independent ... full Wilson-Clover reconstruction"`
+  → **FULL**
+
+**这解释了本文一处关键差异**：`K9`（作业 2049318）的 native 残差
+`1.237e-5` 是 Schur 口径，而 `K8`（作业 2050917）的
+`3.5411e-6` 是 FULL 口径 —— 两者**作用域不同**，不能因为
+`1.237e-5 > 3.5411e-6` 就判断 K9 收敛更差。
+
+### 0.3.3 三个残差量再对照
+
+| 名称 | 作用域 | 计算者 | 分母 | 本文标注 |
+|---|---|---|---|---|
+| 递推残差 | Schur | C++ 递推公式 | `‖b‖`（A 口径） | 未单列 |
+| native 真残差 | **Schur**（`compact_fine_`）或 FULL（full 路径） | C++ 重算 | `max(‖b‖,1)`（B 口径） | 标注"仅 native" |
+| **独立真残差** | **FULL** | Python/NumPy，两个 parity 全累加 | `‖b‖`（A 口径） | 标注"独立真残差" |
+
 ### 0.4 可调参数默认值与 ABI 槽位
 
 CLI 定义：`pyqcu/testing/simple/kupl_multigrid.py:607-648`；
@@ -149,6 +213,53 @@ static constexpr Real damping_steps[] = {1, 0.5, 0.25, 0.125};
 - `coarse_calls>0` 只证明粗层算子被调用过，**不证明**修正被接受；
   必须同时看 `KUPL_REQUIRE_MG_CORRECTION=1` 是否放行。
 
+### 0.6.1 `restart` 与 `coarse_calls`/`fine_calls` 的真实关系
+
+读表时最容易误判的三组关系，逐一给出代码依据：
+
+**① `restart` 是"每隔多少次细层迭代尝试一次粗修正"**
+（`lattice_clover_multigrid.cpp:220-222`）：
+
+```cpp
+levels_[0].correction_interval = params_[kMgLevel1NumRestart] > 0
+    ? params_[kMgLevel1NumRestart] : <默认>;   // 来自 --restart
+```
+
+- `restart=0` → 不进入 MG 路径，直接走 optimized parity-Schur BiCGStab；
+- `restart=N>0` → 每 N 次细层迭代检查一次是否做粗修正。
+
+**② `fine_calls` 是细层算子调用总数，不是迭代次数**
+（`lattice_clover_multigrid.cpp:1039`）。BiCGStab 每迭代固定调用 2 次
+Schur 算子（`A·p` 与 `A·s`），所以经验关系是：
+
+```text
+fine_calls ≈ 2 × 外层迭代数 + 常数
+```
+
+代入本文数据验证（迭代数取自同窗口的 BiCGStab 对照行）：
+
+| 窗口 | `cc`/`fc` | 2×迭代 = | `fc` | 偏差 |
+|---|---|---:|---:|---:|
+| wIV（`restart=20/50` 族） | 9/29 | 32 | 29 | −3 |
+| wIII（`restart=8/10` 族） | 19/32 | 32 | 32 | 0 |
+| wI（早期 `restart=5` 族） | 29/37 | 36 | 37 | +1 |
+
+偏差 ±3 来自起手/收尾的额外算子调用与不同停止点，因此该关系只能作**量级校验**，
+不能当作精确公式。
+**因此 `fc` 与"迭代数"列不能互相替代，也不能用 `fc/2` 反推迭代数。**
+
+**③ `coarse_calls` 是粗层算子调用次数，不等于被接受的修正数**
+`lattice_clover_multigrid.cpp:982-1014` 的阻尼线搜索每轮最多调用粗层
+4 次（`1, 0.5, 0.25, 0.125`），且可能全部失败后回滚。所以：
+
+```text
+coarse_calls ≥ 被接受的修正数 × 每轮粗层调用次数
+```
+
+**判据**：要证明"真的做了 MG"，必须同时满足
+`coarse_calls > 0` **且** `KUPL_REQUIRE_MG_CORRECTION=1` 未抛错
+（`:469-472`）。只看 `coarse_calls > 0` 会把 fine-BiCG fallback 误判为 MG。
+
 ### 0.7 计时边界
 
 | 字段 | 包住的区间 | 不含 |
@@ -160,6 +271,108 @@ static constexpr Real damping_steps[] = {1, 0.5, 0.25, 0.125};
 | `process_seconds` | 整个子进程 | — |
 
 跨后端的绝对时间只在**同一字段**内可比。
+
+### 0.8 内存与显存峰值：字段、口径与缺口
+
+本文原先只引用耗时与残差，**内存/显存数据基本缺失**。本节说明可用字段、口径，
+以及仓库内确实没有的部分。
+
+#### 0.8.1 字段定义（CPU 侧）
+
+`pyqcu/testing/simple/kupl_bistabcg.py:76-91` 的 `cpu_memory_snapshot()`：
+
+| 字段 | 单位 | 含义 | 是否峰值 |
+|---|---|---|---|
+| `memory.max_rss_kib` | KiB | `getrusage(RUSAGE_SELF).ru_maxrss` | **是**：进程生命周期内 RSS 最大值 |
+| `memory.resident_kib` | KiB | 报告写入时刻 `/proc/self/status` 的 `VmRSS` | **否**：瞬时值 |
+| `memory.omp_threads` | 字符串 | 环境变量 `KUPL_OMP_THREADS` | — |
+| `memory.available` | bool | 快照是否成功 | — |
+
+**关键区别**：`max_rss_kib` 是**进程终身峰值**，包含解释器、NumPy、MPI 运行时；
+`resident_kib` 是**写入时刻**的驻留。两者不能互换，也不能相减求"库占用"。
+
+#### 0.8.2 字段定义（设备侧）
+
+只有 CUDA/DCU 路径有设备显存：
+
+| 字段 | 定义 | 来源 |
+|---|---|---|
+| `device.peak_delta_over_baseline_bytes` | `cudaMemGetInfo` 采样峰值相对进程基线的**增量** | `docs/legacy_vs_strict_mg_memory_20261023.md:20-23` |
+| `device.peak_bytes` / `baseline_bytes` | 峰值与基线绝对值 | 同上 |
+
+该增量**包含** CUDA context、PyTorch allocator 与 C++ `cudaMallocAsync` 分配，
+不只是 PyTorch allocator 统计。
+
+#### 0.8.3 本文已记录的内存数据（CPU 侧，全部等级 A）
+
+来自 `logs/screen-*.txt` 的 `report.json` 原文，`memory.omp_threads` 均为 8
+（个别 16）：
+
+| 场景 | `max_rss_kib` | `resident_kib` | 线程 | 对应行 |
+|---|---:|---:|---:|---|
+| 登录节点 r50 full-residual（`0.9473 s`） | 586,284 | 394,636 | 8 | §3.2 |
+| 登录节点 r20 full-residual（`1.3162 s`） | 571,608 | 478,892 | 8 | §3.2 |
+| 登录节点 r10 full-residual（`1.0438 s`） | 589,468 | 397,788 | 8 | §3.2 |
+| **计算节点 K8（`213.44 s`）** | **579,256** | **486,140** | 8 | §2.1 |
+| 登录节点 wI MG 样本（`1.4172 s`） | 574,096 | 481,184 | 8 | §3.1 |
+| 登录节点 wIV MG 样本（`0.7051 s`） | 572,844 | 480,228 | 8 | §3.1 |
+| 登录节点 `1 1 2 8` MG（`1.8405 s`） | 578,476 | 542,460 | 8 | §3.3 |
+| 登录节点 8 rank×16 thr BiCG（`1.8779 s`） | 725,216 | 621,756 | 16 | §3.3 |
+| 登录节点 8 rank×16 thr MG（`1.5865 s`） | 821,940 | 676,016 | 16 | §3.3 |
+
+**可读出的量级结论**：
+
+- 单 rank、8 线程下，`24³×64` c64 的**进程终身峰值约 540–590 MiB**；
+- 16 线程配置升至 **725–822 MiB**，增量主要来自 OpenMP 线程栈与每线程 scratch；
+- 8 线程 vs 16 线程的 `resident` 差约 150–230 MiB，与线程数近似线性。
+
+**不能从这些数得出的结论**：
+
+- 不能拆出"KUPL 库本身占用"——`max_rss` 含 Python、NumPy、mpi4py；
+- 不能外推到 32 rank ——只有 8/16 线程的样本；
+- 不能当作显存数据——这是 CPU RSS。
+
+#### 0.8.4 仓库内确实缺失的内存/显存数据
+
+下表逐项列出**本文涉及的运行中，哪些有内存数据、哪些没有**，以及缺失原因：
+
+| 环境 / 行 | 内存或显存数据 | 状态 |
+|---|---|---|
+| E1 计算节点 K1（`y76`，`0.4346 s`） | **无** | `y76` 的 `report.json` **不在本地**（`logs/kupl_hbm_opt_20261106.md` 为转述，且该文件被 gitignore）。仓库内无该次运行的 `memory` 字段 |
+| E1 计算节点 K2–K7 | **无** | 同上，`y75`/`y74`/`y61`/`y50`/`y47`/`y27` 的 report 均未入库 |
+| E1 计算节点 K8（`213.44 s`） | **有**：579,256 / 486,140 KiB | 屏记录含完整 report |
+| E1 计算节点 K9（`164.75 s`） | **有**：1,282,116 / 1,114,496 KiB | `screen-…-253.txt`（4 rank × 32 线程，故显著更大） |
+| E1 计算节点 true-MG | **无** | 无 `report.json`（作业被杀） |
+| E2 登录节点全部行 | **有**（见 §0.8.3） | 屏记录 |
+| E3 鲲鹏控制节点 `25.3325/14.9281/9.8310 s` | **无** | `qcu_mg_performance_ledger_20261029.md:478` 只给墙钟与残差 |
+| E4 Xeon 全部行 | **无** | `three_way_benchmark_20261022.md` 原始 JSON 在 gitignore 的 `data/**` |
+| E5 V100 全部行 | **无** | 同上；且 `legacy_vs_strict_mg_memory` 明确"benchmark JSON 没有 GPU 型号字段" |
+| E6 A100 全部行 | **无设备峰值** | `qcu_mg_performance_ledger_20261029.md` 记录的是 OOM 时刻 `MaxRSS`（Slurm 字段，非设备显存峰值），见 §0.8.5 |
+| E7 DCU 全部行 | **无** | `qcu_quda_solver_dcu_l24_20261029.md` 未记 `max_rss`；只有硬件总显存 `17,163,091,968 B` |
+
+#### 0.8.5 A100 / DCU 的"容量墙"数字不是峰值
+
+`qcu_mg_performance_ledger_20261029.md` 里出现的 `35,000,128 KiB`、
+`29,410,048 KiB`、`52.68 GiB` 等是 **Slurm `MaxRSS`（主机内存）在 OOM 时刻的值**，
+用于描述 cgroup 撞墙，**不是**设备显存峰值，**也不是**正常运行的显存占用。
+引用时不得写成"显存峰值"。
+
+DCU 侧只有卡的总显存 `17,163,091,968 B`（`16,368 MiB`）与 L48 cache 逻辑
+payload `18,728,091,648 B` 的对比，属于**容量可行性**判断，不是运行峰值。
+
+#### 0.8.6 补齐这些数据需要什么
+
+要在仓库内补齐，需要从远端取回并入库（当前均不在本地）：
+
+1. `data/kupl_hbm_opt_20261106/y76/report.json`（含 `memory` 段）
+2. `data/kupl_hbm_opt_20261106/y7{4,5}/report.json`
+3. `data/kupl_hbm_opt_20261106/y6{1}/report.json`、`y5{0}/`、`y4{7}/`
+4. `data/` 下 `three_way_benchmark_20261022` 的原始 JSON（含 `memory`）
+5. A100/DCU 运行若要显存峰值，需在 worker 里加 `peak_delta_over_baseline_bytes`
+   采样；当前 DCU L24 报告没有该字段
+
+**在这些文件入库前，本文任何"内存/显存"表述都只能引用 §0.8.3 的 9 行实测值，
+其余一律标"无数据"。**
 
 ## 1. 为什么没有单一数值
 
@@ -191,15 +404,15 @@ static constexpr Real damping_steps[] = {1, 0.5, 0.25, 0.125};
 
 | # | ranks × thr | grid | solve (s) | 迭代 | 独立真残差 | 验收门 | 样本 | 作业 | 等级 |
 |---|---|---:|---:|---:|---|---:|---:|---|---|
-| K1 | **32 × 12** | `1 1 1 32` | **0.4345627510** | 16 | `3.5412238955e-6` | `2.44140625e-4` | 1 | y76 | B |
+| K1 | **32 × 12** | `1 1 1 32` | **0.4345627510** | 16 | `3.5412238955e-6`（FULL） | `2.44140625e-4` | 1 | y76 | B |
 | K2 | 32 × 12 | `1 1 1 32` | 0.4472 | 16 | `3.54e-6` | 同上 | 1 | y75 | B |
 | K3 | 32 × 12 | `1 1 1 32` | 0.5719 | 18 | `7.39e-7` | 同上 | 1 | y74 | B |
 | K4 | 32 × 12 | `1 1 1 32` | 0.4877 | — | — | — | 1 | y61 剖析轮 | B |
 | K5 | 32 × 12 | `1 1 1 32` | 0.5093 | — | — | — | 1 | y50 | B |
 | K6 | 32 × 12 | `1 1 1 32` | 0.5126 | — | — | — | 1 | y47 | B |
 | K7 | 历史最低（安静节点） | `1 1 1 32` | 0.475 | — | — | — | 1 | y27 | B |
-| K8 | 16 × 8 | `1 1 1 16` | **213.44090568200045** | 16 | `3.5410827126526993e-6` | `2.44140625e-4` | 1 | 2050917 | A |
-| K9 | 4 × 32 | `1 1 1 4` | **164.7499241** | 16 | `1.237e-5`（**仅 native**） | 未做独立残差 | 1 | 2049318 | **A** |
+| K8 | 16 × 8 | `1 1 1 16` | **213.44090568200045** | 16 | `3.5410827126526993e-6`（FULL） | `2.44140625e-4` | 1 | 2050917 | A |
+| K9 | 4 × 32 | `1 1 1 4` | **164.7499241** | 16 | `1.237e-5`（**仅 native，Schur 作用域**） | 未做独立残差 | 1 | 2049318 | **A** |
 
 **K9 的 grid 与 rank/thread 直接证据**：`logs/job_y89.sh` 第 12–13 行
 `#DSUB -N 4` / `#DSUB -rpn 4`、第 40 行 `--grid 1 1 1 4`、第 37 行
@@ -207,6 +420,22 @@ static constexpr Real damping_steps[] = {1, 0.5, 0.25, 0.125};
 （`"omp_threads": "32"`、`"residual_source": "KUPL native fail-closed solve;
 independent check skipped"`）。**K8 的 grid 同样有直接证据**：
 `job_y91_manualgeom.sh` 第 53 行 `--grid 1 1 1 16`、`#DSUB -N 16`、8 线程。
+
+> **残差口径警告**：K9 的 `1.237e-5` 是 **Schur 单奇偶** native 残差，
+> K8 的 `3.5411e-6` 是 **FULL 完整场**独立残差。两者作用域不同（见 §0.3.2），
+> 不能直接比较大小来判断收敛质量。
+
+**内存数据**（`memory` 段，见 §0.8）：
+
+| 行 | `max_rss_kib` | `resident_kib` | 说明 |
+|---|---:|---:|---|
+| K1（`y76`） | **无** | **无** | `y76/report.json` 未入库 |
+| K2–K7 | **无** | **无** | 同上 |
+| K8 | **579,256**（565.7 MiB） | 486,140（474.7 MiB） | 16 rank × 8 线程，屏记录原文 |
+| K9 | **1,282,116**（1,252.1 MiB） | 1,114,496（1,088.4 MiB） | 4 rank × 32 线程，线程多故更大 |
+
+K9 的 `max_rss` 约为 K8 的 **2.2 倍**，与线程数 32 vs 8 的方向一致，但 K9 只有
+4 个 rank，故不能简单按线程线性外推。
 
 **K1–K7 属同一 32×12 几何**，彼此可比；**K8/K9 是不同几何，不可与 K1 相减或相除
 后归因于 HBM**。按每 rank 局部体积线性外推，K8/K9 的理想弱扩展预测约为

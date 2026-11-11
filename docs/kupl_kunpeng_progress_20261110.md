@@ -37,6 +37,19 @@
 `M = 2048`（c64）或 `128`（c128）。c64 下 `ε·M = 2.44140625e-4`，即本文
 反复出现的验收门。
 
+**相对 vs 绝对、单奇偶 vs 完整场**（详见
+[`qcu_l24_solver_timing_20261111.md`](qcu_l24_solver_timing_20261111.md) §0.3.1–0.3.2）：
+
+- 本文全部 `atol` / `residual` 都是**相对值**；但 C++ 内部把
+  `tolerance = max(atol, ε·M)·‖b‖` 算成绝对值再比，两者等价。
+  **例外**：Clover-BiCGStab 用 `max(‖b‖,1)` 作分母（`lattice_solver.cpp:636`）。
+- `独立真残差` 一律是 **FULL（两个 parity 全覆盖）**，由
+  `kupl_residual.py:170-208` 对 `target in range(2)` 累加后开方。
+- C++ 的 `native` 残差在 `compact_fine_`（odd-Schur cache）模式下是
+  **Schur 单奇偶**，不是 FULL。因此 native 残差与独立残差**不能直接比大小**。
+- `--skip-independent-residual` 时报告写入的 `acceptance` 就是 `args.atol`
+  本身（`kupl_multigrid.py:885-890`），不是计算值。
+
 **粗层容差**（`kupl_multigrid.py:188-189`）：
 `coarse_atol(k) = atol × coarse_tol_factor × 3^(k−1)`。
 
