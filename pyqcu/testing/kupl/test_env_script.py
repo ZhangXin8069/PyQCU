@@ -116,7 +116,11 @@ class EnvScriptTests(unittest.TestCase):
         self.assertTrue(library.is_symlink())
         target = Path(os.readlink(library))
         self.assertFalse(target.is_absolute())
-        self.assertEqual(target.name, "libqcu.so")
+        # The link keeps the portable ``libqcu.so`` name while pointing at the
+        # platform's real artefact: libqcu.so on ELF, libqcu.dylib on Mach-O.
+        self.assertIn(
+            target.name, ("libqcu.so", "libqcu.dylib"),
+            f"unexpected symlink target {target}")
         if library.is_file():
             self.assertTrue(library.resolve().is_relative_to(ROOT))
 

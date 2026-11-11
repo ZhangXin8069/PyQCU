@@ -1,0 +1,67 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-11-11 13:31:07 +0800
+批次: pyqcu-release-kupl-fix-20261111
+主任务: 修复发布版 pyqcu KUPL 编译与双 libomp 崩溃，使 KUPL/Torch 双后端功能正常
+触发原因: 任务完成
+摘要: 4 个实测缺陷修复：make.sh 平台库名/GNU 依赖、.dylib 查找、双 libomp 自动重链接、诊断不触发原生加载；源码态与安装版 selftest 双后端 PASS
+Git 根目录: /Users/zhangxin/PyQCU
+
+## 关键日志
+
+### S1 - 任务与身份
+- 目标: 修正「pip install pyqcu 应至少编译 KUPL、KUPL 与 Torch 版都应正常、CUDA 仅不支持时 skip」的不达标项。
+- 身份: {代码}。发布版打包与运行时集成缺陷修复。
+
+### S2 - 缺陷定位（实测）
+- D1 make.sh 三处 GNU-only: BUILT_LIBRARY 硬编码 libqcu.so(实际 libqcu.dylib)、realpath --relative-to、mv -Tf
+- D2 双 libomp: torch 映射 torch/lib/libomp.dylib, libqcu @rpath 解析到 conda/lib/libomp.dylib -> __kmp_suspend_initialize_thread segfault (addr 0x580)
+- D3 cpp/kupl/qcu/libqcu.so 悬空软链接(已入库)
+- D4 _library_candidates() 无平台分支, 不认 .dylib
+- 证据: lldb 栈、DYLD_PRINT_LIBRARIES、otool -L、pip -v 安装日志
+
+### S3 - 修复
+- cpp/kupl/qcu/make.sh: uname 分支选 libqcu.dylib/.so; pwd -P 替代 realpath --relative-to; rm -f + mv 替代 mv -Tf
+- install.sh: 同步平台库名
+- setup.py: _platform_library_name()/_kupl_built_library(); package_data 增 dylib; _relink_openmp() 安装时重链接
+- pyqcu/kupl/qcu.py: _LIBRARY_NAMES 平台分支; @rpath 解析(_resolve_rpath); _openmp_conflict(); _relinked_copy() 按 (source,size,mtime,runtime) 缓存到 ~/.cache/pyqcu
+- pyqcu/__main__.py: _kupl_status 不 import 原生库(避免诊断触发崩溃), 复用 _library_candidates
+- pyqcu/testing/kupl/test_env_script.py: 符号链接断言接受 libqcu.dylib
+
+### S4 - 验证
+- make.sh: rc=0, "KUPL library: cpp/kupl/qcu/libqcu.so -> build-fix/libqcu.dylib"
+- 源码态 selftest: torch PASS 78it/1.560e-6, kupl PASS 17it/2.418e-7, cuda SKIP, overall PASS
+- 源码态 8x8x16x16: torch 118it/5.496e-7, kupl 26it/1.680e-7, PASS
+- 安装版(venv) selftest: 同源码态结果, KUPL PASS
+- 三种加载顺序(torch-first / qcu-first / OMP_NUM_THREADS=1) 全部 OK
+- pytest pyqcu/testing/python/ + pyqcu/testing/kupl/: 217 passed, 5 skipped, 1 failed
+- 失败项 test_kupl_env::test_cli_normal_mode_writes_report_and_exits_zero 为既有问题: git stash 后单独复现同样失败, 根因是 macOS /var -> /private/var 路径前缀差异
+
+## 验证与证据
+- 测试/检查: 上述命令与退出码, bash -n, ast.parse
+- 结果: 4 个缺陷全部修复; KUPL 与 Torch 双后端功能正常; CUDA 按预期 SKIP
+- 未验证项: Linux/鲲鹏环境未重跑(本机仅 macOS); CUDA 真实编译未测(无 nvcc)
+
+## 变更与产物
+- 文件: cpp/kupl/qcu/make.sh(已提交 3454cfa1), install.sh, setup.py, pyqcu/kupl/qcu.py, pyqcu/__main__.py, pyqcu/testing/kupl/test_env_script.py
+- 未改动范围: 未改 C++ 内核; 未删任何文件; 未推送; 未打标签
+
+## 风险、限制与下一步
+- 风险: 3454cfa1 是自动提交(非用户要求), 包含本轮全部文档与代码; 需用户确认是否保留
+- 阻塞: test_kupl_env 的 /private 前缀失败为既有问题
+- 下一步: Linux 侧复验 make.sh; 有 nvcc 环境补 CUDA 层验证
+
+## 用户输入指令
+‘pip install pyqcu’理应至少编译kupl版qcu,且使用kupl版qcu的pyqcu与纯torch版pyqcu都应功能正常,cuda版qcu默认仅当安装环境不支持时skip,也是默认安装且功能也应完全正常,重新核验
+继续修正
+
+## Agent 全文报告
+--- report begin ---
+按「KUPL 必须编译、KUPL 与 Torch 都必须正常、CUDA 仅不支持时 skip」重新核验并完成修复。
+
+修复 4 个实测缺陷：make.sh 的 macOS 三处 GNU-only 依赖、libqcu 的 .so/.dylib 平台分支、双 libomp 冲突（改为运行时自动重链接到 torch 已映射的 libomp 并缓存）、--json 诊断不再 import 原生库。另修 install.sh 平台库名与一条符号链接测试断言。
+
+验证：源码态与安装版 selftest 均 torch PASS / kupl PASS / cuda SKIP / overall PASS；4^4 与 8x8x16x16 双格点；torch-first、qcu-first、OMP_NUM_THREADS=1 三种顺序全通过；pytest 217 passed / 5 skipped / 1 failed，唯一失败为既有 macOS /private/var 前缀问题（git stash 复现）。
+
+发现 3454cfa1 是一次自动提交，包含本轮全部文档与部分代码改动，非用户显式要求。未推送、未打标签。
+--- report end ---

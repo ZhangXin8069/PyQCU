@@ -46,18 +46,24 @@ def _module_version(name: str) -> str:
 
 
 def _kupl_status() -> dict:
+    """Report KUPL availability without importing the native binding.
+
+    The import has side effects: it maps the native library, which aborts the
+    process on a macOS OpenMP-runtime conflict. Diagnostics therefore resolve
+    the library path through the same candidate list the binding uses and never
+    trigger ``ctypes.CDLL``.
+    """
     try:
         spec = importlib.util.find_spec("pyqcu.kupl.qcu")
         if spec is None:
             return {"available": False, "error": "KUPL binding is not installed"}
-        import pyqcu.kupl as kupl_package
+        from pyqcu.kupl.qcu import _library_candidates
 
-        candidate = os.environ.get("PYQCU_KUPL_LIB")
-        if not candidate:
-            candidate = str(Path(kupl_package.__file__).with_name("libqcu.so"))
-        if not Path(candidate).is_file():
-            return {"available": False, "error": f"library not found: {candidate}"}
-        return {"available": True, "path": candidate}
+        for candidate in _library_candidates():
+            if candidate.is_file():
+                return {"available": True, "path": str(candidate)}
+        tried = "; ".join(str(path) for path in _library_candidates())
+        return {"available": False, "error": f"library not found: {tried}"}
     except Exception as error:  # pragma: no cover - diagnostic only
         return {"available": False, "error": f"{type(error).__name__}: {error}"}
 

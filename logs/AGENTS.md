@@ -994,3 +994,11 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: 3 子代理并行核查 7 个环境硬件字段与带宽口径，产出 2 份新文档；纠正 16×t24 下界性质、36 线程饱和点与 JSON 1000 倍量纲错误
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
+## pyqcu-release-kupl-fix-20261111 - final - 2026-11-11 13:31:07 +0800
+- 主任务: 修复发布版 pyqcu KUPL 编译与双 libomp 崩溃，使 KUPL/Torch 双后端功能正常
+- 日志文件: logs/v2026111113.txt
+- 文件大小: 4576 bytes
+- 触发原因: 任务完成
+- 关键内容: 4 个实测缺陷修复：make.sh 平台库名/GNU 依赖、.dylib 查找、双 libomp 自动重链接、诊断不触发原生加载；源码态与安装版 selftest 双后端 PASS
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete

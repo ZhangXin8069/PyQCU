@@ -9,6 +9,158 @@
 > `docs/**` 与 `logs/**` 记录做分层归档。任何单值都必须在同一表格行内连同后端、
 > 硬件、精度、路径与统计口径一起引用，禁止跨行取最小值作为"PyQCU 的 L24 性能"。
 
+## 0. 记号、精度与参数约定
+
+本文使用大量缩写。**所有记号在此定义一次**，正文不再重复；凡本文未定义的记号，
+视为无来源，不得引用。
+
+### 0.1 记号表
+
+| 记号 | 展开 | 含义 | 证据来源 |
+|---|---|---|---|
+| `c64` / `c128` | complex64 / complex128 | 复数量子场精度；实部为 float32 / float64 | `pyqcu/kupl/define.py:47-48`（`_LAT_C64_=2`、`_LAT_C128_=3`） |
+| `cc` | `coarse_calls` | MG 粗层算子（restrict/coarse solve/prolong 组合）被调用次数。**不是**"coarse correction 次数" | `cpp/kupl/qcu/src/lattice_clover_multigrid.cpp:1039` 的 profile 输出字段 |
+| `fc` | `fine_calls` | 细层算子（Schur dslash）被调用次数 | 同上 |
+| `屏` | screen hardcopy | GNU `screen` 的 `hardcopy` 落盘文件，内容为终端快照（含 `(base) user@login02:~$` 提示符与折行） | 文件名 `logs/screen-73056-ss-20261106-NNN.txt` |
+| `yNN`（`y76`/`y75`/`y61`…） | 远端结果目录 | `/home/share/nsls_yangyb/PyQCU/data/kupl_hbm_opt_20261106/yNN/`。**是目录名，不是作业号** | `logs/screen-73056-ss-20261106-146.txt`（显示 `job_y76.sh` 内 `WORK_DIR="$CASE_DIR/y76"`） |
+| `K1`–`K9` | 本文行号 | 仅用于本文 §2 表格索引，无外部含义 | — |
+| `V1`–`V8` | 本文行号 | §7 V100 行索引 | — |
+| `X1`–`X7` | 本文行号 | §4 Xeon 行索引 | — |
+| `A1`–`A11` | 本文行号 | §8 A100 行索引。**与"A/B 测试"无关** | — |
+| `C1`–`C3` | 本文行号 | §9 DCU 行索引 | — |
+| `D1`–`D13` | 本文行号 | §6 `dev99` 期行索引 | — |
+| `w1`–`w6` | 窗口编号 | §3.1 的 6 个同窗 A/B 窗口 | 本文 §3.1 |
+| `r*`（`r10`/`r20`/`r50`） | `restart=` 参数值 | **仅在此语境**表示 MG 粗修正间隔 | CLI `--restart` |
+| `r1`/`r2`（`dev99` 表） | MPI ranks 数 | **仅此类**表示 1/2 个 MPI rank，与 `restart` 无关 | `docs/profiler_solver_performance_history.md` §5.1 原注 |
+| `E1`–`E7` | 环境代号 | §2–§8 的 7 个计算环境 | `qcu_l24_environment_bandwidth_20261111.md` §1 |
+| `4r×32t` / `16r×8t` | ranks × threads | 4 ranks × 32 threads / 16 ranks × 8 threads。**旧写法 `E4x32`/`E16x8` 已废弃**，因与 `E1–E7` 环境代号撞字母 | — |
+| `n` | 样本数 | 该行统计用的独立重复次数；`n=1` 表示单样本，**不是中位数** | — |
+| `MAD` | median absolute deviation | 中位绝对偏差：`median(x_i − median(x))` 的绝对值，即 `median(abs(x_i − median(x)))` | — |
+
+### 0.2 精度与质量参数
+
+| 参数 | 本文字段 | 定义 | 证据 |
+|---|---|---|---|
+| 精度 | c64 / c128 | 见 §0.1 | — |
+| `mass` | 质量参数 | 直接写入 `argv[0]` | `include/kupl/define.h:73`（`kMass=0`） |
+| `kappa` | `1/(2·mass + 8)` | Clover-Wilson 跳距系数。本文 `mass=-0.277` → `kappa=1/7.446=0.13430029546065003` | PyQCU 公共约定；与本文数值一致 |
+| `csw` | Sheikholeslami-Wohlert 系数 | 写入 `argv[7]` | `define.h:80`（`kCsw=7`） |
+| `atol` | 相对残差目标 | 写入 `argv[1]` | `define.h:74`（`kAtol=1`） |
+| `max_iter` | 最大外层迭代 | 写入 `params[13]` | `define.h:26`（`kMaxIter=13`） |
+
+### 0.3 收敛判据（两套阈值，此前文档未区分）
+
+源码 `cpp/kupl/qcu/src/lattice_solver.cpp:157-165`：
+
+```cpp
+solve_tolerance      = atol                    // 相对目标
+rhs_norm             = sqrt(global_norm2(rhs))
+recurrence_tolerance = max(atol, 4ε) · ‖b‖     // 迭代内退出判据
+acceptance_tolerance = max(atol, ε·M) · ‖b‖    // 收敛后的真残差验收门
+```
+
+其中 `ε` 为该实精度机器 epsilon，`M` 由 `residual_floor()` 给出
+（`cpp/kupl/qcu/src/backend.cpp:473-477`）：
+
+```cpp
+M = (sizeof(Real) == sizeof(float)) ? 2048 : 128
+```
+
+**代入验算**：
+
+| 精度 | `ε` | `M` | `ε·M` | 本文出现的验收门 |
+|---|---|---:|---|---|
+| c64 | `1.1920929e-07` | 2048 | **`2.44140625e-4`** | 是的，即此值 |
+| c128 | `2.2204460e-16` | 128 | `2.84217094e-14` | — |
+
+即**本文反复出现的 `2.44140625e-4` 不是经验常数，而是 `eps(float32) × 2048`**。
+
+三个残差量必须区分：
+
+| 名称 | 定义 | 本文如何标注 |
+|---|---|---|
+| 递推残差 | `‖r_k‖`，迭代内由递推公式更新 | 未单列 |
+| native 真残差 | 用 `v = A·x` 重算的 `‖b − A·x‖`，C++ 内计算 | 标注"仅 native" |
+| **独立真残差** | Python/NumPy 用完整 Wilson-Clover 算子重建并做 MPI halo，是唯一可称"独立验证"的量 | 标注"独立真残差" |
+
+`residual_source` 字段直接写入报告，取值见
+`pyqcu/testing/simple/kupl_multigrid.py:890-905`（三种：跳过 / 分布式 NumPy / 单 rank NumPy）。
+
+### 0.4 可调参数默认值与 ABI 槽位
+
+CLI 定义：`pyqcu/testing/simple/kupl_multigrid.py:607-648`；
+默认常量：`pyqcu/testing/simple/_common.py:63-68`。
+
+| 参数 | CLI | **默认值** | ABI 槽位 |
+|---|---|---|---|
+| 格点 | `--lat` | `8 8 8 16` | `params[0:4]` |
+| MPI 分格 | `--grid` | 自动（x 上一 rank） | `params[5:9]` |
+| 质量 | `--mass` | `0.05` | `argv[0]` |
+| csw | `--csw` | `1.160920226` | `argv[7]` |
+| atol | `--atol` | **`1e-6`** | `argv[1]` |
+| max_iter | `--max-iter` | `1000` | `params[13]` |
+| 精度 | `--dtype` | `c64` | `params[14]` |
+| MG 层数 | `--levels` | `2` | `params[17]` |
+| dof | `--dof` | `12 2 2 2 2` | `params[19+8k]` |
+| mg_grid（block） | `--mg-grid` | `2 2 2 2` | `params[19+8k]` 同段 |
+| **restart** | `--restart` | **`5`**（`0` = 退化为 parity-Schur BiCGStab） | `params[26+8k]` |
+| coarse_max_iter | `--coarse-max-iter` | `200` | `params[24+8k]` |
+| coarse_tol_factor | `--coarse-tol-factor` | **`1e4`** | 合成进 `argv[3+k]`，见 §0.5 |
+| nv_iters | `--nv-iters` | `2` | null-vector 构建迭代数 |
+| deflate | `--no-deflate` | 开启 | `params[55]` |
+| seed | `--seed` | `42` | `params[52]` |
+| 粗层 cache | `--coarse-cache` | 无（按需重建） | `set_ptrs[30+4k]` |
+
+> `--restart 0` 是完全不同的算法：跳过粗层，直接做 parity-Schur BiCGStab。
+> 本文中所有 `levels=1, restart=0` 的行都属于这条路径，**不是 multigrid**。
+
+### 0.5 粗层容差的合成公式
+
+`pyqcu/testing/simple/kupl_multigrid.py:188-189`：
+
+```python
+argv[ARGV_MG_LEVEL_BASE + level - 1] = float(atol * coarse_tol_factor * (3 ** (level - 1)))
+```
+
+即第 `k` 个粗层的相对容差为：
+
+```text
+coarse_atol(k) = atol × coarse_tol_factor × 3^(k-1)
+```
+
+默认值代入：第 1 粗层 = `1e-6 × 1e4 = 1e-2`，第 2 粗层 = `3e-2`。
+**本文提到的 `coarse-tol-factor=10`、`1e6` 等都必须按此式换算成实际 `coarse_atol`**
+才能与其它结果比较。
+
+### 0.6 MG 粗修正的阻尼线搜索
+
+`cpp/kupl/qcu/src/lattice_clover_multigrid.cpp:984-985`：
+
+```cpp
+static constexpr Real damping_steps[] = {1, 0.5, 0.25, 0.125};
+```
+
+每 `restart` 步构造一次粗修正后，按 `1 → 0.5 → 0.25 → 0.125` 依次尝试，
+**只接受使细层真残差下降的步长**；四步全失败则回滚解并恢复原残差
+（`:1008-1014`）。这解释了本文两处容易误读的现象：
+
+- `restart=50` 在 16 次迭代内只触发 **1 次**修正 → 应表述为"initial deflation +
+  fine BiCGStab"，**不是**周期 V-cycle；
+- `coarse_calls>0` 只证明粗层算子被调用过，**不证明**修正被接受；
+  必须同时看 `KUPL_REQUIRE_MG_CORRECTION=1` 是否放行。
+
+### 0.7 计时边界
+
+| 字段 | 包住的区间 | 不含 |
+|---|---|---|
+| `wall_seconds` | 仅 `applyCloverMultigridQcu` 调用 | 输入预绑定、HDF5 读取、独立残差重建 |
+| `input_prebind_seconds` | 读输入前的 NUMA/HBM 预绑定 | solver |
+| `builder_seconds` | MG cache 构建 | solve |
+| `residual_seconds` | 独立真残差重建 | solve |
+| `process_seconds` | 整个子进程 | — |
+
+跨后端的绝对时间只在**同一字段**内可比。
+
 ## 1. 为什么没有单一数值
 
 | 维度 | 取值 | 对耗时的影响 |
@@ -404,6 +556,10 @@ MPI 运行时随之崩溃，**正式结论必须标记 INVALID**。
 | E1 cn10579 | 32r × 12t（K1） | **0.4346** | **149.51** |
 | E1 cn10579 | 16r × 8t（K8） | 213.4409 | 0.30 |
 | E1 cn10579 | 4r × 32t（K9） | 164.7499 | 0.39 |
+
+> 旧图表文件 `kupl_kunpeng_figures_20261110.tex` 的 x 轴仍使用
+> `E4x32` / `E16x8`，它们是 **4 ranks×32 threads / 16 ranks×8 threads**
+> 的缩写，**与环境代号 `E1–E7` 无关**。该写法已在本轮标记为待替换。
 | E2 登录节点 | 16r × 8t（§3.2 r50） | 0.9473 | 68.58 |
 | E4 Xeon | 8r × 2t（X5） | 7.532 | 8.63 |
 | E5 V100 | CUDA BiCG（V1） | 0.1478 | 439.59 |

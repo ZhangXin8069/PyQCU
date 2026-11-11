@@ -7,6 +7,39 @@
 > 窗口、特定作业号的实测值，不是永久性能承诺，也不得跨窗口拼接为新基线。
 > 证据实体未全部入库，见第 7 节。
 
+## 0. 记号与参数速查
+
+本文所有缩写在此定义；完整版（含 ABI 槽位与源码行号）见
+[`qcu_l24_solver_timing_20261111.md`](qcu_l24_solver_timing_20261111.md) §0。
+
+| 记号 | 展开 | 含义 | 证据 |
+|---|---|---|---|
+| `c64` / `c128` | complex64 / complex128 | 复数量子场精度（实部 float32 / float64） | `pyqcu/kupl/define.py:47-48` |
+| `cc` | `coarse_calls` | MG 粗层算子调用次数 | `lattice_clover_multigrid.cpp:1039` |
+| `fc` | `fine_calls` | MG 细层算子调用次数 | 同上 |
+| `屏` | screen hardcopy | GNU `screen` 终端快照文件 `logs/screen-*.txt` | 文件名模式 |
+| `yNN` | 远端结果目录 | `data/kupl_hbm_opt_20261106/yNN/`，**不是作业号** | 屏记录 `job_y76.sh` 内 `WORK_DIR` |
+| `2049xxx` | dsub 作业号 | 六位数字，来自 `djob -ll` | 屏记录 `Submit job <NNNNNNN>` |
+| `r10`/`r20`/`r50` | `restart=` | MG 粗修正间隔；仅此语境 | CLI `--restart` |
+| `r1`/`r2`（`dev99`） | MPI ranks | 1/2 ranks；与 `restart` 无关 | `profiler_solver_performance_history.md` §5.1 |
+| `t24`/`t36`/`t576` | 线程数 | 单域 24/36 线程、全节点 576 线程 | STREAM 报告 |
+| `n` | 样本数 | `n=1` 为单样本，不是中位数 | — |
+| `MAD` | 中位绝对偏差 | `median(abs(x_i − median(x)))` | — |
+
+**参数默认值**（`kupl_multigrid.py:607-648`、`_common.py:63-68`）：`atol=1e-6`、
+`max_iter=1000`、`levels=2`、`mg_grid=(2,2,2,2)`、`restart=5`、
+`coarse_max_iter=200`、`coarse_tol_factor=1e4`、`nv_iters=2`、`seed=42`、
+`mass=0.05`、`csw=1.160920226`。
+
+**收敛判据**（`lattice_solver.cpp:157-165`）：
+递推退出 `‖r_k‖ ≤ max(atol, 4ε)·‖b‖`；
+真残差验收 `‖r_true‖ ≤ max(atol, ε·M)·‖b‖`，其中
+`M = 2048`（c64）或 `128`（c128）。c64 下 `ε·M = 2.44140625e-4`，即本文
+反复出现的验收门。
+
+**粗层容差**（`kupl_multigrid.py:188-189`）：
+`coarse_atol(k) = atol × coarse_tol_factor × 3^(k−1)`。
+
 ## 1. 范围与证据等级
 
 ### 1.1 收录口径
@@ -793,6 +826,29 @@ MG、Strict-MG、Legacy-MG）。
    `coarse_calls>0`、无 fallback、独立真残差 PASS。
 5. 在 solve 运行期间采集 `numastat -p` 与 `numa_maps`，完成端到端 HBM 页验收。
 6. 降低 L32 cache builder 成本或改用已验证的分布式 builder，再补 L32 三项目标。
+
+## 11.4 记号可解释性规则
+
+本轮修正暴露出一类系统性问题：归档文档大量使用未定义的缩写，读者无法判断数据
+是否可信。此后新增或修改归档数据时必须遵守：
+
+1. **每个记号在首次出现处或统一 §0 定义一次**，并给出**源码行号或文件路径**作为
+   证据。仅靠上下文暗示不算定义。
+2. **同一字母不得携带两种语义**：
+   - `E1–E7` 专用于环境代号，故 4 ranks×32 threads 一律写 `4r×32t`，
+     禁用旧写法 `E4x32`（本轮的 tex 已改正）；
+   - `r*` 必须区分 `restart=`（如 `r10`）与 MPI ranks（如 `r1/r2`），
+     跨文档引用时写出完整词；
+   - `A1–A11` 是行号，与"A/B 测试"无关，正文出现时加编号前缀（如 `A100-A1`）。
+3. **`cc`/`fc` 必须展开为 `coarse_calls`/`fine_calls`**，且不得把
+   `coarse_calls>0` 解释为"修正被接受"——后者需要 `KUPL_REQUIRE_MG_CORRECTION=1`
+   放行才成立。
+4. **`yNN` 是远端目录名，不是作业号**。引用时必须同时给出目录名与（若已知）
+   dsub 作业号；两者无映射记录时写"未记录"，不得省略。
+5. **单样本、仅 native 残差、跨几何并列**三类风险必须在同一行内标注，
+   不能只写在表注里。
+6. **收敛判据必须写公式而非名字**：`‖r‖ ≤ max(atol, ε·M)·‖b‖`，并把
+   `M=2048(c64)/128(c128)` 与 `ε·M=2.44140625e-4` 一起给出。
 
 ## 11.3 图表与作图规则
 

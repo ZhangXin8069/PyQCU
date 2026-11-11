@@ -243,13 +243,27 @@ def _relink_openmp(destination: Path) -> None:
 
 
 def _environment_openmp() -> Path | None:
-    """Return the libomp.dylib that would be mapped first in this process."""
+    """Return the libomp.dylib that a PyQCU user process would map first.
+
+    PEP 517 builds run in an isolated environment whose ``sys.path`` has no
+    torch, so searching it finds nothing. The destination interpreter's
+    ``purelib`` is where the installed PyQCU and PyTorch will actually live, so
+    the lookup starts there and falls back to ``sys.path`` for legacy installs.
+    """
     if sys.platform != "darwin":
         return None
-    for root in sys.path:
-        if not root:
-            continue
-        candidate = Path(root) / "torch" / "lib" / "libomp.dylib"
+    roots: list[Path] = []
+    try:
+        import sysconfig
+
+        purelib = sysconfig.get_paths().get("purelib")
+        if purelib:
+            roots.append(Path(purelib))
+    except Exception:
+        pass
+    roots.extend(Path(root) for root in sys.path if root)
+    for root in roots:
+        candidate = root / "torch" / "lib" / "libomp.dylib"
         if candidate.is_file():
             return candidate
     return None

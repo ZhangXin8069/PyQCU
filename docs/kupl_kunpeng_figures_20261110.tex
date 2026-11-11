@@ -58,7 +58,7 @@
   ymin=0.07, ymax=1200,
   ylabel={求解段墙钟 (s，对数轴)},
   xlabel={配置},
-  symbolic x coords={TGT,y76,y75,y61,y50,y47,y74,LMGr20,Lr50,LBiCGr20,E4x32,E16x8},
+  symbolic x coords={TGT,y76,y75,y61,y50,y47,y74,LMGr20,Lr50,LBiCGr20,r4t32,r16t8},
   xtick=data,
   xticklabel style={rotate=40,anchor=north east},
   ymajorgrids, grid style={black!12},
@@ -78,12 +78,12 @@
   LMGr20   0.705146     0.705
   Lr50     0.947332     0.947
   LBiCGr20 1.230783     1.231
-  E4x32    164.7499     164.7
-  E16x8    213.4409     213.4
+  r4t32    164.7499     164.7
+  r16t8    213.4409     213.4
 };
 \end{axis}
 \end{tikzpicture}
-\caption{绝对耗时（对数轴；柱上为真实秒数，不是 log10）。\textbf{计算节点} \texttt{cn10579}：y76 $=0.43456$ s（32 ranks$\times$12 threads，\texttt{grid} $1\,1\,1\,32$，16 迭代，独立真残差 $3.5412\times10^{-6}$，$n{=}1$）；y75 $=0.44720$ s（同配置，\texttt{atol}$=10^{-4}$，16 迭代，$n{=}1$）；y61 $=0.48770$ s（剖析同轮）；y50 $=0.5093$ s；y47 $=0.5126$ s；y74 $=0.57190$ s（\texttt{atol}$=10^{-5}$，18 迭代，$n{=}1$）；E4x32 $=164.74992$ s（作业 2049318，4 ranks$\times$32 threads，16 迭代，\emph{仅} native 残差 $1.237\times10^{-5}$，\emph{未}做独立残差）；E16x8 $=213.44091$ s（作业 2050917，16 ranks$\times$8 threads，\texttt{grid} $1\,1\,1\,16$，16 迭代，独立真残差 $3.5411\times10^{-6}$ PASS）。\textbf{登录节点}（共享机）：LBiCGr20 $=1.23078$ s、LMGr20 $=0.70515$ s（同窗 $n{=}4$ 中位，\texttt{cc}=9、\texttt{fc}=29）；Lr50 $=0.94733$ s（full-residual 伴随运行，只执行 1 次 coarse correction）。\textbf{口径警告}：E16x8/E4x32 与 y76 的 ranks/threads/每 rank 局部体积不同，$213.44/0.43456=491\times$ 不能归因于 HBM 是否生效；只有 y76/y75/y61/y50/y47/y74 属同一 32$\times$12 几何。}
+\caption{绝对耗时（对数轴；柱上为真实秒数，不是 log10）。\textbf{计算节点} \texttt{cn10579}：y76 $=0.43456$ s（32 ranks$\times$12 threads，\texttt{grid} $1\,1\,1\,32$，16 迭代，独立真残差 $3.5412\times10^{-6}$，$n{=}1$）；y75 $=0.44720$ s（同配置，\texttt{atol}$=10^{-4}$，16 迭代，$n{=}1$）；y61 $=0.48770$ s（剖析同轮）；y50 $=0.5093$ s；y47 $=0.5126$ s；y74 $=0.57190$ s（\texttt{atol}$=10^{-5}$，18 迭代，$n{=}1$）；4 ranks$\times$32 threads $=164.74992$ s（作业 2049318，16 迭代，\emph{仅} native 残差 $1.237\times10^{-5}$，\emph{未}做独立残差）；16 ranks$\times$8 threads $=213.44091$ s（作业 2050917，\texttt{grid} $1\,1\,1\,16$，16 迭代，独立真残差 $3.5411\times10^{-6}$ PASS）。\textbf{登录节点}（共享机）：LBiCGr20 $=1.23078$ s、LMGr20 $=0.70515$ s（同窗 $n{=}4$ 中位，\texttt{cc}=9、\texttt{fc}=29）；Lr50 $=0.94733$ s（full-residual 伴随运行，只执行 1 次 coarse correction）。\textbf{口径警告}：16r$\times$8t / 4r$\times$32t 与 y76 的 ranks/threads/每 rank 局部体积不同，$213.44/0.43456=491\times$ 不能归因于 HBM 是否生效；只有 y76/y75/y61/y50/y47/y74 属同一 32$\times$12 几何。}
 \end{figure}
 
 \begin{figure}[H]
