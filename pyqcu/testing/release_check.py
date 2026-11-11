@@ -111,7 +111,7 @@ def check_sphinx() -> None:
             [sys.executable, "-m", "sphinx", "-b", "html", "-d", str(doctrees),
              "-W", str(ROOT / "docs" / lang), str(output)],
             cwd=ROOT, text=True, capture_output=True)
-        ok = result.returncode == 0 and "build succeeded" in result.stdout
+        ok = result.returncode == 0 and (output / "index.html").is_file()
         record(f"sphinx {lang}", ok,
                f"exit={result.returncode}")
 

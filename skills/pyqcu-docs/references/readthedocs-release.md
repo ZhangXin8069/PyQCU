@@ -114,7 +114,8 @@ python -m sphinx -b html -d data/release_check/doctrees-en -W docs/en data/relea
 python -m sphinx -b html -d data/release_check/doctrees-zh -W docs/zh data/release_check/sphinx-zh
 ```
 
-- 两个命令都必须 exit 0，日志含 `build succeeded`。**`-W` 把警告变错误**：未登记
+- 两个命令都必须 exit 0，且输出目录生成 `index.html`（门禁按退出码与产物判定，
+  不依赖 Sphinx 的本地化日志文本）。**`-W` 把警告变错误**：未登记
   toctree、未知指令、未解析引用都会让站点门失败。
 - `-d` 把 doctrees 放到 `data/release_check/`，不要写进 `docs/**`；否则会被当成源
   文件并触发重复文档警告。

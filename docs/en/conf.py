@@ -10,7 +10,7 @@ copyright = "2026, ZhangXin8069"
 author = "ZhangXin8069"
 
 version = "0.1"
-release = "0.1.13"
+release = "0.1.14"
 
 extensions = ["myst_parser"]
 source_suffix = {".rst": "restructuredtext", ".md": "markdown"}
