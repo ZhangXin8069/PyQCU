@@ -1010,3 +1010,11 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: macOS 上完成功能/文档验证、0.1.14 版本推进与门禁修复，提交并推双远端，创建 stab63；PyPI 上传缺令牌阻塞
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
+## pyqcu-release-0.1.14-20261111 - final - 2026-11-11 15:57:27 +0800
+- 主任务: 用 ~/env-key.sh 的令牌完成 0.1.14 的 PyPI 上架与在线复验
+- 日志文件: logs/v2026111115-2.txt
+- 文件大小: 4131 bytes
+- 触发原因: 任务完成
+- 关键内容: 0.1.14 已上架 PyPI；在线门禁 19/19，RTD 双语显示 0.1.14；干净安装复验通过并记录 PYTHONPATH 陷阱
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete

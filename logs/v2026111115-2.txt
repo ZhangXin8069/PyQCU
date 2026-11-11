@@ -1,0 +1,81 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-11-11 15:57:27 +0800
+批次: pyqcu-release-0.1.14-20261111
+主任务: 用 ~/env-key.sh 的令牌完成 0.1.14 的 PyPI 上架与在线复验
+触发原因: 任务完成
+摘要: 0.1.14 已上架 PyPI；在线门禁 19/19，RTD 双语显示 0.1.14；干净安装复验通过并记录 PYTHONPATH 陷阱
+Git 根目录: /Users/zhangxin/PyQCU
+
+## 关键日志
+
+### S1 - 凭据激活（不回显）
+- 用户指令: source ~/env-key.sh 激活 pypi 密钥
+- 命令: sh -c 'set -a; . ~/env-key.sh; set +a' 后仅打印变量是否存在
+- 输出: PYPI_ZHANGXIN8069_API_KEY: present (len=179)；未打印变量值
+
+### S2 - 上传
+- 命令: TWINE_USERNAME=__token__ TWINE_PASSWORD="$PYPI_ZHANGXIN8069_API_KEY" python -m twine upload --non-interactive dist/pyqcu-0.1.14.tar.gz
+- 输出: Uploading pyqcu-0.1.14.tar.gz（939.3 kB 传输完成）
+- 结果: https://pypi.org/project/pyqcu/0.1.14/；upload_exit=0
+
+### S3 - 在线门禁
+- 命令: python -m pyqcu.testing.release_check --online
+- 输出: 12 项离线门 + PyPI JSON HTTP 200、project links missing=[]、
+  repositories section 命中、latest metadata version=0.1.14 attempt=1、
+  simple index HTTP 200 attempt=1、RTD en/latest 与 zh-cn/latest HTTP 200 且
+  version_present=True
+- 结果: 19/19 PASS，online_exit=0
+
+### S4 - PyPI 元数据核对
+- 命令: curl https://pypi.org/pypi/pyqcu/0.1.14/json
+- 输出: packagetype=sdist、size=927252、sha256=5b594ab951fcc5c3039161cff36f2c2e68a4c20325ec0649245843cbb7d9d241、
+  project_urls=6
+- 判断: 与本地 dist 产物字节级一致
+
+### S5 - 从 PyPI 干净安装复验
+- 首次尝试 exit=0 却未安装：`PYTHONPATH=/Users/zhangxin/PyQCU` 让 pip 经由源码树
+  pyqcu.egg-info 认定 "Requirement already satisfied" 并静默跳过
+- 修正命令: env -u PYTHONPATH ./venv/bin/python -m pip install --no-cache-dir --no-deps --index-url https://pypi.org/simple pyqcu==0.1.14
+- 结果: Successfully installed pyqcu-0.1.14（现场构建 wheel，含 KUPL 原生库）
+- 诊断: env -u PYTHONPATH -u PYQCU_KUPL_LIB python -m pyqcu --json ->
+  version=0.1.14、path 指向 venv site-packages、kupl 路径为
+  site-packages/pyqcu/kupl/libqcu.dylib、cuda 不可用（预期）；console script
+  输出 pyqcu 0.1.14
+
+## 验证与证据
+- 测试/检查: twine upload、release_check --online 19 项、PyPI JSON 元数据、
+  干净 venv 从 PyPI 安装 + 诊断 + 控制台脚本
+- 结果: 全部通过；sdist 大小与 sha256 与本地一致
+- 未验证项: 未在本机跑 CUDA/QUDA 与鲲鹏侧路径；RTD 仅按页面 HTTP 与版本串核验
+
+## 变更与产物
+- 产物: PyPI pyqcu 0.1.14（sdist）；日志 logs/v2026111115-2.txt；
+  skills/pyqcu-pypi-release/SKILL.md 0.1.14 小节补上架事实与 PYTHONPATH 陷阱
+- 未改动范围: 未改代码、未删除文件、未改写已推送标签
+
+## 风险、限制与下一步
+- 风险: 本机为 macOS，本次上架产物的 CUDA/DCU 路径未在此环境验证
+- 阻塞: 无
+- 下一步: 需要时在各目标集群按 tag stab63 复现安装与性能基线
+
+## 用户输入指令
+source ~/env-key.sh 激活pypi密钥
+
+## Agent 全文报告
+--- report begin ---
+PyPI 0.1.14 已上架：https://pypi.org/project/pyqcu/0.1.14/
+
+密钥从 ~/env-key.sh 读取（只检测存在性，未回显值），单文件上传
+dist/pyqcu-0.1.14.tar.gz 成功。release_check --online 为 19/19：PyPI JSON HTTP 200、
+6 个项目链接齐全、simple index 首次尝试即命中、RTD en/latest 与 zh-cn/latest 均
+HTTP 200 且已显示 0.1.14。
+
+PyPI 侧元数据与本地一致：sdist 927,252 B，sha256 5b594ab9…d9d241，packagetype 只有
+sdist。从 PyPI 干净安装复验通过：--json 指向 venv 的 site-packages，KUPL 现场构建并
+落位 pyqcu/kupl/libqcu.dylib，console script 输出版本 0.1.14。
+
+过程中发现一处复验陷阱：本机 PYTHONPATH 指向仓库根时，pip 会经源码树的
+pyqcu.egg-info 认定 “Requirement already satisfied”，静默跳过安装却返回 0；复验必须
+env -u PYTHONPATH -u PYQCU_KUPL_LIB。该结论已写入发布技能。
+--- report end ---

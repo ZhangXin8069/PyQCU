@@ -328,8 +328,14 @@ site-packages/pyqcu/cuda/qcu.cpython-312-x86_64-linux-gnu.so   # Cython 桥
 - 0.1.14：sdist 927,252 B，sha256 `5b594ab9…d9d241`，273 成员 / 88 个 `.py` /
   0 二进制；离线门禁 12/12；干净 venv 隔离安装后 `--json` 指向 site-packages、
   `kupl` 报告 `libqcu.dylib`，`--selftest` 为 torch PASS / kupl PASS / cuda SKIP。
-- 0.1.14 提交 `b0cdf355`，标签 `stab63`（follow `dev110`）；PyPI 上传需先导出
-  `PYPI_ZHANGXIN8069_API_KEY`，缺令牌时不要尝试上传或宣称已上架。
+- 0.1.14 提交 `b0cdf355`，标签 `stab63`（follow `dev110`）；PyPI 0.1.14 已上架
+  （927,252 B、sha256 一致、6 个 project_urls），`--online` 19/19，RTD `en/latest`
+  与 `zh-cn/latest` 均已显示 0.1.14。凭据只从 `~/env-key.sh` 导出的
+  `PYPI_ZHANGXIN8069_API_KEY` 读取；缺令牌时不上传、不宣称已上架。
+- 干净复验时若 `PYTHONPATH` 指向仓库根，pip 会通过源码树的 `pyqcu.egg-info` 认定
+  “Requirement already satisfied”，**静默跳过安装且 exit 0**；必须
+  `env -u PYTHONPATH -u PYQCU_KUPL_LIB` 后再跑诊断。从 PyPI 干净安装后
+  `--json` 指向 venv 的 `site-packages`，KUPL 落位 `pyqcu/kupl/libqcu.dylib`。
 
 发布门 12 项（`release_check --offline` 顺序）：version、sdist exists、sdist no
 testing、sdist no binaries、sdist native sources、sdist no home paths、sdist
