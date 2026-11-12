@@ -1,0 +1,83 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-11-12 13:31:52 +0800
+批次: tag
+主任务: ~tag: 创建并推送 dev111
+触发原因: 任务完成
+摘要: dev111 创建、双远端推送与三端核验；历史链 bug45 遗留 BLOCK 仅报告
+Git 根目录: /Users/zhangxin/PyQCU
+
+## 关键日志
+### S1 — 判定任务性质与技能选择
+- 目标: 按 ~tag 技能执行 PyQCU 标签会话
+- 命令/操作: 读取 configure/skills/tag、skills/pyqcu-tag、configure/skills/log、configure/skills/diff、configure/skills/init 的 SKILL.md
+- 关键输出: 默认流程 = ~diff → 历史自检 → ~init → ~tag 原版
+- 退出码: 0
+- 证据与判断: 身份为 {代码}（仓库发布/版本管理操作），遵循 tag 技能规范
+
+### S2 — 基线确认与变更分析（~diff）
+- 目标: 确定基线标签与基线以来改动
+- 命令/操作: git for-each-ref --sort=-taggerdate; git log stab64..HEAD --oneline; git diff stab64..HEAD --numstat
+- 关键输出: 最新 taggerdate 标签 = stab64 (2026-11-12 08:59:36 +0800)；基线以来 1 个提交 0cc26106；6 文件 +92/-7
+- 退出码: 0
+- 证据与判断: 基线与标签编号按 taggerdate 而非 v:refname 判定，dev110 早于 stab63/stab64
+
+### S3 — 历史链自检
+- 目标: 校验 stab/dev/bug/test 全历史 follow 链
+- 命令/操作: bash skills/pyqcu-tag/tag-chain.sh --check；--repair --dry-run
+- 关键输出: Managed tags: 306；3 条 [BRANCH] 合法并行分支（dev37→dev38、dev72→bug30、dev109→dev110）；1 条 [BLOCK] bug45 的 peeled commit 不是 dev106 的祖先且无可验证共同 follow 祖先；FAIL 发现 1 个问题，可安全修正候选 0 个
+- 退出码: 0 / 修复清单为空
+- 证据与判断: 无自动修正候选；按技能规则不猜测排序、不移动标签目标，仅报告。新增 dev111 后复查结论不变（不引入新问题）
+
+### S4 — ~init 归档检查
+- 目标: 打标前仓库状态整洁
+- 命令/操作: 查找 CLAUDE.md/CODEX.md/GEMINI.md/.cursorrules/.claude/.codex 等
+- 关键输出: 无任何 agent init 文件或配置目录；无未跟踪/未暂存改动（git status --porcelain 为空）
+- 退出码: 0
+- 证据与判断: 无需归档动作，跳过 ~init 写操作
+
+### S5 — 创建 dev111
+- 目标: 按 Case C 自动编号创建注释标签
+- 命令/操作: git tag -a dev111 -m "follow stab64, ..."；git tag -l --format=%(subject)
+- 关键输出: dev111 → 0cc26106ff256a2d158f9aa98eee2f79053bdad6（= HEAD）
+- 退出码: 0
+- 证据与判断: 首版消息把 wilson 调用点写成「四处」，实测 grep 为 5 处（第 45/105/183/254/276 行），已用 git tag -f 修正为「五处」后重新校验
+
+### S6 — 双远端推送与三端核验
+- 目标: GitLab → Gitee → GitHub 镜像三端同 hash
+- 命令/操作: git push gitlab refs/tags/dev111；git push git@gitee.com:... refs/tags/dev111；git ls-remote 三端 tag 与 peeled commit
+- 关键输出: 三端 refs/tags/dev111 均为 fcc65f3b5fb9b977b33ad7094bf1654f82d8f67d，peeled 均为 0cc26106ff256a2d158f9aa98eee2f79053bdad6；本地一致
+- 退出码: 0
+- 证据与判断: 四端（本地 + GitLab + Gitee + GitHub）tag 对象与目标提交完全一致；GitHub 为 Gitee 镜像，未手工推送
+
+## 验证与证据
+- 测试/检查: python -B ast.parse 三个改动 Python 文件；git diff stab64..HEAD --check；tag-chain.sh --check 复查；git ls-remote 三端回读
+- 结果: 语法 OK；diff --check 无空白/冲突标记问题；历史链除既有 bug45 [BLOCK] 外无新增问题；三端 tag hash 一致
+- 未验证项: 本次标签不触发运行时代码执行，未运行 CUDA/KUPL 测试；bug45 的 [BLOCK] 属历史遗留，未修复（需要人工判断 follow 链意图）
+
+## 变更与产物
+- 文件: 本任务未新增/修改工作区文件；标签对象 refs/tags/dev111
+- 产物: dev111（annotated tag，tagger 2026-11-12）
+- 未改动范围: 未改写/删除任何既有标签；未改动源码与文档
+
+## 风险、限制与下一步
+- 风险: 标签消息首版把 wilson 调用点误写为「四处」，已在推送前用 git tag -f 本地修正，远端从未收到错误版本
+- 阻塞: 无
+- 下一步: 如需修正 bug45 历史链，需人工确认 intended follow 目标后走 tag-chain.sh --repair --apply 闸门
+
+## 用户输入指令
+~tag
+
+## Agent 全文报告
+--- report begin ---
+已创建并推送 dev111，四端一致。
+
+类型判定: {代码} 身份下的版本管理操作；类型按上下文推断为 dev（开发快照），编号 Case C 自动递增（dev110 → dev111）。
+
+- 标签: dev111 → 0cc26106ff256a2d158f9aa98eee2f79053bdad6
+- 消息: follow stab64, 1. 修复 Torch dslash 中 kappa/u_0 直接张量相除触发跨设备报错，新增 _kappa_over_u0 统一转 float 后相除并替换 wilson 五处与 clover 一处调用; 2. 技能库新增「复用既有入口」硬性规则，禁止绕开 pyqcu/testing/simple 另起临时脚本重拼算子调用; 3. 清理 smear/_stout.py 未使用的 Optional 导入; [commandcode].
+- 基线: stab64（taggerdate 最新，2026-11-12 08:59）；基线以来 1 个提交，6 文件 +92/-7
+- 三端: refs/tags/dev111 = fcc65f3b…，peeled = 0cc26106…，GitLab/Gitee/GitHub 三者与本地完全相同
+
+历史链自检发现 1 个既有问题（与本标签无关）：bug45 的 peeled commit 不是 dev106 的祖先且无可验证的共同 follow 祖先，无安全自动修正候选，按规则只报告不动手。另有 3 条合法并行分支告警（dev37/dev38、dev72/bug30、dev109/dev110），不影响链完整性。
+--- report end ---
