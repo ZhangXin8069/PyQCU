@@ -150,6 +150,33 @@ KUPL 行取安装包公开 API 的结果；仓库驱动的独立 NumPy 全残差
 NumPy/Torch 重构给出，不能复用求解器内部递推。CPU 与 GPU 不合并成单一加速比；
 墙钟跨机器比较必须先在报告中固定硬件与环境身份（见下节），身份缺失只能标「不可比」。
 
+### 复用既有入口（强制，先于一切测试实现）
+
+**先盘点，再动手。** `pyqcu/testing/simple/` 已经是全部测量场景的规范实现，禁止另起
+临时脚本重拼算子调用：
+
+| 场景 | 既有入口 |
+|---|---|
+| 单次生产求解（含独立真残差、原子写解） | `simple/solve_case.py --backend cuda\|quda\|kupl` |
+| 三后端对照测量 | `simple/compare_three_way.py` |
+| 单后端 BiCGStab（含 `--gauge/--source/--mass/--csw/--warmup/--repeats/--report`） | `simple/{kupl,qcu,quda}_bistabcg.py` |
+| 单后端 MultiGrid（含 `--levels/--dof/--mg-grid/--coarse-cache/--restart`） | `simple/{kupl,qcu,quda}_multigrid.py` |
+| 输入准备与布局转换 | `simple/prepare_case.py`、`simple/_common.py`（`read_qdp_gauge`/`qdp_gauge_to_qcu`/`resolve_path`/`estimated_clover_gflops`） |
+| MPI 编排 | `simple/mpi/compare_*.py`、`simple/mpi/_{common,compare}.py` |
+
+这些入口已经处理好 layout 转换、parity Clover 资产（`ce/co/cei/coi`）、
+`_SET_PLAN_` 生命周期、`give_wilson`/`give_clover` 的 kappa/`u_0` 设备一致性、
+独立全格点真残差与报告字段（`iterations`/`wall_samples`/`final_true_residual`）。
+
+只有在下列条件之一成立时才允许新写脚本，并且必须在结论里写明具体缺口与复现证据：
+
+1. 现成入口确实不支持所需配置（先读它的 `--help` 与 argparse 定义，不要凭印象假设）；
+2. 需要新增测量维度，且已以向后兼容方式扩展既有入口（首选）而非另建平行实现。
+
+绕开既有入口手工拼装 `QcuRuntime` + `apply*Qcu` 调用属于**缺陷**，不是捷径。本库已因
+这种绕路得到过三份错误结论：Clover 参数未传入导致算子与组态不一致、单 parity Schur
+在偶点源上退化为零 RHS、`make_clover` 之后 `_SET_PLAN_` 停在 2 触发原生 `MPI_ABORT`。
+
 ### 测试源约定（强制）
 
 - **性能测试统一点源**：`pyqcu.lattice.point_source(lat, [0,0,0,0])`（单时空点、spin/color 全填），

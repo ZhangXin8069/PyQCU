@@ -59,6 +59,41 @@ required recipe fields, and the real-time document ledger are defined in
 Read it before launching a formal or multi-backend benchmark. Every speedup must
 show absolute numerator and denominator times with units and sample statistics.
 
+## Reuse the existing drivers first (mandatory)
+
+`pyqcu/testing/simple/` is the normative implementation for every measurement
+case, so a new ad-hoc driver that re-assembles the operator calls by hand is a
+defect, not a shortcut:
+
+| Case | Existing entry point |
+|---|---|
+| Production single solve with independent residual and atomic publish | `simple/solve_case.py --backend cuda\|quda\|kupl` |
+| Three-backend comparison | `simple/compare_three_way.py` |
+| Single-backend BiCGStab | `simple/{kupl,qcu,quda}_bistabcg.py` |
+| Single-backend MultiGrid | `simple/{kupl,qcu,quda}_multigrid.py` |
+| Input preparation and layout conversion | `simple/prepare_case.py`, `simple/_common.py` |
+| MPI orchestration | `simple/mpi/compare_*.py` |
+
+Those drivers already handle layout conversion, the parity Clover assets
+(`ce/co/cei/coi`), the `_SET_PLAN_` lifecycle, the kappa/`u_0` device
+consistency of `give_wilson`/`give_clover`, the independent full-lattice true
+residual and the report fields (`iterations`, `wall_samples`,
+`final_true_residual`).
+
+Write a new script only when one of these holds, and state the specific gap and
+its reproduction evidence in the conclusion:
+
+1. the existing entry point genuinely does not support the required
+   configuration -- read its argparse definition, do not assume;
+2. a new measurement dimension is needed and the existing entry point has been
+   extended backwards-compatibly instead of forked into a parallel script.
+
+Bypassing the drivers has already produced three wrong conclusions in this
+repository: an operator that disagreed with the gauge because Clover assets were
+never passed, a single-parity Schur solve that degenerated to a zero RHS for an
+even-site point source, and a native `MPI_ABORT` because `_SET_PLAN_` was left at
+2 after `make_clover`.
+
 ## Source and timing contract (mandatory)
 
 - **Performance runs use a point source only**: `pyqcu.lattice.point_source(lat, [0,0,0,0])`

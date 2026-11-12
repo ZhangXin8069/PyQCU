@@ -35,6 +35,16 @@ PyQCU 项目专用技能库：每个技能一个子目录，内含 `SKILL.md`（
 - **文档提取规则（硬性）**：`docs/**` 是正式文档规范源，`skills/**` 只保存可复用摘要、
   执行不变量和来源映射。跨域提取、判断文档生命周期或新增文档指针时使用
   [`pyqcu-docs`](pyqcu-docs/SKILL.md)，不复制整篇文档形成双源。
+- **复用现有实现（硬性）**：任何测试、基准或验证任务**先盘点仓库已有的实现**再动手。
+  `pyqcu/testing/**` 下的 `simple/solve_case.py`、`simple/compare_three_way.py`、
+  `simple/{kupl,qcu,quda}_bistabcg.py`、`simple/{kupl,qcu,quda}_multigrid.py`、
+  `simple/prepare_case.py`、`simple/_common.py` 是**唯一规范入口**，已处理布局转换、
+  clover 资产、`_SET_PLAN_` 生命周期、独立真残差和报告字段。新写临时脚本只有在
+  以下任一条件成立时才允许：① 现成入口确实不支持所需配置（要在结论中写明具体缺口
+  与复现证据）；② 要在现成入口之外增加全新测量维度并已向后兼容地扩展它。
+  绕开现成入口自行拼装算子调用，必须视为缺陷而不是捷径——本库已因此产生过
+  算子与 Clover 不一致、点源单 parity 退化、`_SET_PLAN_` 错位触发 `MPI_ABORT`
+  等错误结论。
 - **统一验证**：修改 docs/skills 后运行
   `python -B skills/pyqcu-docs/scripts/audit-docs-skills.py`；再运行
   [`pyqcu-form`](pyqcu-form/SKILL.md) 的 form 审计和 `git diff --check`。

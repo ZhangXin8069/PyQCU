@@ -7,6 +7,20 @@ force_use_npu = False
 tools_Eexyzt_exyzt2Exyzt = False
 
 
+def _kappa_over_u0(kappa: Optional[torch.Tensor],
+                   u_0: Optional[torch.Tensor]) -> float:
+    """Return ``kappa/u_0`` as a Python float.
+
+    Dividing the two tensors directly ties the result to one device: callers
+    routinely pass ``kappa`` on the field device while leaving ``u_0`` at its
+    CPU default, which raised "Expected all tensors to be on the same device".
+    Both values are scalars, so convert each one before dividing.
+    """
+    if kappa is None or u_0 is None:
+        return 1.0
+    return float(kappa) / float(u_0)
+
+
 def give_wilson(src: torch.Tensor,
                 U: torch.Tensor, kappa: Optional[torch.Tensor] = torch.Tensor([0.1]),
                 u_0: Optional[torch.Tensor] = torch.Tensor([1.0]), with_I: bool = True, verbose: bool = False) -> torch.Tensor:
@@ -28,7 +42,7 @@ def give_wilson(src: torch.Tensor,
     # Initialize dest tensor
     dest = src.clone() if with_I else torch.zeros_like(src)
     # Precompute kappa/u_0 factor once
-    _factor = float(kappa/u_0) if (u_0 is not None and kappa is not None) else 1.0
+    _factor = _kappa_over_u0(kappa, u_0)
     # Precompute I, gamma, I±gamma on target device/dtype once
     _device = src.device
     _dtype = src.dtype
@@ -88,7 +102,7 @@ def give_wilson_eo(
     # Initialize dest_e tensor
     dest_e = torch.zeros_like(src_o)
     # Precompute kappa/u_0 factor once
-    _factor = float(kappa/u_0) if (u_0 is not None and kappa is not None) else 1.0
+    _factor = _kappa_over_u0(kappa, u_0)
     # Precompute I, gamma, I±gamma on target device/dtype once
     _device = src_o.device
     _dtype = src_o.dtype
@@ -166,7 +180,7 @@ def give_wilson_oe(
     # Initialize dest_o tensor
     dest_o = torch.zeros_like(src_e)
     # Precompute kappa/u_0 factor once
-    _factor = float(kappa/u_0) if (u_0 is not None and kappa is not None) else 1.0
+    _factor = _kappa_over_u0(kappa, u_0)
     # Precompute I, gamma, I±gamma on target device/dtype once
     _device = src_e.device
     _dtype = src_e.dtype
@@ -237,7 +251,7 @@ def give_hopping_plus(ward: int, U: torch.Tensor, kappa: Optional[torch.Tensor] 
     if verbose:
         print(f"PYQCU::DSLASH::WILSON:\n give_hopping_{ward_key}_plus......")
     U_mu = U[..., ward, :, :, :, :]
-    _factor = float(kappa/u_0) if (u_0 is not None and kappa is not None) else 1.0
+    _factor = _kappa_over_u0(kappa, u_0)
     return - _factor * _torch.einsum(
         'Ss,Ccxyzt->SCscxyzt', I_minus_gamma, U_mu).reshape([12, 12]+list(U.shape[-4:]))  # sc->e
 
@@ -259,7 +273,7 @@ def give_hopping_minus(ward: int, U: torch.Tensor, U_head: Optional[torch.Tensor
         U_head_dag_mu = U_head_dag[..., ward, :, :, :]
         U_dag_minus[tools.slice_dim(dims_num=6, ward=ward, point=0)
                     ] = U_head_dag_mu.clone()
-    _factor = float(kappa/u_0) if (u_0 is not None and kappa is not None) else 1.0
+    _factor = _kappa_over_u0(kappa, u_0)
     return - _factor * _torch.einsum(
         'Ss,Ccxyzt->SCscxyzt', I_plus_gamma, U_dag_minus).reshape([12, 12]+list(U.shape[-4:]))  # sc->e
 

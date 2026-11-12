@@ -125,7 +125,7 @@ def make_clover(U: torch.Tensor,
         raise ValueError("u_0 must be nonzero")
     if not math.isfinite(float(csw)):
         raise ValueError("csw must be finite")
-    _coeff = float(kappa / u_0) * float(csw)
+    _coeff = (float(kappa) / float(u_0)) * float(csw)
     _clover_factor = -0.125 * _coeff
     # Give clover term for each direction
     for ward_ward_key in ward_ward_keys:
