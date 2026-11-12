@@ -1,0 +1,3 @@
+# smoke: 8 replicas x 12 threads, t-axis split
+smoke_r8t12 8 12 1 1 1 8 local+16 1 2 1
+smoke_r8t12_b 8 12 1 1 1 8 local+16 1 2 1

@@ -1,0 +1,6 @@
+a32_12 32 12 1 1 1 32 local+16 1 2 y91_gauge_slabs_t32 y91_source_slabs_t32
+a32_8 32 8 1 1 1 32 local+16 1 2 y91_gauge_slabs_t32 y91_source_slabs_t32
+a32_4 32 4 1 1 1 32 local+16 1 2 y91_gauge_slabs_t32 y91_source_slabs_t32
+a32_12_ddr 32 12 1 1 1 32 local 1 2 y91_gauge_slabs_t32 y91_source_slabs_t32
+a32_12_nohp 32 12 1 1 1 32 local+16 0 2 y91_gauge_slabs_t32 y91_source_slabs_t32
+a32_12_r2 32 12 1 1 1 32 local+16 1 2 y91_gauge_slabs_t32 y91_source_slabs_t32

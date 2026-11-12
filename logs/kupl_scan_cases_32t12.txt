@@ -1,0 +1,11 @@
+# 32 ranks x 12 threads  (reference config from y76)
+b32t12_g11132      32 12 1 1 1 32 local+16 1 2 1
+b32t12_g11132_rpt  32 12 1 1 1 32 local+16 1 2 1
+b32t12_g11132_rpt2 32 12 1 1 1 32 local+16 1 2 1
+b32t12_g11216      32 12 1 1 2 16 local+16 1 2 1
+b32t12_g1228       32 12 1 2 2 8  local+16 1 2 1
+b32t12_g2224       32 12 2 2 2 4  local+16 1 2 1
+b32t12_g1244       32 12 1 2 4 4  local+16 1 2 1
+b32t12_ddr         32 12 1 1 1 32 local    1 2 1
+b32t12_nohp        32 12 1 1 1 32 local+16 0 2 1
+b32t12_nofused     32 12 1 1 1 32 local+16 1 2 0
