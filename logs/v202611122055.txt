@@ -1,0 +1,98 @@
+[日志元数据]
+日志类型: stage
+生成时间: 2026-11-12 20:55:47 +0800
+批次: S1-S4
+主任务: kupl-l24-hbm-scan-20261112
+触发原因: 阶段成果
+摘要: 接管 screen 22627.lingsheng，修复远端 verify_status 初始化，独占节点复测 6 个 L24 用例并生成 docs/skills
+Git 根目录: /Users/zhangxin/PyQCU
+
+## 关键日志
+### S1 — 会话接管与现场恢复
+- 目标: 接管 screen 22627.lingsheng，恢复被遗留 top 占据的远程前台
+- 命令/操作: screen -ls；两次 hardcopy 闸门；stuff q；复检提示符
+- 关键输出: 前台 ssh 10.44.9.4（login06，nsls_yangyb）；q 后恢复 `(base) nsls_yangyb@login06:~$`
+- 退出码: probe_rc=0；hardcopy rc=0
+- 证据与判断: 画面静态但末行非提示符 → 按 Step 3B 默认 q 清除；本机无 flock，保活脚本每轮 `lock busy, skip`（已记录降级），改为 ≤30s 交互轮询
+
+### S2 — 根因定位与远端修复
+- 目标: 解释 hbm16 RC=124 与 hbm8 二次运行 UnboundLocalError
+- 命令/操作: 远端 sed -n/grep；md5sum；cp -p 备份；sed -i '847s/.*/    verify_status = None/'
+- 关键输出: 第 847 行原为 print("BEFORE_INIT", flush=True)，缺失 verify_status 初始化；修复后 46540 B、md5 c7756171a3619cb93456639dab9d3239 与本地一致；备份 .2026-11-12-20-10-00.bak（46552 B）
+- 退出码: 0
+- 证据与判断: levels=1 → use_coarse_assets=False → 必然 UnboundLocalError；95s 超时是初始化 108–117s 造成的，不是死锁
+
+### S3 — 独占节点受控复测
+- 目标: 在 cn19699/cn19698 独占（-x job）条件下复测 8/16/32 秩与线程组合
+- 命令/操作: dsub -q q_hpcapp -x job …；djob -ll 核对 execNodes；读取 report.json
+- 关键输出: hbm8c 2.0595 s；hbm16d 1.0946 s；r16t8b 1.1442 s；r32t12b 0.8410 s；r32t18b 1.5979 s；y76r32t12 0.5193 s（全部 16 it、真残差 ≈3.54e-6、PASS）
+- 退出码: 0（各作业 RC=0）
+- 证据与判断: 同节点 32r×12t 优于 16r×8t 与 32r×18t；y76 原配方与 x_case_dbg 配方差 1.62×（标志/包装），与历史 cn10579 差 1.20×（节点）
+
+### S4 — 文档与技能并行派发
+- 目标: 并行编写鲲鹏高性能配置 docs 与 skills
+- 命令/操作: agent-dispatch.sh --task-file（两路后台并行）
+- 关键输出: docs 新建 221 行；skills/pyqcu-kupl +19/+78 行；新增证据参考文件；docs 审计 FAIL 6 → PASS
+- 退出码: 0（两路 dispatch exit_code=0）
+- 证据与判断: 所有数值逐项来自证据摘要；跨节点与标志差异均注明，待补项未写成结论
+
+## 验证与证据
+- 测试/检查: `python3 -B skills/pyqcu-docs/scripts/audit-docs-skills.py`；`git diff --check`；远端 md5；6 份 report.json 的真残差
+- 结果: 审计 PASS（docs=43 skills=36）；diff rc=0；远端/本地 md5 一致；6 个用例全部 PASS
+- 未验证项: grid 变体（1 1 2 16 / 1 2 2 8）、32r×12t 多样本、KUPL_ENABLE_T2_ZBLOCK_DSLASH 语义
+
+## 变更与产物
+- 文件: `docs/kupl_kunpeng_hpc_config_20261112.md`（新建）；`docs/AGENTS.md`；`skills/pyqcu-kupl/SKILL.md`；`skills/pyqcu-kupl/references/kupl-history-2026.md`；`skills/pyqcu-kupl/references/kupl-hbm-scan-20261112-evidence.md`（新建）；`skills/pyqcu-docs/SKILL.md`；`skills/pyqcu-docs/references/project-docs-map.md`；`skills/pyqcu-docs/references/extracted-guidance.md`
+- 产物: 远端 `data/kupl_hbm_opt_20261106/scan8_20261112/{hbm8c,hbm16d,r16t8b,r32t12b,r32t18b,y76r32t12}/report.json`；`logs/kupl_hbm_scan_20261112_evidence.md`（工作区，未入库）
+- 未改动范围: 本地 `pyqcu/` 源码未改；远端源码仅恢复 1 行并留备份；未提交、未推送
+
+## 风险、限制与下一步
+- 风险: 每个配置 1 个样本；节点状态与队列负载仍可能影响绝对值
+- 阻塞: 64 task 作业被 `testusers_rebuild` 账号上限拒绝；`-nl` 节点偏好可能被忽略
+- 下一步: 在 cn19699 上跑 grid 变体与多样本；如需继续需点名授权新作业
+
+## Agent 全文报告
+--- report begin ---
+## 阶段报告：KUPL L24 HBM 扫描恢复（2026-11-12 20:00–20:55）
+
+**结论：上次会话的中断已定位并修复；在 cn19699/cn19698 独占节点上完成 6 个用例的受控复测，全部 PASS；文档与技能产物已生成并通过仓库审计。**
+
+### 1. 根因与修复
+- 远端 `pyqcu/testing/simple/kupl_multigrid.py:847` 被上次会话替换为 `print("BEFORE_INIT", flush=True)`，删除了 `verify_status = None`。`levels=1` 时 `use_coarse_assets=False`，随后 `if verify_status is not None` 必触发 `UnboundLocalError`。
+- 已恢复该行；远端 46540 B，md5 `c7756171a3619cb93456639dab9d3239` 与本地 HEAD 一致；备份 `.2026-11-12-20-10-00.bak`（46552 B）。
+- 上次 hbm16 的 `RC=124` 不是死锁：16 秩端到端约 108–117 s（导入+初始化约 100 s），32 秩约 233 s；95 s 超时必然误杀。
+
+### 2. 实测结果（独占 -x job，24³×64 c64，16 it，真残差 ≈3.541e-6）
+| 用例 | 节点 | 规模 | grid | wall (s) | 状态 |
+|---|---|---|---:|---:|---|
+| r32t12b | cn19699 | 32r×12t | 1 1 1 32 | 0.8410 | PASS |
+| y76r32t12 | cn19699 | 32r×12t（y76 原配方） | 1 1 1 32 | 0.5193 | PASS |
+| r32t18b | cn19699 | 32r×18t | 1 1 1 32 | 1.5979 | PASS |
+| r16t8b | cn19699 | 16r×8t | 1 1 1 16 | 1.1442 | PASS |
+| hbm8c | cn19699 | 8r×16t | 1 1 1 8 | 2.0595 | PASS |
+| hbm16d | cn19698 | 16r×8t | 1 1 1 16 | 1.0946 | PASS |
+| hbm4 | cn19698 | 4r×8t | 1 1 1 4 | 4.7462 | PASS |
+
+同节点排序：32r×12t 0.8410 s ＜ 16r×8t 1.1442 s ＜ 32r×18t 1.5979 s ＜ 8r×16t 2.0595 s。
+
+### 3. 关于“1.9×”的归因（已用控制实验分离）
+- x_case_dbg 配方（含 `KUPL_PROFILE_INIT/DSLASH`、`KUPL_FUSED_BICG_DOTS`、`--oversubscribe`）在 cn19699 为 0.8410 s。
+- y76 原配方在**同一节点**复现为 0.5193 s → 约 1.62× 来自标志/包装开销。
+- 同配方对照历史 y76（cn10579）0.4346 s → 节点差异约 1.20×。
+- y76 配方未设 `KUPL_SKIP_INPUT_PREBIND=1`，`input_prebind_seconds=15.006 s` 属初始化，不计入 `wall_seconds`。
+
+### 4. 产物
+- 新建 `docs/kupl_kunpeng_hpc_config_20261112.md`（221 行）：拓扑、绑定变量、MPI 映射、调度器、超时协议、实测表、DSLASH 分解、关键经验、y76 基线、待补项与证据对照。
+- 更新 `docs/AGENTS.md`（42→43 份）与 `skills/pyqcu-docs` 三处登记，审计 6 项错误清零。
+- 更新 `skills/pyqcu-kupl/SKILL.md`（+20 行）与 `references/kupl-history-2026.md`（+78 行）；新增受跟踪证据摘要 `references/kupl-hbm-scan-20261112-evidence.md`。
+
+### 5. 验证
+- `audit-docs-skills.py`：PASS（docs=43 skills=36）。
+- `git diff --check`：rc=0。
+- 远端 6 份 `report.json` 与本地记录的数值一致；所有用例真残差低于 2.44140625e-4 验收阈值。
+
+### 6. 未验证与限制
+- grid 变体（1 1 2 16 / 1 2 2 8）、32r×12t 多样本、`KUPL_ENABLE_T2_ZBLOCK_DSLASH` 语义仍待补。
+- 64 task 作业被账号上限拒绝；`-nl` 偏好可能被忽略。
+- 本次未提交、未推送 Git；远端仅恢复 1 行源码并保留备份。
+--- report end ---

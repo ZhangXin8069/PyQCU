@@ -342,16 +342,36 @@ template <typename Real> void LatticeSet<Real>::allocate_scratch() {
     mark("halo-scratch");
     return;
   }
+  const bool halo_pack6 = halo_pack6_enabled();
   for (int dim = 0; dim < kDim; ++dim) {
     if (geometry_.grid[dim] == 1) {
       continue;
     }
-    const std::size_t face =
-        static_cast<std::size_t>(geometry_.face_sites[dim] * kVector);
-    fermion_send_[face_offset(dim, -1)].resize(face);
-    fermion_send_[face_offset(dim, 1)].resize(face);
-    fermion_recv_[face_offset(dim, -1)].resize(face);
-    fermion_recv_[face_offset(dim, 1)].resize(face);
+    const int64_t face_count =
+        halo_pack6
+            ? halo_pack6_face_count(
+                  dim, geometry_.face_sites[dim], geometry_.local[0],
+                  geometry_.local[1], geometry_.local[2])
+            : geometry_.face_sites[dim];
+    // PACK6 keeps the 12-plane layout (so every consumer keeps its
+    // component*stride accessor) but only the first 6 planes carry data; the
+    // unused 6 spin-2/3 planes stay zero so the receiver's gamma transform
+    // reconstructs the full output from the projected half-spinor.
+    const std::size_t face = halo_pack6
+                                 ? static_cast<std::size_t>(12 * face_count)
+                                 : static_cast<std::size_t>(face_count * kVector);
+    for (int sign : {-1, 1}) {
+      auto &send = fermion_send_[face_offset(dim, sign)];
+      auto &recv = fermion_recv_[face_offset(dim, sign)];
+      send.resize(face);
+      recv.resize(face);
+      if (halo_pack6) {
+        const std::size_t data =
+            static_cast<std::size_t>(6 * face_count);
+        std::fill(send.begin() + data, send.end(), Complex<Real>(0));
+        std::fill(recv.begin() + data, recv.end(), Complex<Real>(0));
+      }
+    }
     const std::size_t gauge_face = static_cast<std::size_t>(
         geometry_.face_sites[dim] * 2 * kGauge * kDim);
     gauge_halo_.faces[face_offset(dim, -1)].resize(gauge_face);

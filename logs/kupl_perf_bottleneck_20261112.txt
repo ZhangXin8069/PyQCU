@@ -1,0 +1,611 @@
+KUPL L24 求解性能瓶颈分析：0.5193 s -> 0.1 s 的差距与攻击顺序
+日期: 2026-11-12
+范围: 只基于仓库内可核对的数据（证据文件、docs、本地源码）做瓶颈分解与路线估算；
+      不访问远端、不做新测量、不修改代码。
+标注约定:
+  [已核实] = 证据文件/本地源码直接支持；
+  [模型]   = 明确列出假设的量化估算，不是实测；
+  [待补]   = 仓库内尚无数据。
+口径: solve 墙钟 wall_seconds 只包住 qcu.applyCloverMultigridQcu 一次调用
+      (pyqcu/testing/simple/kupl_multigrid.py:865-870)；不含输入读取
+      (input_prebind / gauge_read / source_read)、独立残差重建和进程启动。
+      本分析的主对象是 y76r32t12：cn19699、32r x 12t、grid 1 1 1 32、
+      levels=1/restart=0、16 it、wall 0.5193 s、真残差 3.5412238955e-6、PASS。
+
+================================================================================
+## 结论摘要（按可回收时间排序）
+================================================================================
+
+一句话: 0.5193 s 不是带宽墙，也不是 FP32 算力墙。约 73% 的时间（[模型] 0.381 s）
+花在 70 次 dslash 上，其中约 0.313 s 是"100% 站点都走标量逐点 kernel"的
+compute_dslash_site；该 kernel 每站点约 0.32 us（12 线程墙钟），
+按每线程折算约 6,000-7,800 cycles/site，却只做约 2.1 kFLOP 和约 0.8-1.4 kB
+逻辑访存，属于典型的 gather/依赖链/地址计算受限，不是 HBM 或 SVE 峰值受限。
+
+可回收时间排序（对 0.5193 s 这一最优配置，估算上界）:
+  1. 标量 boundary/site kernel（100% 站点）        可回收 0.20-0.27 s
+  2. 迭代数 16 且内层过收敛（比验收门紧 10x）      可回收 0.10-0.20 s
+  3. 非 dslash 的每迭代开销（onsite/axpy/归约）    可回收 0.03-0.06 s
+  4. halo pack 与 t 方向串行段                     可回收 0.02-0.05 s
+  5. block lane 利用率（当前 ht=1，路径根本没开）  条件性 0.15-0.25 s，
+     必须同时改 grid，且与第 1 项高度耦合，不能与第 1 项相加
+  已回收、不得重复计入:
+  - profile 路径禁用 split 重叠: 0.8410 -> 0.5193 的 0.32 s 差异已经拿到；
+  - 18 t 线程超订: 1.5979 vs 0.8410，最优配置已用 12 t，不存在于 0.5193 中。
+
+最可能先到 0.1 s 的不是任何单条路线，而是:
+  R1（boundary kernel 改成跨站点 SIMD/AoS，目标 4-8x）
+  + R3b（迭代 16 -> 8，deflation/true-MG）
+  + R4（砍掉每迭代冗余归约与整场验证）
+  [模型] 合并区间 0.09-0.14 s；单条路线都无法到 0.1 s。
+
+================================================================================
+## 时间预算
+================================================================================
+
+### 0. 已核实的计数与几何
+
+- 总 half_sites = 24^3 x (64/2) = 442,368（全局，单 parity）。
+  (cpp/kupl/qcu/src/lattice_geometry.cpp:113-117；backend.cpp:419-433)
+- 32 秩 t-only: 每 rank half_sites = 442,368 / 32 = 13,824；
+  local_t = 64/32 = 2 -> ht = local_t/2 = 1 -> 100% 站点为 boundary。
+- 16 秩: 27,648/rank，local_t=4 -> ht=2 -> 仍 100% boundary。
+- block 路径门限: half_sites >= KUPL_BLOCK_DSLASH_MIN_HALF_SITES 且 ht>=3
+  (lattice_wilson_dslash.cpp:16-31, 327-329, 389-391)。
+  32 秩 13,824 < 16,384，且 ht=1；16 秩 27,648 >= 16,384 但 ht=2，二者都
+  实际走标量 boundary。降低阈值无法改变 32 秩的 ht=1。
+- 每次 solve 的 dslash 调用数 = 70，与 profile 的 calls=70 一致 [已核实]：
+    prepare_clover_schur                    1
+    solve 初始 apply_operator               2
+    前 15 次完整迭代 x 4                    60
+    第 16 次在 s 收敛检查处提前 break        2
+    solve 末尾 apply_operator               2
+    reconstruct_clover_schur                1
+    apply_full_operator（整场真残差验证）    2
+    合计                                    70
+  依据: apply_schur 每次调用 2 次 bare_dslash (lattice_wilson_dslash.cpp:1213-1227)；
+        solve_compact_bistabcg 的循环与提前 break (lattice_solver.cpp:195-298)；
+        solve_clover 的准备/重建/整场验证 (lattice_solver.cpp:614-634)。
+  说明: 70 中只有 64 次属于 16 次迭代，6 次是准备/重建/整场验证的固定开销。
+- 每 rank 每 solve 的 site-application = 70 x 13,824 = 967,680；
+  全局 = 30,965,760 = 3.097e7。
+
+### 1. 从 0.5193 s 往下拆
+
+| 层级 | 时间 | 依据 |
+|---|---:|---|
+| solve wall | 0.5193 s | [已核实] |
+| 16 次迭代，平均每次 | 32.46 ms | 0.5193 / 16 |
+| 70 次 dslash，平均每次 | 7.419 ms | 0.5193 / 70 |
+| 每次迭代的 dslash（4 次调用） | 21.75 ms | [模型] 每 call 5.437 ms |
+| 每次迭代的其余工作 | 10.71 ms | [模型] 见下 |
+| dslash 合计 | 0.381 s (73.4%) | [模型] |
+| 非 dslash 合计 | 0.138 s (26.6%) | [模型] 0.5193 - 0.381 |
+| 每 site-application 墙钟 | 0.5366 us | 0.5193 / 967,680 |
+| 每 site-application 的 dslash | 0.3938 us | 0.381 / 967,680 |
+| 每 site-application 的非 dslash | 0.1426 us | 0.138 / 967,680 |
+
+[模型] 0.381 s 的来历（这是本文最关键的估算，必须写明假设）:
+  用同一节点 cn19699、12 t 的 profile 边界的每站点成本，作为非 profile 的
+  标量 boundary 计算成本；profile 只改变调度结构，不改变 compute_dslash_site
+  的每站点指令数。
+    boundary = 0.3132 s（r32t12b，70 calls，13,824 sites/call，12 t）
+    halo pack/post = 0.0675 s
+  非 profile split 路径 (lattice_wilson_dslash.cpp:1133-1149):
+    post_fermion_halo -> part1(x,y,z, 3/4 工作量) -> MPI_Waitall -> part2(t, 1/4)
+  由于 part1 的 3/4 计算与 wait 重叠，wait（profile 下 0.2111 s）不再进入
+  dslash 关键路径；因此:
+    dslash ≈ halo 0.0675 + part1 0.75x0.3132 + part2 0.25x0.3132
+           = 0.0675 + 0.2349 + 0.0783 = 0.3807 s
+  假设: (a) wait 被 part1 完全覆盖（part1=0.235 s > wait=0.211 s）；
+        (b) profile 与非 profile 的 boundary 每站点成本相同；
+        (c) 0.3132 s 已含 MPI 进度线程对 12 个 OMP 线程的干扰。
+  这不是把 profile 分项从 0.5193 中直接相减（那会重复计算），而是取
+  "每站点固定成本"这一路径不变量。见风险 R3。
+
+[模型] 非 dslash 0.138 s 的构成:
+  每次迭代: apply_schur 内 2 次 apply_clover_onsite
+           (lattice_wilson_dslash.cpp:1219-1226, lattice_linalg.cpp:73-137)
+           + 4 个 axpy 类向量更新 (lattice_solver.cpp:208-273)
+           + 5 个全局归约: residual norm(196), rho(201), rhat_v(219),
+             s norm(232), fused tt/t_s(249-250)，每个都是一次 MPI_Allreduce
+           (lattice_solver.cpp:46-71, 76-117)。
+  固定部分: prepare 1 次 onsite、初始/末尾 apply 各 2 次 onsite、
+            reconstruct 1 次 onsite、整场验证的 2 次全局范数
+            (lattice_solver.cpp:614, 625-634)。
+  这些已全部向量化为 16 lane/64B 的站点块，因此不能靠 SIMD 再降一个数量级。
+
+### 2. 每 site-application 的字节与 FLOP，对照硬件上限
+
+[模型] FLOP/site-application: 2.1 kFLOP（范围 2.0-2.3）。
+  Wilson hopping: 8 个方向 x 9 个 color pair x 4 spin = 288 complex MAC,
+  每个 complex MAC 约 6 flop -> 1,728 flop；gamma 变换与累加约 0.3-0.5 kFLOP。
+  历史文档用 2.3 kFLOP（logs/kupl_hbm_anomaly_analysis_20261112.txt:99-100），
+  本文取 2.1 kFLOP 做中心值，结论对 2.0-2.3 不敏感。
+
+[模型] 字节/site-application（两种口径都给，避免把 cache 复用当已核实）:
+  (a) 复用口径（历史模型）: 源 96 B + 目标 96 B + gauge 8x9x8=576 B = 768 B。
+      其中 gauge 占 75%。假定每个源站点在 8 个邻居之间只物理读一次。
+  (b) 无复用上界: 8 个邻居源 x 96 B + 写 96 B + gauge 576 B = 1,440 B。
+  两张口径只用于排除"带宽墙"，不用于承诺性能。
+  算术强度: 2.1 kFLOP / 768 B = 2.73 FLOP/B（口径 a）；1.46 FLOP/B（口径 b）。
+
+全 solve 总量（32 秩）:
+| 口径 | 全局字节 | dslash 期间聚合带宽 (0.381 s) | 全墙钟聚合带宽 (0.5193 s) |
+|---|---:|---:|---:|
+| (a) 768 B/site | 23.78 GB | 62.4 GB/s | 45.8 GB/s |
+| (b) 1440 B/site | 44.59 GB | 117.0 GB/s | 85.9 GB/s |
+
+FLOP:
+  全局 = 30,965,760 x 2.1 kFLOP = 6.50e10 FLOP = 65.0 GFLOP。
+  全墙钟速率 = 125.2 GFLOP/s；dslash 期间 = 170.7 GFLOP/s。
+  每线程（32r x 12t = 384 线程）= 0.326-0.445 GFLOP/s。
+  每 HBM/NUMA 域（2 rank/域）= 7.8-10.7 GFLOP/s 与 2.9-5.4 GB/s。
+
+硬件分母（均为仓库实测，不是本文新测）:
+  DDR 全节点 616 GB/s @1.55 GHz（docs/qcu_l24_environment_bandwidth_20261111.md:282-291）。
+  HBM 全节点 5455-5476 GB/s @1.55 GHz；6791-6811 GB/s @2.0 GHz（同上）。
+  HBM 单域 t24: 278.88 @1.55 GHz；319-337 @2.0 GHz；t36: 338-343 @1.55。
+  SVE VL=64B，608 核/节点，16 CPU NUMA x 38 核（同上:99-117）。
+  [模型] FP32 SVE 峰值: 608 核 x 2.0 GHz x 16 lane x 2 FLOP/FMA
+        = 38.9 TFLOP/s（若每核只有 1 FMA/cycle，则 19.5 TFLOP/s）。
+
+对照结果:
+| 指标 | 当前 | 占分母 |
+|---|---:|---:|
+| 聚合带宽（口径 a） | 45.8-62.4 GB/s | DDR 7.4-10.1%；HBM 0.84-1.14% |
+| 聚合带宽（口径 b） | 85.9-117.0 GB/s | DDR 13.9-19.0%；HBM 1.57-2.14% |
+| 每域带宽 | 2.9-5.4 GB/s | 单域 HBM 1.0-1.9% |
+| 全局 FLOP 速率 | 125-171 GFLOP/s | 19.5-38.9 TFLOP/s 的 0.32-0.88% |
+| 每线程 FLOP 速率 | 0.33-0.45 GFLOP/s | 每核 32-64 GFLOP/s 的 0.5-1.4% |
+
+结论（定量）: 即使按无复用上界，聚合需求也只有 DDR 的 14-19%、HBM 的 1.6-2.1%；
+算力只有 SVE FP32 峰值的 0.3-0.9%。所以 0.5193 s 不是带宽墙也不是算力墙。
+真正的墙在"每线程每站点"层面:
+  墙钟 0.5193 s / (967,680/12 site-calls per thread) = 6.44 us/site/thread；
+  boundary 计算 0.3132 s -> 3.88 us/site/thread -> 2.0 GHz 下约 7,766 cycles/site，
+  对应约 0.27 flop/cycle、逻辑 0.2-0.4 B/cycle。这个数字只能由
+  gather/依赖链/cache line 利用率解释，不能由 HBM 或 FP32 峰值解释。
+
+0.1 s 目标的硬件需求（同样口径）:
+  每 site-application 墙钟预算 0.1033 us（全局），或 0.906 us/site/thread；
+  需要比当前少 5.19x 的每站点 cycles（2.0 GHz 下约 2,480 cycles/site）。
+  全局 FLOP 650 GFLOP/s（SVE 峰值的 1.7-3.3%）；
+  聚合带宽 238-446 GB/s（HBM 的 4.4-8.2%，DDR 的 39-72%）。
+  与历史文档的 0.1 s 需求 650 GB/s / 0.87 TFLOP/s 同量级
+  (skills/pyqcu-kupl/references/kupl-history-2026.md:238-241)。
+  即: 0.1 s 在硬件能力之内，差距在 kernel 效率与迭代数，不在硬件上限。
+
+================================================================================
+## 瓶颈排序
+================================================================================
+
+排序规则: 对当前最优 0.5193 s 的可回收绝对时间上界，从大到小。
+每个上界都写出假设；上界之间不保证可加（见第 5 条与 R1 的耦合）。
+
+### 1. 标量 boundary/site kernel（可回收 0.20-0.27 s）
+[已核实] ht=1 使 100% 站点满足 boundary 判据；唯一执行路径是
+compute_dslash_boundary_part -> compute_dslash_site
+(lattice_wilson_dslash.cpp:693-721, 946-987)。
+[已核实] compute_dslash_site 每站点:
+  - 4 个方向 x (forward+backward) 的 accumulate_hopping
+    (lattice_wilson_dslash.cpp:102-164)，每次 12 分量 gather；
+  - source_at_delta 每方向做坐标构造、t 方向 parity 计算、远端/本地分支、
+    halo 索引 (lattice_wilson_dslash.cpp:595-637)；
+  - compact_view 的 stride = half_sites (lattice_geometry.cpp:196-201)，
+    即 12 个分量跨 12 条相距 110,592 B 的流；gauge stride = 4 x half_sites
+    (lattice_geometry.cpp:242-250)，也是 9 条远距流。
+  - 无跨站点 SIMD；boundary_part 只有 index+8 的软件 prefetch
+    (lattice_wilson_dslash.cpp:711-718)。
+[模型] 上界: 若改成跨 16 个 z 站点的 SIMD 块 + site-major(AoS) 布局，
+  假设每线程每站点 cycles 从 7,766 降到 1,000-2,000（4-8x），
+  则 boundary 0.3132 -> 0.039-0.078 s，dslash 0.381 -> 0.10-0.14 s，
+  总时间 0.5193 -> 0.24-0.28 s。仅此一项不能到 0.1 s。
+[已核实] 仓库里已有的近似实现是 compute_dslash_t2_spatial_zblocks，
+  按 z 取 16 lane，覆盖全部站点（含 t2 边界特判），
+  由 KUPL_ENABLE_T2_ZBLOCK_DSLASH 控制
+  (lattice_wilson_dslash.cpp:33-42, 723-832, 1119-1131)。
+[已核实] 历史登录节点 A-B-B-A 测试中该实现约慢 4.8%
+  (kupl-history-2026.md:242-247)，所以它不是现成答案，必须先解释这 4.8%。
+
+### 2. 迭代数 16 且内层过收敛（可回收 0.10-0.20 s）
+[已核实] solve_compact_bistabcg 的求解容差是 Real(0.1) * atol
+  (lattice_solver.cpp:622)，而验收门是 max(atol, residual_floor)*rhs_norm
+  (lattice_solver.cpp:164-165, 635-636)。即内层比验收门紧 10x。
+[已核实] 实测真残差 3.5412e-6，验收阈值 2.44140625e-4，余量约 69x
+  （绝对量口径；rhs_norm 未记录，不能用相对量再解释）。
+[模型] 若残差按几何率下降（16 次从 O(1) 到约 1e-5 相对，速率约
+  0.72-0.79 decade/iter），把目标从 0.1*atol 放到 atol 可省约 3-5 次迭代，
+  16 -> 11-13，时间约 0.40-0.45 s。上界 0.10-0.12 s。
+[模型] 更强预条件（deflation/true-MG）: 历史同窗 16r x 8t 登录节点
+  BiCGStab 1.397 s vs true-MG restart=10 0.790 s = 1.77x；
+  restart=50 1.092 vs 0.704 = 1.55x (kupl-history-2026.md:311-325)。
+  平移到 0.5193 s -> 0.29-0.33 s（假设计算节点保持同倍率，未验证）。
+  若迭代从 16 降到 8，按本节的 per-iteration 模型，可回收 0.18-0.20 s。
+[已核实] 计算节点 true-MG 至今没有有效数值（K8 同 job 的 MG 在 787 s
+  无 report.json），所以 R3b 是"高上限、高风险"，不是现成收益。
+
+### 3. 非 dslash 的每迭代开销（可回收 0.03-0.06 s）
+[已核实] 每迭代 5 次 MPI_Allreduce（residual/rho/rhat_v/s_norm/fused_dots）
+  + 4 次 axpy + 4 次 onsite（2 次 apply_schur x 2）。
+  fused 路径已把 tt 与 t_s 合并为 1 次 Allreduce (lattice_solver.cpp:248-256)，
+  但 residual norm、rho、rhat_v、s norm 仍是 4 次独立的 Allreduce。
+[模型] 32 秩、HMPI 小消息 Allreduce 按 20-100 us 估，16 次迭代 x 5 次
+  = 80 次 -> 1.6-8 ms，单独看不大。非 dslash 0.138 s 的主体更可能是
+  onsite + axpy 的访存与 OMP barrier，而不是 Allreduce。
+[模型] 可回收上界取 0.03-0.06 s: 合并 residual/s 的范数与 rho 类归约、
+  把 onsite 融合进 dslash 的输出 scatter、去掉计时路径上的整场重复验证
+  (lattice_solver.cpp:625-634 的 apply_full_operator + 2 次全范数；
+  这是纯验证，约占 2 次 dslash + 2 次归约，约 0.015-0.02 s)。
+
+### 4. halo pack 与 t 方向串行段（可回收 0.02-0.05 s）
+[已核实] pack_fermion_face 是 24^3 x 12 x 8 B = 1.327 MB/face 的 gather
+  (lattice_wilson_dslash.cpp:531-552, lattice_geometry.cpp:146-150)；
+  t-only 32 秩下 rank 的整个 24^3 半时间层就是一个 face，
+  每次 dslash 收发各 2 face = 2.654 MB/rank，70 次共 371.6 MB/rank。
+[已核实] halo 0.0675 s 在 part1 之前串行完成
+  (lattice_wilson_dslash.cpp:1140-1141)；part2(t 方向) 必须等 wait，
+  且无法用 x,y,z 计算覆盖，约 0.078 s 串行。
+[模型] 可回收上界 0.02-0.05 s: 把 pack 拆到 2 个 face 流水线化/与 part1
+  的前几个 chunk 重叠；或用 MPI 进度线程把 wait 的尾部与 part2 的本地部分重叠。
+  这不是 0.1 s 的主杠杆。
+
+### 5. block lane 利用率（条件性 0.15-0.25 s，不能与第 1 项相加）
+[已核实] 当前 ht=1，block 路径在 compute_interior_blocks 的 ht<3 处直接
+  return (lattice_wilson_dslash.cpp:327-329)；periodic face 同样
+  (lattice_wilson_dslash.cpp:389-391)。所以"降低
+  KUPL_BLOCK_DSLASH_MIN_HALF_SITES"对 32 秩**没有任何作用**，因为
+  ht=1 不是阈值问题。
+[已核实] 即使把 grid 改成 ht>=3，block 内层 lane 数是
+  min(16, ht-1-t2) (lattice_wilson_dslash.cpp:339-340, 460-461)：
+    grid 1 2 2 8  -> ht=4  -> lanes=2  (12.5% 利用率)
+    grid 2 2 2 4  -> ht=8  -> lanes=6  (37.5%)
+    grid 2 4 4 1 或 4 4 2 1 -> ht=32 -> lanes=16 (100%)
+  只有 grid_t=1（完全不切 t）才能拿到 16 lane，代价是 x/y/z 三方向都有
+  MPI halo 和 gauge corner halo。
+[模型] grid 2 4 4 1（32 秩，local 12x6x6x64，ht=32）:
+  站点判据 interior = (10/12)(4/6)(4/6)(30/32) = 34.7%；
+  scalar boundary 65.3%；periodic face 只在 grid=1 的轴上出现，
+  本 grid 的 x/y/z 都 >1，所以没有 periodic-face 收益。
+  若 interior 16 lane 相对 scalar 提速 6x，boundary 不变：
+  dslash 提速 = 1/(0.653 + 0.347/6) = 1.38x，总时间约 0.42-0.48 s。
+  同时 halo 字节降到约 1.106 MB/call（vs t-only 2.654 MB），但消息数
+  从 4 条/维增加到 12 条，gauge halo/corner 也变复杂。
+  结论: 单纯改 grid 不是 0.1 s 路线，但它是检验 lane 收益的低成本实验。
+[模型] 若把 boundary 也改成 16-lane（即第 1 项），则 block/grid 的收益已被
+  第 1 项覆盖，不应重复计入。
+
+### 已回收项（不得重复计入 0.5193 s）
+- profile 路径: KUPL_PROFILE_DSLASH 非空时整个 split 快路径被绕过
+  (lattice_wilson_dslash.cpp:1116-1118, 1160-1180)，wait 暴露 0.2111 s。
+  r32t12b 0.8410 vs y76 0.5193 的 0.32 s 已由 y76 配方回收。
+- 18 t 超订: 1.5979 vs 12 t 0.8410；最优配置已避开。
+- 节点差: 同配方 cn19699 0.5193 vs 历史 cn10579 0.4346 = 1.20x；不是本文
+  可攻击的代码瓶颈，但会污染跨节点比较。
+
+================================================================================
+## 0.1 s 路线
+================================================================================
+
+统一估算模型（用于下面所有路线，避免重复计算）:
+  [模型] 把 0.5193 s 分成:
+    V0 = 29.3 ms/迭代（其中 dslash 21.75 ms，其余 7.6 ms）；
+    F0 = 50 ms 固定开销（6 次非迭代 dslash 约 32.6 ms + prepare/reconstruct/
+         整场验证/归约约 17.4 ms）。
+    16 x 29.3 + 50 = 519 ms，与实测闭合。
+  dslash 提速 k 倍时: V = 21.75/k + 7.6；F = 32.6/k + 17.4。
+  迭代数 n 时: T(n,k) = n x V + F。
+  这是估算，不是承诺；k 和 n 都必须由实测确认。
+
+### R1. boundary kernel 跨站点 SIMD + AoS 布局（基础路线）
+做法: 把 compute_dslash_site 的逐点循环改成"16 个连续 z 站点一组"的
+lane 型 kernel，源/输出/gauge 改成 site-major（12 个分量连续）或至少
+gauge 按站点块预打包；覆盖全部站点，包括 t2 边界特判。
+依据: 现有 compute_dslash_t2_spatial_zblocks 已给出 16-lane 骨架
+(lattice_wilson_dslash.cpp:723-832)，但历史登录节点测试慢 4.8%
+(kupl-history-2026.md:242-247)，必须先定位这 4.8% 是 t 方向 gather 还是
+gauge 冗余读取。
+估算（T(16,k)）:
+  k=4 -> 0.23 s；k=6 -> 0.20 s；k=8 -> 0.19 s。
+  即 R1 单独最好也只能到约 0.19-0.23 s，不能到 0.1 s。
+  它决定"是否有可能到 0.1 s"：若 k<3，后面所有组合都不够。
+最可能先到 0.1 s 的位置: 否，R1 是必要条件，不是充分条件。
+
+### R2. grid/ht 改成 block 16-lane（几何路线）
+做法: 32 秩下试 grid 2 4 4 1 / 4 4 2 1（ht=32，lanes=16），
+1 2 2 8（ht=4，lanes=2）作为负对照；不改代码，只改 --grid。
+估算:
+  - 2 4 4 1: interior 34.7%，boundary 65.3%，消息数 x3；
+    dslash 1.3-1.5x，总时间 0.40-0.50 s。
+  - 1 2 2 8: lanes=2，interior 31.8%，消息数 x3；预计 0.50-0.65 s，
+    用于证明"低 lane 的 block 不比 scalar 快"（C2 假设）。
+  - 2 2 2 4: ht=8，lanes=6，interior 43.4%；总时间 0.42-0.50 s。
+最可能先到 0.1 s 的位置: 否。但它是唯一不用改代码就能验证
+"lane 利用率是否真的是 4-8x 杠杆"的实验，优先级应高于任何代码重写。
+
+### R3. 减少迭代 / 更强预条件（迭代路线）
+R3a 容差（低成本、低风险）:
+  把 solve_compact_bistabcg 的 Real(0.1)*atol 改成 Real(0.3-0.5)*atol，
+  仍保留到验收门 atol 的 2-3x 余量。
+  [模型] 16 -> 13-15 it；T = n x 29.3 + 50 = 0.43-0.49 s。
+R3b 预条件（高上限、高风险）:
+  deflation / true-MG restart=10-50；历史同窗 1.55-1.77x。
+  [模型] 若 16 -> 8-10 it，T = 0.29-0.36 s。
+  计算节点 true-MG 尚无有效数据；若 coarse work 抵消收益（16r 同窗
+  BiCG 1.255 vs MG 1.354，MG 慢 7.9%，kupl-history-2026.md:295-300），
+  此路线失败。
+最可能先到 0.1 s 的位置: 单独否。R3a 是最便宜的第一步（改一行系数），
+R3b 是组合路线里把 0.15 s 压到 0.10 s 的关键一跳。
+
+### R4. 砍掉每迭代冗余开销与整场验证（工程路线）
+做法:
+  - 把 residual norm 与 s norm 合成一次归约（同一残差量）；
+  - rho 与 rhat_v 在 BiCGStab 中不能合并（不同向量），但可把
+    residual norm 的 Allreduce 与 rho 合并成一次 3-4 值的 Allreduce；
+  - 把 apply_clover_onsite 融合进 dslash 的输出 scatter，减少一遍读写；
+  - 计时路径上跳过 apply_full_operator + 整场真残差的 2 次全范数
+    (lattice_solver.cpp:625-634)，只在验收/复测时启用。
+估算: 非 dslash 0.138 -> 0.08-0.10 s；固定 F0 17.4 -> 10 ms；
+  单独 T(16,k=1) ≈ 0.46-0.49 s。与 R1 组合时，把每迭代的 7.6 ms
+  降到 4.5-5.5 ms，是 0.10-0.14 s 区间能否落到 0.1 s 的关键。
+最可能先到 0.1 s 的位置: 否，单独收益小；但组合里不可省。
+
+### R5. 通信/重叠（辅助路线）
+做法: pack 流水线化；用 MPI 进度线程或 persistent request 让 wait 尾部
+与 part2 的本地 t 分量重叠；把 gauge halo 的 corner 交换移出计时路径
+（gauge 不变，只需一次）。
+估算: 0.02-0.05 s；单独 T ≈ 0.47-0.50 s。
+最可能先到 0.1 s 的位置: 否。y76 的 split 路径已经把最大的 wait 回收了，
+剩余通信不是主杠杆。
+
+### 组合与结论
+| 组合 | 估算区间 | 说明 |
+|---|---:|---|
+| R1 (k=4-8) | 0.19-0.23 s | 单独不够 |
+| R2 (2 4 4 1) | 0.40-0.50 s | 单独不够，但是最便宜的机制验证 |
+| R3a (13-15 it) | 0.43-0.49 s | 最便宜的一步 |
+| R3b (8-10 it) | 0.29-0.36 s | 高风险，需计算节点验证 |
+| R1 + R3a | 0.15-0.19 s | 仍不够 |
+| R1 + R3b | 0.13-0.17 s | 接近，取决于 k 与 n |
+| R1 + R3b + R4 | 0.09-0.14 s | **最可能先到 0.1 s** |
+| R1 + R3b + R4 + R5 | 0.08-0.13 s | 理论下限 |
+
+推荐攻击顺序（按"信息量/成本"而不是按收益）:
+  第 1 步: R1 的机制验证（R2 的 1 2 2 8 vs 2 4 4 1 vs 1 1 1 32 三组，
+           不改代码，只改 grid；同时 A/B KUPL_ENABLE_T2_ZBLOCK_DSLASH）。
+           这能在不写 kernel 的情况下回答"lane 到底值多少"。
+  第 2 步: R3a（一行容差系数 + 迭代残差日志），确认 16 -> ? it。
+  第 3 步: R1 的正式 kernel（AoS + 16-lane boundary）。
+  第 4 步: R4（归约/onsite 融合/去掉计时路径整场验证）。
+  第 5 步: R3b（deflation/true-MG）只在第 3-4 步把时间压到 0.15 s 附近、
+           且计算节点 true-MG 有有效数据后再投入；否则它是最大的时间黑洞。
+  第 6 步: R5 作为收尾。
+最先到 0.1 s 的候选是"R1 + R3b + R4"，但最早应该做的是 R2/R3a 的
+机制验证，因为它们决定 R1 的 k 上界和 R3b 是否值得做。
+
+================================================================================
+## 可证伪预测
+================================================================================
+
+R1（kernel SIMD/AoS）
+  成立: 在 cn19699 32r x 12t grid 1 1 1 32 上，
+        (a) KUPL_ENABLE_T2_ZBLOCK_DSLASH=1 vs 0 的 A/B 中，
+            profile 的 boundary 每站点时间下降 >=2x；
+        (b) 同一 A/B 的 wall 下降 >=20%（0.5193 -> <=0.42）；
+        (c) perf 的 dTLB/L1 miss 每站点显著下降。
+  否证: A/B 在 3 个样本内 wall 差异 <5%（则 lane 不是瓶颈，R1 的 k 可能 <1.5，
+        0.1 s 路线必须改走别的机制，如减少迭代或改数据布局的更彻底重写）；
+        或 zblock 只在登录节点慢 4.8%、在计算节点也慢（说明 t 方向 gather
+        抵消了全部 lane 收益）。
+
+R2（grid/ht/block lane）
+  成立: grid 2 4 4 1 的 profile 中 interior 时间份额 >=25%，且 interior 的
+        us/site 明显低于 boundary（例如 boundary 0.32 us/site vs
+        interior <=0.10 us/site）；wall <=0.50 s。
+  否证: interior us/site >= boundary 的 0.8 倍，或 wall >0.55 s
+        （则 block lane 在当前实现里不是有效杠杆，R1 应优先于任何 grid 改动）。
+  2 4 4 1 若比 1 1 1 32 慢，也同时否证"ht 越大越好"的朴素假设，
+  但**不**否证 R1，因为 R1 不依赖 ht。
+
+R3a（容差/迭代）
+  成立: 打开逐迭代残差日志后，0.1*atol -> 0.5*atol 使 it 从 16 降到
+        <=14，且真残差仍 <=2.4e-4（PASS）；wall 下降 >=10%。
+  否证: it 不降（说明收敛是 plateau/超线性尾部，不是几何率），
+        或真残差越过 2.4e-4（说明 0.1*atol 的余量本来就是必要的）。
+
+R3b（deflation/true-MG）
+  成立: 计算节点 32r x 12t 上，restart=10-50 的 true-MG 在 coarse_calls>0
+        且 verify_status=0 时 wall <=0.35 s，且 3 样本中位数稳定。
+  否证: coarse work 抵消收益（MG/BiCG >=0.95），或 coarse_calls=0/
+        fallback=fine_bicgstab（历史 L24 已出现过，kupl-history-2026.md:274-278）。
+        此时 R3b 失败，0.1 s 只能靠 R1 的 k>=6 + R4。
+
+R4（开销削减）
+  成立: 去掉整场验证的 2 次 dslash + 2 次全范数后，wall 下降 2-4%；
+        合并归约后再下降 2-4%；总计 0.04-0.08 s 可测。
+  否证: 总计 <2%（说明 0.138 s 的非 dslash 主要是 onsite/axpy 访存，
+        归约和验证不是可压缩项；此时 R4 的 7.6 -> 5.5 ms 假设不成立，
+        组合路线要到 0.1 s 需要 R1 的 k 更高）。
+
+R5（通信）
+  成立: 把 pack 拆成两段流水线后，profile 的 halo 时间从 0.0675 s
+        降到 <=0.045 s；wait 尾部与 part2 重叠后 wall 再降 1-3%。
+  否证: halo 时间不变（说明 pack 已经是带宽/内存受限，不是可重叠项）。
+
+================================================================================
+## 最小测量计划（不改代码，只列计划）
+================================================================================
+
+### 0. 原则
+- 所有性能点固定在 cn19699，独占 -x job；提交后 djob -ll 核对 execNodes。
+- 每点至少 3 个样本（1 次 + 2 次复测），报 min/median/max；当前每点 1 样本
+  是本文所有倍率的最大不确定源。
+- 端到端超时 >=600 s（16r 约 108-117 s，32r 约 233 s，均为端到端）。
+- 同时记录: wall_seconds、iterations、独立真残差、KUPL_TOPOLOGY_REPORT 的
+  cpu_node/cpuset/bound_threads/memory_node、lscpu 的 Thread(s)/core、
+  运行中 numastat -p <rank_pid>、numactl --hardware 的 distance。
+- 不改代码；下面的"插桩点"是后续 patch 的计划，不是本轮执行内容。
+
+### 1. 需要新增/启用的计时点（file:line）
+现有（已核实，可直接用）:
+  - dslash 四段: lattice_wilson_dslash.cpp:1160-1180（仅 profile 分支）。
+  - solve wall: pyqcu/testing/simple/kupl_multigrid.py:865-870。
+  - 迭代数: lattice_solver.cpp:286-292（最终 log）。
+计划新增（按优先级）:
+  P1. 非 profile split 路径的三段计时: lattice_wilson_dslash.cpp:1140-1148
+      （post_fermion_halo / part1 / MPI_Waitall / part2），仅当
+      KUPL_PROFILE_SPLIT=1 时启用，避免改变默认路径。
+  P2. 逐迭代残差: lattice_solver.cpp:195-197 与 232-233，打印
+      iteration/residual/s-norm；用来判定 R3a 的收敛率。
+  P3. 归约计时: lattice_solver.cpp:53-70（global_norm_dot_pair）、
+      82-96（global_dot）、105-115（global_norm2），按调用点累加。
+  P4. onsite/axpy 计时: lattice_linalg.cpp:73-137（apply_clover_onsite），
+      以及 lattice_solver.cpp:208-216/225-231/262-273 的向量更新。
+  P5. 固定开销: lattice_solver.cpp:614（prepare）、623（reconstruct）、
+      625-634（apply_full_operator + 整场残差）。
+  P6. Python 侧分段: kupl_multigrid.py:848（applyInit）、852-858
+      （applyCloversQcu）、865-870（solve）、891-905（独立残差）。
+      这些都在 wall 之外，只用于解释端到端时间，不混入 0.5193 s。
+
+### 2. 运行矩阵（节点 cn19699，独占）
+共同条件: --lat 24 24 24 64 --mass -0.277 --csw 1.160920226 --atol 1e-4
+          --max-iter 50 --dtype c64 --levels 1 --restart 0；
+          KUPL_NUMA_BIND=1、KUPL_MEMORY_POLICY=bind、KUPL_MEMORY_NODE=local+16、
+          KUPL_REQUIRE_MEMORY_BIND=1、KUPL_HUGEPAGE=1；
+          32 秩用 ppr:2:numa，16 秩用 ppr:1。
+
+矩阵 A（机制验证，不改代码，最优先；每点 3 样本）
+  A1. 32r x 12t, grid 1 1 1 32，y76 配方（基线 0.5193）
+  A2. 同上 + KUPL_PROFILE_DSLASH=1（对照 0.8410，分离 profile 结构）
+  A3. 同上 + KUPL_ENABLE_T2_ZBLOCK_DSLASH=1（R1 的现成近似）
+  A4. 同上 + KUPL_ENABLE_T2_ZBLOCK_DSLASH=0（A3 的配对）
+  A5. 32r x 12t, grid 1 2 2 8（ht=4，lanes=2；R2 负对照）
+  A6. 32r x 12t, grid 2 2 2 4（ht=8，lanes=6）
+  A7. 32r x 12t, grid 2 4 4 1（ht=32，lanes=16；R2 正对照）
+  A8. 32r x 12t, grid 4 4 2 1（与 A7 同构，验证 rank 映射不敏感）
+  判读: A3 vs A4 给 R1 的 k；A5/A6/A7 vs A1 给 lane/几何的收益。
+        A7 若慢，不否证 R1；只否证"不重写 boundary 的 grid 改动"。
+
+矩阵 B（迭代/容差，需 P2 插桩或临时改系数；每点 3 样本）
+  B1. 32r x 12t, grid 1 1 1 32, atol=1e-4（基线）
+  B2. 同上，只把 solve tolerance 从 0.1*atol 改为 0.5*atol
+  B3. 同上，改为 1.0*atol
+  B4. 打开 P2 残差日志，取 B1-B3 的 it 与残差轨迹
+  判读: it 与真残差是否仍 PASS；拟合收敛率。
+  注意: 不要用提高命令行 --atol 代替 B2/B3，因为那会同时放宽验收门，
+        无法区分"省迭代"与"降标准"。
+
+矩阵 C（预条件，需代码/缓存支持；每点 >=3 样本，且必须 coarse_calls>0）
+  C1. true-MG restart=10，grid 1 1 1 32（若 cache 可用）
+  C2. true-MG restart=50
+  C3. 对应 BiCGStab 对照（同窗口）
+  判读: MG/BiCG 中位数是否 <=0.7；否则 R3b 失败。
+
+矩阵 D（验证 R4/R5，需插桩；每点 3 样本）
+  D1. 默认 vs 跳过整场验证（仅计时路径；验收另跑）
+  D2. 默认 vs 合并归约（需 patch）
+  D3. profile split 三段（P1）在 1 1 1 32 上
+  判读: 每项 2-4% 是否可复现。
+
+矩阵 E（线程扫描，回答 A1/A2 的遗留问题；每点 2-3 样本）
+  E1. 32r x {6,8,10,12,14,16,18}t, grid 1 1 1 32
+  E2. 16r x {8,16,24,32,37}t, grid 1 1 1 16
+  判读: 确认 12t 是否为局部最优；16r 的 37t 只有 1 样本，不能作为结论。
+
+### 3. 样本量与统计
+- 主矩阵 A 每点 3 样本；若同点 CV >5%，加到 5 样本。
+- 所有倍率用中位数比，不报最好值；同时报 min/max。
+- 同一节点、同一天、同一 gauge/source；跨天必须重跑基线。
+- 基线 A1 在每批作业开始时重跑 1 次，用于扣除节点/频率漂移。
+
+### 4. 数据落盘
+- 每点保存: report.json、stderr 的 DSLASH_PROFILE/TOPOLOGY/残差行、
+  numastat 快照、作业脚本与环境变量全文。
+- 命名: logs/kupl_perf_<matrix>_<node>_<ranks>x<thr>_<grid>_<tag>/
+- 不把 0.8410（profile 路径）与 0.5193（非 profile）拼成一个分解。
+
+================================================================================
+## 风险
+================================================================================
+
+R1. 单样本
+  当前每个配置 1 个样本；同二进制同配置的历史噪声带 ±8%
+  (docs/qcu_l24_solver_timing_20261111.md:765-767)，争用时段可到 0.85-0.93 s。
+  本文所有 1.20x/1.62x/1.9x 都是单样本倍率，不能当作稳定结论。
+
+R2. 节点差与频率
+  cn19699 vs cn10579 同配方 0.5193 vs 0.4346 = 1.20x；hbm16d 在 cn19698。
+  拓扑探测在 cn19701，性能在 cn19699/cn19698。跨节点只能比同配方比值，
+  不能拼接绝对值。SVE FP32 峰值的 2.0 GHz/1 FMA 或 2 FMA 假设会改变
+  0.3-0.9% 的利用率数字，但不改变"不是算力墙"的结论。
+
+R3. profile 改变执行路径
+  KUPL_PROFILE_DSLASH 非空时 split 快路径被整体绕过
+  (lattice_wilson_dslash.cpp:1116-1118, 1160-1180)。因此:
+  - 不能从 0.5193 s 直接减去 profile 的 halo/wait/boundary；
+  - 本文的 0.381 s 是"每站点固定成本 + split 重叠"的模型，不是实测；
+  - 若 12t 的 part1 实际不能完全覆盖 wait（例如 MPI 进度线程被 OMP
+    spin-wait 饿死），0.381 s 会被低估，R1 的可回收上界也要下调。
+
+R4. HMPI 绑定语义
+  本文默认 --bind-to none 使 MPI 不限制 affinity，KUPL 按
+  node_slot = local_rank % 16、rank_on_node = local_rank / 16 绑定
+  (lattice_cpu.cpp:604-621, 668-705)。若 HMPI 仍按 --map-by ppr:2:numa
+  绑定了进程，rank->NUMA 映射、t-halo 跨域结论和每域 2 rank 的假设都要重算。
+  cpuset 8-12 可能只是 threads<cpus 时的截断值 (lattice_cpu.cpp 同段)，
+  不能当作底层 CPU 配额；18t 的 cpuset 未单独记录。
+
+R5. 缓存/页放置
+  memory_bound=true 只证明 set_mempolicy 成功，不证明输入页在 HBM。
+  y76 未设 KUPL_SKIP_INPUT_PREBIND=1（input_prebind 15.006 s，不计入 wall），
+  x_case_dbg 跳过 prebind；两者页放置可能不同。必须用运行中的
+  numastat -p / numa_maps 才能把 HBM 命中率变成已核实事实。
+  本文的 45.8-117 GB/s 是逻辑字节模型，不是内存控制器计数器；
+  cache line 利用率（标量 8 B/64 B）没有被量化，是 R1 的主要未知。
+
+R6. 容差放宽的数值风险
+  solve 内层当前 0.1*atol，验收门 atol；实测真残差 3.54e-6 远低于 2.44e-4。
+  但 rhs_norm 未记录，不能只凭绝对残差证明还有 69x 相对余量。
+  R3a 必须同时检查 native acceptance 和独立 NumPy 真残差；
+  任何一次越过 2.44e-4 都应回退。
+
+R7. 几何改动的副作用
+  grid 2 4 4 1 / 4 4 2 1 会把 MPI 消息从 4 条/维变成 12 条，并触发
+  gauge face + corner halo (lattice_clover_dslash.cpp:91-221)；
+  gauge halo 只建一次（缓存），但 corner 打包和延迟可能抵消 lane 收益。
+  另外 L24 的 gauge/source/cache 是按 (lattice, grid) 固定的，改 grid
+  必须重新准备 slab 或确认 slab 尾部形状，不能复用旧目录
+  (kupl-history-2026.md:364-366)。
+
+R8. true-MG 的计算节点风险
+  L24 true-MG 在计算节点至今没有有效数值；同 job 的 MG 曾 787 s 无
+  report.json。历史登录节点同窗出现过 MG 比 BiCG 慢 7.9%
+  (kupl-history-2026.md:295-300)。R3b 的时间区间 0.29-0.36 s 是
+  "倍率平移"估算，不应作为承诺。
+
+R9. zblock 的历史负结果
+  KUPL_ENABLE_T2_ZBLOCK_DSLASH 的 ht=1 空间 lane 实现曾在登录节点
+  A-B-B-A 中慢 4.8% (kupl-history-2026.md:242-247)。本文把它列为 R1 的
+  现成近似，不是已证明的收益；必须先解释这 4.8%（t 方向 gather、
+  gauge 冗余读取、或 lane=16 但 local z=24 的尾部）。
+
+R10. 阈值/路径混叠
+  KUPL_BLOCK_DSLASH_MIN_HALF_SITES=16384 正好夹在 13,824（32r）与
+  27,648（16r）之间；跨 N 比较会同时改变 code path。线程扫描必须在
+  固定 N 内做，grid 对比必须显式报告该阈值。
+
+R11. 计时边界
+  wall_seconds 只包 applyCloverMultigridQcu；input_prebind（15 s）、
+  gauge_read（14.7 s）、source_read（1.9 s）、独立残差（0.25 s）
+  都在 wall 之外。不能把端到端 233 s 与 solve 0.5193 s 混用。
+  applyCloversQcu（852-858）也在 wall 之外；它可能影响页/缓存状态，
+  但不计入 0.5193 s。
+
+R12. 物理模型误差
+  2.1 kFLOP/site、768/1440 B/site、每站点 1.6-8 ms 的 Allreduce 估算
+  都是一阶模型，忽略 gauge cache 复用、clover onsite、向量/点积/归一化、
+  以及编译器实际生成的指令。它们只用于排除"HBM/FP32 墙"，不用于承诺
+  0.1 s 的可达性。0.1 s 的最终判据只能是测到的 wall，不是 roofline。
+
+================================================================================
+（完）

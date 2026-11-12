@@ -1,0 +1,571 @@
+PyQCU Python 层 L24 KUPL 求解路径只读审查
+==========================================
+审查对象：pyqcu/testing/simple/kupl_multigrid.py 及其调用的 Python 辅助层
+（qcu.py / linear_operator.py / krylov.py / multigrid/*.py / kupl_bistabcg.py /
+kupl_residual.py / _layouts.py / _common.py / kupl_env.py / kunpeng_runtime.py /
+tools/_define.py），并以 C++ 侧 applyCloverMultigridQcu、verifyCloverMultigridQcu、
+solve_clover、compute_clover、configured_threads、guarded/abort 的调用约定做对照。
+审查方式：静态代码走查 + 字节量按 24^3×64 c64 估算；未运行集群作业，未改代码。
+状态：不访问远端、不操作 screen、不提交作业、不提交 Git。
+
+严重度记号：P0=会算错/会崩/会误报 PASS；P1=显著性能或计时口径偏差；
+P2=可维护性/报告一致性。
+
+## 结论摘要（按严重度）
+
+P0-1（已核实）32 rank 目标几何（grid 1,1,1,32）叠加 Legacy MG 会直接崩：
+      奇偶 Schur 的 fine T=local_t/2=1，mg_grid_t=2 时 coarse_t=0，随后
+      `fine_odd // coarse_lattice` 除零（ZeroDivisionError）。Python 的
+      `_rank_geometry`/CLI 预检只检查 local_t % mg_grid_t，检查错了轴。
+P0-2（已核实）只传 `--gauge-slab-dir` 不传 `--gauge` 时，gauge 元数据解析
+      走入 `resolve_path(None, None)`，`Path(None)` 抛 TypeError。文档推荐
+      的 slab 目录用法即此组合。
+P0-3（已核实）`--skip-independent-residual` 且 `restart=0`（文档基准配置）时
+      `verify_status=None` 被当成通过，报告直接 PASS，且 `residual_acceptance`
+      写成 args.atol，与其它分支的 max(atol, 2048*eps) 不一致。
+P0-4（已核实）`applyCloverMultigridQcu` 在 coarse correction 不改善残差时
+      静默回退 fine BiCGStab；Python 驱动未设置 `KUPL_REQUIRE_MG_CORRECTION`，
+      报告也不记录 accepted_corrections，因此 levels=2/restart=5/coarse_source=built
+      的 PASS 不能证明真的执行过 MG coarse correction。
+P0-5（已核实）单 rank 独立残差走 `bare_dslash_reference`：按站点 Python 四重循环，
+      每个站点每个方向重建 hop_gamma（np.eye 分配）。24^3×64 约 44 万 half-site ×4
+      方向 ×2 parity，纯 Python/小数组开销可达数十秒到分钟级，远超 0.1 s 目标。
+P0-6（已核实）主驱动在“无 coarse cache、进程内构建”路径上把 gauge parity 转换
+      做两遍、把 4 个 Clover 矩阵计算/分配做两遍；L24x64 单 rank 单遍
+      Clover 4 数组 ≈ 2.04 GB，gauge 转换 ≈0.5 GB 流量。
+P1-1（已核实）MG 路径的 `verifyCloverMultigridQcu` 在计时区之外先跑一次
+      level-0 apply，从而预热了 `ensure_solver_scratch` 和 gauge halo；
+      restart=0 路径没有 verify，首次分配/halo 落在 wall 内。MG 与 BiCGStab
+      的 wall 对比因此系统性偏向 MG。
+P1-2（已核实）`--coarse-cache` 每次运行 rank0 都做：gauge 全文件 SHA256 +
+      cache 文件 SHA256 + cache 各 dataset SHA256 + cache slab 读取，cache
+      被完整读约 3 次（单 rank cache ≈1.56 GB）。
+P1-3（已核实）`--local-stencil` 完全未被使用，`--local-stencil-batch` 被 C++
+      忽略（apply_multigrid.cpp:298），但 setup_stats 把 window 硬编码为 8。
+P1-4（已核实）报告没有任何字段覆盖 gauge/source 布局转换时间、主 clover 重算时间、
+      verify 时间或总耗时；`builder_seconds` 在 cache 命中时实际是“校验+加载”。
+P1-5（已核实）`verify_status` 是 C++ 几何一致性检查（c64 容差 2e-3，且
+      忽略 fermion_out/in），不是残差检查；报告的 c64 验收门是
+      max(atol, 2048*eps)=2.4414e-4，而文档多处表述为 “true residual < atol”。
+P1-6（已核实）报告不记录有效 OMP 线程（只读 KUPL_OMP_THREADS）、NUMA 变量或
+      `KUPL_BLOCK_DSLASH_MIN_HALF_SITES` 决策；32 rank t-only 分解的
+      local half-site=13824，低于默认阈值 65536，也低于文档固定值 16384，
+      blocked dslash 是否启用无法从报告判断。
+P2：Python/C++ 对 "FALSE/No/OFF" 的大小写解析不一致；HBM 静态尺度漏算
+      Clover inverse、MG level 向量和 coarse assets；LegacyMultigrid.solve 每次
+      做全解 isfinite 扫描；configure_mg 传递的指针未保留临时对象；缺库时
+      SKIP 返回 0；`input_prebind_seconds` 未运行时显示 0.0。
+
+## A–H 逐项
+
+### A. 计时边界
+
+A-1（已核实）`wall_seconds` 只包住一次 `applyCloverMultigridQcu`。
+  证据：kupl_multigrid.py:865-870（started → applyCloverMultigridQcu →
+  wall_seconds）。gauge 读取 691-706、source 读取 708-720、builder 756-827、
+  applyCloversQcu 848-858、`verifyCloverMultigridQcu` 860-864、独立残差 883-906、
+  HDF5 写出 912-926 均在计时区之外。
+  影响：口径是“native 完整 solve”，符合 solve-wall 定义；但见 A-2/A-3/A-4。
+  建议：保留该定义，但在报告里增加 `timing_scope` 字段显式声明。
+  状态：已核实。
+
+A-2（已核实）布局转换不在任何计时区间内。
+  证据：gauge_read_seconds 在 706 结束，随后 707 才做 `qcu_gauge_to_kupl`；
+  source_read_seconds 在 720 结束，随后 721 才做 `qcu_fermion_to_kupl`。
+  影响：单 rank 时这两段各是数百 MB 级内存搬运（见 B/H），但报告无法看到。
+  建议：增加 `gauge_layout_seconds` / `source_layout_seconds`，或把转换纳入
+  `gauge_read_seconds` 并改名为 `gauge_prepare_seconds`。
+  状态：已核实。
+
+A-3（已核实）主路径 Clover 重算和 verify 均不计时。
+  证据：848-858 的两次 `applyCloversQcu` 和 860-864 的 verify 都在
+  865 的 started 之前；builder 内部的 Clover 只计入 builder_seconds
+  （build_coarse_assets:233, 368-417, 518）。
+  影响：进程内构建路径的 Clover 至少算两遍（见 G-1），第二遍完全不可见。
+  建议：增加 `clover_seconds` 和 `verify_seconds`；或让 builder 返回 Clover。
+  状态：已核实。
+
+A-4（已核实）`builder_seconds` 的语义随路径变化。
+  证据：kupl_multigrid.py:757 的 started 在 cache 分支之前；cache 命中时它计时的是
+  gauge 文件 SHA256（759-765）、cache 校验（787-801）、cache 布局检查和加载
+  （802-808），而非“构建”。
+  影响：cache 命中报告里的 builder_seconds 不是构建时间，跨运行不可比。
+  建议：拆分 `cache_validate_seconds` / `cache_load_seconds` / `build_seconds`。
+  状态：已核实。
+
+A-5（已核实）MG 路径的 `iterations` 恒为 None。
+  证据：kupl_multigrid.py:871-873 仅在 `not use_coarse_assets` 时读 getter。
+  影响：MG 报告没有迭代数，无法判断 coarse correction 是否减少 fine 迭代，
+  也无法核对 C++ fallback；这与 P0-4 叠加会掩盖“假 MG”。
+  建议：C++ 暴露 accepted_corrections/fallback 标志和总 fine 迭代（见 P0-4）。
+  状态：已核实。
+
+A-6（已核实）`verify_status` 的 None 语义被复用。
+  证据：kupl_multigrid.py:847 初始化 None；860-864 仅 MG 路径赋值；885-890 在
+  skip 残差时把 None 当通过；909-911 在非 None/0 时判 FAIL。
+  影响：无法区分“未运行 verify”和“verify 通过”。
+  建议：报告写 `"verify_status": "not-run"`，skip 残差时状态至少降为 WARN。
+  状态：已核实。
+
+A-7（已核实）没有总耗时字段，也不记录测量的是第几次 solve。
+  证据：报告字段 927-955 只有 wall_seconds/builder_seconds 等分项；驱动进程只做
+  一次 solve，首次分配对 wall 的影响见 P1-1。
+  建议：增加 `total_seconds`、`solve_index`、`warm`。
+  状态：已核实。
+
+### B. 数据搬运
+
+B-1（已核实）gauge 的 full→parity 重排是一次全格点 fancy-index gather，且有
+  两遍。
+  证据：_layouts.py:61-74（`np.indices` 生成 int64 索引，`array[..., xs, ys, zs,
+  times]` 每个 parity 一次 gather）；kupl_multigrid.py:707 转一次，811 又把
+  `gauge_local` 传给 build_coarse_assets，后者在 210 再转一次。
+  影响：24^3×64 c64 单 rank，gauge 本身 254.8 MB；一次转换约 255 MB 输出 +
+  约 255 MB gather 临时 + 约 18 MB int64 索引 ≈0.53 GB 流量；两遍 ≈1.06 GB。
+  建议：主路径把已转换的 `gauge` 传给 builder（或让 builder 接收 flag 跳过转换）。
+  状态：已核实。
+
+B-2（已核实）fermion 的 full→parity 转换约 3 遍拷贝。
+  证据：_layouts.py:91-107：fancy gather（103）→ moveaxis+reshape（104-105，
+  非连续时复制）→ transpose 后赋值到 output（105-106）→ ascontiguousarray（107）。
+  影响：24^3×64 c64 单 rank，source 84.9 MB，单次转换约 0.25 GB 流量。
+  建议：可改用 reshape/stride 视图 + 一次写；或把 parity 输入直接交给 C++
+  （C++ 已有 canonical 输入路径）。
+  状态：已核实。
+
+B-3（已核实）`kupl_fermion_to_qcu` 在输出路径约 2 遍拷贝。
+  证据：_layouts.py:110-124（reshape/transpose 复制一次，再 fancy assignment 到
+  output）。仅在 `--output` 或 `gather_solution` 时调用。
+  影响：单 rank `--output` 约 255 MB 流量；多 rank 每个 rank 先转本地再 gather。
+  建议：多 rank 时 gather parity block，rank0 统一转换。
+  状态：已核实。
+
+B-4（已核实）非 HDF5 输入（LIME/.npy）在**每个 rank** 读整文件再切片。
+  证据：_read_local_slab 对非 .h5/.hdf5 返回 None（553-587）；699-701 回退
+  `load_gauge(args.gauge, lattice, dtype)`（kupl_bistabcg.py:180-203）读全量，
+  再由 `_slice_last4`（541-550）复制本地片。
+  影响：32 rank 时读 32×254.8 MB ≈8.2 GB，只为每 rank 8 MB 的 slab；
+  文档已确认 rank-local slab 能把作业从约 7 分钟降到约 3 分钟。
+  建议：默认要求 slab 目录；或在 LIME 读取层按 rank 做 hyperslab。
+  状态：已核实（读取行为）；集群端到端影响为文档实测。
+
+B-5（已核实）主路径的 coarse 资产构建会重复分配 4 个 Clover 数组。
+  证据：build_coarse_assets:368-371 分配，411-417 计算；函数只返回
+  null/hnn/hdg/sit（477/481/520），main 在 723-727 重新分配、850-858 重新计算。
+  影响：24^3×64 c64 单 rank 单个 Clover parity = 144×442368×8 = 509.6 MB；
+  4 个 = 2.04 GB 的写流量/分配，重复一遍。
+  建议：builder 把 ce/co/cei/coi 一并返回，main 复用。
+  状态：已核实。
+
+B-6（已核实）独立残差在单 rank 路径会产生全量 complex128 临时。
+  证据：kupl_bistabcg.py:171-173 在 parity 循环内两次做
+  `solution.astype(np.complex128)` 和 `gauge.astype(np.complex128)`；168-169
+  把 onsite 转 complex128（单 Clover parity 1.02 GB）。
+  影响：单 rank 峰值额外 >1 GB，且 gauge c128 临时 510 MB 被做两遍。
+  建议：复用 kupl_residual 的一次性转换（见 H-2）。
+  状态：已核实。
+
+### C. ctypes 调用开销
+
+C-1（已核实）每次 solve 只有一次 native 调用，ctypes 参数构造不在热路径。
+  证据：qcu.py:596-601（applyCloverMultigridQcu 包装 9 个地址）；
+  `_pointer`（151-173）只做 contiguous/device 检查和 data_ptr；驱动 738-745
+  一次性构造 `NumpyTensor`，865-870 只调用一次。
+  影响：单次调用开销为微秒级，相对 0.1–0.5 s 可忽略。
+  建议：无需针对 ctypes 优化。
+  状态：已核实。
+
+C-2（已核实）`NumpyTensor.__init__` 每次 `np.ascontiguousarray`，但不在热路径。
+  证据：kupl_bistabcg.py:54-65；builder 每次调用构造若干临时 wrapper（396-407），
+  solve 路径只在 738-745 构造一次。
+  影响：可忽略。
+  状态：已核实。
+
+C-3（已核实，潜在）`configure_mg` 把 `np.ascontiguousarray(...).ctypes.data`
+  直接写入 set_ptrs，但没有保留临时对象。
+  证据：kupl_multigrid.py:191-194。当前 null/hnn/hdg/sit 都来自
+  `np.empty/np.zeros` 或 cache 的 `np.ascontiguousarray`（_legacy_mg_cache.py:511），
+  实际是连续的，因此不复制、不悬垂；一旦上游改为非连续视图，指针会指向已释放内存。
+  建议：把 4 个数组保存到 main 的局部列表并显式 retain 到 solve 结束。
+  状态：已核实（代码路径）；悬垂仅推断为未来风险。
+
+C-4（已核实）C++ 每次 API 调用都会 `update_params` 复制 58 个 int32。
+  证据：api_common.hpp:96-102 → backend.cpp:54-58。
+  影响：可忽略。
+  状态：已核实。
+
+### D. 线程 / 环境传递
+
+D-1（已核实）线程数确实进入 C++。
+  证据：lattice_cpu.cpp:419-437：`configured_threads()` 先取
+  `omp_get_max_threads()`（受 OMP_NUM_THREADS 影响），若显式设置
+  `KUPL_OMP_THREADS` 则覆盖；非显式时还被 affinity 大小截断；随后
+  `omp_set_dynamic(0)` + `omp_set_num_threads`。solve_case.py:347-348 同时设置
+  两者。kupl_env.py:474-482 与 kunpeng_runtime.py:321-326 也都同时设置。
+  影响：正常路径无静默丢失。
+  建议：报告记录最终生效线程数（见 D-4）。
+  状态：已核实。
+
+D-2（已核实）NUMA/内存变量确实进入 C++，Python 侧 prebind 也在读取输入之前。
+  证据：kupl_multigrid.py:682-690 在 691 的输入读取之前调用
+  `prebind_kupl_inputs`（kupl_bistabcg.py:247-267）；C++ 在
+  lattice_cpu.cpp:486-493/725-780 读取 KUPL_NUMA_BIND/KUPL_MEMORY_NODE/
+  KUPL_MEMORY_POLICY/KUPL_REQUIRE_MEMORY_BIND 并 set_mempolicy。
+  影响：符合“先 applyInitQcu 再分配输入”的设计；KUPL_SKIP_INPUT_PREBIND=1 可跳过。
+  建议：无。
+  状态：已核实（代码路径）；页分布是否真在 HBM 需 numastat 实测，未覆盖。
+
+D-3（已核实）Python 与 C++ 的布尔环境变量解析大小写不一致。
+  证据：kupl_multigrid.py:77-80 先 `.lower()`；lattice_cpu.cpp:85-92 用
+  `strcmp` 精确比较 "false"/"no"/"off"。
+  影响：`KUPL_NUMA_BIND=FALSE` 时 Python 跳过 prebind，而 C++ 认为启用绑定。
+  建议：两边统一为 strip+lower 的解析。
+  状态：已核实。
+
+D-4（已核实）报告没有记录有效线程/NUMA/block-dslash 决策。
+  证据：cpu_memory_snapshot（kupl_bistabcg.py:76-91）只读
+  `KUPL_OMP_THREADS`；报告 927-955 无 OMP/NUMA/env 快照。C++ 的
+  KUPL_BLOCK_DSLASH_MIN_HALF_SITES 在 lattice_wilson_dslash.cpp:16-31 读取，
+  Python 完全不感知。
+  影响：无法从报告审计 D 项；性能复现依赖外部 env 记录。
+  建议：报告写 `effective_omp_threads`、`KUPL_NUMA_BIND/MEMORY_*`、
+  `block_dslash_enabled`、`block_dslash_threshold`。
+  状态：已核实。
+
+D-5（已核实，算术）blocked dslash 阈值与目标分解不匹配且不可见。
+  证据：lattice_wilson_dslash.cpp:16-31 默认阈值 65536，比较对象是
+  geometry_.half_sites = local_x*local_y*local_z*(local_t/2)
+  （lattice_geometry.cpp:113-118）。24^3×64、grid 1,1,1,32 → 每 rank
+  half-site = 24×24×24×1 = 13824 < 65536，也 < 文档固定值 16384
+  （docs/kupl_kunpeng_hpc_config_20261112.md:57）。
+  影响：目标 32 rank 配置下 blocked dslash 默认不会启用；报告不显示该决策。
+  建议：报告记录决策；如目标分解需要，显式设 `KUPL_BLOCK_DSLASH_MIN_HALF_SITES
+  <= 13824` 并做 A/B。
+  状态：阈值算术已核实；最终二进制是否用了别名路径为推断。
+
+D-6（已核实）C++ 侧对 NUMA 变量做全 rank 一致性检查，Python 侧不做。
+  证据：lattice_cpu.cpp:405-415（uniform_world_value）；Python 只读本进程 env。
+  影响：不一致会在 applyInitQcu 内 abort，报告来不及写；属于 fail-closed。
+  建议：启动时 MPI allgather 检查并给出可读错误。
+  状态：已核实。
+
+### E. 正确性
+
+E-1（已核实）kappa/mass/csw 约定在 Python 与 C++ 一致。
+  证据：Python `kappa = 1/(2*mass+8)`（kupl_multigrid.py:731）；C++
+  `kappa() = 1/(2*mass+8)`（backend.cpp:461-463）；Clover 系数
+  `-0.125*kappa*csw`（lattice_clover_dslash.cpp:403）；全算子
+  `C psi - kappa*D_bare psi`（lattice_solver.cpp:120-146；
+  lattice_linalg.cpp:126-130）。
+  影响：独立残差与 native 约定一致。
+  状态：已核实。
+
+E-2（已核实）parity/时间重排约定一致。
+  证据：Python `2*t2 + ((x+y+z&1) ^ parity)`（_layouts.py:72/86/102/119）；
+  C++ `time_for_parity`（lattice_geometry.h:146-148）与 `parity_at`
+  （x+y+z+t）一致。
+  影响：gauge/fermion parity 索引与 C++ 对齐。
+  状态：已核实。
+
+E-3（已核实）`verify_status` 不是“解的正确性”，且 c64 容差很松。
+  证据：C++ verify 只做 prolong/restrict 投影和 Galerkin 一致性
+  （lattice_clover_multigrid.cpp:507-567），c64 容差 2e-3（507-509），
+  且显式忽略 fermion_out/fermion_in（1137-1138）。
+  影响：verify_status=0 不能说明 solve 残差达标；builder 自己的 Galerkin 检查
+  反而是 2e-5（kupl_multigrid.py:469-472），两者口径不同。
+  建议：改名 `layout_verify_status`，并在报告中并列 `atol/residual_acceptance`。
+  状态：已核实。
+
+E-4（已核实）c64 实际验收门是 2.4414e-4，而不是 atol。
+  证据：_common.py:328-344：acceptance=max(atol, eps*2048)；
+  c64 下 2048*eps=2.44140625e-4；C++ residual_floor 同值
+  （backend.cpp:473-477）。文档 108-113 行也记录了该验收值，但
+  kupl_env.py:987-989 仍写 “independent true residual < atol”。
+  影响：atol=1e-6/1e-4 时，残差 2e-4 仍会 PASS，容易被误读。
+  建议：报告/文档统一用 `residual_acceptance` 表述；不要写 < atol。
+  状态：已核实。
+
+E-5（已核实）32 rank t-only + MG 会除零（P0-1 详证）。
+  证据：kupl_multigrid.py:669-673 只检查 `local_lattice % mg_grid`；
+  build_coarse_assets:211-215 用 `fine_odd = (lat0,lat1,lat2,lat3//2)` 再除
+  mg_grid 得 coarse，随后 `block = fine_odd // coarse` 除零。
+  触发条件：--lat 24 24 24 64 --grid 1 1 1 32 --levels 2 --mg-grid 2 2 2 2。
+  影响：目标 32 rank 几何无法用默认 MG；错误类型是 ZeroDivisionError，
+  不是可读的 CLI 错误。
+  建议：对 odd-schur 用 `(local_lattice[3]//2) % mg_grid[3] == 0` 预检，
+  并在 `coarse==0` 时给出明确信息。
+  状态：已核实（按代码路径推算，未在集群运行）。
+
+E-6（已核实）full-site 布局的 native 真残差检查弱于 odd-schur。
+  证据：lattice_clover_multigrid.cpp:478-503 只有 compact_fine_ 时才做
+  checked_full_residual；full-site 分支只检查内部 canonical 残差（386-434, 464-468）。
+  影响：若配置 full-site cache 且跳过独立残差，验收只依赖内部残差。
+  建议：full-site 也做一次外部全字段残差检查，或禁止 skip。
+  状态：已核实。
+
+E-7（已核实）`resolve_legacy_layout` 的 auto 推断对 builder 生成的 cache 恒为
+  odd-schur。
+  证据：null_shape 的 time extent = coarse_t*block_t = fine_odd_t = local_t/2
+  （kupl_multigrid.py:211-220, 107-125）。
+  影响：`--legacy-layout full-site` 不能匹配本 builder 生成的 cache；这是设计
+  限制，但错误信息不够明确。
+  建议：在 build_coarse_assets 的 stats/manifest 里写明 layout=odd-schur。
+  状态：已核实。
+
+E-8（已核实）LIME/LIME-like 输入时每个 rank 读全量 gauge/source（见 B-4）。
+  影响：数据一致性没问题，但 I/O 放大 32 倍。
+  状态：已核实。
+
+E-9（已核实）`configure_mg` 的 set_ptrs 指针生命周期（见 C-3）。
+  状态：已核实（当前连续数组安全）。
+
+### F. 错误处理
+
+F-1（已核实）void API 的 C++ 异常会 MPI_Abort，Python 无法捕获。
+  证据：apply_clover_multigrid.cpp:13 用 `guarded`（api_common.hpp:18-28）→
+  abort_with_message（lattice_cpu.cpp:885-899）；applyCloverMultigridQcu 的
+  restype 是 None（qcu.py:120, 148）。
+  影响：非收敛/参数错误直接杀进程，`finally: applyEndQcu` 不执行，报告不写；
+  是 fail-closed，但诊断信息只有 stderr。
+  建议：为 MG 增加 `int applyCloverMultigridStatus`/返回码 ABI，或至少在
+  Python 侧记录“native 调用前”状态。
+  状态：已核实。
+
+F-2（已核实）`--skip-independent-residual` 的 PASS 语义错误（P0-3 详证）。
+  证据：kupl_multigrid.py:885-890：`converged = verify_status in (None, 0)`；
+  `acceptance = float(args.atol)`；`status = PASS`。
+  影响：restart=0 时 verify_status=None → 完全没有残差检查也 PASS；
+  MG 时 verify_status=0 只是几何检查。
+  建议：skip 时输出 WARN/SKIP，或强制记录 native 返回/残差；
+  acceptance 用 `solver_acceptance(atol, dtype)`。
+  状态：已核实。
+
+F-3（已核实）缺 native 库时打印 SKIP 并退出 0。
+  证据：kupl_multigrid.py:651-654（`kupl_backend()` 捕获
+  FileNotFoundError/OSError，print SKIP，return 0）。
+  影响：只看 exit code 的流水线会把环境缺失当成功。
+  建议：SKIP 用非 0 退出码（如 2）或由上层显式 allow-skip。
+  状态：已核实。
+
+F-4（已核实）MG 静默 fallback 无法被 Python 观测（P0-4 详证）。
+  证据：lattice_clover_multigrid.cpp:435-454（fallback_to_fine →
+  `set_.clover_bistabcg`）；1113-1124（levels<=1 或 restart=0 直接 BiCGStab）；
+  Python 未设置 KUPL_REQUIRE_MG_CORRECTION（kupl_env.py:64-79 也没有该键）。
+  影响：报告字段 levels/restart/coarse_source 会误导为 MG 性能。
+  建议：MG 计时默认设置 `KUPL_REQUIRE_MG_CORRECTION=1`，或新增 C++ getter
+  返回 accepted_corrections/fallback。
+  状态：已核实。
+
+F-5（已核实）verify 内部异常返回 2，Python 归为 FAIL（正确），但报告不区分
+  1（几何失败）与 2（异常/空指针）。
+  证据：verifyCloverMultigridQcu 返回 2（apply_clover_multigrid_verify.cpp:14-16,
+  41-51），返回 1（lattice_clover_multigrid.cpp:1148, 1154）；Python 909-911
+  只判非零。
+  影响：诊断信息弱。
+  建议：报告保留原始 int，并在 stderr 说明 1/2 含义。
+  状态：已核实。
+
+F-6（已核实，bug）只给 `--gauge-slab-dir` 不给 `--gauge` 时 TypeError（P0-2 详证）。
+  证据：kupl_multigrid.py:699-705（slab 读取成功 → else 分支 →
+  `read_h5_metadata(resolve_path(args.gauge, resolve_path(None, args.gauge)))`；
+  _common.py:153-164 对 None 调 Path(None)）。
+  影响：文档推荐的 slab 用法直接崩。
+  建议：`args.gauge is None` 时 metadata={}；或要求 --gauge 用于元数据。
+  状态：已核实。
+
+F-7（已核实）`input_prebind_seconds` 未运行时报告 0.0。
+  证据：kupl_multigrid.py:681, 939。
+  影响：读者会误解为“测到 0 秒”。
+  建议：未运行写 null/"not-run"。
+  状态：已核实。
+
+### G. 可维护性 / 性能
+
+G-1（已核实）Clover 与 gauge 转换的重复计算（P0-6 详证）。
+  证据：见 A-3/B-1/B-5。
+  影响：单 rank 构建路径额外约 2.04 GB Clover 写 + 约 0.53 GB gauge 转换。
+  状态：已核实。
+
+G-2（已核实）cache 被完整读取/哈希约 3 次（P1-2 详证）。
+  证据：kupl_multigrid.py:759-765（gauge 全文件 SHA）、787-801
+  （validate_legacy_mg_cache：dataset SHA 599-611、file SHA 613-618）、
+  805-808（load_coarse_assets 再读）；_legacy_mg_cache.py:213-218。
+  影响：单 rank cache≈1.56 GB → 约 4.7 GB 额外 I/O；gauge≈255 MB。
+  建议：首次校验后把 digest 写 sidecar；或提供 `--trust-cache-identity`。
+  状态：已核实。
+
+G-3（已核实）`--local-stencil`/`--local-stencil-batch` 是空操作。
+  证据：build_coarse_assets 只在签名和 815-816 使用；CPU/CUDA 分支都不读
+  `local_stencil`；`local_stencil_batch_size` 传给 C++ 后在
+  apply_multigrid.cpp:298 被 `(void)batch_size` 忽略；setup_stats 511 硬编码 8。
+  影响：用户以为调了 batch/window；报告字段可能与实际 window 不符
+  （block=4 时实际 window=14）。
+  建议：移除这两个参数或真正接线；setup_stats 写实际 `local_stencil_window`。
+  状态：已核实。
+
+G-4（已核实）单 rank 独立残差是纯 Python 逐站点循环（P0-5 详证）。
+  证据：kupl_bistabcg.py:113-155（四重循环 + 每个方向 `hop_gamma` 分配）；
+  调用点 kupl_multigrid.py:901-902。
+  影响：24^3×64 单 rank 的 residual_seconds 预计数十秒到分钟级；它虽不计入
+  wall，但决定端到端可用性。
+  建议：单 rank 也调用 kupl_residual.distributed_relative_residual_streaming
+  （comm=None, grid=(1,1,1,1)），它的 `_apply_hop` 是向量化的。
+  状态：已核实（代码路径）；绝对耗时为量级推断。
+
+G-5（已核实）distributed residual 的 c128 强转与逐 parity 大临时。
+  证据：kupl_residual.py:176-182（psi/rhs/links 转 c128）、197（matrix 转 c128）。
+  影响：32 rank t-only 时每 rank 约 12×27648×16=5.3 MB psi + 31.8 MB matrix，
+  可接受；单 rank 时矩阵 1.02 GB。
+  建议：c64 时保持 complex64 einsum，或分块。
+  状态：已核实。
+
+G-6（已核实）LegacyMultigrid.solve 每次做全解 isfinite 扫描。
+  证据：legacy_multigrid.py:129-130（`torch.isfinite(self.output).all().item()`）。
+  影响：每次 solve 额外 O(N) 扫描 + 同步；C++ 已检查真残差，属于冗余。
+  建议：改为可选（debug 开关）或采样检查。
+  状态：已核实。
+
+G-7（已核实）HBM 静态尺度低估。
+  证据：kupl_env.py:364-384 只计 gauge + 2×clover_parity + 12×fermion；
+  未计 2 个 Clover inverse（实际是 4 个 Clover 数组）、MG level 向量
+  （backend.cpp:437-455、lattice_clover_multigrid.cpp:303-307）和 coarse assets。
+  影响：单 rank L24x64 c64 实际常驻约 5–6 GB（gauge 0.25 + 4×Clover 2.04 +
+  coarse 1.56 + solver scratch 0.89 + MG level 0.96），而公式约 2.3 GB；
+  HBM 容量警告（kupl_env.py:516-531）可能漏报。
+  建议：尺度改为实测 RSS/numa_maps，或把上述项加入公式。
+  状态：已核实（字节量为估算）。
+
+G-8（已核实）planner 的默认 grid 与文档实测最优不同。
+  证据：kupl_env.py:318-338 按 y→z→t 贪心；24^3×64、32 rank 得 (1,4,4,2)；
+  文档最优是 (1,1,1,32)（docs/kupl_kunpeng_hpc_config_20261112.md:5）。
+  影响：按 planner 命令复现不了 0.509 s 样本；且 (1,4,4,2) 下 local
+  half=6*6*32*24=27648，仍低于 block-dslash 阈值。
+  建议：planner 输出“候选短名单”时把 t-only 作为显式候选，而非唯一贪心。
+  状态：已核实（算法）；性能差异为推断。
+
+G-9（已核实）重复 HDF5 打开。
+  证据：_read_local_slab 打开 gauge 后，704-705 再次
+  `read_h5_metadata` 打开同一文件。
+  影响：小（元数据读取只读 attrs），但可合并。
+  状态：已核实。
+
+G-10（已核实）多 rank 输出时每个 rank 先转 full QCU 再 gather。
+  证据：kupl_residual.py:212-233（gather_solution 在每个 rank 调
+  kupl_fermion_to_qcu）。
+  影响：多一次本地转换；可改为 gather parity block。
+  状态：已核实。
+
+### H. 与 C++ 的分工
+
+H-1（已核实）真正的 solve 已是单次 C++ 调用，没有逐迭代 Python 回调。
+  证据：kupl_multigrid.py:865-870；_native_qcu.py:191-195（native_call_count=1）。
+  影响：这是正确分工；MG/迭代都在 C++ 内完成。
+  状态：已核实。
+
+H-2（已核实）本应在 C++/向量化层完成、却在 Python 做的部分：
+  (a) gauge full→odd-schur 排列：0.25 GB 源 + 0.25 GB 目标/遍，单 rank 两遍
+      ≈1.06 GB 流量；可由 C++ 在 applyInit/加载时做一次，或接受 full-site 输入。
+  (b) fermion parity 转换：单 rank 约 0.25 GB/次；C++ 已有
+      canonical_to_full/full_to_canonical，可在 C++ 边界做。
+  (c) 单 rank 真残差：纯 Python 逐站点，量级数十秒；应复用
+      kupl_residual 的向量化实现（comm=None）。
+  (d) Clover 计算：已在 C++，但被 Python 调了两次（builder + main）。
+  按 24^3×64 c64 单 rank 估算：gauge 254.8 MB、fermion 84.9 MB、
+  一个 Clover parity 509.6 MB、coarse assets 约 1.56 GB。上述 Python 侧
+  额外搬运/重算合计约 3–4 GB 写流量，在 10–20 GB/s 内存带宽下即 0.15–0.4 s，
+  与 0.1 s 目标同量级。
+  状态：字节量已核实（按 shape 计算）；带宽换算为推断。
+
+H-3（已核实）24^3×64、32 rank（grid 1,1,1,32）时每 rank 只有
+  13824 half-site：gauge 8.0 MB、fermion 2.65 MB、一个 Clover parity 15.9 MB、
+  4 个 Clover 63.7 MB、solver scratch 约 28 MB。Python 转换总量约 25 MB/rank，
+  相对 0.5 s 的 solve 可忽略。
+  影响：在该目标分解下，0.1 s 差距不在 Python 数据搬运，而在 C++ kernel/halo/
+  迭代数；但端到端仍有约 100 s 的导入/初始化（文档实测）。
+  状态：字节量已核实；端到端时间为文档证据。
+
+## 与 0.1 s 目标的关系
+
+1. 目标定义：L24x64、c64、求解段 wall 0.1 s；文档最佳样本是 32 rank×12 thread、
+   grid 1,1,1,32、levels=1/restart=0，19 次迭代，wall 0.509–0.513 s
+   （logs/kupl_qcu_mg_instructions_20261105.txt:1；
+   docs/kupl_kunpeng_hpc_config_20261112.md:107-119）。
+2. 该基准配置 **不走 Legacy MG**：use_coarse_assets=False，C++ 直接走
+   parity-Schur BiCGStab（lattice_clover_multigrid.cpp:1113-1124）。因此本报告中
+   的 MG 特有缺陷（P0-1/P0-4/P0-6、P1-1/P1-2）不会影响该 0.509 s 样本，
+   但任何“MG 达到 0.1 s”的结论都不能用该配置作为证据。
+3. wall 只含 native solve，所以 Python 侧的转换/Clover/残差开销不影响
+   wall 数字；要压的是 C++ kernel（文档剖析：wait≈0.15–0.20 s、
+   boundary≈0.17 s、halo≈0.03 s、interior≈0.01 s）。Python 层能贡献的是
+   让 wall 可比、可审计（P1-1/P1-4/P1-6）以及消除端到端固定开销。
+4. 若按单 rank 或 4 rank 跑同一 L24x64 做正确性验证，P0-5/P0-6 的
+   Python 开销与 0.1 s 同量级甚至更大；验证时应使用
+   `--skip-independent-residual` 之外的手段（例如直接跑单 rank 的向量化
+   residual）或接受分钟级 setup。
+5. 目标 32 rank 几何与默认 MG 不兼容（P0-1）。若要在 32 rank 上评估 MG，
+   需把 mg_grid_t 改为 1（或改分解），并在 CLI 预检里修 axis-3 的
+   可分性判据；否则 MG 只能到 16 rank（local_t=4, fine_odd_t=2,
+   coarse_t=1）——此时每 rank half-site=27648，仍低于默认 block-dslash
+   阈值 65536。
+6. 端到端 108–117 s（16 rank）/233 s（32 rank）中约 100 s 是 Python
+   导入/初始化（docs/kupl_kunpeng_hpc_config_20261112.md:107,177）。
+   本审查的静态结论是：simple/kupl_multigrid.py 的直接 import 面
+   （numpy/h5py/mpi4py/ctypes）不含 torch；pyqcu.tools._define.py 的
+   import 副作用（torch/tilelang/mpi4py + check_mpi_support 在 CWD 写
+   `_test_mpi_support_<rank>.h5`）不在该路径上。100 s 更可能来自 MPI 启动/
+   共享文件系统/环境，需单独 profile（未覆盖）。
+
+## 建议的最小改动（不改代码，只列）
+
+按性价比排序，均为小改动：
+
+1. 修 t 轴预检：对 odd-schur 用 `(local_lattice[3]//2) % mg_grid[3] == 0`
+   检查（kupl_multigrid.py:669-673），并在 coarse 维为 0 时给可读错误。
+2. slab 目录模式允许省略 `--gauge`：`metadata = {} if args.gauge is None else
+   read_h5_metadata(...)`（kupl_multigrid.py:702-705）。
+3. 单 rank 独立残差改走 `distributed_relative_residual_streaming`，
+   comm=None、grid=(1,1,1,1)（kupl_multigrid.py:900-905）。
+4. `build_coarse_assets` 接收已转换的 parity gauge 并返回 4 个 Clover 数组；
+   main 复用，去掉第二次 gauge 转换和第二次 applyCloversQcu
+   （kupl_multigrid.py:210, 707, 811, 723-727, 848-858）。
+5. MG 计时运行默认 `KUPL_REQUIRE_MG_CORRECTION=1`，并新增 C++ getter
+   返回 accepted_corrections/fallback；报告写 `mg_used`/`accepted_corrections`
+   （lattice_clover_multigrid.cpp:435-454, 469-473）。
+6. `--skip-independent-residual` 输出 WARN/SKIP 而不是 PASS；该分支的
+   `residual_acceptance` 用 `solver_acceptance(atol, dtype)`
+   （kupl_multigrid.py:885-890；_common.py:328-333）。
+7. 报告增加：`gauge_layout_seconds`、`source_layout_seconds`、
+   `clover_seconds`、`verify_seconds`、`total_seconds`、`effective_omp_threads`、
+   `env` 快照、`block_dslash_enabled/threshold`、`verify_status="not-run"`。
+8. cache 校验去重：把 file/dataset SHA 结果缓存到 sidecar，或提供
+   `--trust-cache-identity`；至少在 `--repeat` 场景只校验一次
+   （kupl_multigrid.py:759-808；_legacy_mg_cache.py:529-620）。
+9. 移除或接线 `--local-stencil`/`--local-stencil-batch`；setup_stats 写实际
+   window（kupl_multigrid.py:511；apply_multigrid.cpp:298）。
+10. `configure_mg` 把 4 个数组 retain 到 solve 结束，避免潜在悬垂指针
+    （kupl_multigrid.py:191-194）。
+11. 统一 Python/C++ 的 env 布尔解析（strip+lower）。
+12. `verify_status` 改名/注释为布局几何校验；文档把“residual < atol”改为
+    “residual ≤ residual_acceptance”（kupl_env.py:987-989）。
+13. 缺库 SKIP 改为非 0 退出码；`input_prebind_seconds` 未运行写 null。
+14. `LegacyMultigrid.solve` 的 isfinite 全扫改为 debug-only
+    （legacy_multigrid.py:129-130）。
+15. HBM 尺度公式加入 4 个 Clover 数组、solver scratch、MG level 向量和
+    coarse assets，或直接用 numastat/RSS（kupl_env.py:364-384）。
+
+## 未覆盖范围
+
+- C++ kernel 级性能（dslash/halo/边界/线程绑定）只做了调用约定和环境读取
+  走查，未做指令级或性能剖析；文档中的 0.509 s 分项未独立复现。
+- 集群实测：未访问远端、未提交作业，所有耗时/带宽为按字节量的估算或引用
+  既有文档；P0-1 的 ZeroDivisionError 为代码路径推算，未在 32 rank 上运行。
+- `solve_case.py`/`worker.py` 的完整编排、CSV/缓存构建（_distributed_mg_cache.py）
+  只做了导入面和调用点的抽查。
+- Strict MG 的数值正确性、FGMRES 收敛语义未审计，只看了生命周期。
+- CUDA/DCU/QUDA 路径、Torch 版 LegacyMultigrid、多 GPU 适配器未审计。
+- `tools/_define.py` 仅记录 import 副作用；其 `give_grid_size` 与
+  kupl_multigrid 的 grid 约定不同，未在 KUPL 路径上使用，未深挖。
+- 未运行单元/集成测试：当前 macOS 环境没有 libqcu.so，无法导入
+  pyqcu.kupl.qcu；结论均来自静态代码与 C++ 源码对照。
+- HDF5/h5py、mpi4py、libgomp 在鲲鹏上的实际行为（NUMA 页分布、HBM 绑定、
+  hugepage 生效）需 numastat/numa_maps 实测，未覆盖。

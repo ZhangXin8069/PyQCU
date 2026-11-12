@@ -217,6 +217,27 @@ KUPL_BENCH_SHOW_AFFINITY=1 KUPL_OMP_THREADS=8 KUPL_NUMA_BIND=1 \
 benchmark 的 `estimated_gflops` 分别使用 Wilson `4*12*12*8` 和
 Clover 再加 onsite `12*12*8` flop/site/application 模型，不是硬件计数器。
 
+## 鲲鹏 HBM 高性能配置（2026-11-12）
+
+L24 独占 HBM 节点实测配方：所有 rank 报告 `memory_bound=true`，`memory_node`
+落在 16–31；逐用例超时用 400–600 s（16 秩端到端约 108–117 s，32 秩约 233 s，
+`RC=124` 不等于死锁）。本地实测数据、DSLASH 分解与跨节点注意事项见
+[`references/kupl-history-2026.md#2026-11-12-l24-hbm-node-scan-recovery-and-high-performance-configuration`](references/kupl-history-2026.md#2026-11-12-l24-hbm-node-scan-recovery-and-high-performance-configuration)；
+逐项数值与来源对照见
+[`references/kupl-hbm-scan-20261112-evidence.md`](references/kupl-hbm-scan-20261112-evidence.md)。
+
+| 配置项 | 推荐值/说明 |
+|---|---|
+| `KUPL_NUMA_BIND=1` | 按 sysfs cpulist 绑定；MPI 必须 `--bind-to none`，不得再设 `OMP_PROC_BIND`/`OMP_PLACES` |
+| `KUPL_MEMORY_POLICY=bind` | 严格 HBM 策略；`preferred` 会回退 DDR |
+| `KUPL_MEMORY_NODE=local+16` | 仅当 sysfs 片上内存节点对每个 CPU 节点唯一映射时使用 |
+| `KUPL_REQUIRE_MEMORY_BIND=1` | `set_mempolicy` 失败即 fatal，避免静默回退 |
+| `KUPL_HUGEPAGE=1` | 对大型内部 scratch 发 `MADV_HUGEPAGE` advice |
+| `KUPL_TOPOLOGY_REPORT=1` | 输出每 rank cpuset/node/thread 证据 |
+
+MPI 使用 `--map-by ppr:P:numa` 与 `--bind-to none`；`dsub` 调度参数必须写在
+命令行（`#DSUB` 头可能被忽略），提交后用 `djob -ll <id>` 核对 `execNodes`。
+
 ## 当前边界
 
 已实现 Wilson/Clover dslash、Wilson BiStabCG/CG、Clover 构造/逆、

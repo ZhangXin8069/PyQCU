@@ -1,0 +1,444 @@
+CUDA 版 QCU vs KUPL 版 QCU：Wilson dslash 通信/halo 实现对比审查
+日期: 2026-11-12
+范围: 只读审查本地源码，CUDA 侧只作对照（不要求可编译）；不访问远端、不跑测量、不改代码。
+标注约定:
+  [已核实] = 本地源码/仓库内日志直接支持；
+  [模型]   = 明确假设下的量化估算，不是实测；
+  [差异]   = 仅是两实现不同，不必然是可回收的负优化。
+主要输入:
+  - CUDA: cpp/cuda/qcu/include/lattice_wilson_dslash.h（halo/MPI 主逻辑）,
+          cpp/cuda/qcu/src/wilson_dslash.cu（send/recv/inside kernel）,
+          cpp/cuda/qcu/include/define.h, cpp/cuda/qcu/include/lattice_set.h
+  - KUPL: cpp/kupl/qcu/src/lattice_wilson_dslash.cpp,
+          cpp/kupl/qcu/include/kupl/lattice_halo.h,
+          cpp/kupl/qcu/include/kupl/lattice_geometry.h,
+          cpp/kupl/qcu/src/lattice_geometry.cpp,
+          cpp/kupl/qcu/src/backend.cpp, cpp/kupl/qcu/include/kupl/lattice_set.h
+  - 背景: logs/kupl_perf_bottleneck_20261112.txt
+          logs/kupl_hbm_anomaly_analysis_20261112.txt
+口径: c64 => Complex<float> = 8 B；24^3x64、32 秩 t-only (grid 1 1 1 32) =>
+      每 rank local=(24,24,24,2)、ht=local_t/2=1、half_sites=13,824、
+      t-face=13,824 站点。每次 solve 70 次 bare_dslash（见 perf log:57-69）。
+
+================================================================================
+## 结论摘要（按严重度）
+================================================================================
+
+S1 [已核实-负优化] t 方向 halo 载荷是 CUDA 的 4.00x，也是“全分量+奇偶选面”理论下限的 2.00x。
+   KUPL 每个方向把整个 t-face 的 13,824 站点 x 12 分量全部打包/发送
+   (lattice_wilson_dslash.cpp:531-552, 563-591)；每 rank 每 dslash 发送 2 x 1,327,104 B
+   = 2,654,208 B，接收同样 2,654,208 B（双向 5,308,416 B）。
+   CUDA 只发 6 分量 half-spinor，且 t 方向的缓冲区按下标 /2 只覆盖一半空间站点
+   (lattice_wilson_dslash.h:218-233; define.h:398-403; wilson_dslash.cu:1215-1217)，
+   每 rank 每 dslash 发送 2 x 331,776 B = 663,552 B（双向 1,327,104 B）。
+   对 24^3x64 c64 / grid 1 1 1 32：KUPL 4.00x CUDA；70 次 dslash 后 KUPL 双向
+   371.6 MB/rank、全局 11.9 GB，CUDA 为 92.9 MB/rank、全局 2.97 GB。
+   [已核实] 在 local_t=2 (ht=1) 下，forward/backward 两个发送缓冲逐字节相同：
+   pack 的 fixed_value 都是 0（last_half_coordinate(3)=ht-1=0，
+   lattice_geometry.h:152-157；调用点 lattice_wilson_dslash.cpp:567-570），
+   同一份数据被 pack 两遍、发往两个邻居。
+
+S2 [已核实-负优化] t 方向的“本地 hop”被无条件推迟到 Waitall 之后。
+   KUPL 的 split 路径 part1 只算 direction 0/1/2（lattice_wilson_dslash.cpp:952-975），
+   direction 3 整个留到 part2（969-975, 1139-1149）。但在 local_t=2 时，
+   每个站点恰有一个 t hop 的邻居在本地（source_at_delta 的 remote 判据，
+   595-627；t2 路径同一判据，886-898），约占总计算量的 1/8。
+   CUDA 的 inside kernel 对 t-1/t+1 两个 hop 都先算 (wilson_dslash.cu:219-271)，
+   t_send/t_recv 只补真正跨 rank 的面 (1170-1272, 1273-1388)。
+   => KUPL 的 part2 里约一半（~0.039 s/solve [模型]）是不必等通信的本地工作。
+
+S3 [已核实-负优化/默认配置] local_t==4（16 秩 t-only，ht=2）默认不启用 split，
+   整个 dslash 计算都在 Waitall 之后，零重叠。
+   split 条件: local[3]==2 或 (local[3]==4 && KUPL_ENABLE_HT2_TBOUNDARY_SPLIT)
+   (lattice_wilson_dslash.cpp:1133-1138; 环境变量解析 44-53)。
+   ht=2 时 block 路径在 ht<3 处直接 return（327-329, 389-391），
+   compute_dslash_interior 只剩一遍“全站点扫描后全部 continue”（639-661），
+   随后 Waitall，再 compute_dslash_boundary 算全部站点（1150-1157）。
+   即 16 秩的默认路径与 profile 路径一样，wait 完全暴露。
+   CUDA 在任何 grid>1 时都由 inside kernel 提供与 MPI 重叠的计算。
+
+S4 [差异-部分可回收] KUPL 的 pack 是一遍独立的 SoA→AoS gather（每 call 2.65 MB 读 +
+   2.65 MB 写 [已核实，按面尺寸算]），CUDA 把打包/γ 投影/gauge 乘法融进 send kernel，
+   没有额外的一遍内存往返 (wilson_dslash.cu:628-670)。这是 CPU/GPU 架构差异，
+   但“独立一遍”本身在 CPU 上也可以与本地面计算融合。
+
+S5 [已核实-小缺陷] compute_dslash_boundary_part 的软件 prefetch 用错了地址模型。
+   `future = local_source + ahead * kVector`（lattice_wilson_dslash.cpp:711-718）
+   假设 AoS（每站点 12 个分量连续），但紧凑场是 SoA：
+   分量 c 的站点 s 在 c*half_sites+s（lattice_geometry.cpp:194-199, 216-224）。
+   因此这三条 prefetch 指向无关内存，属无效指令 + cache 污染。
+
+S6 [差异-非负优化, KUPL 更优] 同步结构 KUPL 明显更轻：
+   KUPL 每次 bare_dslash 只有 1 次 MPI_Waitall（1130/1143/1153/1166/1195/1205），
+   先 post 所有 Irecv 再 Isend（572-591），所有方向一次性 post。
+   CUDA 实际使用的 run_mpi 是 4 组阻塞 MPI_Sendrecv + 大量 stream sync
+   (lattice_wilson_dslash.h:469-598, 674-687)；真正全方向重叠的 run_mpi_non_block
+   被注释掉未使用（688-694, 691 行注释）。这部分 KUPL 不是负优化。
+
+S7 [已核实-小负优化] ht<=2 时 compute_dslash_interior 对全部 half_sites 做一遍
+   “decode + 边界判断 + continue”，无任何有效计算。profile 实测 0.0095 s/70 calls
+   (hbm log:79-82)，16 秩翻倍到约 0.019 s [模型]。可直接跳过。
+
+S8 [已核实-小负优化/通用性代价] 热路径每个 boundary 站点都调用
+   use_block_dslash()（内部含静态初始化 guard 检查，706-709；683-685）与
+   is_periodic_face_site()（508-526）；这些量每次 dslash 只变一次，应 hoist 到循环外。
+   单 rank 32 秩 split 下约 2 x 13,824 x 70 = 1.9e6 次调用/solve。
+
+================================================================================
+## A–H 逐项对比
+================================================================================
+
+A. halo 缓冲区布局与 pack/unpack
+---------------------------------------------------------------------------
+CUDA 做法 [已核实]:
+  - 格点场是 SoA：分量 c 的站点在 c*lat_xyzt + site（define.h:368-373 get_src）。
+  - 发送缓冲也是 SoA、每站点 6 个 complex（half-spinor）：
+    give_send 写 origin_send[i*lat_3dim]（define.h:392-397），
+    分配 lat_3dim_Half_SC（lattice_set.h:417-441；常量 define.h:236-237）。
+  - pack 与 dslash 融合：x_send 里先做 γ 投影再写缓冲
+    (wilson_dslash.cu:628-670)，f 方向还在发送端乘 gauge；recv 端再做 gauge 乘法并
+    add_dest（674-773）。t 方向带 even-odd 选择（1170-1272）。
+  - 没有独立的 pack pass；没有“逐站点重算索引再单独写一块缓冲”的第二遍读取。
+
+KUPL 做法 [已核实]:
+  - 场是紧凑奇偶 SoA：VectorView.stride = half_sites
+    (lattice_geometry.cpp:194-199)，scatter_vector 写 c*half_sites+site（216-224）。
+  - halo 缓冲是 AoS：每站点 12 个 complex 连续，halo_view stride=1
+    (lattice_geometry.cpp:201-206)；每方向分配 face_sites*kVector 个 complex
+    (backend.cpp:345-361)。
+  - pack 是独立一遍：pack_fermion_face 对每个 face 站点先 decode_face
+    （3 次除法/取模 + 构造 array，lattice_geometry.cpp:154-170），再对 12 个分量
+    做 stride=half_sites 的 gather，写入 AoS 缓冲（531-552）。
+  - parity 参数完全没用：`(void)parity;`（551）——无法按奇偶只打包会被读到的那半。
+
+差异:
+  - 每方向载荷 12 vs 6 个 complex（2x）；t 方向再有 2x 的“只打包半边”差距（见 B/G）。
+  - CUDA 的 pack 与投影/乘法融合，KUPL 是额外一遍读+写。
+  - KUPL 的 AoS 接收缓冲对后续 compute_dslash_site 的 12 分量顺序读更友好；
+    CUDA 的 SoA 发送缓冲与场布局一致、pack 读是合并的。这一点 KUPL 不差。
+
+负优化判定: B/G 的载荷差是负优化（与架构无关）；独立 pack pass 属差异，
+  可以后续与 part1 融合，但 CPU 上仍需一次连续化，收益有限。
+
+量化 [已核实/模型]:
+  - KUPL pack 逻辑流量 = 2 face x (13,824 x 12 x 8 B 读 + 同量写) = 5.31 MB/call；
+    70 calls = 371.6 MB，对应 profile halo 0.0675 s（hbm log:79-82），有效 ~5.5 GB/s。
+  - CUDA 无独立 pack 内存往返；send kernel 每站点读一次所需分量并直接写 6 分量缓冲。
+
+建议: 见后 S1/S7（不在此处改代码）。
+
+B. MPI 消息数量、大小、邻居交换顺序、是否合并方向
+---------------------------------------------------------------------------
+CUDA 做法 [已核实]:
+  - 每个 dslash：4 个方向 x 2 个方向位 = 8 条消息/方向组。
+    non-block 路径 8 Isend + 8 Irecv（lattice_wilson_dslash.h:116-127, 218-233）；
+    实际使用的 run_mpi 是 8 次阻塞 Sendrecv（489-598）。
+  - 标签按方向/正负区分（_B_X_/_F_X_ 等）；MPI 数据类型是 T（float/double）。
+  - 不合并方向。
+  - 每站点载荷：x/y/z = 6 complex = 48 B；t = 3 complex = 24 B（每空间站点）。
+    24^3x64 / 1 1 1 32 下 t 每条消息 = 13,824 x 12 / 2 x 4 B = 331,776 B。
+
+KUPL 做法 [已核实]:
+  - 每个分布式维：2 Irecv + 2 Isend；4 维全分布时 16 个 request，全部塞进
+    fermion_requests_ 后一次 Waitall（554-593, 1126-1128）。
+  - 顺序：先 post 本方向的 2 个 Irecv，再 2 个 Isend（572-591）——反序是对的。
+  - 标签 fermion_face_tag(dim, sign) = 4000+dim*10+1/2（lattice_halo.h:33-35）。
+  - MPI_BYTE + size*sizeof(Complex)（573-575），与 CUDA 的 typed send 字节数等价。
+  - 不合并方向；每个方向独立 buffer。
+  - t 方向 1 条消息 = 13,824 x 12 x 8 B = 1,327,104 B（每 rank 每方向）。
+
+差异/判定:
+  - 消息数量两者相同（每方向 2 条）；KUPL 的 recv-first 更好。
+  - 消息大小：t 方向 KUPL/CUDA = 1,327,104 / 331,776 = 4.00x。这是负优化。
+  - 合并方向没有做；但对 24^3x64 t-only，plus/minus 两个 buffer 内容相同（ht=1），
+    可以只 pack 一次、同一 buffer 发两次 Isend（见 S1）。
+
+C. 通信与计算重叠
+---------------------------------------------------------------------------
+CUDA 做法 [已核实]:
+  - send kernel 分别跑在 stream_dims[x/y/z/t] 上（398-462），inside kernel 跑主 stream
+    (463-468)；随后按维度 sync 该维 stream 再阻塞 Sendrecv（469-598）。
+    因此 MPI 与本 rank 的 inside 计算有重叠，但 4 个方向串行、且每次 Sendrecv 阻塞 host。
+  - 存在 run_mpi_non_block 的完整重叠版（18-337：8 Isend/Irecv + inside + 按方向
+    Wait + recv kernel），但 _run 调用的是 run_mpi，non-block 那行被注释掉
+    (688-694, 691)。
+KUPL 做法 [已核实]:
+  - 一次性 post 所有方向，然后 compute_dslash_interior / boundary_part(part=1)，
+    再一次 Waitall，最后 boundary / part(2)（1150-1158, 1139-1149）。
+    generic 路径的 halo 与 interior 重叠；split 路径的 t-halo 与 3 个本地方向重叠。
+  - "x/y/z 后 Waitall 再 t" 的表述要修正：split 只在 grid x/y/z 全为 1 时生效
+    (1133-1138)，此时 x/y/z 根本没有跨 rank 通信，是纯本地周期回绕；
+    真正在飞的只有 t。所以这不是“等 x/y/z 完成再发 t”，而是
+    “用 3/4 的本地计算覆盖 t-halo 的等待”。方向顺序本身是合适的。
+  - 问题在：ht<=2 时 generic 路径没有 interior 可算（S3），split 又被关掉，
+    于是 wait 完全暴露；profile 路径强制 generic（1116-1118, 1160-1180），
+    所以 profile 必然暴露 wait（与 0.8410 vs 0.5193 的 0.32 s 一致，
+    hbm log:167-193）。
+  - bare_dslash_dagger 没有 profile 分支（1183-1210），KUPL_PROFILE_DSLASH 对
+    dagger 不生效，计时口径不对称。
+差异/判定:
+  - 重叠设计 KUPL 的“一次 post + 一次 Waitall”优于 CUDA 的阻塞 Sendrecv 串行化；
+    但默认路径在 local_t=2 之外的覆盖不足（S3）。
+  - profile 禁用 split/t2 不是运行期负优化，而是测量口径问题；仓库日志已单独解释。
+
+D. Wait 的位置与数量；是否在关键路径阻塞
+---------------------------------------------------------------------------
+KUPL [已核实]:
+  - 每次 bare_dslash 恰好 1 次 MPI_Waitall（1130, 1143, 1153, 1166, 1195, 1205）。
+  - Waitall 覆盖 recv + send：post_fermion_halo 把 Isend 的 request 也 push 进
+    fermion_requests_（571-591），所以 boundary 计算还要等本地发送完成。
+    CUDA 的使用路径中 send 完成由 Sendrecv 隐式完成，且 final sync 在最后（674-687）。
+  - 位置：generic 在 interior 之后、boundary 之前；split 在 part1 之后、part2 之前。
+    位置在“有计算可重叠”时是合理的。
+CUDA [已核实]:
+  - 使用路径：4 次 dim-stream sync（471/503/535/567）+ 8 次阻塞 Sendrecv +
+    5 次 final sync（674-687）；non-block 路径：8 次 recv Wait（236-291）+ 8 次
+    send Wait（329-336）。
+判定:
+  - 数量上 KUPL 更少、更好；真正的负优化是“Wait 之前没有计算”的配置（S3），
+    以及 Waitall 把 send 也纳入关键路径（影响小，[模型] 消息在 Waitall 前基本已发出）。
+
+E. 周期性面（grid==1 的维度）处理
+---------------------------------------------------------------------------
+KUPL [已核实]:
+  - post_fermion_halo 跳过 grid==1 的维度（559-562）。
+  - 标量路径在 source_at_delta 内本地回绕（601-627：moved_time/coordinate 越界时
+    直接取另一端），不产生通信。
+  - block 路径把周期性面放在独立的一遍 compute_periodic_face_blocks（378-506），
+    只处理 grid[face]==1 的面；compute_dslash_boundary 用 is_periodic_face_site
+    跳过这些站点（683-687, 706-710），不会重复计算。
+  - 一致性：compute_interior_blocks/periodic 在 dim<3 或 ht<3 时 return
+    （327-329, 389-391），is_periodic_face_site 在这些情形下也恒为 false
+    （508-526），没有“跳过但没算”的漏洞 [已核实，按源码推理]。
+CUDA [已核实]:
+  - 单 rank 走一个融合 kernel（lattice_wilson_dslash.h:375-381），周期回绕在核内；
+    多 rank 的 inside kernel 也先算本地 hop，recv kernel 只补 wrapped/remote 面
+    （wilson_dslash.cu:219-271, 352-379 等，用 move==-1 等 guard 跳过 wrapped 邻居）。
+差异/判定:
+  - 两边都在本地完成周期面，不重复。
+  - KUPL 的 periodic-face 任务循环覆盖“所有空间面”再按 grid[face]!=1 continue
+    （397-441）。若只有 1 个维度是周期性的，2/3 的 task 会先 decode 再丢弃，
+    属小的通用性开销，不是 correctness 问题。
+
+F. t 方向串行段的必要性；能否与 x/y/z 或 onsite 重叠
+---------------------------------------------------------------------------
+必要性 [已核实]:
+  - local_t=2（32 秩）时，每个站点两个 t hop 中恰有一个跨 rank：
+    target_time=((x+y+z)&1)^target，forward remote iff target_time==1，
+    backward remote iff target_time==0（595-627；t2 路径 886-898）。所以
+    “必须等”的只有远端那一个 hop；本地那个 hop 不需要 wait。
+  - CUDA 把两个 t hop 都放在 inside 核里先算，recv 只补远端面
+    (wilson_dslash.cu:219-271, 1170-1388)。
+KUPL 现状 [已核实]:
+  - part1 完全不算 direction 3（952-975, 969），part2 才算两个 t hop（969-975）；
+    t2 zblock 路径同样把整个 time-zblock 放在 Waitall 之后（1123-1130, 834-943）。
+  - 因此 part2 ≈ 1/4 总计算量（0.078 s/70 calls，hbm log:174）中，约一半（1/8）
+    是本地 hop，本可与 part1 重叠。part2 的远端部分才是真正必须串行的。
+  - 与 onsite 的重叠：apply_schur 是 bare_dslash -> apply_clover_onsite ->
+    bare_dslash（1213-1227），onsite 与下一次 dslash 的通信之间没有流水化；
+    这属于上层调度，不在本次 dslash 通信范围内，但可单独优化。
+判定:
+  - t 串行段“必要的部分”只有远端 hop；当前实现把本地 hop 也串行化，属负优化。
+  - 在 32 秩默认路径上，part1 (0.235 s) 已经大于 wait (0.211 s) [模型]，
+    把本地 t 提前不会缩短墙钟（总前移后仍是 part1+part2）；它的价值是增加
+    wait 余量、并在 16 秩/ wait 暴露的配置里直接回收时间。
+  - 若采用 S3 让 16 秩启用 split，则 F 的收益会立刻体现。
+
+G. 每 rank 每 dslash 的通信量与理论下限（24^3x64 c64）
+---------------------------------------------------------------------------
+几何 [已核实]:
+  - 全局 half_sites = 24^3 x 32 = 442,368；32 秩 t-only: half_sites/rank=13,824，
+    ht=1，t-face=13,824 站点；c64 的 Complex 为 8 B。
+  - KUPL 每方向 13,824 x 12 x 8 B = 1,327,104 B；两个方向各 1 条消息。
+  - CUDA 每方向 2 条消息、每条 13,824 x 12/2 x sizeof(float) = 331,776 B；
+    每方向 2 x 331,776 B = 663,552 B。
+
+每 rank 每次 dslash:
+| 项目 | 发送 (B) | 接收 (B) | 双向 (B) | 相对 CUDA |
+| KUPL (t-only) | 2,654,208 | 2,654,208 | 5,308,416 | 4.00x |
+| CUDA (t-only) | 663,552 | 663,552 | 1,327,104 | 1.00x |
+| 全分量+奇偶选面下限 | 1,327,104 | 1,327,104 | 2,654,208 | 2.00x |
+| half-spinor+奇偶选面下限 | 663,552 | 663,552 | 1,327,104 | 1.00x |
+
+每 solve（70 次 dslash）:
+| 项目 | 每 rank 双向 | 32 秩聚合 |
+| KUPL | 371.6 MB | 11.9 GB |
+| CUDA | 92.9 MB | 2.97 GB |
+| 全分量+奇偶选面下限 | 185.8 MB | 5.95 GB |
+
+说明:
+  - “全分量+奇偶选面下限”= 每个方向只发会被对方读到的那一半空间站点、但保留 12 分量。
+    KUPL 比它还多一倍，因为 pack 不看 parity、把两半都发了（551 的 (void)parity）。
+  - “half-spinor+奇偶选面”= CUDA 的做法（发送端先做 γ 投影），在 CPU 上也可实现；
+    但它把部分 γ/gauge 工作挪到接收端，是否净赚取决于 CPU 核数/带宽比。
+  - 若 grid 在 x/y/z 也分解，按每维 2 x face_sites x 96 B 线性叠加；例如
+    24^3x64、grid 2 2 2 4（local 12x12x12x16，ht=8）：
+    KUPL 3 个空间维 3x221,184 B + t 331,776 B = 995,328 B/rank/次（发送）；
+    仍约为 CUDA 的 2.4x（CUDA 空间 6 分量减半，t 再按 even-odd 减半）。
+
+H. 是否存在“为通用性牺牲热路径”
+---------------------------------------------------------------------------
+存在，且可核实：
+  1) source_at_delta 每个邻居都重建 coordinate 数组、做 time_for_parity、越界分支，
+     再用 face_index 做一次 4 轴循环（lattice_wilson_dslash.cpp:595-637；
+     lattice_geometry.h:85-100）。CUDA 在 recv kernel 里一次 decode (x,y,z,t) 后
+     全部用预计算 stride 指针（wilson_dslash.cu:579-600, 674-715）。
+  2) boundary_sites_ 间接索引：boundary 循环先读 int64 列表再 decode_half
+     （backend.cpp:419-433；使用处 673-688, 696-720）。ht=1 时该列表就是 0..N-1
+     全量拷贝，纯属额外一层间接。
+  3) pack_fermion_face 的 parity 参数被忽略（551）；按奇偶选择性打包本可减半载荷。
+  4) compute_dslash_boundary / _part 每站点调用 use_block_dslash（683-685, 706-709）
+     和 is_periodic_face_site（508-526）；前者含函数局部 static 的 guard 检查。
+  5) compute_periodic_face_blocks 先 decode 所有空间面 task 再按 grid[face]!=1 丢弃
+     （397-441），并用运行时 lambda + if (Direction == face) 分发（476-495）。
+  6) compute_dslash_site 用运行时 part 分支（952, 969, 977），每次只算 3/4 或 1/4
+     方向；对 split 是必要的，但 per-site 分支/重复 gather-scatter（976-986）
+     没有任何跨站点 SIMD（对比 compute_dslash_t2_spatial_zblocks 的 16-lane 版本
+     723-832）。
+  7) 单 rank 1x1x1x1 时 CUDA 有一个融合 kernel（lattice_wilson_dslash.h:375-381）；
+     KUPL 仍走 interior+periodic+boundary 的 2-3 遍分解（119+ 行逻辑），
+     虽无通信，但多遍遍历/多套索引。
+  8) 虚拟接口 LatticeSetBase 只在 API 边界（lattice_set.h:17-101），不在 per-site
+     热路径，不算负优化。
+  9) fermion_requests_.clear(); reserve(16) 每次 dslash（557-558）——容量已够，
+     开销可忽略，不作为负优化条目。
+判定:
+  - 1、2、3、4 是明确的“通用性/数据布局牺牲热路径”，且都可以在不改语义的前提下
+    针对性削减；5、6 次之；7 是单 rank 场景的架构差异。
+
+================================================================================
+## 负优化判定
+================================================================================
+
+判定规则:
+  “已核实负优化” = 相对 CUDA 参考实现存在可指出的多余工作量/字节/同步，且与
+  GPU/CPU 架构无关；
+  “架构差异” = 换到 CPU 后不可避免或需要重新权衡，不直接判负；
+  “KUPL 更优” = 需要明确记录，避免只挑坏的说。
+
+| 编号 | 判定 | 内容 | 证据 |
+|---|---|---|---|
+| N1 | 已核实负优化 | t-face 每个方向发 12 分量 x 全站点；CUDA 发 6 分量 x 半站点 => 4x | 531-552, 563-591; CUDA 218-233, define.h:398-403 |
+| N2 | 已核实负优化 | ht=1 时 plus/minus 发送缓冲完全相同，pack 做两遍 | 567-570; lattice_geometry.h:152-157 |
+| N3 | 已核实负优化 | part1 不算 direction 3，本地 t hop 也被 wait 串行化 | 952-975, 969; t2 路径 886-898 |
+| N4 | 已核实负优化 | local_t=4 默认不做 split，16 秩 default 零重叠 | 1133-1138, 44-53 |
+| N5 | 已核实负优化 | ht<=2 时 interior 扫描全站点后全部 continue | 639-661; hbm log:79-82 |
+| N6 | 已核实缺陷 | boundary_part 的 prefetch 按 AoS 地址计算，与 SoA 场不符 | 711-718; lattice_geometry.cpp:194-199, 216-224 |
+| N7 | 已核实小负优化 | 每站点调用 use_block_dslash/is_periodic_face_site，可 hoist | 683-685, 706-710 |
+| N8 | 已核实小负优化 | periodic-face task 对所有面 decode 后再按 grid 丢弃 | 397-441 |
+| D1 | 架构差异 | pack 是独立一遍（CUDA 融合在 send kernel） | 531-552; wilson_dslash.cu:628-670 |
+| D2 | 架构差异 | 发全 12 分量而非 half-spinor（CPU 上可做但需重排计算） | 545-549; CUDA 610-611, 631-667 |
+| D3 | 架构差异 | Waitall 同时覆盖 send request（CUDA 使用路径不显式等 send） | 571-591 vs 674-687 |
+| P1 | KUPL 更优 | 单一 Waitall vs 4 组阻塞 Sendrecv + 多 stream sync | 1130 等 vs 469-598, 674-687 |
+| P2 | KUPL 更优 | 先 post 全部 Irecv / 一次 post 所有方向 | 572-591 |
+| P3 | KUPL 更优 | 无 host-device 拷贝、无 4 条 dim stream 的 sync 开销 | 全文件无 cuda 调用 |
+| P4 | KUPL 更优 | periodic face 在本地完成且与 boundary 不重复 | 378-506, 683-687 |
+
+================================================================================
+## 可回收时间估算
+================================================================================
+
+基准: 32 秩 t-only、默认路径、solve 0.5193 s；profile 分项: halo 0.0675 /
+interior 0.0095 / wait 0.2111 / boundary 0.3132 s（70 calls；hbm log:79-82）。
+假设: (a) profile 与 default 的每站点成本相同；(b) timeout 的模型见 perf log:
+100-104；(c) 所有数字是上界模型，不是实测承诺。
+
+| 项 | 机制 | 估算 | 假设/备注 |
+|---|---|---:|---|
+| S1 pack 去重 (ht=1) | 只 pack 一份、同一 buffer 发两次 Isend；或 memcpy 到第二个 buffer | -0.034 s | pack 0.0675 -> 0.0338，按打包字节线性 |
+| S5 跳过空 interior | ht<=2 时不调用 compute_dslash_interior | -0.010 s (32r) / -0.019 s (16r) | 按 0.0095 x 站点数比 |
+| S2 wait 前 post recv | 8 个 Irecv 先 post，再 pack/Isend | 32r ~0（wait 已被 part1 覆盖）；16r/profile 最多 -0.03~-0.07 s | 仅当 wait 暴露时有效 |
+| S3 16r 启用 split | local[3]==4 默认走 split | 16r 最多 -0.15~-0.21 s | 需实测/数值验证，风险中等 |
+| S4 本地 t hop 提前 | part1 加 t 的本地 hop，part2 只留远端 hop | 32r ~0（part1+part2 总量不变）；wait 暴露时最多 -0.039 s | 增加 wait 余量 |
+| N1 MPI 体积 4x->2x/1x | parity 选择性打包（+ half-spinor） | 0.007-0.019 s（若传输受限） | wait 3.0 ms/call 对应 2.65 MB ≈ 0.9 GB/s，像延迟/进度受限；不确定 |
+| N6 prefetch 修正 | 改为 SoA 地址或删除 | <1% | 主要是 cache 污染，难以量化 |
+| 合计（32r default） | S1+S5+可能的 MPI | **~0.04-0.05 s (8-10%)** | 与 perf log R5 的 0.02-0.05 s 同量级 |
+| 合计（16r default） | S3+S2+S5 | **~0.17-0.25 s** | 相对 1.14 s 更显著，但需确认 split 数值正确性 |
+
+结论: 通信/halo 侧在 32 秩最佳配置上不是 0.1 s 路线的主杠杆（perf log 的判断成立）；
+  最大的确定项是 ht=1 的重复 pack（~0.034 s）和 16 秩默认缺失的 split 重叠。
+  若未来把 32 秩换成有空间分解的 grid，或采用 CUDA 式的 half-spinor 载荷，
+  N1 的 4x 字节差会成为更重要的项。
+
+================================================================================
+## 建议的最小改动（不改代码）
+================================================================================
+
+以下只是后续 patch 的候选，本任务未改任何代码，也未验证正确性。
+
+M1. ht==1 去重（最低风险、收益确定）
+    - 条件: geometry_.local[3] == 2（等价 ht==1）。
+    - 做法: 只调用一次 pack_fermion_face 生成 send_minus；send_plus 复用同一
+      buffer（MPI_Isend 同一只读 buffer 两次是合法的），或 memcpy 一次。
+    - 预计: pack 0.0675 -> ~0.034 s/solve（32r）。
+
+M2. 重排 post 顺序：先 post 全部 Irecv，再 pack，再全部 Isend
+    - 目前每个 dim 内 pack->Irecv->Isend（563-591）。改成两阶段可以把远端
+      到达延迟压到本地 pack 之下；对 16r/profile 的暴露 wait 直接有效。
+
+M3. 跳过空 interior（ht<=2 且 x/y/z grid==1）
+    - 在 bare_dslash 里加 `if (geometry_.local[3] / 2 >= 3) compute_dslash_interior(...)`
+      或在 compute_dslash_interior 开头 return；避免 639-661 的全站点无效扫描。
+
+M4. 本地 t hop 进 part1
+    - 在 compute_dslash_boundary_part(part=1) 里增加 direction 3 的本地分支：
+      target_time 对应本地邻居时用 source_at_delta 的本地 view；part=2 只做
+      remote halo 分支。可复用 source_at_delta 已有的 remote 判据（595-627）。
+    - 注意：这会改变 part1/part2 的工作量比例（3/4 -> 7/8），在 wait 已被覆盖时
+      不改变总时间；它的价值是 wait 暴露时的回收和鲁棒性。
+
+M5. local[3]==4 默认启用 split（或至少在 16 秩 A/B 中打开
+    KUPL_ENABLE_HT2_TBOUNDARY_SPLIT=1）
+    - split 的 part1 只做 x/y/z，这三个维在 grid x/y/z==1 时是纯本地，不受 ht 影响；
+      理论上 local_t=4 同样成立。需先用 16 秩单点做数值/性能 A/B，再改默认值。
+
+M6. 修正 prefetch
+    - 在 compute_dslash_boundary_part 中改为按 SoA 预取：
+      `local_source + ahead + c * geometry_.half_sites`，c 取 0/3/6/9 覆盖
+      4 条 cache line；或者直接删除（收益不明）。
+
+M7. hoist 常量判定
+    - 在 bare_dslash/compute_dslash_boundary 外算一次
+      `const bool block = use_block_dslash(geometry_.half_sites);`
+      并把它传入 boundary 函数；同理把 is_periodic_face_site 的 grid 部分预先
+      算成 3 个 bool。减少每站点函数调用和 guard 检查。
+
+M8. 可选的载荷优化（收益依赖 wait 的性质，风险较高）
+    - 让 pack_fermion_face 使用已传入但被忽略的 parity（551），只打包该方向
+      会被对方读到的半面；同时保持 face_index 映射一致。
+    - 若再采用 CUDA 式 half-spinor 投影，需要把 γ/gauge 乘法移到接收端；这不只是
+      通信改动，会改变 compute_dslash_site 的结构，建议单独立项。
+
+M9. periodic-face task 只生成 grid[dim]==1 的维度
+    - compute_periodic_face_blocks 当前对 3 个空间面的 task 全量 decode 再 continue
+      （397-441）；可预先生成只属于周期性维的 task 列表，或直接三重循环。
+
+================================================================================
+## 未覆盖范围
+================================================================================
+
+1. 只审查了 Wilson dslash 的 halo/MPI（lattice_wilson_dslash.cpp 与 CUDA 的
+   lattice_wilson_dslash.h/wilson_dslash.cu）。未审查 KUPL 的
+   lattice_clover_dslash.cpp 中 gauge face/corner halo（backend.cpp:355-388，
+   lattice_clover_dslash.cpp:91-221）、lattice_laplacian.cpp 的 source/gauge halo、
+   lattice_multigrid.cpp 的 coarse halo。它们可能包含同类问题，但不在本任务范围。
+2. CUDA 的 clover dslash 通信（clover_dslash_comm.cu）与 multigrid halo
+   （lattice_multigrid.h 的 CoarseHaloExchange）未逐行对照。
+3. 未做任何运行/性能测量；所有时间数字来自仓库日志 + 明确假设的模型。
+   特别是 wait 的真实覆盖程度（perf log R3 的风险）未在本轮验证。
+4. 未验证 KUPL split 路径对 local[3]==4 的数值正确性；M5 只是代码结构上的候选，
+   必须先做数值 A/B。
+5. 未验证 CUDA 多 rank t 分解的数值正确性（本任务把 CUDA 只当参考实现，
+   不要求可编译）。CUDA inside kernel 的 t 段（wilson_dslash.cu:219-271）没有
+   类似 x/y/z 的 move==-1 guard，其与 t_recv 的叠加语义未在本轮证明。
+6. 未覆盖 c128（double）以外的精度；c128 只是把 8 B 换成 16 B，倍率不变，
+   但绝对字节数翻倍。
+7. 未覆盖 HMPI 进度线程、OMP_WAIT_POLICY、NUMA/HBM 绑定对 wait 的影响；
+   这些是 perf log A3/F2 的假设，本轮不重复论证。
+8. 未审查单 rank（1x1x1x1）下 KUPL 的 2-3 遍分解相对 CUDA 融合 kernel 的
+   实际开销；只记录了结构差异。
+9. 消息计数按源码静态分析得出；未用 MPI 工具（如 mpiP/Intel Trace）实测
+   实际消息数/大小/等待时间。
+
+（完）
+</content>

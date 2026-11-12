@@ -33,7 +33,7 @@ try:
                           convergence_status, json_safe, kupl_fermion_to_qcu,
                           qcu_fermion_to_kupl, qcu_gauge_to_kupl,
                           read_h5_metadata, resolve_csw, resolve_path,
-                          write_h5, write_json)
+                          solver_acceptance, write_h5, write_json)
     from ._layouts import qcu_gauge_to_kupl as gauge_to_parity
     from .kupl_bistabcg import (NumpyTensor, PLAN_CLOVER, PLAN_SOLVER,
                                 PARITY, SET_PLAN, cpu_memory_snapshot,
@@ -47,7 +47,7 @@ except ImportError:
                          convergence_status, json_safe, kupl_fermion_to_qcu,
                          qcu_fermion_to_kupl, qcu_gauge_to_kupl,
                          read_h5_metadata, resolve_csw, resolve_path,
-                         write_h5, write_json)
+                         solver_acceptance, write_h5, write_json)
     from _layouts import qcu_gauge_to_kupl as gauge_to_parity
     from kupl_bistabcg import (NumpyTensor, PLAN_CLOVER, PLAN_SOLVER,
                                PARITY, SET_PLAN, cpu_memory_snapshot,
@@ -133,6 +133,8 @@ def inspect_cache_layout(path: Path, lattice: tuple[int, int, int, int],
     """Return inferred cache layout and its rank-local coarse slab geometry."""
     import h5py
 
+    if any(int(value) < 1 for value in mg_grid):
+        raise ValueError(f"--mg-grid {tuple(mg_grid)} must be positive")
     with h5py.File(path, "r") as handle:
         if "lonv" not in handle or handle["lonv"].ndim != 10:
             raise ValueError(f"coarse cache {path} has no valid lonv dataset")
@@ -157,6 +159,10 @@ def inspect_cache_layout(path: Path, lattice: tuple[int, int, int, int],
         lattice[2] // process_grid[2] // mg_grid[2],
         global_coarse_time // process_grid[3],
     )
+    if any(int(extent) < 1 for extent in local_coarse):
+        raise ValueError(
+            f"coarse lattice {local_coarse} has a zero extent; reduce "
+            f"--mg-grid {tuple(mg_grid)} for the {tuple(process_grid)} grid")
     coarse_starts = (
         local_starts[0] // mg_grid[0],
         local_starts[1] // mg_grid[1],
@@ -194,6 +200,28 @@ def configure_mg(params: np.ndarray, argv: np.ndarray, set_ptrs: np.ndarray,
         set_ptrs[slot + 3] = int(np.ascontiguousarray(sitting[level - 1]).ctypes.data)
 
 
+def mg_coarse_geometry(
+        local_lattice: tuple[int, int, int, int],
+        mg_grid: list[int] | tuple[int, ...]) -> tuple[int, int, int, int]:
+    """Validate the odd-Schur MG block grid and return the coarse lattice."""
+    if any(int(value) < 1 for value in mg_grid):
+        raise ValueError(f"--mg-grid {tuple(mg_grid)} must be positive")
+    fine_odd = (
+        int(local_lattice[0]), int(local_lattice[1]), int(local_lattice[2]),
+        int(local_lattice[3]) // 2)
+    coarse = tuple(
+        fine_odd[axis] // int(mg_grid[axis]) for axis in range(4))
+    if (any(fine_odd[axis] % int(mg_grid[axis]) for axis in range(4)) or
+            any(extent < 1 for extent in coarse)):
+        raise ValueError(
+            f"local lattice {tuple(local_lattice)} has odd-Schur fine extent "
+            f"{fine_odd} (coarse {coarse}), which is not compatible with "
+            f"--mg-grid {tuple(mg_grid)}; every coarse extent must be at "
+            "least 1 and divide evenly. Reduce --mg-grid (use 1 on t for "
+            "t-only rank grids) or use a different --grid.")
+    return coarse
+
+
 def build_coarse_assets(gauge: np.ndarray, lattice: tuple[int, int, int, int],
                         mass: float, kappa: float, csw: float,
                         dtype: np.dtype, levels: int, dof: list[int],
@@ -203,14 +231,20 @@ def build_coarse_assets(gauge: np.ndarray, lattice: tuple[int, int, int, int],
                         device_name: str = "cpu",
                         setup_stats: dict[str, Any] | None = None,
                         supplied_null_vectors: np.ndarray | None = None,
-                        validate_galerkin: bool = True):
+                        validate_galerkin: bool = True,
+                        gauge_parity: np.ndarray | None = None,
+                        clover_assets: (
+                            tuple[np.ndarray, np.ndarray, np.ndarray,
+                                  np.ndarray] | None) = None):
     if levels != 2:
         raise ValueError("the independent simple MG fixture supports two levels")
     del kappa
-    gauge_parity = gauge_to_parity(np.ascontiguousarray(gauge))
+    coarse_lattice = mg_coarse_geometry(lattice, mg_grid)
+    if gauge_parity is None:
+        gauge_parity = gauge_to_parity(np.ascontiguousarray(gauge))
+    else:
+        gauge_parity = np.ascontiguousarray(gauge_parity)
     fine_odd = (lattice[0], lattice[1], lattice[2], lattice[3] // 2)
-    coarse_lattice = tuple(
-        fine_odd[index] // mg_grid[index] for index in range(4))
     block = tuple(
         fine_odd[index] // coarse_lattice[index] for index in range(4))
     local_stencil_window = max(3 * extent + 2 for extent in block)
@@ -365,10 +399,22 @@ def build_coarse_assets(gauge: np.ndarray, lattice: tuple[int, int, int, int],
             from pyqcu.kupl import define
         except ImportError as exc:
             raise RuntimeError(f"KUPL C++ setup unavailable: {exc}") from exc
-        clover_even = np.empty(onsite_shape, dtype=dtype)
-        clover_odd = np.empty(onsite_shape, dtype=dtype)
-        clover_even_inv = np.empty(onsite_shape, dtype=dtype)
-        clover_odd_inv = np.empty(onsite_shape, dtype=dtype)
+        if clover_assets is None:
+            clover_even = np.empty(onsite_shape, dtype=dtype)
+            clover_odd = np.empty(onsite_shape, dtype=dtype)
+            clover_even_inv = np.empty(onsite_shape, dtype=dtype)
+            clover_odd_inv = np.empty(onsite_shape, dtype=dtype)
+            reuse_clovers = False
+        else:
+            clover_even, clover_odd, clover_even_inv, clover_odd_inv = (
+                np.ascontiguousarray(array) for array in clover_assets)
+            for array in (clover_even, clover_odd, clover_even_inv,
+                          clover_odd_inv):
+                if array.shape != onsite_shape or array.dtype != dtype:
+                    raise ValueError(
+                        f"supplied Clover asset {array.shape}/{array.dtype} "
+                        f"does not match {onsite_shape}/{dtype}")
+            reuse_clovers = True
         if supplied_null_vectors is None:
             null_vectors = np.empty(null_shape, dtype=dtype)
         else:
@@ -407,14 +453,15 @@ def build_coarse_assets(gauge: np.ndarray, lattice: tuple[int, int, int, int],
         set_ptrs_arg = NumpyTensor(set_ptrs)
         qcu.applyInitQcu(set_ptrs_arg, params_arg, argv_arg)
         try:
-            params[PARITY] = 0
-            qcu.applyCloversQcu(
-                clover_even_arg, clover_even_inv_arg, gauge_arg,
-                set_ptrs_arg, params_arg)
-            params[PARITY] = 1
-            qcu.applyCloversQcu(
-                clover_odd_arg, clover_odd_inv_arg, gauge_arg,
-                set_ptrs_arg, params_arg)
+            if not reuse_clovers:
+                params[PARITY] = 0
+                qcu.applyCloversQcu(
+                    clover_even_arg, clover_even_inv_arg, gauge_arg,
+                    set_ptrs_arg, params_arg)
+                params[PARITY] = 1
+                qcu.applyCloversQcu(
+                    clover_odd_arg, clover_odd_inv_arg, gauge_arg,
+                    set_ptrs_arg, params_arg)
             params[SET_PLAN] = PLAN_SOLVER
             stage = time.perf_counter()
             if supplied_null_vectors is None:
@@ -666,11 +713,12 @@ def main(argv=None) -> int:
         parser.error(f"--grid {grid} must contain {size} ranks")
     coordinate, local_lattice, local_starts = _rank_geometry(
         lattice, grid, rank)
-    if args.levels > 1 and any(
-            local_lattice[axis] % args.mg_grid[axis] for axis in range(4)):
-        parser.error(
-            f"local lattice {local_lattice} is not divisible by "
-            f"--mg-grid {tuple(args.mg_grid)}")
+    if (args.levels > 1 and args.restart != 0
+            and args.coarse_cache is None):
+        try:
+            mg_coarse_geometry(local_lattice, args.mg_grid)
+        except ValueError as exc:
+            parser.error(str(exc))
     if size > 1 and args.restart != 0 and args.coarse_cache is None:
         parser.error(
             "multi-rank coarse-correction mode requires a global --coarse-cache")
@@ -690,19 +738,27 @@ def main(argv=None) -> int:
         input_prebind_seconds = time.perf_counter() - started
     input_read_started = time.perf_counter()
     gauge_full = None
+    gauge_slab_dir = (
+        resolve_path(args.gauge_slab_dir, args.gauge_slab_dir)
+        if args.gauge_slab_dir is not None else None)
     gauge_local = _read_local_slab(
         args.gauge, local_starts, local_lattice,
         hdf5_mpio=hdf5_mpio_read, comm=comm,
-        slab_dir=(resolve_path(args.gauge_slab_dir, args.gauge_slab_dir)
-                  if args.gauge_slab_dir is not None else None),
-        rank=rank)
+        slab_dir=gauge_slab_dir, rank=rank)
     if gauge_local is None:
         gauge_full, metadata = load_gauge(args.gauge, lattice, dtype)
         gauge_local = _slice_last4(gauge_full, local_starts, local_lattice)
     else:
         gauge_local = gauge_local.astype(dtype, copy=False)
-        metadata = read_h5_metadata(
-            resolve_path(args.gauge, resolve_path(None, args.gauge)))
+        if args.gauge is not None:
+            metadata = read_h5_metadata(
+                resolve_path(args.gauge, resolve_path(None, args.gauge)))
+        else:
+            # Slab-only mode: optional attrs provide mass/csw defaults; the
+            # lattice and dtype come from --lat/--dtype.
+            slab_path = Path(gauge_slab_dir) / f"rank_{int(rank):04d}.h5"
+            metadata = (read_h5_metadata(slab_path)
+                        if slab_path.is_file() else {})
     gauge_read_seconds = time.perf_counter() - input_read_started
     gauge = qcu_gauge_to_kupl(gauge_local)
     source_read_started = time.perf_counter()
@@ -743,6 +799,29 @@ def main(argv=None) -> int:
             "params": params, "argv": argv, "set_ptrs": set_ptrs,
         }.items()
     }
+
+    clover_assets = None
+    if args.build_device == "cpu":
+        clover_assets = (
+            clover_even, clover_odd, clover_even_inv, clover_odd_inv)
+        # Build the Clover terms once; build_coarse_assets() reuses these
+        # arrays for its null-vector/stencil setup on the CPU backend. The
+        # CUDA builder cannot reuse host arrays, so it keeps applying them
+        # itself and the solver builds the host terms later as before.
+        qcu.applyInitQcu(
+            wrapped["set_ptrs"], wrapped["params"], wrapped["argv"])
+        try:
+            params[SET_PLAN] = PLAN_CLOVER
+            params[PARITY] = 0
+            qcu.applyCloversQcu(
+                wrapped["even"], wrapped["even_inv"], wrapped["gauge"],
+                wrapped["set_ptrs"], wrapped["params"])
+            params[PARITY] = 1
+            qcu.applyCloversQcu(
+                wrapped["odd"], wrapped["odd_inv"], wrapped["gauge"],
+                wrapped["set_ptrs"], wrapped["params"])
+        finally:
+            qcu.applyEndQcu(wrapped["set_ptrs"], wrapped["params"])
 
     use_coarse_assets = args.levels > 1 and args.restart != 0
     null_vectors, hop_nn, hop_diag, sitting = ((), (), (), ())
@@ -814,7 +893,9 @@ def main(argv=None) -> int:
                 args.seed, verbose=args.verbose or args.verbose_build,
                 local_stencil=args.local_stencil,
                 local_stencil_batch_size=args.local_stencil_batch,
-                device_name=args.build_device)
+                device_name=args.build_device, gauge_parity=gauge,
+                clover_assets=(
+                    clover_assets if args.build_device == "cpu" else None))
         if int(null_vectors[0].shape[0]) != int(args.dof[1]):
             raise ValueError(
                 f"coarse cache E={null_vectors[0].shape[0]} does not match "
@@ -847,15 +928,16 @@ def main(argv=None) -> int:
     verify_status = None
     qcu.applyInitQcu(wrapped["set_ptrs"], wrapped["params"], wrapped["argv"])
     try:
-        params[SET_PLAN] = PLAN_CLOVER
-        params[PARITY] = 0
-        qcu.applyCloversQcu(
-            wrapped["even"], wrapped["even_inv"], wrapped["gauge"],
-            wrapped["set_ptrs"], wrapped["params"])
-        params[PARITY] = 1
-        qcu.applyCloversQcu(
-            wrapped["odd"], wrapped["odd_inv"], wrapped["gauge"],
-            wrapped["set_ptrs"], wrapped["params"])
+        if args.build_device != "cpu":
+            params[SET_PLAN] = PLAN_CLOVER
+            params[PARITY] = 0
+            qcu.applyCloversQcu(
+                wrapped["even"], wrapped["even_inv"], wrapped["gauge"],
+                wrapped["set_ptrs"], wrapped["params"])
+            params[PARITY] = 1
+            qcu.applyCloversQcu(
+                wrapped["odd"], wrapped["odd_inv"], wrapped["gauge"],
+                wrapped["set_ptrs"], wrapped["params"])
         params[SET_PLAN] = PLAN_SOLVER
         if use_coarse_assets:
             verify_status = qcu.verifyCloverMultigridQcu(
@@ -884,9 +966,15 @@ def main(argv=None) -> int:
     residual_started = time.perf_counter()
     if args.skip_independent_residual:
         residual = None
-        converged = verify_status in (None, 0)
-        status = "PASS" if converged else "FAIL"
-        acceptance = float(args.atol)
+        acceptance = solver_acceptance(args.atol, dtype=dtype)
+        if verify_status == 0:
+            converged, status = True, "PASS"
+        elif verify_status is None:
+            # No independent residual and no native verification: the solve
+            # is unverified, so it must not be reported as PASS.
+            converged, status = False, "WARN"
+        else:
+            converged, status = False, "FAIL"
         residual_source = "KUPL native fail-closed solve; independent check skipped"
     elif size > 1:
         residual = distributed_relative_residual(
@@ -955,7 +1043,8 @@ def main(argv=None) -> int:
     }
     if comm is not None:
         failed = int(comm.allreduce(int(status == "FAIL"), op=MPI.MAX))
-        status = "FAIL" if failed else "PASS"
+        warned = int(comm.allreduce(int(status == "WARN"), op=MPI.MAX))
+        status = "FAIL" if failed else ("WARN" if warned else "PASS")
         report["status"] = status
     if rank == 0:
         report = json_safe(report, omit_none=True)

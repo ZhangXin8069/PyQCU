@@ -1,0 +1,477 @@
+CUDA 版 QCU vs KUPL 版 QCU：算符（dslash / Clover / onsite）实现对比审查
+日期: 2026-11-12
+范围: 只读审查本地仓库源码，CUDA 侧仅作参照（不要求可编译、不做跨设备性能外推）。
+      不访问远端、不操作 screen、不提交集群作业、不改代码。
+标注约定:
+  [已核实-代码] = 由本地源码逐行直接支持；
+  [已核实-证据] = 由 logs/ 下已有证据文件支持；
+  [推断]       = 由已核实事实推出的机制解释，未直接测量；
+  [模型]       = 明确列出假设的量化估算，不是实测；
+  [待补]       = 仓库内无数据，需 objdump / 计数器 / 实测才能确认。
+对象: L24 求解 y76r32t12（cn19699、24^3x64 c64、32 秩 grid 1 1 1 32、levels=1 restart=0、
+      16 it、wall 0.5193 s、真残差 3.5412e-6、PASS）。
+      该配置下 levels<=1 -> clover_bistabcg -> solve_clover -> solve_compact_bistabcg
+      （lattice_clover_multigrid.cpp:1115-1126、backend.cpp:159-177、lattice_solver.cpp:586-634），
+      所以真正的热路径就是本文对比的 Wilson dslash + clover onsite + BiCGStab。
+
+================================================================================
+## 结论摘要（按严重度）
+================================================================================
+
+S1 [已核实-代码] 内层求解容差比验收门紧 10x，且比 CUDA 参考实现紧 10x。
+   KUPL: solve_compact_bistabcg 的 relative_tolerance = Real(0.1) * atol()
+         (lattice_solver.cpp:622；Wilson 同款在 :536)，
+         内部 fail-closed 门 = max(0.1*atol, eps*4)*rhs_norm (lattice_solver.cpp:160-166, 289-297)。
+   CUDA: tolerance = max(atol, eps*4)，stop_tolerance2 = tol^2 * rhs_norm2
+         (cpp/cuda/qcu/include/lattice_clover_bistabcg.h:452-456)，
+         即直接把 atol 当相对容差用，没有 0.1 系数，也没有额外整场验证。
+   证据: 同一配置实测真残差 3.5412e-6，验收阈值 2.44140625e-4，余量约 69x
+         (logs/kupl_perf_bottleneck_20261112.txt:214-219)。
+   判定: 已核实的负优化（算法参数，不是硬件差异）。可回收 [模型] 0.09-0.15 s。
+
+S2 [已核实-代码] KUPL 在计时区间内多做两次"整场残差复核"，CUDA 侧完全没有。
+   多做的部分:
+     a) 循环结束后再 apply_operator(solution) 求真实残差 + 1 次全范数
+        (lattice_solver.cpp:278-297)；
+     b) solve_clover 里 apply_full_operator(整场 2 视宇称) + 2 次全范数
+        (lattice_solver.cpp:625-636)。
+   合计 = 4 次 bare_dslash + 4 次 apply_clover_onsite + 3 次 Allreduce。
+   CUDA: 循环结束后只做 x_e 的 reconstruct，不做全算符残差 (lattice_clover_bistabcg.h:665-695)；
+         python 侧的真实残差本来就在计时区间之外独立计算
+         (pyqcu/testing/simple/kupl_multigrid.py:864-868 计时, :881-905 独立残差)。
+   判定: 已核实的负优化（纯验证开销重复）。可回收 [模型] 0.03-0.04 s。
+
+S3 [已核实-代码，量化待测] 每站点标量 kernel 里，索引/分支成本远高于算术：
+   每个站点要算 8 次 source_at_delta（构造 4 维坐标、t 方向 parity、远端/本地分支、halo 索引）
+   + 4 次 gauge_at_delta（再算一遍坐标 + parity + 远端维度判定 + face/corner 索引）
+   (lattice_wilson_dslash.cpp:595-637、lattice_clover_dslash.cpp:224-306)。
+   CUDA 对应位置是纯指针算术，没有分支、没有坐标重算
+   (cpp/cuda/qcu/src/wilson_dslash.cu:57-108 的 move_backward/move_forward + 常量偏移)。
+   判定: 已核实的负优化（实现层面），是每站点 ~7,766 cycles 的主因之一。
+   可回收 [模型] 0.10-0.25 s，但需要改 kernel（属 R1，非参数级）。
+
+S4 [已核实-代码] Gamma 没有折进自旋投影，导致 SU(3) 收缩做了 2 倍的无用功。
+   KUPL: 先做 36 个 complex MAC（4 自旋 x 3 行 x 3 列），再对 12 个分量做 gamma 变换
+         (lattice_wilson_dslash.cpp:108-134 的 KUPL_ACC, :148-163 的 gamma 循环)。
+   CUDA: 先用 ±i 把 4 个自旋分量折叠成 2 个（(1±gamma_mu) 的秩为 2，且只作用在自旋空间、
+         与颜色矩阵可交换），只做 18 个 complex MAC，再由 tmp0/tmp1 重建 4 个分量
+         (wilson_dslash.cu:68-83 的 tmp0/tmp1 写法；:96-107 为正向)。
+   量化 [模型]: 每方向每符号 36 vs 18 complex MAC，整个 hopping 的实数乘加约 1.8-2.2x。
+   判定: 已核实的负优化（代数层面，与硬件无关）。可回收 [模型] 0.04-0.09 s（需改 kernel）。
+
+S5 [已核实-代码缺陷] boundary_part 的软件 prefetch 地址算错了 12 倍，等于无效 + 污染。
+   lattice_wilson_dslash.cpp:711-718 用 `local_source + ahead * kVector`（= ahead*12 个
+   complex，隐含 AoS 12 分量连续布局），而实际布局是分量主序、分量间 stride = half_sites
+   (lattice_geometry.cpp:194-199 compact_view, :216-224 scatter_vector)。
+   于是预取指向的是"站点号 ahead*12"的 component 0，而不是站点 ahead 的 12 个分量：
+   相对正确地址偏了 12 倍，按逻辑字节算最多多出 ~192 B/site（约 +25%）的无效取数。
+   因整体带宽只用到 HBM 的 1-2% (logs/kupl_perf_bottleneck:153-160)，实际危害主要是
+   L1/TLB 污染，收益约等于 0。判定: 已核实的"死代码/负优化"，删除无损失。
+
+S6 [已核实-代码] 标量路径的活跃浮点数超过标量寄存器文件，必然溢出到栈。
+   accumulate_hopping 里同时活跃: 24 个 Real 累加器 (lattice_wilson_dslash.cpp:118-121)
+   + 12 个 transported (line 135-146) + 外面 12 个 result (compute_dslash_site:950)
+   + gamma 临时量 => 峰值 56-80 个标量 FP 值，而 AArch64 只有 32 个标量 FP 寄存器。
+   CUDA 每线程有 255 个寄存器，一个站点的 12+12+9 个分量可以全放寄存器
+   (wilson_dslash.cu:50-52 声明 U[9]/src[12]/dest[12])。
+   判定: 已核实的负优化机制（S3 的根因之一）。
+
+S7 [已核实-代码] apply_schur 的第 4 步 onsite 本可以融进第 3 步 dslash 的 scatter，没有融。
+   apply_schur 每一步都是一次独立的整场 pass (lattice_wilson_dslash.cpp:1212-1227)；
+   第 3 步写 scratch_a，第 4 步再把 scratch_a 读回来做 A_oo*x - k^2*y。
+   CUDA 至少有一个等价融合件 give_clover_subtract_block（clover_dslash_single.cu:1045-1077），
+   而 KUPL 只在 apply_clover_onsite 内部带 subtract（lattice_linalg.cpp:124-131），
+   没有把它并进 dslash 的输出 scatter。
+   量化 [模型]: 每 apply_schur 省一次整场读 (96 B/site) + 一次整场写 (96 B/site)，
+   16 次迭代 x 2 次 apply_schur => 0.015-0.03 s。判定: 已核实的中等负优化。
+
+S8 [架构差异，不是负优化] 数据布局本身两侧一致，差别在线程映射。
+   两侧都是"12 个分量、分量 stride = half_sites"的 SoA（CUDA 侧
+   lattice_wilson_dslash.h:367-382 注明同样使用 T/2 的 compact parity 布局；
+   KUPL 侧 lattice_geometry.cpp:194-199）。CUDA 是 1 thread/site，warp 内相邻线程
+   读同一分量的相邻地址，一条 line 服务 8 个线程；KUPL 是 1 thread 循环很多站点，
+   每线程同时持有 ~30-54 条顺序流（12 源 + 12 目的 + 8x9 gauge）。
+   因此"cache line 利用率 8 B/64 B"只在**单条 load 指令**粒度成立；
+   按 line 粒度，一个线程连续 8 个站点会把该 line 用完，**不是 HBM 字节浪费**。
+   真实代价是 load 指令条数 ~8-12x 和每线程 MLP 下降，属"线程映射/架构差异"。
+   这一条不应算进"KUPL 比 CUDA 多做了无用工作"。
+
+S9 [条件性，待补] 构建旗标可能根本没开 SVE。
+   make.sh:8 `NATIVE=${KUPL_ENABLE_NATIVE:-OFF}`、setup.py:153
+   `environment.setdefault("KUPL_ENABLE_NATIVE","OFF")`，CMakeLists.txt:72-78 只有
+   KUPL_ENABLE_NATIVE=ON 时才加 -march=native。默认 -O3 面向 aarch64 基线（无 SVE），
+   `#pragma omp simd` 最多到 NEON 4 宽；开了 -march=native 才是 64 B SVE（c64 的 16 lane = 1 条）。
+   对当前 L24（ht=1，block 路径完全没开）没有影响，但它决定任何 lane 化重写的天花板是 4x 还是 16x。
+   必须确认 0.5193 s 那次的二进制是哪一种 [待补]。
+
+S10 [澄清，非问题] 以下常被怀疑的点经核对**不存在**：
+   - 虚函数不在热路径：LatticeSetBase 的虚调用只在每个 qcu.applyXxx 入口一次
+     (lattice_set.h:17-101)，不进站点循环。
+   - solver 不做每迭代堆分配：所有工作向量在 ensure_solver_scratch 里一次性分配
+     (backend.cpp:437-460)，循环内只复用 r_/rhat_/p_/v_/s_/t_/bp_/tmp_a_/tmp_b_。
+   - 没有 false sharing：omp_chunk 把 chunk 对齐到 64 B
+     (lattice_cpu.h:23-29，alignment = 64/sizeof(Complex) = 8 个 complex)，
+     相邻线程写不同 64 B 对齐段。
+   - 每迭代归约次数与 CUDA 相同，都是 5 次
+     (KUPL: lattice_solver.cpp:196/201/219/232/249-250；CUDA: lattice_clover_bistabcg.h:583/596/602/621/622)。
+
+一句话: 0.5193 s 里约 0.12-0.19 s 是"KUPL 自己多做的"（S1+S2+S5+S7，可用参数/小改收回），
+其余大头是"每站点标量 kernel"（S3+S4+S6，需要重写 kernel，对应瓶颈日志的 R1）。
+S8/S10 属架构差异或误报，不应计入负优化。
+
+================================================================================
+## 复核前提（保证两侧配置可比）
+================================================================================
+
+- 两侧都是 Wilson-Clover、even-odd 预条件、12 分量自旋-颜色向量、分量 stride = 半格点数：
+  CUDA lattice_wilson_dslash.h:367-382 的注释与 wilson_dslash.cu:40-45 的
+  `origin_src = device_src + idx` + `get_src(...)` 共同确认；KUPL lattice_geometry.h:76-83, :194-199。
+- 两侧每站点的逻辑访存下限相同: 源 8x96 B（或复用后 96 B）+ 目标 96 B + gauge 8x72 B。
+- 两侧 C 与 C++ 版本不同，但**代数**对比只依赖源码结构，不依赖编译器；量化部分单独标注。
+- KUPL 走的是 split-boundary 快路径（local_t==2 且 block 关闭）
+  (lattice_wilson_dslash.cpp:1133-1149)，profile 路径会绕过它 (:1116-1118)，
+  所以下文的"每站点成本"用瓶颈日志给出的非 profile 模型，而不是 profile 分项。
+
+================================================================================
+## A–H 逐项对比
+================================================================================
+
+### A. 数据布局
+
+| 维度 | CUDA | KUPL |
+|---|---|---|
+| 分量布局 | SoA，12 x half_sites，stride = lat_xyzt | SoA，12 x half_sites，stride = geometry_.half_sites |
+| 依据 | wilson_dslash.cu:40-45 + get_src 宏 | lattice_geometry.cpp:194-199, :216-224 |
+| gauge 布局 | parity,row,col,dir,spatial；dir stride = half_sites | 同左；local_gauge 的 matrix_stride = 4*half_sites (lattice_geometry.cpp:241-248) |
+| 线程 -> 站点 | 1 thread = 1 站点，warp 内 32 个相邻站点 | 1 thread 循环一个连续 chunk 的站点 (lattice_wilson_dslash.cpp:692-721) |
+| 单条 load 粒度 | warp 合并: 一条 line 服务 8 线程 | 每线程 8 B/次，line 由该线程后续 8 个站点用完 |
+| 每线程并发流 | 每个 warp 12 源 + 8x9 gauge（合并后 ~21 条 line 流） | 每线程 12 源 + 12 目 + 8 方向 x 9 gauge ≈ 30-54 条流 |
+
+差异与判定:
+- **布局本身没有差异**，不存在"CUDA 是 AoS、KUPL 是 SoA"的问题。[已核实-代码]
+- "cache line 利用率"这个说法必须区分粒度 [推断]:
+  单条 load 用 8 B/64 B 是真的（load 指令条数是 CUDA 的 ~8-12x）；
+  但同一线程顺序访问 8 个站点会把整条 line 用完，HBM 字节没有 8 倍浪费。
+  实测带宽只有 HBM 的 1-2% (logs/kupl_perf_bottleneck:153-160)，也印证不是字节浪费。
+- 真正的代价是 **MLP 与指令数**：每线程 30-54 条流超过 CPU 硬件预取器可跟踪的流数
+  （典型 16-32），且每条 load 只有 1 个 line 在途。CUDA 侧靠 warp 级并行把在途 line 数
+  抬到每 warp 数十条。[推断]
+- 结论: 架构差异，不建议为此改布局；可作为"每线程站点数少一点、并行度多一点"的
+  调度实验（见 F/C）。
+
+### B. 每站点计算组织
+
+| 维度 | CUDA | KUPL |
+|---|---|---|
+| 组织单位 | 1 thread/site，全内联，无函数调用 | compute_dslash_site 每站点一次调用 (lattice_wilson_dslash.cpp:945-987) |
+| 索引 | move_backward/move_forward 算一次偏移，其余纯指针算术 (wilson_dslash.cu:59-108) | 每站点 8 次 source_at_delta + 4 次 gauge_at_delta (lattice_wilson_dslash.cpp:595-637; lattice_clover_dslash.cpp:224-306) |
+| 坐标/parity 重算 | 每站点一次 (line 26-37) | 每站点 ~12 次（每方向各一次），且 gauge_at_delta 内部再循环 4 维 (:231-243) |
+| part 分支 | 无（编译期 __X__/__Y__/__Z__/__T__） | 运行期 `int part`，每站点 2 个分支 (:952, :969, :977) |
+| 累加器 | 寄存器 U[9]/src[12]/dest[12] (wilson_dslash.cu:50-52) | 24 个 Real + transported[12]，峰值 56-80 个标量 (lattice_wilson_dslash.cpp:118-146) |
+| 热循环内运行时检查 | 无 | 每站点 use_block_dslash() + is_periodic_face_site() (:683-687, :706-710) |
+
+判定与量化:
+- **已核实的负优化**：把"邻居偏移 + halo 选择"放在每站点函数里，而不是在循环外一次性算好。
+  source_at_delta 每调用一次要: 构造 4 维坐标、对 t 方向算 time_for_parity、
+  判断 moved_time 越界、决定 remote、分支选 compact_view 或 halo_view
+  (lattice_wilson_dslash.cpp:595-637)。8 个方向 => 8 次。
+  gauge_at_delta 再做一遍同样的坐标/parity/远端判定，还要处理 remote_dims==1/2 的
+  face/corner 两套返回路径 (lattice_clover_dslash.cpp:244-296)。4 个方向 => 4 次。
+  CUDA 侧这 12 次全变成 8 个常量偏移 + 基址 (wilson_dslash.cu:61-62, 87, 115, 141, 169, 195, 224, 249)。
+- 量化 [模型]: 按每站点 ~1,500 条指令、7,766 cycles
+  (logs/kupl_perf_bottleneck:164-168) 反推 IPC ≈ 0.19，说明既不是 FP 吞吐也不是带宽，
+  而是"指令数 + 依赖链 + 溢出"。其中坐标/分支类约 400-600 条/站点（估算 25-40%）。
+- 建议: 把偏移/halo 选择提升到"每个 (parity, direction) 一次"或用模板参数化 part；
+  单站点函数改成"批量站点 + 预计算邻居基址"。属 kernel 重写。
+
+### C. 向量化
+
+| 维度 | CUDA | KUPL |
+|---|---|---|
+| 并行粒度 | 线程级: 1 thread/site，warp=32 站点 | 站点级: 1 thread 顺序多站点；SIMD 只在 block 路径的 lane 维 |
+| lane 定义 | 无（不适用） | kSiteLanes = 64/sizeof(Real) = 16 (c64) (lattice_wilson_dslash.cpp:173, :322) |
+| 生效条件 | 恒生效 | compute_interior_blocks 需 ht>=3 (:327-329)；periodic_face 需 ht>=3 (:389-391) |
+| 实际 lane 数 | — | min(16, ht-1-t2)，ht=32 时首块 16、次块 14 (:339-340) |
+| L24 实际 | 100% 线程并行 | ht = local_t/2 = 1 -> 100% 标量 boundary，block 路径一条都没执行 |
+| `#pragma omp simd` 位置 | 无 | accumulate_hopping_block (:186-194, :208-219)、block 的置零/写回 (:345-349, :367-371)、apply_clover_onsite (lattice_linalg.cpp:113, :124) |
+
+判定与量化:
+- **已核实**：0.5193 s 的配置下，跨站点 SIMD 覆盖率为 0%。
+  32 秩 -> half_sites = 13,824、ht=1（logs/kupl_perf_bottleneck:48-56），
+  compute_interior_blocks / compute_periodic_face_blocks 分别在第 327/:389 行直接 return，
+  boundary_sites_ 是全集（backend.cpp:419-433），全部走 compute_dslash_site。
+- **重要修正：现成的 lane A/B 是混淆实验，不能用它的 4.8% 反证"lane 没用"。**
+  KUPL_ENABLE_T2_ZBLOCK_DSLASH 的 t 方向部分
+  (compute_dslash_t2_time_zblocks, lattice_wilson_dslash.cpp:834-943) 是这样写的:
+  对每个 lane 算 target_time（依赖 z 的奇偶）、按 lane 分支选 halo(AoS) 还是
+  local(SoA)、再逐分量 gather 进 [component][lane] 的稠密 tile (:880-923)。
+  即 t 方向（占 1/4 邻居读）是"逐 lane 分支 + 混合布局 gather + 转置拷贝"，
+  而 x/y/z（占 3/4）才是真正的 16 lane 连续向量化 (:762-794)。
+  所以 A3 vs A4 测到的是"3/4 向量化 + 1/4 严重劣化 gather"的净值，不是 lane 本身的价值。
+  这与历史"慢 4.8%"（kupl-history-2026.md:242-247）完全一致。
+- 若要测 lane 的真实价值，应只改 x/y/z 的 boundary（t 方向保持标量），或把 t 方向的
+  gather 换成按 parity 两套稠密 halo 缓冲（t+1 在 halo、t-1 在本地，二者对每个 lane 恒定，
+  可以写成两条无分支的路径）。
+- 量化 [模型]: ht=32 的 interior lane 若真能 6x，则 3/4 工作量提速约 1/(0.25+0.75/6)=2.3x；
+  但 boundary（65% 站点）不变，总收益被稀释到 1.3-1.5x（与 logs/kupl_perf_bottleneck:266-276 同结论）。
+
+### D. Gamma / hopping 矩阵实现
+
+| 维度 | CUDA | KUPL |
+|---|---|---|
+| 方向特化 | 编译期 __X__/__Y__/__Z__/__T__ + block 内联 (wilson_dslash.cu:57-272) | 编译期模板参数 Direction/GammaSign (lattice_wilson_dslash.cpp:55-100, :102-164) |
+| gamma 位置 | **先投影**：每方向用 ±i 把 4 自旋折成 2 个累加器，再做 SU(3) 收缩 (wilson_dslash.cu:68-83) | **后投影**：先 36 个 complex MAC，再对 12 个分量做 gamma (lattice_wilson_dslash.cpp:108-134 -> :148-163) |
+| 每方向每符号的 complex MAC | 18 (tmp0: 3x3, tmp1: 3x3) | 36 (4 自旋 x 3 行 x 3 列) |
+| 每方向每符号的 gamma 运算 | 6 个 tmp 组合 + 12 个 ±i 重建（约 12-18 个 real op） | 3 色 x (4 个 C 构造 + 8 个 real 加减) |
+| 符号/dagger 处理 | Dagger 用 dagger_val 或 分别正/反向 (line 36, 72-81, 97-106) | 模板参数 Dagger + GammaSign (line 110-117) |
+| 常量表 | 无（全部内联） | 无（全部内联） |
+
+判定与量化:
+- **已核实的负优化（代数层面，非硬件差异）**：
+  (1±gamma_mu)/2 只作用在自旋指标上，与只作用在颜色指标的 U 矩阵可交换，
+  所以先投影再收缩在数学上等价，但 SU(3) 的乘法次数减半。
+  KUPL 选择了"先 U 后 gamma"的朴素顺序，代价是 [模型] hopping 的实数乘加约 1.8-2.2x。
+  依据: 36 vs 18 complex MAC，每个 complex MAC = 4 mul + 4 add。
+- 这与"寄存器溢出"叠加：24 个累加器 + 12 个 transported 才放得下 36 MAC 的中间结果
+  (lattice_wilson_dslash.cpp:118-121)，如果按 CUDA 的顺序只需要 6 个累加器
+  (tmp0/tmp1 各 3 色) + 少量重建临时量，寄存器压力直接降到 ~20 以下，S6 的溢出消失。
+- 结论: D 的改动同时解决 D 和 S6/B 的一部分，是"性价比最高的一次 kernel 重写"，
+  但它改变数值求和顺序，需要重新跑真残差与 CUDA/KUPL 交叉验证。
+
+### E. Clover onsite 与 Schur 应用
+
+| 维度 | CUDA | KUPL |
+|---|---|---|
+| 每次 apply_schur 的 pass 数 | 2 次 dslash + 1 次 ee_inv onsite（可融合，见下）+ 1 次 give_with_subtract | 2 次 bare_dslash + 2 次 apply_clover_onsite (lattice_wilson_dslash.cpp:1212-1227) |
+| onsite 矩阵形状 | 支持 6x6 block-diagonal 快路径 (clover_dslash_single.cu:933-956 give_clover_block) | 硬编码 6x6 分块 (lattice_linalg.cpp:98-122) |
+| 是否融合 A_oo*x - k^2*y | 是，单 kernel (clover_dslash_single.cu:1045-1077) | 是，apply_clover_onsite 的 subtract 参数 (lattice_linalg.cpp:124-131) |
+| 是否融合 ee_inv 进 dslash | **仅单秩 fp32** 走 wilson_dslash<ApplyClover=true> (lattice_clover_bistabcg.h:166-171, lattice_wilson_dslash.h:722-731)；多秩走分离 pass (:172-173) | 从不融合，永远是一次独立整场 pass |
+| 源 tile 拷贝 | give_clover_block 里 get_src 拷进 dest[12] (clover_dslash_single.cu:944-945) | apply_clover_onsite 拷进 source[12][16] 以支持别名 (lattice_linalg.cpp:86-95) |
+| subtract 分支 | 两个独立 kernel，无运行期分支 | SIMD 循环内 `if (subtract != nullptr)` (lattice_linalg.cpp:127-129) |
+| clover 矩阵/逆 | 缓存于 LatticeCloverDslash，按传入指针 (apply_clovers.cu:57-82) | ensure_cached_clover 按 gauge 指针缓存 (lattice_clover_dslash.cpp:656-678) |
+
+判定与量化:
+- **架构对齐的部分（不是 KUPL 回归）**：4 次 onsite pass/迭代是 even-odd Schur 的固有结构；
+  CUDA 的多秩路径同样是"run_eo -> clover_ee_inv.give -> run_oe -> give_with_subtract"，
+  也是 4 个独立 pass (lattice_clover_bistabcg.h:172-179)。L24 是 32 秩，
+  所以 CUDA 在那个配置下也用不上 run_eo_clover 的融合。这一项两侧**基本平手**。
+- **已核实的 KUPL 负优化**：
+  a) subtract 的运行期分支位于 `#pragma omp simd` 循环内 (lattice_linalg.cpp:127-129)。
+     subtract/scale 是循环不变量，GCC 通常能做 loop unswitch，但带条件 store 的 SIMD
+     有被降级为遮罩/标量尾的风险 [推断，需 objdump 确认]。CUDA 用两个独立 kernel
+     彻底避免 (clover_dslash_single.cu:933-956 vs :1045-1077)。
+  b) apply_clover_onsite 无条件做整块源 tile 拷贝 (lattice_linalg.cpp:86-95)；
+     4 个调用点里只有 clover_dslash 是 in-place 需要它 (backend.cpp:138-142)，
+     apply_schur 的两处、prepare、reconstruct 都不需要。每站点多 96 B 栈写 + 重读 [模型 1-3%]。
+  c) 第 4 步 onsite 没有并进第 3 步 dslash 的 scatter；CUDA 的 give_with_subtract 至少
+     证明了"乘矩阵 + 减 k^2*y"可以一次做完 (S7)。
+- clover 的构建/求逆不在热路径（每次 solve 前由 applyCloversQcu 做，且在 wall 之外，
+  pyqcu/testing/simple/kupl_multigrid.py:852-858），不计入 0.5193 s；
+  但 compute_clover 内部的 `if (std::abs(spin_factor)==0) continue;` 是 144 分量循环里的
+  运行期分支 (lattice_clover_dslash.cpp:469-471)，若将来把它并入计时路径需要处理。
+
+### F. 线程映射与负载均衡
+
+| 维度 | CUDA | KUPL |
+|---|---|---|
+| 映射 | 1 thread/site，block=gridDim/blockDim 固定 | OpenMP parallel for + omp_chunk (lattice_cpu.h:23-29) |
+| chunk 形状 | — | ceil(count/threads) 对齐到 8 个 complex = 64 B |
+| false sharing | 无（每线程写不同站点） | 无（chunk 64 B 对齐，lattice_cpu.h:25-27） |
+| 负载均衡 | 每线程站点数相同 | boundary_sites_ 按位置静态切分；ht=1 时每站点成本一致，均衡良好 |
+| 并行区数量/迭代 | 内核启动（异步，无 host 屏障） | 每个方向/每个 pass 一个 parallel for；split 路径 = 2 个 parallel for 夹 1 个 MPI_Waitall (lattice_wilson_dslash.cpp:1140-1148) |
+| 栈/线程 | 每线程 255 寄存器 + 共享内存 | result[12][16] = 1536 B；block 路径峰值 ~5-8 KB/线程 |
+
+判定:
+- 静态切分与 64 B 对齐是**做对了**的，没有 false sharing，也没有明显负载失衡（ht=1 时
+  每个站点都恰好 2 个远端 t 邻居，成本均匀）。[已核实-代码]
+- **真正的负优化在 split 路径的结构**：两个独立 parallel for 之间夹一个阻塞 MPI_Waitall
+  (lattice_wilson_dslash.cpp:1141-1147)。默认 OMP 是 active spin-wait，等待期间 11 个线程
+  空转，既烧 CPU 又可能与 MPI 进度线程抢核。这正是 HBM 分析里的假设 A3
+  (logs/kupl_hbm_anomaly_analysis:... A3 / 预测)，尚未实测。
+  CUDA 侧通信与计算在 stream 上异步，不存在"线程空转等 MPI"。
+  [推断] 这条可通过 **OMP_WAIT_POLICY=PASSIVE**（或 GOMP_SPINCOUNT=0）零代码验证。
+- 若将来 grid 改成多方向分解（1 2 2 8 等），boundary_sites_ 会混入角点站点
+  （remote_dims=2 -> gauge corner 路径，lattice_clover_dslash.cpp:281-296），
+  静态切分的成本会变得不均；那时需要改成动态切分或按 remote 数分桶。[推断]
+- 栈占用本身不是问题（OMP 线程栈 8 MB 级），但它说明了"tile 落在内存不在寄存器"，
+  与 S6 是同一件事。
+
+### G. 迭代数与收敛
+
+| 维度 | CUDA | KUPL |
+|---|---|---|
+| Schur 内层相对容差 | atol 直接用 (lattice_clover_bistabcg.h:452-456) | 0.1 * atol (lattice_solver.cpp:622) |
+| 停止判据 | ||r||^2 < tol^2 * ||b||^2，每迭代查（多秩）/ 每 2 迭代查（单秩）(lattice_clover_bistabcg.h:513-560, 576-660) | ||r|| < max(0.1*atol, eps*4) * ||b||，每迭代查 (lattice_solver.cpp:160-162, 195-198) |
+| 停后真实残差 | 不重算、不判错 (lattice_clover_bistabcg.h:665-695) | 重算 Schur 真残差，超 0.1*atol*rhs_norm 直接 throw (lattice_solver.cpp:278-297) |
+| 整场算符复核 | 无 | apply_full_operator + 2 全范数 + 再 throw (lattice_solver.cpp:625-636) |
+| 每迭代 Allreduce | 5 (rho, ||r||^2, rhat.v, t.s, t.t) | 5 (residual, rho, rhat.v, s 范数, fused tt/t_s) |
+| 外部验收 | python 独立残差，在计时之外 | 同左 |
+
+判定与量化:
+- **已核实的负优化（S1）**：内层比验收门紧 10x，比 CUDA 参考实现紧 10x。
+  L24 实测离验收门还有 69x 余量（logs/kupl_perf_bottleneck:214-219），
+  说明 0.1 系数没有数值上的必要性。把 0.1 -> 0.3-0.5 预计 16 -> 13-15 it
+  （logs/kupl_perf_bottleneck:327-330），对应 [模型] 0.09-0.12 s。
+- **副作用值得注意**：因为内层 fail-closed 门也用 0.1*atol (lattice_solver.cpp:164-166, 289-297)，
+  现有实现会在"结果本来能过外部验收"时抛异常。这既是性能问题也是鲁棒性问题。
+- **已核实的负优化（S2）**：KUPL 在库内做两次整场复核，CUDA 一次都不做；
+  且外部 python 已经独立算真残差。这部分在计时路径上是纯浪费。
+- 注意内外口径不一致：内层 `*rhs_norm`，solve_clover 外层 `*max(rhs_norm, 1)`
+  (lattice_solver.cpp:630-631)。rhs_norm<1 时外层更松，但当前不影响判定。
+- 归约次数与 CUDA 打平，因此 **G 的可回收时间全部来自"多迭代 + 多余验证"，
+  不是来自归约合并**。这一点纠正了把归约当主杠杆的直觉。
+
+### H. 是否存在"为通用性牺牲热路径"
+
+| 候选 | 是否存在 | 证据 | 影响 |
+|---|---|---|---|
+| 虚函数热路径 | 否 | 虚调用只在 qcu.applyXxx 入口 (lattice_set.h:17-101) | 0 |
+| 运行期 `part` 分支 | 是，但小 | compute_dslash_site 的 `int part`，每站点 2 分支 (lattice_wilson_dslash.cpp:952, 969, 977) | [模型] <0.5% |
+| 每站点 getenv/static 检查 | 是，但小 | use_block_dslash / is_periodic_face_site 每站点调用 (:683-687, :706-710) | [模型] <0.5% |
+| 每站点坐标/分支索引 | **是，显著** | source_at_delta / gauge_at_delta，每站点 12 次 (:595-637; lattice_clover_dslash.cpp:224-306) | S3，25-40% |
+| 临时缓冲 | 是，中等 | apply_clover_onsite 无条件源 tile 拷贝 (lattice_linalg.cpp:86-95) | [模型] 1-3% |
+| SIMD 内运行期条件 | 是 | `if (subtract != nullptr)` 在 omp simd 内 (lattice_linalg.cpp:127) | 待 objdump |
+| tile 走栈不走寄存器 | **是，显著** | result[12][16] 按引用传入 accumulate_*，tile 逃逸 (lattice_wilson_dslash.cpp:343, :174) | S6 |
+| 重复整场验证 | **是，显著** | S2 | 0.03-0.04 s |
+| 每迭代分配/重复拷贝 | 否 | ensure_solver_scratch 一次性 (backend.cpp:437-460) | 0 |
+| 正确性有意的通用性 | 是 | 支持任意 grid/laplacian/倍精度/多方向 halo (lattice_geometry.cpp:119-135; lattice_clover_dslash.cpp:144-220) | 保持 |
+
+判定:
+- 通用性**主要**不是通过虚函数或运行时策略付出的，而是通过"每站点重新计算邻居语义"
+  和"tile 以数组形式在函数间传递"付出的。这两点恰好都能在不牺牲通用性的前提下修掉：
+  邻居偏移可以在 (parity, direction, boundary-kind) 层面一次性模板化，
+  tile 可以按值传小结构体或用 `__restrict__` 让编译器提升到寄存器。
+- gauge halo 的 face/corner 交换（lattice_clover_dslash.cpp:91-221）只在 gauge 变化时做一次
+  （ensure_gauge_halo 的缓存在 :656-678），不在 0.5193 s 内，属正确设计。
+
+================================================================================
+## 负优化判定
+================================================================================
+
+### 已核实的负优化（代码层面，与硬件无关）
+
+| 编号 | 内容 | 位置 | 量化 [模型] | 修复成本 |
+|---|---|---|---|---|
+| N1 | 内层容差 0.1*atol（验收门 10x） | lattice_solver.cpp:622 (Wilson: :536) | 0.09-0.15 s | 改 1 个常数 |
+| N2 | 库内两次整场残差复核 + 4 次额外 dslash/onsite | lattice_solver.cpp:278-297, 625-636 | 0.03-0.04 s | 加 1 个 env 开关 |
+| N3 | 软件 prefetch 地址错 12 倍（AoS 假设 vs SoA 布局） | lattice_wilson_dslash.cpp:711-718 vs lattice_geometry.cpp:194-199 | 收益≈0，最多 +25% 无效访存 | 删 3 行 |
+| N4 | 第 4 步 onsite 未融进 dslash scatter | lattice_wilson_dslash.cpp:1212-1227 | 0.015-0.03 s | 中（改 1 个 kernel） |
+| N5 | apply_clover_onsite 无条件源 tile 拷贝 | lattice_linalg.cpp:86-95 | 1-3% of onsite | 中（模板化 aliasing） |
+| N6 | 每站点 12 次坐标/parity/远端分支计算 | lattice_wilson_dslash.cpp:595-637; lattice_clover_dslash.cpp:224-306 | 25-40% of site cost | 高（kernel 重写） |
+| N7 | gamma 后置导致 SU(3) MAC 翻倍 | lattice_wilson_dslash.cpp:108-163 | 0.04-0.09 s | 高（kernel 重写 + 数值验证） |
+| N8 | 累加器/transport 峰值 56-80 标量 > 32 FP 寄存器 | lattice_wilson_dslash.cpp:118-146 | 与 N6/N7 同源 | 随 N7 一起解决 |
+
+### 架构差异（不是负优化，不应计入"多做的无用功"）
+
+| 编号 | 内容 | 依据 |
+|---|---|---|
+| A1 | 1 thread/site（合并访问）vs 1 thread 多站点（每线程 30-54 流） | wilson_dslash.cu:9-55 vs lattice_wilson_dslash.cpp:692-721 |
+| A2 | GPU 线程级并行 / warp 同步 vs CPU 需要 OpenMP 显式并行区 | 两侧执行模型不同 |
+| A3 | 每线程 255 寄存器 vs 32 标量 FP 寄存器 | 硬件差异；N8 是它在 KUPL 代码组织下的表现 |
+| A4 | 每迭代 5 次 Allreduce（两侧相同） | lattice_solver.cpp:196-250 vs lattice_clover_bistabcg.h:583-622 |
+| A5 | 多秩下两侧的 Schur 都是 4 个独立 onsite pass | lattice_wilson_dslash.cpp:1219-1226 vs lattice_clover_bistabcg.h:172-179 |
+
+### 待验证（不能当结论）
+
+| 编号 | 问题 | 需要的证据 |
+|---|---|---|
+| V1 | 0.5193 s 那次二进制是否带 -march=native（SVE vs NEON） | 构建日志 / `objdump -d libqcu.so` 里是否有 sve 指令 |
+| V2 | compute_dslash_site 是否真的没被内联、tile 是否真的溢出 | `-Winline` / objdump 看 sp 偏移与调用 |
+| V3 | apply_clover_onsite 的 subtract 分支是否阻断 SIMD | objdump 看该循环是否有向量指令 |
+| V4 | OMP_WAIT_POLICY=PASSIVE 在 split 路径的实际收益 | 3 样本 A/B（HBM 日志的 A3 预测） |
+| V5 | t2_time_zblocks 的 4.8% 是否全部来自 t 方向 gather | 分别关闭 t lane / 只保留 xyz lane 的 A/B |
+
+================================================================================
+## 向 0.1 s 的可回收时间估算
+================================================================================
+
+口径: 基线 0.5193 s = 16 x 29.3 ms（每迭代，其中 dslash 21.75）+ 50 ms 固定
+      (logs/kupl_perf_bottleneck:290-298)。以下全部是 [模型]，不可相加时已注明。
+
+| 项 | 来源 | 可回收 | 可加性/备注 |
+|---|---|---:|---|
+| 内层容差 0.1 -> 0.3-0.5 | N1 | 0.09-0.15 s | 最便宜的第一步；需确认真残差仍 PASS |
+| 去掉库内两次整场复核（或加 env 关掉） | N2 | 0.03-0.04 s | 与 N1 可加；不影响求解轨迹 |
+| 删掉错误 prefetch | N3 | ≈0（可能 +1-2%） | 可加；无风险 |
+| 第 4 步 onsite 融进 scatter | N4 | 0.015-0.03 s | 可加；改 kernel |
+| onsite 源 tile 拷贝按需化 | N5 | 0.003-0.008 s | 可加；改 kernel |
+| gamma 折进投影（MAC 减半） | N7 | 0.04-0.09 s | 与 N6 高度耦合，不可重复计入 |
+| 邻居索引模板化 / 每线程 MLP 提升 | N6 | 0.10-0.25 s | 与 N7 同属 R1，二者合起来对应 k=4-8 |
+| OMP_WAIT_POLICY=PASSIVE | F | 0.01-0.03 s | 待测；只影响 split 路径的等待段 |
+
+组合估算:
+- **纯"多做的无用功"**（N1+N2+N3+N5）：0.12-0.19 s -> 0.33-0.40 s。
+  这是不改 kernel 能达到的下限，离 0.1 s 还差 3-4x。
+- **+"轻量融合"**（再 + N4）：0.135-0.22 s -> 0.30-0.38 s。
+- **+"重写 boundary kernel"**（再 + N6/N7 合并计一次 k=4-8）：
+  boundary 0.3132 s 先扣掉 N4 省下的 ~0.02 s，剩 ~0.29 s；k=6 -> 0.048 s；
+  加上 halo 0.0675 s、每迭代剩余开销 0.09-0.10 s、固定 ~0.02 s
+  => 总时间约 0.22-0.26 s（16 it）。仍未到 0.1 s。
+- **要进 0.1 s 必须再降迭代数**（deflation/true-MG，16 -> 8-10），
+  把变量部分再乘 0.55-0.65 => 0.15-0.19 s，此时还需 halo 与剩余 pass 再省一点。
+  与瓶颈日志的结论一致（"R1 + R3b + R4 -> 0.09-0.14 s"，logs/kupl_perf_bottleneck:361-371）。
+
+结论: KUPL 相对 CUDA 的"可直接收回"部分约 0.12-0.19 s（N1/N2 为主），
+其余 0.2 s 级差距来自"每站点标量组织 + gamma 未折叠"的 kernel 结构，
+任何单一条目都到不了 0.1 s；0.1 s 需要 kernel 重写 + 迭代数下降同时成立。
+
+================================================================================
+## 建议的最小改动（不改代码）
+================================================================================
+
+本子代理未修改任何源码；以下是给主线的建议，按"改动量/信息量"排序。
+标注 [env] = 只改环境变量/构建参数；[1 行] = 一行代码；[小改] = 十行级。
+
+1. [env] 先做零成本 A/B，确认 N1 的收益上限
+   - 这一项需要 [1 行] 才能测（0.1 -> 0.5 系数），但可以先用"逐迭代残差日志"确认
+     收敛率是否真是几何下降；如果 it 不降（plateau），N1 的 0.09-0.15 s 不成立。
+   - 打开 P2（lattice_solver.cpp:195-197 的逐迭代残差打印）是唯一的前置条件。
+2. [1 行] solve_compact_bistabcg 的 Real(0.1)*atol() -> Real(0.3-0.5)*atol()
+   (lattice_solver.cpp:622；Wilson 同款 :536 可一并考虑)。
+   必须同时记录：iterations、真残差、外部 NumPy 残差；任何一次越过 2.44e-4 立即回退。
+3. [env] 把库内整场复核做成 KUPL_VERIFY_SOLVE=0/1 开关（默认 1）
+   - 计时路径（y76 类）设 0，验收跑设 1。[小改]
+   - 只在 solve_clover 的 :625-636 与 solve_compact_bistabcg 的 :278-297 两处加条件。
+4. [env] OMP_WAIT_POLICY=PASSIVE（或 GOMP_SPINCOUNT=0）在 32r x 12t 上各跑 3 样本
+   - 针对 split 路径"两个 parallel for 夹 MPI_Waitall"的空转（F）。
+   - 若无效，说明 wait 已被 part1 完全覆盖（与瓶颈日志的模型一致），可不再投入。
+5. [env] 重建时确认 KUPL_ENABLE_NATIVE=ON（并保持 LTO=OFF 做对照）
+   - 这是 V1 的直接答案；只影响未来 lane 重写的天花板，不改变当前 ht=1 的路径。
+   - 注意 install.sh:20 / docs/kupl_only_deployment.md:92-93 的跨机型兼容约束。
+6. [env] 不要再用"降低 KUPL_BLOCK_DSLASH_MIN_HALF_SITES"当优化
+   - 已核实对 32 秩无效：half_sites=13,824 与 ht=1 是两个独立门槛，降阈值改不了 ht
+     (lattice_wilson_dslash.cpp:327-329, :389-391；logs/kupl_perf_bottleneck:53-56)。
+7. [env] KUPL_ENABLE_T2_ZBLOCK_DSLASH 的 A/B 只能在 profile 的 boundary 项上读，
+   且必须知道它混入了 t 方向 gather 劣化（C 节）。不要用它单独判"lane 值多少"。
+8. [小改] 删除 lattice_wilson_dslash.cpp:711-718 的错误 prefetch（N3）。
+   若想保留 prefetch，正确写法是对每个分量用
+   `local_source + component*half_sites + site_ahead`，并只预取 2-3 个分量。
+9. [小改] apply_clover_onsite 增加 `bool may_alias` 模板/参数，非别名调用点跳过 tile 拷贝
+   (lattice_linalg.cpp:86-95)；同时把 subtract 分支提到 SIMD 循环外（:124-131）。
+   这两项可与第 3 项一起提交，风险低。
+10. [不改] 数据布局（A 节）与归约合并（G 节）：两者都不是本配置的杠杆，
+    改布局的收益被"line 最终仍被用完"抵消，归约次数已与 CUDA 持平。
+
+================================================================================
+## 未覆盖范围
+================================================================================
+
+- 未编译、未运行；所有"是否被内联/是否溢出/是否向量化"的判断都是 [推断]，
+  需要 objdump 或 -fopt-info 确认（V2/V3）。
+- 只按 y76r32t12（grid 1 1 1 32、ht=1、block 关闭）这一条路径做量化；
+  ht>=3 的 block/periodic 路径（lattice_wilson_dslash.cpp:316-506）只做了结构审查，
+  没有量化。8r/16r 的 ht=2/4 未覆盖。
+- 未审查 multigrid 的 coarse operator、restrict/prolong、strict/laplacian 路径
+  （lattice_multigrid.cpp、lattice_strict.cpp、lattice_laplacian.cpp）；
+  L24 的 levels=1 不走它们。
+- 未审查 CUDA 侧的 clover_dslash_multi.cu（make_clover_all）、clover_dslash_comm.cu
+  与 multigrid；只把 wilson_dslash.cu / clover_dslash_single.cu /
+  lattice_clover_bistabcg.h 当作对照。
+- 未评估 MPI/HMPI 的进度线程模型、NUMA 绑定、页放置对"每站点成本"的影响；
+  这些在 logs/kupl_hbm_anomaly_analysis_20261112.txt 里已有独立分析，本文不重复。
+- 未量化 t2_time_zblocks 的 4.8% 归因（V5），也未评估把 t 方向 halo 改成
+  "按 parity 两套稠密缓冲"的收益。
+- 倍精度（c128）路径未单独审查：kSiteLanes 变为 8，寄存器压力与 lane 数都会变。
+
+================================================================================
+（完）

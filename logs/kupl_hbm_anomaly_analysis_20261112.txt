@@ -1,0 +1,417 @@
+KUPL 鲲鹏 HBM 高性能配置“奇异”现象分析
+日期: 2026-11-12
+范围: 只解释已给出的 cn19699 独占测量与本地代码；不引入新测量，不把待测当结论。
+标注约定: [已核实] = 证据文件/本地代码直接支持；[推断] = 由已核实事实推出的解释；
+[模型] = 明确列出假设的量化估算；[待补] = 尚无数据。
+
+================================================================================
+## 已核实事实
+================================================================================
+
+F1. 测量与配方 [已核实]
+- 节点 cn19699，独占 -x job，24^3x64 c64，levels=1/restart=0（parity-Schur
+  BiCGStab），16 次迭代，真残差约 3.541e-6，PASS。
+- 同配方（x_case_dbg）墙钟：
+  8r x 16t / grid 1 1 1 8  = 2.0595 s
+  16r x 8t / grid 1 1 1 16 = 1.1442 s
+  32r x 12t / grid 1 1 1 32 = 0.8410 s
+  32r x 18t / grid 1 1 1 32 = 1.5979 s
+- y76 原配方（无 KUPL_PROFILE_*、无 KUPL_FUSED_BICG_DOTS、无 stdbuf/
+  --oversubscribe）在同一节点 cn19699、32r x 12t、grid 1 1 1 32 = 0.5193 s；
+  input_prebind_seconds=15.006 s，属初始化，不计入 wall_seconds。
+- 历史 cn10579 y76 32r x 12t = 0.4346 s（B 级，非本次实测）。
+- 16r x 37t 已提交、运行中，尚无结果，本文不作为任何结论。
+
+F2. 拓扑与绑定 [已核实，来自证据文件]
+- sysfs 32 个 NUMA：node0–15 约 32 GB，node16–31 为 4 GB 片上 HBM。
+- KUPL 报告 numa_nodes=16，memory_node=16..31，cpuset 8–12 CPU/rank，
+  memory_policy=bind，bound_threads=threads，source=sysfs，CPU=608。
+- 32 秩用 --map-by ppr:2:numa；16/8/4 秩用 ppr:1；均 --bind-to none。
+
+F3. 本地代码核实的几何与核路径 [已核实：本地源码]
+- half-site 的 t 长度 ht = local_t/2；总 half_sites = 24^3 x 32 = 442,368。
+  (cpp/kupl/qcu/src/lattice_geometry.cpp:113-117)
+- 边界站点判据：x/y/z/t2 任一坐标等于 0 或 max-1 即为 boundary
+  (cpp/kupl/qcu/src/backend.cpp:419-433)。因此
+  boundary_frac = 1 - (22/24)^3 * (ht-2)/ht（ht>=2），ht=1 时为 1。
+- t-only 分解（grid 1 1 1 N）下：
+    N=32: ht=1，boundary=100%，interior=0
+    N=16: ht=2，boundary=100%，interior=0
+    N=8 : ht=4，site 判据 boundary=61.5%；实际 scalar 边界循环约 51.0%
+          （其余由 interior block 38.5% 与 periodic-face block 10.5% 承担）
+    N=4 : ht=8，site 判据 boundary=42.2%
+- block dslash 门限：half_sites >= KUPL_BLOCK_DSLASH_MIN_HALF_SITES
+  (默认 65536，本次显式 16384) 且未设 KUPL_DISABLE_BLOCK_DSLASH。
+  N=32 的 half_sites=13,824 < 16,384 -> block 关闭；N=16 的 27,648 -> block
+  名义开启，但 compute_interior_blocks 与 compute_periodic_face_blocks 都在
+  ht<3 时立即 return，所以 N=16 实际仍 100% 走 scalar boundary。
+  (lattice_wilson_dslash.cpp:16-31, 327-329, 388-390, 643-668)
+- scalar boundary 每站点调用 compute_dslash_site：4 个方向、每方向 forward+
+  backward、12 分量 gather/scatter，无跨站点 SIMD 分块；boundary_part 只加了
+  软件 prefetch (lattice_wilson_dslash.cpp:671-721, 946-987)。
+- 非 profile 的 t-only 快路径（local_t==2 且 block 关闭）：
+    post_fermion_halo（异步）
+    compute_dslash_boundary_part(part=1)  // 只算 x,y,z 三个方向
+    MPI_Waitall
+    compute_dslash_boundary_part(part=2)  // 只算 t 方向并累加
+  (lattice_wilson_dslash.cpp:1133-1149, 952-975)
+  即时间 halo 的等待与 3/4 的空间 dslash 计算重叠。
+- KUPL_PROFILE_DSLASH 非空时，上述快路径被整体绕过，执行固定 profile 路径：
+    post_fermion_halo -> compute_dslash_interior -> MPI_Waitall ->
+    compute_dslash_boundary
+  (lattice_wilson_dslash.cpp:1116-1118, 1160-1180)
+  因此 profile 运行会暴露本可被重叠的 MPI 等待，并且对 N>=16 的 interior
+  循环是空转（只做边界判断）。
+- t 轴是最快变化维（rank 的 t 邻居是 rank±1），见 lattice_geometry.cpp:94-110。
+- KUPL_NUMA_BIND=1 时节点选择为 node_slot = local_rank % (#CPU NUMA)，
+  rank_on_node = local_rank / (#CPU NUMA)，再把该节点 cpulist 均分；当
+  threads < cpus.size() 时 cpuset 被截断为 threads；threads > cpus.size() 且
+  允许 oversubscribe 时按 thread % cpus.size() 复用 CPU。
+  (lattice_cpu.cpp:604-621, 668-705)
+  所以“cpuset 8–12”很可能只是 8/12 线程运行时的截断值，不能直接当作底层
+  每 rank CPU 配额；18 线程运行的 cpuset 未单独记录 [待补]。
+- 32 秩时 local_rank 0..31，node_slot=rank%16，rank_on_node=rank/16∈{0,1}：
+  rank i 与 rank i+16 共享同一个 CPU NUMA 和同一个 memory_node 16+(i%16)；
+  而 t 邻居 rank i±1 落在相邻 NUMA -> t-halo 全部跨 NUMA。
+  [推断，基于上述代码 + --bind-to none：MPI 不限制 affinity，local_nodes=16]
+
+F4. profile 分项 [已核实]
+- r32t12b: halo 0.0675 / interior 0.0095 / wait 0.2111 / boundary 0.3132 /
+  total 0.6013 s（70 calls）。
+- hbm16d: halo 0.0306 / interior 0.000265 / wait 0.1627 / boundary 0.6164 /
+  total 0.8100 s（70 calls，节点 cn19698）。
+
+================================================================================
+## 逐现象分析（A–F）
+================================================================================
+
+先给出统一的量化底表 [模型，输入为已核实的几何/配方]：
+总 half_sites S_total=442,368；每次 solve 70 次 dslash；每次 dslash 每 rank
+收发各 2 个 t-face；每个 face = 24^3 站点 x 12 complex x 8 B = 1.327 MB
+（与 N 无关，因为 face 恒为一个 parity 的空间层）。因此每 rank 每 call：
+发送 2.654 MB、接收 2.654 MB；70 calls 共 371.6 MB 收发/rank。
+聚合通信量 = N x 371.6 MB：
+  32r 11.9 GB，16r 5.95 GB，8r 2.97 GB，4r 1.49 GB。
+每 rank 站点数 S=S_total/N；每 rank 每 solve 的 site-application = 70S：
+  32r 0.968e6，16r 1.935e6，8r 3.871e6，4r 7.741e6。
+全局 site-application 恒为 3.097e7。
+
+计算量 [模型]：Wilson hopping 按 8 links x 9 color x 4 spin x 8 real flop /
+complex MAC ≈ 2.3 kFLOP/site-application，则全 solve dslash ≈ 7.1e10 FLOP。
+profile 下 dslash 0.6013 s -> 约 0.12 TFLOP/s；若非 profile 重叠后估计
+0.38–0.45 s -> 约 0.16–0.19 TFLOP/s。与历史 2026-11-06 的 ~0.2 TFLOP/s
+同量级；该换算含 ±2x 模型误差，只用于判断“不是算力峰值受限”。
+
+访存 [模型]：每 site-application 至少读源 96 B + 写目标 96 B + gauge
+8x9x8=576 B ≈ 768 B；全 solve ≈ 2.4e10 B = 24 GB。即使按 0.6 s 计也仅约
+40 GB/s 聚合，远低于 HBM 峰值。结论：全局 HBM 带宽不是这批点的首要瓶颈；
+瓶颈更像“每站点标量 issue/延迟”和“每 HBM 分区内的并发争用”。这与历史
+roofline 的 2.8–3.4% HBM、0.4–0.5% FP32 峰值一致。
+
+A. 32 秩下 18t（1.5979 s）约为 12t（0.8410 s）的 1.9x
+[已核实] 同为 grid 1 1 1 32、同配方、同节点、同 16 次迭代；差距是真实的。
+[已核实：代码] 18t 运行没有独立的 cpuset/profile 记录；库在
+threads>cpus 且允许 oversubscribe 时按 thread%cpus.size() 复用 CPU。
+[推断] 主假设 A1：每 rank 可用物理核预算小于 18（12t 已接近或略超物理核，
+18t 达到约 2 线程/物理核），SMT/时间片争用使标量 boundary 与 OMP barrier
+吞吐下降，量级正好可到 ~2x。支持点：本次报告 cpuset 8–12；若 32r 每 NUMA
+38 个逻辑 CPU、2 rank 均分得 19 个逻辑 CPU，而 19 个逻辑 CPU 实际只对应
+~9–10 个物理核，则 12t 是 1.2–1.3 线程/核，18t 是 1.8–2.0 线程/核。
+[推断] 替代假设 A2：每 HBM 分区（4 GB node）在 32r 时由 2 个 rank 共享；
+12t 时 24 线程/node，18t 时 36 线程/node。标量 gather 流在 24 线程附近已接近
+每分区/LLC 的有效吞吐，36 线程只增加排队与一致性流量，不增加有效带宽。
+[推断] 替代假设 A3：576 个应用线程 + MPI 进度线程挤在 608 CPU 上，且每个
+rank 的 OMP 线程被钉在其 cpuset 内，OMP 默认 spin-wait 会饿死 MPI 进度，
+使 wait 暴涨。18t profile 未采集，无法直接判定。
+[模型一致性] 以“每 HBM node 的 boundary 吞吐”拟合（同节点、同 code path）：
+  32r x 12t: 27,648 site/node / 0.8410 s = 32.9k site/s/node（24 线程/node）
+  32r x 18t: 27,648 / 1.5979 = 17.3k site/s/node（36 线程/node）
+  16r x 8t : 27,648 / 1.1442 = 24.2k site/s/node（8 线程/node）
+  8r x 16t : 55,296 / 2.0595 = 26.8k site/s/node（16 线程/node）
+  4r x 8t : 110,592 / 4.7462 = 23.3k site/s/node（8 线程/node，cn19698）
+  这是后验拟合，不是独立证据；但它把 A 描述为“24 线程/node 附近峰值，36
+  线程/node 崩塌”，与 A1/A2 都相容。
+
+B. 16r x 8t（1.1442 s）慢于 32r x 12t（0.8410 s）
+[已核实] 同节点、同配方；32r 每 rank 站点数只有 16r 的一半，但线程数多 1.5x。
+[已核实：代码] 两者实际都 100% 走 scalar boundary（N=16 的 block 路径因
+ht=2<3 提前 return）；32r 额外享有 local_t=2 的 split-boundary 重叠快路径
+（x_case_dbg 因 PROFILE_DSLASH 关闭了该快路径；y76 配方会启用）。
+[推断] 主假设 B1：每 HBM node 的有效吞吐在 8 线程附近已接近平台，32r 把
+每 node 线程从 8 提到 24 只得到约 1.36x，而不是 3x；所以 32r 的优势是有限的
+线程/分区并行，不是“rank 数越多越线性”。
+[推断] 替代假设 B2：16r 的固定每 call MPI 往返成本占比更高。每 rank 每次
+call 的消息量相同（2.654 MB 发送），但 16r 每 rank 要算 2 倍站点；若 wait
+0.16 s 量级在一次 solve 中固定，则它占 16r 的比例更大。不过本次 16r 的
+profile 在 cn19698（hbm16d），不能直接把 cn19699 的 r16t8b 拆分。
+[模型] 每 node 工作量相同（27,648 site），线程 8 vs 24，吞吐 24.2k vs 32.9k
+（1.36x）；若 16r x 8t 的瓶颈纯是线程不足，16r 应能通过加线程继续下降；
+若线程加到 16/24 仍停在 ~1.0 s，则 B1 成立。
+
+C. 8r x 16t（2.0595 s）明显慢于 16r x 8t（1.1442 s）
+[已核实] 两者总线程数相同（128），每线程站点数相同（S/threads =
+55,296/16 = 27,648/8 = 3,456），但时间差 1.80x。
+[推断] 主假设 C1：8r 只使用 8 个 CPU NUMA / 8 个 HBM 分区，16r 使用 16 个；
+在“每 node 吞吐约 24–27k site/s”的平台区，8r 每 node 工作量翻倍（55,296），
+墙钟就约翻倍；观测 1.80x 与该模型一致。
+[推断] 替代假设 C2：8r 的 ht=4 触发了 block/periodic 路径，而该路径在
+ht=4 时 SIMD lane 利用率很低：kSiteLanes=64/sizeof(Real)=16（c64 的 Real
+为 4 B），内层 t2 lane 只有 ht-2=2，利用率 2/16=12.5%；同时边界循环还要处理
+t2 两个 slab 加棱角。若 block 路径反而比纯 scalar 慢（例如 gather/写回开销
+大于 SIMD 收益），8r 会被额外拖慢。
+[推断] 替代假设 C3：8r 每 rank 数组规模是 16r 的 2 倍，L3/TLB 局部性更差，
+且每 node 上 16 线程共享一个 4 GB HBM 分区；这会降低每线程有效吞吐。
+[模型] “同线程数、同每线程工作量，仅 node 数减半”这个受控对比，是 C 最
+干净的证据：它把 C 指向“每 node 资源/分区数”，而不是单纯的线程数。
+
+D. y76（0.5193 s）比 x_case_dbg（0.8410 s）快 1.62x
+[已核实：代码] D 的主因可以直接从代码读出，而不是猜测：
+- x_case_dbg 设 KUPL_PROFILE_DSLASH=1，强制走 profile 路径，禁用
+  split_t_boundary。对 32r（local_t=2、block 关闭）非 profile 快路径会把
+  time-halo 等待与 part=1（x,y,z 三个方向）重叠；profile 路径没有这个重叠，
+  直接暴露 wait。
+- r32t12b 的 wait=0.2111 s。boundary=0.3132 s，其中 part=1 约 3/4=0.235 s，
+  part=2 约 0.078 s。非 profile 的 dslash 粗估：
+  halo 0.0675 + max(wait 0.2111, part1 0.235) + part2 0.078 ≈ 0.381 s，
+  相对 profile 的 0.6013 s 节省约 0.220 s，约等于总差距 0.3217 s 的 68%。
+[推断] D 的剩余约 0.10 s 候选：
+- KUPL_SKIP_INPUT_PREBIND=1：x_case_dbg 跳过输入 prebind，NumPy 的 gauge/
+  source/clover 页可能留在 DDR；y76 没设该变量，因而执行了 input_prebind
+  （15.006 s，属初始化，不计入 wall_seconds）。若 y76 同时设了
+  KUPL_NUMA_BIND=1 + HBM memory policy，这些页会在 solve 前被放到 HBM；
+  该页放置效果尚未用 numastat 验证，只能作为候选解释。此为最值得单独
+  A/B 的剩余项。
+- KUPL_FUSED_BICG_DOTS=1 在本次库默认就是 1，通常只会略微加速，不应解释
+  变慢；KUPL_ALLOW_OVERSUBSCRIBE/--oversubscribe 只是放行超订，不改变
+  12t<=cpuset 时的执行；stdbuf 只影响缓冲；PROFILE_INIT 只影响初始化且不计
+  入 wall。因此这些标志本身难以解释 1.62x。
+- y76 的确切线程环境未在证据文件中完整给出；若 y76 实际未显式固定 12t，
+  则 1.62x 中还会混入线程数差异 [待补]。
+[模型] 结论：D 不是“节点性能差异”，也不是“fused/stdbuf 的魔法”；首先是
+profile 路径改变了 dslash 的通信/计算重叠结构，其次是输入页放置与配方差异。
+跨节点同配方比值（cn19699 0.5193 vs cn10579 0.4346 = 1.20x）才是节点差异的
+可比量级。
+
+E. boundary 始终主导 dslash，interior 近零
+[已核实：代码] 这是 t-only 分解 + 边界判据的必然结果，不是测量异常：
+- N=32: ht=1 -> 每个站点的 t2 都等于 0 且等于 ht-1 -> 100% boundary。
+- N=16: ht=2 -> t2∈{0,1} 两层都在首尾 -> 100% boundary。
+- block/periodic 路径要求 ht>=3；N>=16 时它们直接 return。
+因此 r32t12b 的 interior=0.0095 s 只是空循环/计时噪声；hbm16d 的
+interior=0.000265 s 同理。boundary 占比（r32: 0.3132/0.6013=52%，
+hbm16d: 0.6164/0.8100=76%）的差异主要来自 wait 和 halo 的占比，而不是
+interior 真的算了很多。
+[已核实 + 模型] 用已核实的 profile 总量除以代码给出的 boundary 站点数：
+  r32t12b: 0.3132 / (70 x 13,824) = 0.3236 us/site-call
+  hbm16d : 0.6164 / (70 x 27,648) = 0.3185 us/site-call
+两者相差约 1.6%（注意分属 cn19699/cn19698，且线程 12 vs 8，属跨节点对照）。
+这强烈支持：scalar boundary 是“每站点固定成本”的核，rank 数只改变每 rank
+站点数。r32 的 boundary 时间约为 r16 的一半，正是每 rank 站点数一半的直接
+结果；但它仍比 16r 快 1.36x，因为 r32 用了 3 倍的总线程/每 node 线程。
+[已核实：代码] N=8 是唯一 ht=4 的 t-only 点：scalar 边界循环约 28,192 站点
+（51.0%），interior block 21,296（38.5%），periodic-face block 5,808
+（10.5%）。因此 8r 的 boundary 占比下降，但 block 路径的 lane 利用率只有
+2/16（见 C2），不能简单认为“block 更快”。
+[物理] surface/volume：t-only 下 surface 不是薄壳，而是整个 t 方向的首尾
+层；当 ht<=2 时 surface=volume=1。因此“边界核主导”是分解几何的性质，不是
+kernel 退化；要降低 boundary 占比，必须让 ht>=3（更少的 t 分块）或对
+boundary 做跨站点 SIMD。
+
+F. HBM 绑定、4 GB/域、每 rank RSS 0.4–0.6 GiB 是否造成异常
+[已核实] 4 GB HBM node，32r 时 rank i 与 rank i+16 共享同一 memory_node
+（由 local_rank%16 + offset 16 推出）；32r/16r 每 rank RSS 约 0.40–0.57 GiB
+（r32t12b 417,448 KiB≈0.40 GiB；r16t8b 594,488 KiB≈0.57 GiB；8r 的 hbm8c
+为 980,792 KiB≈0.94 GiB），两 rank 合计约 0.8–1.2 GiB，远小于 4 GB。
+memory_policy=bind 且未报告失败。
+[推断] 因此 F 的首要不可能是容量不足/溢出/OOM；bind 模式下容量不足会
+fail-closed，而不是悄悄变慢。
+[推断] F 的真实影响是“每分区争用”：32r 每个 4 GB HBM node 上 24–36 个
+线程，8r 每个 node 16 线程但工作量翻倍。结合 A/B/C 的每 node 吞吐平台，
+这更像 per-partition 的带宽/L3/延迟争用，而不是全局 HBM 带宽耗尽；我们的
+一阶访存估算（~40 GB/s 聚合）也支持“不是 HBM 峰值问题”。
+[推断] CPU node i ↔ memory_node 16+i 的“最近”关系是在 cn19701 现场探测的
+offset，未在 cn19699 重新验证距离矩阵；若 distance 不是最小，跨 node 访问
+会加延迟。offset 16 不是所有鲲鹏平台的常量。
+[推断/待补] memory_bound=true 只证明 set_mempolicy 调用成功，不证明输入页
+真的在 HBM。x_case_dbg 的 SKIP_INPUT_PREBIND=1 可能让 gauge/source 的
+NumPy 页留在 DDR；y76 的 15 s prebind 在 KUPL_NUMA_BIND=1 + HBM policy
+成立时会把它们放到 HBM，但这一步尚未用 numastat 验证。必须用运行中的
+numastat -p / /proc/<pid>/numa_maps 才能把“HBM 命中率”变成已核实事实。
+
+================================================================================
+## 假设与可证伪预测
+================================================================================
+
+A1（主）：18t 超过每 rank 可用物理核，SMT/时间片争用。
+  预测：32r 线程扫描在 9–12 附近出现极小值，14–18 单调回升；18t 的
+  KUPL_TOPOLOGY_REPORT 显示 cpuset>=18 但 lscpu 的 Thread(s)/core=2，
+  且 bound_threads=18。
+  反证：若 cpuset=18 且 SMT=1（或 18t 与 12t 的每线程吞吐相同），A1 失败。
+
+A2（替代）：每 HBM 分区在 24 线程/node 附近饱和，36 线程/node 只增排队。
+  预测：18t 的 boundary us/site 上升、wait/MPI 占比上升，而 CPU 利用率
+  不饱和；把 32r 改到 16t（32 线程/node）应介于 12t 与 18t 之间或与 12t
+  持平；不同 rank 布局（如把 2 rank/node 改成 1 rank/node 的 16r）应改变
+  峰值位置。
+  反证：若 18t 的 dslash 计算时间不升、只是初始化/其他段变慢，A2 失败。
+
+A3（替代）：MPI 进度线程被 OMP spin-wait 饿死。
+  预测：设 OMP_WAIT_POLICY=PASSIVE（或 GOMP_SPINCOUNT=0）后，18t 明显
+  改善；18t profile 的 wait 份额显著高于 12t。
+  反证：PASSIVE 对 18t 无影响，则 A3 失败。
+
+B1（主）：每 HBM node 吞吐在 8 线程附近接近平台，32r 的 3x 线程只换 1.36x。
+  预测：16r 线程扫描 8/16/24/32/37 在 16–24 后趋于平台，不会按线程数
+  线性下降；16r x 16t 若仍在 ~1.0 s，则平台成立。
+  反证：16r x 16t 接近 0.6 s（约 16/8 加速），则 B1 失败，B 更像纯线程
+  数不足。
+
+B2（替代）：16r 的固定 MPI/集合通信延迟占比更高。
+  预测：16r 的 wait 绝对秒数与 32r 同量级（因为消息大小相同），但占 wall
+  比例更高；把 16r 的 MPI 等待与计算重叠（例如启用 split 路径）收益更大。
+  反证：16r 的 wait 绝对值远小于 32r，则 B2 失败。
+
+C1（主）：8r 只用 8 个 HBM 分区/8 个 NUMA，node 工作量翻倍 -> 墙钟约翻倍。
+  预测：16r x 16t 若 node 受限应在 ~1.0–1.1 s（而不是 0.6 s）；8r x 16t
+  与 16r x 16t 的每 node 吞吐接近。
+  反证：16r x 16t 降到 ~0.6 s，说明 node 不是限制，C1 失败。
+
+C2（替代）：8r 的 ht=4 block/periodic 路径在 lane=2 时效率低。
+  预测：8r x 16t 设 KUPL_DISABLE_BLOCK_DSLASH=1（或把
+  KUPL_BLOCK_DSLASH_MIN_HALF_SITES 提高）后，若时间下降到 ~1.1 s，
+  block 路径是负收益；若不变或更慢，C2 失败。
+  反证：关闭 block 后时间不变/更慢。
+
+C3（替代）：8r 的每 rank 工作集更大，L3/TLB 局部性更差。
+  预测：8r 的每线程 boundary us/site 高于 16r；perf 的 L1/L2/L3 miss、
+  dTLB miss 更高；用更小的 spatial block 或改变 rank 内循环顺序可改善。
+  反证：8r 与 16r 的 us/site 接近，则 C3 失败。
+
+D1（主，代码机制）：PROFILE_DSLASH 禁用 split-boundary 重叠，暴露 wait。
+  预测：32r x 12t，其他变量固定，仅去掉 KUPL_PROFILE_DSLASH=1，墙钟应
+  下降约 0.15–0.25 s（到 ~0.59–0.69 s）；profile 的 wait 0.211 s 应大部分
+  被 part=1 计算覆盖。
+  反证：去掉 profile 后墙钟不变，则 D1 失败（此时应检查是否仍走了快路径）。
+
+D2（替代）：SKIP_INPUT_PREBIND 导致输入页留在 DDR。
+  预测：固定其他标志，仅切换 KUPL_SKIP_INPUT_PREBIND 0/1；若 wall 差异
+  >5%，且 numastat 显示 HBM 页比例变化，则 D2 成立。y76 的 15.006 s
+  prebind 正是它的来源。
+  反证：两种设置的 numastat/HBM 页比例相同、wall 相同，则 D2 失败。
+
+D3（次要）：fused/stdbuf/oversubscribe 的解释力很小。
+  预测：单独去掉 KUPL_FUSED_BICG_DOTS 或 stdbuf 的变化应 <=1–3%，远小于
+  0.32 s；fused 默认已为 1。
+  反证：单独某项造成 >20% 差异。
+
+E1（代码机制）：boundary 主导是 ht<=2 的几何必然。
+  预测：任何 grid 1 1 1 N（N>=16）的 profile interior 都近似 0；把 ht 提高
+  到 >=3（例如 grid 1 2 2 8 的 ht=4）后 interior/periodic 份额上升，boundary
+  us/site 仍近似常数。
+  反证：N>=16 的 interior 出现显著时间，或 boundary us/site 随 N 大幅变化。
+
+F1：容量/溢出不是原因。
+  预测：所有点的 max_rss 均 < 4 GB/node 的 1/2；numastat 无 node16..31
+  之外的强制溢出（bind 失败会直接报错）；没有 swap/OOM 日志。
+  反证：出现 bind 失败、页主要落在 DDR、或 RSS 接近 4 GB。
+
+F2：每分区争用是真实机制。
+  预测：同一 node 工作量下，线程/node 从 8 增到 24 的吞吐增益 <3x（本数据
+  约 1.36x）；36 线程/node 反而下降；改变 rank/node（1 vs 2）会移动峰值。
+  反证：吞吐随线程/线程数线性增长到 36。
+
+================================================================================
+## 最小验证矩阵
+================================================================================
+
+固定条件（所有点）：
+- 节点 cn19699，独占 -x job；提交后 djob -ll 确认 execNodes=cn19699。
+- 同一 gauge/source/cache；--lat 24 24 24 64 --mass -0.277 --csw 1.160920226
+  --atol 1e-4 --max-iter 50 --dtype c64 --levels 1 --restart 0。
+- 每次记录：wall_seconds、迭代数、独立真残差、KUPL_TOPOLOGY_REPORT 的
+  cpu_node/cpuset/bound_threads/memory_node、numactl --hardware 的 distance、
+  lscpu 的 Thread(s) per core、运行中 numastat -p。
+- 每点 1 个样本 + 1 次复测（2 样本）；报告 min/median/max，不只报最好值。
+- 端到端超时 >=600 s；16r 约 108–117 s，32r 约 233 s，留足余量。
+
+M1. 32 秩线程扫描（A 的主判别）
+  grid 1 1 1 32，ppr=2，threads = 6, 8, 10, 12, 14, 16, 18；每点 2 样本。
+  判读：若 min 在 9–12 且 14–18 回升 -> A1/A2；若 18 仍最好 -> A 假设失败。
+  同时记录 18t 的 cpuset 与 lscpu SMT；这是区分 A1/A2 的关键。
+
+M2. 16 秩线程扫描（B/C 的主判别）
+  grid 1 1 1 16，ppr=1，threads = 8, 16, 24, 32, 37；每点 2 样本。
+  判读：8->16 若接近 2x 加速 -> B1（node 平台）失败；若只 ~1.1x -> 平台
+  成立。16t 点同时用于检验 C1（8r 是否只是 node 数减半）。
+  注意：16r x 37t 已在运行；即使完成也只算 1 样本，必须复测后才引用。
+
+M3. grid 形状对比（E/C 的判别）
+  固定 32 秩、threads=12（另可选 16r x 8t 做对照）：
+    1 1 1 32  (ht=1，100% boundary，1 个 halo 维)
+    1 1 2 16  (ht=2，100% boundary，z/t 两个 halo 维；local z=12)
+    1 2 2 8   (ht=4，block 路径可介入；y/z/t 三个 halo 维；local y=z=12)
+  可选 2 2 2 4 (ht=8，block 路径更充分，4 个 halo 维)。
+  判读：若 1 2 2 8 明显快于 1 1 1 32，说明 scalar boundary/ht 是主因；
+  若变慢，说明额外 halo 维/消息数主导。该对比同时检验 C2。
+
+M4. 配方/标志分离（D 的判别）
+  固定 cn19699、32r x 12t、grid 1 1 1 32，逐项 A/B（每项 2 样本）：
+    (a) x_case_dbg 全量（对照 0.8410 s）
+    (b) 全量 - KUPL_PROFILE_DSLASH
+    (c) (b) - KUPL_PROFILE_INIT
+    (d) (c) - KUPL_FUSED_BICG_DOTS
+    (e) (c) ± KUPL_SKIP_INPUT_PREBIND（0/1 各一次）
+    (f) y76 原配方（对照 0.5193 s，复测）
+  判读：b 对 a 的差值主要归因于重叠；e 的差值归因于页放置；d 应 <=1–3%。
+  这也顺便验证 y76 的确切线程数/环境是否与 12t 一致。
+
+M5. 机制确认（按需，不阻塞主矩阵）
+  - 8r x 16t 加 KUPL_DISABLE_BLOCK_DSLASH=1：检验 C2。
+  - 16r x 16t：检验 C1/B1 的 node 平台预测。
+  - 18t 加 OMP_WAIT_POLICY=PASSIVE：检验 A3。
+  - 任一代表点运行中 numastat -p <rank_pid> 与
+    grep -Eo 'N[0-9]+=[0-9]+' /proc/<pid>/numa_maps：检验 F2/F4。
+
+规模与顺序：先 M1/M2（最便宜、最能判定 A/B/C），再 M3，最后 M4；
+M5 只在主假设需要仲裁时做。所有点保持 KUPL_BLOCK_DSLASH_MIN_HALF_SITES
+固定为 16384，避免跨 N 比较时混入 code path 切换。
+
+================================================================================
+## 风险与待补
+================================================================================
+
+R1. 单样本：当前每点 1 样本；共享/独占状态、频率、温度、页放置都可能有
+    数个百分点到 >10% 的漂移。没有复测就不能把 1.62x/1.9x 当成稳定倍率。
+R2. 节点差异：hbm16d 在 cn19698（1.0946 s）与 r16t8b 在 cn19699（1.1442 s）
+    差约 4.3%；拓扑探测在 cn19701，性能在 cn19699/cn19698。跨节点只可比较
+    同配方比值（y76: 1.20x），不可拼接绝对值。
+R3. profile 改变执行路径：profile 分项不能直接当作非 profile solve 的分解，
+    更不能从 y76 的 0.5193 s 中“减去” profile 的 halo/wait/boundary。
+    D1 的重叠节省是代码 + 计时的估算，不是直接测量的反事实。
+R4. cpuset 8–12 的含义不唯一：代码在 threads<cpus 时把 cpuset 截断为
+    threads，因此 8/12 线程运行的“cpuset 8–12”可能只是线程数，而不是底层
+    配额。18t 的 cpuset、lscpu 的 SMT 关系、以及 NUMA 每节点 CPU 数必须
+    在 M1 中直接记录，否则 A1/A2 无法仲裁。
+R5. MPI/HMPI 版本与 --bind-to none 的实际语义：本分析默认 MPI 不限制
+    affinity（所以 local_nodes=16、node_slot=rank%16）。若 HMPI 仍按
+    --map-by ppr:2:numa 绑定了进程，rank->NUMA 映射会不同，F 的“2 rank
+    共享 4 GB node”和 t-halo 跨 NUMA 结论都要重算。
+R6. y76 配方不完整：证据文件只给出 mpirun 片段，未完整列出 OMP 线程数/
+    其他环境；若 y76 实际不是 12t，则 D 的 1.62x 中混有线程数差异。
+R7. 输入页放置未验证：RSS 不等于 HBM 驻留；memory_bound=true 只证明
+    set_mempolicy 成功。SKIP_INPUT_PREBIND 的效果必须用 numastat/numa_maps
+    在运行中确认。
+R8. KUPL_ENABLE_T2_ZBLOCK_DSLASH 语义未文档化：本次只取 0；若未来设为
+    非 0，会在 grid t>1、local_t==2 且 !profile 时走另一条 zblock 路径，
+    与本文的 split-boundary 结论不同。
+R9. 阈值混叠：KUPL_BLOCK_DSLASH_MIN_HALF_SITES=16384 正好夹在
+    13,824（32r）与 27,648（16r）之间，N=32/16 的对比同时改变了 code path；
+    线程扫描必须在固定 N 内做，grid 对比必须显式报告该阈值。
+R10. 物理模型误差：2.3 kFLOP/site、768 B/site、~40 GB/s 聚合都是
+    一阶估算（忽略 gauge cache 复用、clover onsite、向量/点积/归一化），
+    只用于排除“HBM 峰值/算力峰值”解释，不用于承诺性能。
+R11. 待补数据：16r x 37t（运行中）；32r x 12t 多样本；grid 1 1 2 16、
+    1 2 2 8 在 cn19699 的实测；18t 的 topology/profile；运行中 numastat；
+    y76 完整环境；cn19699 的 NUMA distance 矩阵与 SMT 拓扑。
+R12. 不外推：offset 16、4 GB HBM node、ppr 映射、HMPI 版本均绑定本次
+    机型/BIOS/节点配置；换节点必须重新用 kupl_env.py 探测并复测。

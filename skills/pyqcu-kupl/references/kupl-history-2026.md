@@ -400,3 +400,103 @@ verifier=0、PASS，已撤销。下一步应分析 scalar boundary 的 rank-face
   with exit code 143. Do not reuse it as an MG speedup result. The next
   comparison must hold rank/thread/grid and manual geometry fixed on both
   BiCGStab and MG.
+
+## 2026-11-12 L24 HBM-node scan recovery and high-performance configuration
+
+- Remote recovery used the LX2 cluster through `login06` (`ssh 10.44.9.4`,
+  user `nsls_yangyb`). The running tree was `/home/share/nsls_yangyb/PyQCU`
+  (`PyQCU-main`), cases were under
+  `data/kupl_hbm_opt_20261106/scan8_20261112/`, and job scripts under `~/sh`.
+- The scheduler is `dsub`/`djob`/`djob -ll`/`dkill` on queue `q_hpcapp`;
+  exclusive jobs use `-x job`. Parameters in `#DSUB` headers such as
+  `-N/-rpn/-R/-nl` may be ignored, so write scheduling parameters on the
+  `dsub` command line and verify `execNodes` with `djob -ll <id>` after
+  submission. A 32-rank job needs explicit `-N 32 -rpn 32`. Exclude `cn12038`
+  and `cn10579` (`data/kupl_hbm_opt_20261106/excluded_nodes.txt`). A 64-task
+  job was refused by the account cap `testusers_rebuild`
+  (`mainStateReasonMsg: The limit <testusers_rebuild> has been exceeded`).
+  A node preference such as `-nl` can also be ignored when the requested node
+  has no resources (`No node is available to meet node preferences`), so
+  confirm placement or resubmit on an idle node.
+- A 95 s per-case timeout is too short: 16 ranks take about `108-117 s`
+  end-to-end (Python import plus initialization about `100 s`) and 32 ranks
+  about `233 s`. `RC=124` is only a timeout signal, not proof of a deadlock;
+  use `400-600 s` before deciding a case is stuck.
+- Do not replace initialization statements with ad-hoc debug prints. On the
+  remote tree, `pyqcu/testing/simple/kupl_multigrid.py:847` had
+  `verify_status = None` replaced by `print("BEFORE_INIT")`; with `levels=1`
+  (`use_coarse_assets=False`) this necessarily raised `UnboundLocalError`.
+  The line was restored, and the remote md5
+  `c7756171a3619cb93456639dab9d3239` then matched the local file. The debug
+  variant is preserved as `kupl_multigrid.py.2026-11-12-20-10-00.bak`
+  (`46552 B`).
+- Sysfs probing on `cn19701` showed 32 NUMA nodes: `node0-15` at about
+  `32 GB` each and `node16-31` at `4 GB` each (on-chip HBM). KUPL reported
+  `numa_nodes=16`, `memory_node=16..31`, per-rank cpusets of 8-12 CPUs,
+  `memory_policy=bind`, `bound_threads=threads`, and `source=sysfs`; all ranks
+  reported `memory_bound=true`. The matching configuration is
+  `KUPL_MEMORY_NODE=local+16`.
+- Reproduction configuration (identical for every case below unless noted):
+  `--lat 24 24 24 64 --mass -0.277 --csw 1.160920226 --atol 1e-4
+  --max-iter 50 --dtype c64 --levels 1 --restart 0`; `levels=1,restart=0` is
+  parity-Schur BiCGStab, not multigrid. MPI used
+  `mpirun --oversubscribe -np NP --bind-to none --map-by ppr:PPR:numa
+  --allow-run-as-root`. The fixed control was true residual about `3.5412e-6`
+  against the `2.44140625e-4` acceptance threshold, `PASS`.
+
+Measured results (exclusive `-x job`, solve wall `wall_seconds`):
+
+| case | node | ranks x threads | grid | ppr | wall (s) | iter | true residual | status |
+|---|---|---|---:|---:|---:|---:|---|---|
+| r32t12b | cn19699 | 32r x 12t | 1 1 1 32 | 2 | **0.8410** | 16 | 3.54117e-6 | PASS |
+| r32t18b | cn19699 | 32r x 18t | 1 1 1 32 | 2 | 1.5979 | 16 | 3.54122e-6 | PASS |
+| r16t8b | cn19699 | 16r x 8t | 1 1 1 16 | 1 | 1.1442 | 16 | 3.54128e-6 | PASS |
+| hbm8c | cn19699 | 8r x 16t | 1 1 1 8 | 1 | 2.0595 | 16 | 3.54132e-6 | PASS |
+| hbm16d | cn19698 | 16r x 8t | 1 1 1 16 | 1 | 1.0946 | 16 | 3.54128e-6 | PASS |
+| hbm4 | cn19698 | 4r x 8t | 1 1 1 4 | 1 | 4.7462 | 16 | 3.54113e-6 | PASS |
+| y76r32t12 | cn19699 | 32r x 12t | 1 1 1 32 | 2 | **0.5193** | 16 | 3.54122e-6 | PASS (y76 recipe) |
+
+Same-node (`cn19699`) ordering: 32r x 12t `0.8410 s` < 16r x 8t `1.1442 s`
+< 32r x 18t `1.5979 s` < 8r x 16t `2.0595 s`; at 32 ranks, 12 threads clearly
+beat 18 threads. On the HBM nodes, 16 ranks x 8 threads beat 8 ranks x
+16 threads.
+
+DSLASH profile (`KUPL_PROFILE_DSLASH=1`, 70 calls):
+
+| case | halo | interior | wait | boundary | total |
+|---|---:|---:|---:|---:|---:|
+| r32t12b | 0.0675 | 0.0095 | 0.2111 | 0.3132 | 0.6013 |
+| hbm16d | 0.0306 | 0.000265 | 0.1627 | 0.6164 | 0.8100 |
+
+Cross-node and flag caveat: the x_case_dbg recipe (with
+`KUPL_PROFILE_INIT=1`, `KUPL_PROFILE_DSLASH=1`, `KUPL_FUSED_BICG_DOTS=1`)
+measured `0.8410 s` on `cn19699`. Re-running the y76 recipe on the same node
+gave `0.5193 s` (16 it, residual `3.5412238955e-6`, PASS), so about
+`1.62x` of that gap is flag/wrapper overhead. Against historical y76 on
+`cn10579` (`0.4346 s`, `docs/qcu_l24_solver_timing_20261111.md`, grade B)
+the same-recipe node difference is only about `1.20x`. Always state the node
+and the flags together. The y76 recipe did not set
+`KUPL_SKIP_INPUT_PREBIND=1`, so its `input_prebind_seconds=15.006 s` is setup
+cost and is excluded from `wall_seconds`.
+
+Pending, not conclusions: comparing grid variants (e.g. `1 1 2 16`,
+`1 2 2 8`) on `cn19699`, collecting multiple samples for 32r x 12t
+(currently one sample per case), and documenting the semantics of
+`KUPL_ENABLE_T2_ZBLOCK_DSLASH` (only value `0` was used).
+
+Optimization A/B on the rebuilt library (16r x 8t, grid `1 1 1 16`, y76
+recipe, cn19650 with `preferred` memory policy, one sample each):
+`opt16p_base` = `0.6814 s` (12 it), `opt16p_halo` =
+`0.5483 s` (12 it, `KUPL_SKIP_FINAL_RESIDUAL=1`, `KUPL_HALO_PACK6=1`,
+`KUPL_HALO_DEDUP_PACK=1`, `KUPL_T_LOCAL_IN_PART1=1`), and `opt16p_all` =
+`0.3900 s` (12 it, additionally `KUPL_ENABLE_BOUNDARY_LANES=1`). All PASS
+with true residual about `5.385e-5`. The lane kernel alone is
+`1.406x` over the halo group and `1.747x` over base. Old library at the
+same shape was `1.1442 s` (different node and memory policy, reference
+only). Single samples; treat as a first signal.
+
+On a shared node, `KUPL_MEMORY_POLICY=bind` with
+`KUPL_MEMORY_NODE=local+16` was repeatedly killed with `RC=137`
+(SIGKILL) after `87-110 s`, while `preferred` or an exclusive node
+completed. This is a co-tenancy OOM on the 4 GB on-package HBM domains,
+not a KUPL code defect.
