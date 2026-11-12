@@ -38,14 +38,14 @@ from statistics import median
 import numpy as np
 
 try:
-    from ._common import (DEFAULT_ATOL, DEFAULT_CSW, DEFAULT_MASS,
+    from ._common import (DEFAULT_ATOL, DEFAULT_CSW, DEFAULT_LIME, DEFAULT_MASS,
                           lime_metadata, resolve_path)
     from ._runner import (REPO, cuda_environment, default_kupl_grid,
                           gpu_clock_warmup, kupl_command, kupl_environment,
                           libqcu_environment, quda_environment, run_report)
     from .prepare_case import prepare_gauge, prepare_source
 except ImportError:
-    from _common import (DEFAULT_ATOL, DEFAULT_CSW, DEFAULT_MASS,
+    from _common import (DEFAULT_ATOL, DEFAULT_CSW, DEFAULT_LIME, DEFAULT_MASS,
                          lime_metadata, resolve_path)
     from _runner import (REPO, cuda_environment, default_kupl_grid,
                          gpu_clock_warmup, kupl_command, kupl_environment,
@@ -53,8 +53,6 @@ except ImportError:
     from prepare_case import prepare_gauge, prepare_source
 
 SIMPLE = Path(__file__).resolve().parent
-DEFAULT_LIME = Path.home() / "data" / (
-    "beta6.20_mu-0.2770_ms-0.2310_L24x64_cfg_9950.lime")
 
 
 def _lattice(value) -> tuple[int, int, int, int]:

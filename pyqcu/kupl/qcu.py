@@ -26,24 +26,17 @@ CPU/OpenMP work.
 from __future__ import annotations
 
 import ctypes
-import hashlib
 import os
-import shutil
-import subprocess
-import sys
 from pathlib import Path
 from typing import Any
 
 
 _PACKAGE_DIR = Path(__file__).resolve().parent
 _REPO = Path(__file__).resolve().parents[2]
-# CMake names the shared library after the platform's convention: ELF uses
-# libqcu.so while Mach-O uses libqcu.dylib. Both names are searchable so a macOS
-# build is discoverable without an explicit PYQCU_KUPL_LIB.
-_LIBRARY_NAMES = (
-    ("libqcu.dylib", "libqcu.so") if sys.platform == "darwin"
-    else ("libqcu.so", "libqcu.dylib")
-)
+# Native backends are Linux-only (ELF). PyQCU supports Torch on macOS, but the
+# KUPL library is never built or shipped there, so a stray Mach-O file must not
+# be picked up as if it were usable.
+_LIBRARY_NAMES = ("libqcu.so",)
 
 
 def _library_candidates() -> list[Path]:
@@ -69,151 +62,8 @@ def library_path() -> Path:
         "build it with `bash install.sh kupl` or set PYQCU_KUPL_LIB")
 
 
-def _loaded_openmp_runtimes() -> list[str]:
-    """Return the OpenMP runtimes already mapped into this process."""
-    if sys.platform != "darwin":
-        return []
-    try:
-        libc = ctypes.CDLL(None)
-        libc._dyld_get_image_name.restype = ctypes.c_char_p
-        images = [
-            libc._dyld_get_image_name(index).decode()
-            for index in range(libc._dyld_image_count())
-        ]
-    except (AttributeError, OSError):
-        return []
-    return [name for name in images if "libomp" in name]
-
-
-def _library_openmp_install_name(path: Path) -> str | None:
-    """Read the OpenMP install name ``path`` links against, if any."""
-    try:
-        listing = subprocess.run(
-            ["otool", "-L", str(path)],
-            capture_output=True, text=True, timeout=30)
-    except (OSError, subprocess.SubprocessError):
-        return None
-    if listing.returncode != 0:
-        return None
-    for line in listing.stdout.splitlines()[1:]:
-        name = line.strip().split(" (")[0]
-        if "libomp" in name:
-            return name
-    return None
-
-
-def _openmp_conflict(path: Path) -> tuple[str, str] | None:
-    """Return ``(install_name, loaded_runtime)`` when loading ``path`` is unsafe.
-
-    macOS only tolerates two ``libomp.dylib`` builds in one process when no
-    ``__kmp_*`` state crosses between them. PyTorch maps its own copy, so a
-    ``libqcu`` that resolves ``@rpath/libomp.dylib`` to a *different* file faults
-    at ``__kmp_suspend_initialize_thread`` as soon as a worker thread parks.
-    """
-    loaded = _loaded_openmp_runtimes()
-    if not loaded:
-        return None
-    install_name = _library_openmp_install_name(path)
-    if install_name is None:
-        return None
-    if Path(install_name).is_absolute():
-        # A concrete path either matches the mapped runtime or conflicts.
-        if Path(install_name) == Path(loaded[0]):
-            return None
-        return install_name, loaded[0]
-    # ``@rpath/...`` resolves against the library's own LC_RPATH entries, not
-    # against the directory of an already-loaded image.
-    resolved = _resolve_rpath(path, install_name)
-    if resolved is not None and resolved == Path(loaded[0]):
-        return None
-    return install_name, loaded[0]
-
-
-def _resolve_rpath(path: Path, install_name: str) -> Path | None:
-    """Resolve an ``@rpath`` install name using ``path``'s LC_RPATH entries."""
-    try:
-        listing = subprocess.run(
-            ["otool", "-l", str(path)],
-            capture_output=True, text=True, timeout=30)
-    except (OSError, subprocess.SubprocessError):
-        return None
-    if listing.returncode != 0:
-        return None
-    rpaths: list[Path] = []
-    lines = listing.stdout.splitlines()
-    for index, line in enumerate(lines):
-        if "LC_RPATH" not in line:
-            continue
-        for follow in lines[index:index + 4]:
-            stripped = follow.strip()
-            if stripped.startswith("path "):
-                rpaths.append(Path(stripped.split("path ", 1)[1].split(" (")[0]))
-                break
-    leaf = install_name.replace("@rpath/", "")
-    for root in rpaths:
-        candidate = root / leaf
-        if candidate.is_file():
-            return candidate.resolve()
-    return None
-
-
-def _relinked_copy(source: Path, install_name: str,
-                   loaded_runtime: str) -> Path | None:
-    """Return a copy of ``source`` that shares the already-loaded OpenMP runtime.
-
-    The copy is cached per (source, size, mtime, runtime) so repeated imports
-    pay the rewrite once. ``install_name_tool`` invalidates the Mach-O code
-    signature, hence the ad-hoc ``codesign`` afterwards.
-    """
-    tool = shutil.which("install_name_tool")
-    if tool is None:
-        return None
-    stat = source.stat()
-    key = f"{source}-{stat.st_size}-{int(stat.st_mtime)}-{loaded_runtime}"
-    digest = hashlib.sha256(key.encode()).hexdigest()[:16]
-    cache = Path.home() / ".cache" / "pyqcu" / f"libqcu-{digest}.dylib"
-    if cache.is_file():
-        return cache
-    cache.parent.mkdir(parents=True, exist_ok=True)
-    staged = cache.with_name(cache.name + f".tmp.{os.getpid()}")
-    try:
-        shutil.copyfile(source, staged)
-        changed = subprocess.run(
-            [tool, "-change", install_name, loaded_runtime, str(staged)],
-            capture_output=True, text=True)
-        if changed.returncode != 0:
-            staged.unlink(missing_ok=True)
-            return None
-        codesign = shutil.which("codesign")
-        if codesign is not None:
-            subprocess.run(
-                [codesign, "--force", "--sign", "-", str(staged)],
-                capture_output=True, text=True)
-        os.replace(staged, cache)
-    except OSError:
-        staged.unlink(missing_ok=True)
-        return None
-    return cache
-
-
 def _load_library() -> ctypes.CDLL:
-    path = library_path()
-    conflict = _openmp_conflict(path)
-    if conflict is None:
-        return ctypes.CDLL(str(path), mode=ctypes.RTLD_LOCAL)
-    install_name, loaded_runtime = conflict
-    healed = _relinked_copy(path, install_name, loaded_runtime)
-    if healed is not None:
-        return ctypes.CDLL(str(healed), mode=ctypes.RTLD_LOCAL)
-    raise RuntimeError(
-        f"KUPL QCU library cannot be loaded safely. {path} links "
-        f"{install_name}, but this process already mapped {loaded_runtime}. "
-        "Two OpenMP runtimes fault inside libomp's thread pool, and the "
-        "automatic relink failed because `install_name_tool` is unavailable or "
-        "rejected the change.\n"
-        "Fix it once by hand:\n"
-        f"  install_name_tool -change {install_name} {loaded_runtime} {path}\n"
-        f"  codesign --force --sign - {path}")
+    return ctypes.CDLL(str(library_path()), mode=ctypes.RTLD_LOCAL)
 
 
 _LIBRARY = _load_library()

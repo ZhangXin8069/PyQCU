@@ -95,7 +95,7 @@ def test_flat_window_gather_matches_periodic_windows():
     idx = torch.stack([
         torch.stack([
             torch.arange(start, start + W) % extent
-            for start, extent in zip(window, fine, strict=True)
+            for start, extent in zip(window, fine)
         ])
         for window in starts
     ])
@@ -156,7 +156,7 @@ def test_local_schur_window_eight_matches_global_probe():
             matvec, lonv, E, c_idx, *expected, list(coarse), Nc)
         _probe_point_batch_local(
             local_schur, lonv, E, c_idx, *actual, list(coarse), Nc, W)
-        for local, reference in zip(actual, expected, strict=True):
+        for local, reference in zip(actual, expected):
             torch.testing.assert_close(local, reference, rtol=1e-5, atol=1e-5)
 
 
@@ -248,5 +248,5 @@ def test_local_full_wilson_clover_probe_matches_global_operator():
         list(coarse), 64)
     _probe_point_batch_local(
         local_operator, lonv, E, 1, *local, list(coarse), 64, W)
-    for actual, expected in zip(local, reference, strict=True):
+    for actual, expected in zip(local, reference):
         torch.testing.assert_close(actual, expected, rtol=2.0e-5, atol=2.0e-6)

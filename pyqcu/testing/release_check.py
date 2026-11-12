@@ -18,10 +18,14 @@ import subprocess
 import sys
 import tarfile
 import time
-import tomllib
 import urllib.error
 import urllib.request
 from pathlib import Path
+
+try:  # Python 3.11+
+    import tomllib
+except ModuleNotFoundError:  # Python 3.9/3.10
+    tomllib = None
 
 ROOT = Path(__file__).resolve().parents[2]
 PAGES = ("overview", "usage", "solvers", "performance", "install",
@@ -36,8 +40,14 @@ def record(name: str, ok: bool, evidence: str) -> None:
 
 
 def version() -> str:
-    with open(ROOT / "pyproject.toml", "rb") as stream:
-        return tomllib.load(stream)["project"]["version"]
+    if tomllib is not None:
+        with open(ROOT / "pyproject.toml", "rb") as stream:
+            return tomllib.load(stream)["project"]["version"]
+    text = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    match = re.search(r'^version\s*=\s*"([^"]+)"', text, re.M)
+    if match is None:
+        raise RuntimeError("pyproject.toml has no project version")
+    return match.group(1)
 
 
 def check_version(ver: str) -> None:
@@ -60,8 +70,9 @@ def check_sdist(ver: str) -> Path:
     record("sdist no testing", not any("pyqcu/testing/" in n for n in names),
            "pyqcu/testing is absent")
     record("sdist no binaries",
-           not any(n.endswith((".so", ".so.0", ".o")) for n in names),
-           "no .so/.o members")
+           not any(n.endswith((".so", ".so.0", ".o", ".dylib"))
+                   for n in names),
+           "no .so/.o/.dylib members")
     record("sdist native sources",
            any("/cpp/kupl/qcu/src/" in n for n in names)
            and any("/cpp/cuda/qcu/src/" in n for n in names),

@@ -2,7 +2,7 @@
 
 ## 依赖
 
-* Python 3.10 或更新版本（实测 3.12）。
+* Python 3.9 或更新版本（实测 3.11 与 3.12）。
 * Linux x86_64 或 aarch64。
 * `numpy`、`torch`、`mpi4py`、`h5py` 会作为运行时依赖自动安装。
 * 构建 KUPL CPU 库需要 C++17 编译器、CMake 与 MPI 实现。CUDA 另外需要
@@ -86,7 +86,7 @@ report = json.loads(subprocess.run(
     [sys.executable, "-m", "pyqcu", "--json"],
     check=True, capture_output=True, text=True).stdout)
 assert report["package"] == "pyqcu"
-assert report["version"] == "0.1.14"
+assert report["version"] == "0.1.15"
 assert "path" in report["backends"]["kupl"]
 print("pyqcu", report["version"], "at", report["path"])
 ```
@@ -110,7 +110,7 @@ print("self-test:", {
 import importlib.util
 import pyqcu
 
-assert pyqcu.__version__ == "0.1.14"
+assert pyqcu.__version__ == "0.1.15"
 missing = [
     name for name in
     ("api", "lattice", "tools", "torch", "solver", "cuda", "kupl")

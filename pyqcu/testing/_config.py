@@ -1,5 +1,7 @@
 """Shared test configuration for PyQCU correctness checks."""
 
+from __future__ import annotations
+
 
 # All backend correctness gates use the same non-hypercubic test volume.
 # Larger or hypercubic volumes remain valid only for performance/capacity runs.

@@ -23,6 +23,7 @@ recursive-include cpp/kupl/qcu *.txt *.sh *.map *.md *.h *.hpp *.cpp
 prune cpp/kupl/qcu/tests
 prune cpp/kupl/qcu/build
 prune cpp/kupl/qcu/build-lto
+prune cpp/kupl/qcu/build-*
 include cpp/cuda/qcu/LICENSE
 include cpp/cuda/qcu/CMakeLists-nv.txt
 include cpp/cuda/qcu/CMakeLists-dcu.txt
@@ -42,7 +43,7 @@ prune logs
 prune refer
 prune skills
 
-global-exclude *.so *.so.* *.o *.pyc *.pyo *.pyd
+global-exclude *.so *.so.* *.o *.pyc *.pyo *.pyd *.dylib
 global-exclude __pycache__ *.egg-info
 global-exclude CMakeCache.txt cmake_install.cmake CTestTestfile.cmake Makefile
 global-exclude AGENTS.md

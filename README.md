@@ -19,7 +19,7 @@ helpers, and a four-dimensional MPI rank grid.
 pip install pyqcu
 ```
 
-Requirements: Python 3.10+, Linux, `numpy`, `torch`, `mpi4py`, and `h5py`
+Requirements: Python 3.9+, Linux, `numpy`, `torch`, `mpi4py`, and `h5py`
 (installed automatically). A C++17 compiler, CMake, and MPI are needed to
 build the KUPL CPU library; `nvcc` is needed for the optional CUDA library.
 

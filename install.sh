@@ -46,11 +46,7 @@ case "$MODE" in
         KUPL_BUILD_TESTS="$build_tests" \
             bash "$ROOT/cpp/kupl/qcu/make.sh"
 
-        case "$(uname -s)" in
-            Darwin) kupl_built_name=libqcu.dylib ;;
-            *)      kupl_built_name=libqcu.so ;;
-        esac
-        kupl_library="$build_dir/$kupl_built_name"
+        kupl_library="$build_dir/libqcu.so"
         if [[ ! -f "$kupl_library" ]]; then
             printf 'error: KUPL library was not produced: %s\n' "$kupl_library" >&2
             exit 1

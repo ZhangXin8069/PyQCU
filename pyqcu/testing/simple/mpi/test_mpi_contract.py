@@ -104,7 +104,7 @@ def test_hdf5_gauge_patch_wraps_without_collective(tmp_path):
     actual = _hdf5_gauge_patch(
         path, starts, extent, np.dtype(np.complex64))
     expected = gauge
-    for axis, (start, width) in enumerate(zip(starts, extent, strict=True)):
+    for axis, (start, width) in enumerate(zip(starts, extent)):
         expected = np.take(
             expected, (start + np.arange(width)) % 4, axis=axis + 3)
     np.testing.assert_array_equal(actual, expected)

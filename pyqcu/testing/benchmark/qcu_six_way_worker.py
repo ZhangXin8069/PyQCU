@@ -721,12 +721,12 @@ def _kupl_expected_coarse_dims(
             int(width) <= 0 for width in block):
         raise ValueError("KUPL lattice and block extents must be positive")
     if any(int(extent) % int(width) for extent, width in zip(
-            lattice, block, strict=True)):
+            lattice, block)):
         raise ValueError(
             f"KUPL lattice {lattice} is not divisible by block {block}")
     return tuple(
         int(extent) // int(width)
-        for extent, width in zip(lattice, block, strict=True)
+        for extent, width in zip(lattice, block)
     )  # type: ignore[return-value]
 
 

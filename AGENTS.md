@@ -27,7 +27,7 @@ Wilson/Clover Dirac 算子、BiStabCG 与多重网格求解器、stout smearing�
   失败不发布）；性能测量用 `compare_three_way.py`，说明见 `pyqcu/testing/simple/README.md`
 - 测试：`cd pyqcu/testing && pytest .`；MPI 单文件：`mpirun -np 4 python pyqcu/testing/python/conftest.py`
 - Git 标签：`stab<N>`/`dev<N>`/`bug<N>` 独立编号 + 子版本（如 `stab15_1`），见 tag 技能
-- Python ≥ 3.10，依赖 PyTorch、Cython、mpi4py、h5py、numpy、CUDA toolkit；TileLang 可选
+- Python ≥ 3.9，依赖 PyTorch、Cython、mpi4py、h5py、numpy、CUDA toolkit；TileLang 可选
 
 ## 架构：三个执行层级
 
@@ -52,6 +52,9 @@ Wilson/Clover Dirac 算子、BiStabCG 与多重网格求解器、stout smearing�
 - **环境默认值**：`source ./env.sh` 导出当前仓库优先的 `PYTHONPATH`、`PYQCU_ROOT`，
   以及 `PYQCU_CUDA_LIB`、`PYQCU_DCU_LIB`、`PYQCU_KUPL_LIB`；KUPL 默认库路径是
   `cpp/kupl/qcu/libqcu.so` 稳定软链接，指向当前 build 中的实际库。
+- **平台支持边界**：PyQCU **不支持 macOS**；仅 Torch 后端（`pyqcu.torch`、`pyqcu/` 的 lattice/tools/api 层）在 macOS 上可用。原生 KUPL/CUDA/DCU 后端、原生构建链与 PyPI 产物只面向 Linux（x86_64/aarch64）。因此不得为 macOS 保留 Mach-O 兼容逻辑（`libqcu.dylib` 落位、`install_name_tool`/`codesign` 重链、`otool`/`_dyld_*` 探测），也不得让 `*.dylib` 进入 sdist/wheel 或 `package_data`；发现此类残留按打包缺陷处理，不按平台适配处理。
+- **测试源约定**：**性能测试统一点源**（`pyqcu.lattice.point_source`，单时空点、spin/color 全填），因为点源激发全部本征模、迭代次数更多、更接近真实生产且条件固定；**正确性测试在小格点上用「点源 + 随机源」双源**，随机源用于暴露与源无关的实现缺陷。性能数字必须记录源类型、源坐标（默认 `[0,0,0,0]`）与 gauge 身份；点源与随机源的迭代数不可互相比较。
+- **性能对比口径**：迭代数与独立真残差是机器无关的强判据，**任何机器之间都必须逐项核对**；墙钟**可以跨机器比较**，但前提是先写明硬件与环境身份（GPU 型号/compute_cap/显存/驱动、CPU 型号/核数、NUMA、编译架构 `sm_XX` 与 cubin/PTX、库 SHA256、`OMP_NUM_THREADS`、CUDA/编译器版本），并在报告中同时给出绝对值与样本统计（warmup 次数、重复次数、median/min/max）。硬件信息缺失的墙钟只能标注为「不可比」，不得据此宣称加速或回退。CPU 与 GPU 不合并成单一加速比。
 - **测试**：测试函数在 `pyqcu/testing/__init__.py`，`pyqcu/testing/*/conftest.py` 手动取消注释要运行的测试。
 - **CUDA 生产执行拓扑**：一个 Python 进程对应一个 MPI rank、对应一张 GPU/DCU/GPGPU。跨设备并行必须走 MPI 多进程格点分域；生产驱动不得在一个 Python 进程内创建多 GPU worker，也不得让 rank 数超过设备数后把共享设备当作加速路径。DCU/GPGPU 程序遵循同一进程-rank-设备映射。
 - **多 GPU 测试专用例外**：`pyqcu/cuda/_multi_gpu.py`（`MultiGpuMultigrid`）是显式 opt-in 的测试/基准驱动，不会在导入 `pyqcu` 时自动构造或启动。它在一个单 MPI rank 进程内用 N 线程分别绑定 N 张设备，每线程执行完整 Legacy MG，不是一次 solve 的跨卡分域；除非任务明确要求多卡一致性或吞吐测试，新 CUDA 程序不得使用。该测试驱动仍须保证每线程独立 `params/argv/set_ptrs`（`_SET_INDEX_` 各自从 0 计数）；Cython 桥的 `nogil` 调用与 pxd 声明规则保持不变。

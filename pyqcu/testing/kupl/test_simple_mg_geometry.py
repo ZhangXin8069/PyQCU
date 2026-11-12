@@ -71,7 +71,7 @@ def test_coarse_cache_loader_returns_one_sequence_per_level(tmp_path) -> None:
     loaded = load_coarse_assets(path, arrays[0].dtype)
 
     assert len(loaded) == 4
-    for levels, expected in zip(loaded, arrays, strict=True):
+    for levels, expected in zip(loaded, arrays):
         assert isinstance(levels, tuple)
         assert len(levels) == 1
         assert levels[0].shape == expected.shape

@@ -29,17 +29,15 @@ from pathlib import Path
 import numpy as np
 
 try:
-    from ._common import (DEFAULT_CSW, DEFAULT_MASS, lime_metadata,
-                          qdp_gauge_to_qcu, read_h5_metadata, read_qdp_gauge,
-                          resolve_path, write_h5, write_json)
+    from ._common import (DEFAULT_CSW, DEFAULT_LIME, DEFAULT_MASS,
+                          lime_metadata, qdp_gauge_to_qcu, read_h5_metadata,
+                          read_qdp_gauge, resolve_path, write_h5, write_json)
 except ImportError:
-    from _common import (DEFAULT_CSW, DEFAULT_MASS, lime_metadata,
-                         qdp_gauge_to_qcu, read_h5_metadata, read_qdp_gauge,
-                         resolve_path, write_h5, write_json)
+    from _common import (DEFAULT_CSW, DEFAULT_LIME, DEFAULT_MASS,
+                         lime_metadata, qdp_gauge_to_qcu, read_h5_metadata,
+                         read_qdp_gauge, resolve_path, write_h5, write_json)
 
 REPO = Path(__file__).resolve().parents[3]
-DEFAULT_LIME = Path.home() / "data" / (
-    "beta6.20_mu-0.2770_ms-0.2310_L24x64_cfg_9950.lime")
 
 
 def _sha256(path: Path) -> str:

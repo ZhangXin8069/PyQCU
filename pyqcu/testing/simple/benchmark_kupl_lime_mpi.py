@@ -299,7 +299,7 @@ def _local_slices(coordinate: Sequence[int], local: Sequence[int]
                   ) -> tuple[slice, slice, slice, slice]:
     return tuple(
         slice(int(coord) * int(extent), (int(coord) + 1) * int(extent))
-        for coord, extent in zip(coordinate, local, strict=True)
+        for coord, extent in zip(coordinate, local)
     )  # type: ignore[return-value]
 
 
@@ -553,10 +553,10 @@ def _validate_args(parser: argparse.ArgumentParser,
         parser.error(
             f"--grid product {math.prod(args.grid)} must equal MPI size {size}")
     if any(global_extent % process_extent for global_extent, process_extent
-           in zip(args.lat, args.grid, strict=True)):
+           in zip(args.lat, args.grid)):
         parser.error("--grid must divide every --lat dimension")
     local = tuple(global_extent // process_extent for global_extent,
-                  process_extent in zip(args.lat, args.grid, strict=True))
+                  process_extent in zip(args.lat, args.grid))
     if any(extent % 2 for extent in local):
         parser.error(f"KUPL local dimensions must all be even: {local}")
     if args.repeats <= 0:
@@ -603,7 +603,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     lattice = tuple(int(value) for value in args.lat)
     grid = tuple(int(value) for value in args.grid)
     local = tuple(global_extent // process_extent for global_extent,
-                  process_extent in zip(lattice, grid, strict=True))
+                  process_extent in zip(lattice, grid))
     coordinate = tuple(int(value) for value in np.unravel_index(
         rank, grid, order="C"))
     slices = _local_slices(coordinate, local)

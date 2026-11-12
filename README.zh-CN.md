@@ -18,7 +18,7 @@ BiCGStab/CG/FGMRES 求解器、Legacy/Strict 多重网格层级、HDF5 工具，
 pip install pyqcu
 ```
 
-要求：Python 3.10+、Linux，以及 `numpy`、`torch`、`mpi4py`、`h5py`
+要求：Python 3.9+、Linux，以及 `numpy`、`torch`、`mpi4py`、`h5py`
 （会自动安装）。构建 KUPL CPU 库需要 C++17 编译器、CMake 与 MPI；可选的 CUDA
 库需要 `nvcc`。
 

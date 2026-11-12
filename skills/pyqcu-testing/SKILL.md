@@ -147,8 +147,21 @@ python pyqcu/testing/simple/qcu_bistabcg.py \
 KUPL 行取安装包公开 API 的结果；仓库驱动的独立 NumPy 全残差在同机为 `2.21e-7` / `0.13 s`。
 验收线是 `final_true_residual <= max(atol, 2048*eps32) ≈ 2.4414e-4`，不是 `atol` 本身；
 同时要求 `status == "PASS"` 且 `0 < iterations <= max_iter`。真残差必须由独立的全格点
-NumPy/Torch 重构给出，不能复用求解器内部递推。跨机型绝对秒数不可比，CPU 与 GPU 不合并
-成单一加速比。
+NumPy/Torch 重构给出，不能复用求解器内部递推。CPU 与 GPU 不合并成单一加速比；
+墙钟跨机器比较必须先在报告中固定硬件与环境身份（见下节），身份缺失只能标「不可比」。
+
+### 测试源约定（强制）
+
+- **性能测试统一点源**：`pyqcu.lattice.point_source(lat, [0,0,0,0])`（单时空点、spin/color 全填），
+  再经 `pyqcu.tools.oooxyzt2poooxyzt` 转 parity-split 布局喂给原生算子。点源激发全部本征模、
+  迭代次数更多、更接近真实生产，且源条件完全固定。
+- **正确性测试用「点源 + 随机源」双源**，且固定在小格点（当前门禁格点 `8x8x8x16`）：
+  点源覆盖全谱收敛路径，随机源暴露与源结构无关的实现缺陷。两种源都要有独立真残差。
+- 报告必须记录：源类型、源坐标/seed、gauge 身份（文件或 seed+sigma）、`mass`/`csw`。
+  **点源与随机源的迭代数不可互相比较**，混用即视为配置不一致。
+- 墙钟比较需要完整硬件身份：GPU 型号与 compute_cap、CPU 型号与核数、NUMA、`OMP_NUM_THREADS`、
+  编译架构（`sm_XX` 与 cubin/PTX）、库 SHA256、驱动与 CUDA 版本、warmup/重复次数与 median/min/max。
+  写明身份后墙钟可以跨机器比较；缺少任一项时只能标「不可比」，不得据此宣称加速或回退。
 
 ### 干净 venv 复验（用户视角）
 

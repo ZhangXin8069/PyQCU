@@ -48,10 +48,10 @@ def _module_version(name: str) -> str:
 def _kupl_status() -> dict:
     """Report KUPL availability without importing the native binding.
 
-    The import has side effects: it maps the native library, which aborts the
-    process on a macOS OpenMP-runtime conflict. Diagnostics therefore resolve
-    the library path through the same candidate list the binding uses and never
-    trigger ``ctypes.CDLL``.
+    The import has side effects: it maps the native library at import time, and
+    a broken or mismatched library would take the diagnostic down with it.
+    Diagnostics therefore resolve the path through the same candidate list the
+    binding uses and never trigger ``ctypes.CDLL``.
     """
     try:
         spec = importlib.util.find_spec("pyqcu.kupl.qcu")

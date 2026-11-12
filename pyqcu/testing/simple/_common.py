@@ -57,9 +57,30 @@ except ImportError:  # direct script execution from this directory
 REPO = Path(__file__).resolve().parents[3]
 DATA_DIR = Path(os.environ.get("PYQCU_DATA_DIR", str(REPO / "data"))).expanduser()
 
-DEFAULT_LIME = Path(os.environ.get(
-    "PYQCU_REFERENCE_LIME",
-    str(DATA_DIR / "beta6.20_mu-0.2770_ms-0.2310_L24x64_cfg_9950.lime"))).expanduser()
+_LIME_NAME = "beta6.20_mu-0.2770_ms-0.2310_L24x64_cfg_9950.lime"
+
+
+def _default_lime() -> Path:
+    """Resolve the shared L24 reference configuration.
+
+    The gauge is not tracked inside the repository, so the same file legitimately
+    lives in ``$PYQCU_DATA_DIR`` or in the user's ``~/data`` tree. Resolve an
+    existing copy instead of hard-coding one location; when neither exists the
+    ``DATA_DIR`` candidate is returned so the run-time error names the expected
+    path.
+    """
+    override = os.environ.get("PYQCU_REFERENCE_LIME")
+    if override:
+        return Path(override).expanduser()
+    primary = DATA_DIR / _LIME_NAME
+    if primary.is_file():
+        return primary
+    fallback = Path.home() / "data" / _LIME_NAME
+    return fallback if fallback.is_file() else primary
+
+
+DEFAULT_LIME = _default_lime()
+
 DEFAULT_MASS = 0.05
 DEFAULT_CSW = 1.160920226
 DEFAULT_ATOL = 1.0e-6

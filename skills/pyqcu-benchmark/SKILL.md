@@ -59,6 +59,26 @@ required recipe fields, and the real-time document ledger are defined in
 Read it before launching a formal or multi-backend benchmark. Every speedup must
 show absolute numerator and denominator times with units and sample statistics.
 
+## Source and timing contract (mandatory)
+
+- **Performance runs use a point source only**: `pyqcu.lattice.point_source(lat, [0,0,0,0])`
+  (single spacetime point, all spin/color components filled), converted with
+  `pyqcu.tools.oooxyzt2poooxyzt` into the parity-split layout the native operators consume.
+  A point source excites the whole spectrum, needs more iterations, is closer to production
+  and is fully reproducible.
+- **Correctness runs use point + random sources** on the small gate lattice
+  (`8x8x8x16`) so a source-independent defect cannot hide behind a single RHS.
+- Every record must carry source type, source coordinate/seed, gauge identity
+  (file or seed+sigma), `mass` and `csw`. Iteration counts from a point source and
+  a random source are never comparable and must not be mixed in one comparison.
+- Wall time **may** be compared across machines, but only after the hardware and
+  environment identity is written down in the same report: GPU model and compute
+  capability, CPU model and core count, NUMA topology, `OMP_NUM_THREADS`, compiled
+  architectures (`sm_XX` with cubin/PTX), library SHA256 values, driver and CUDA
+  version, plus warmup/repeat counts and median/min/max. A wall time without that
+  identity is "not comparable" and cannot support a speedup or regression claim.
+  CPU and GPU results are never folded into a single speedup.
+
 正式三方基准的输入、同窗比较、历史证据和不可外推条件见
 [`pyqcu-docs/references/extracted-guidance.md`](../pyqcu-docs/references/extracted-guidance.md#5-性能与证据解释)。
 

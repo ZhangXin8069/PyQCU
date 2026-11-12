@@ -23,7 +23,8 @@ def test_coarse_cache_round_trip(tmp_path: Path) -> None:
     loaded = load_coarse_assets(path, np.dtype(np.complex64))
 
     assert path.is_file()
-    for levels, expected in zip(loaded, arrays, strict=True):
+    assert len(loaded) == len(arrays)
+    for levels, expected in zip(loaded, arrays):
         assert len(levels) == 1
         np.testing.assert_array_equal(levels[0], expected)
 

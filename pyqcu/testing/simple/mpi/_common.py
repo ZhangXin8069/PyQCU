@@ -12,6 +12,7 @@ from pyqcu.tools._legacy_mg_cache import load_legacy_mg_cache_slab
 
 from pyqcu.testing.simple._common import (
     DEFAULT_CSW,
+    DEFAULT_LIME,
     DEFAULT_MASS,
     lime_metadata,
     qcu_gauge_to_kupl,
@@ -24,8 +25,6 @@ from pyqcu.testing.simple._common import (
 )
 
 
-DEFAULT_LIME = Path.home() / "data" / (
-    "beta6.20_mu-0.2770_ms-0.2310_L24x64_cfg_9950.lime")
 LIME_MAGIC = b"\x45\x67\x89\xab"
 
 

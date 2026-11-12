@@ -39,25 +39,23 @@ from pathlib import Path
 import numpy as np
 
 try:
-    from ._common import (DEFAULT_ATOL, DEFAULT_CSW, DEFAULT_MASS, json_safe,
-                          lime_metadata, read_h5_metadata, resolve_path,
-                          write_json)
+    from ._common import (DEFAULT_ATOL, DEFAULT_CSW, DEFAULT_LIME, DEFAULT_MASS,
+                          json_safe, lime_metadata, read_h5_metadata,
+                          resolve_path, write_json)
     from ._runner import (REPO, cuda_environment, default_kupl_grid,
                           kupl_command, kupl_environment,
                           libqcu_environment, quda_environment, run_report)
     from .prepare_case import prepare_gauge, prepare_source
 except ImportError:
-    from _common import (DEFAULT_ATOL, DEFAULT_CSW, DEFAULT_MASS, json_safe,
-                         lime_metadata, read_h5_metadata, resolve_path,
-                         write_json)
+    from _common import (DEFAULT_ATOL, DEFAULT_CSW, DEFAULT_LIME, DEFAULT_MASS,
+                         json_safe, lime_metadata, read_h5_metadata,
+                         resolve_path, write_json)
     from _runner import (REPO, cuda_environment, default_kupl_grid,
                          kupl_command, kupl_environment,
                          libqcu_environment, quda_environment, run_report)
     from prepare_case import prepare_gauge, prepare_source
 
 SIMPLE = Path(__file__).resolve().parent
-DEFAULT_LIME = Path.home() / "data" / (
-    "beta6.20_mu-0.2770_ms-0.2310_L24x64_cfg_9950.lime")
 
 
 def _gauge_metadata(path: Path) -> dict:

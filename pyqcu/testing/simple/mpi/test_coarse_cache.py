@@ -188,7 +188,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         loaded = load_coarse_assets(
             cache_location, dtype, starts=starts, local_shape=local_shape)
-        for name, value in zip(ASSET_NAMES, loaded, strict=True):
+        if len(loaded) != len(ASSET_NAMES):
+            errors.append(
+                f"cache returned {len(loaded)} assets, expected "
+                f"{len(ASSET_NAMES)}")
+        for name, value in zip(ASSET_NAMES, loaded):
             local_assets[name] = np.asarray(value)
             if value.dtype != dtype:
                 errors.append(

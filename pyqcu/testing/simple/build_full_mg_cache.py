@@ -76,7 +76,7 @@ def main(argv=None) -> int:
     output = resolve_path(args.output, Path(args.output).expanduser())
     datasets = {
         name: value[0] for name, value in zip(
-            ("lonv", "hnn", "hdg", "sit"), assets, strict=True)
+            ("lonv", "hnn", "hdg", "sit"), assets)
     }
     identity = legacy_mg_cache_identity(
         gauge_canonical_sha256=logical_array_sha256(gauge),
