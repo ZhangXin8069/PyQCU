@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import ctypes
+import os
 from pathlib import Path
 
 import numpy as np
@@ -19,6 +20,16 @@ else:
 LL = ctypes.c_longlong
 
 
+def env_dims(name: str, fallback: tuple[int, ...]) -> tuple[int, ...]:
+    text = os.environ.get(name)
+    if text is None:
+        return fallback
+    values = tuple(int(value) for value in text.split())
+    if len(values) != 4:
+        raise ValueError(f"{name} must contain four integers")
+    return values
+
+
 def bind_library(path: Path) -> ctypes.CDLL:
     library = strict.bind_library(path)
     for name in ("applyCloverBistabCgQcu", "applyCloverMultigridQcu"):
@@ -27,6 +38,9 @@ def bind_library(path: Path) -> ctypes.CDLL:
         function.restype = None
     function = library.verifyCloverMultigridQcu
     function.argtypes = (LL,) * 9
+    function.restype = ctypes.c_int
+    function = library.getCloverBistabCgIterationsQcu
+    function.argtypes = (LL, LL)
     function.restype = ctypes.c_int
     return library
 
@@ -100,11 +114,12 @@ def run_case(library: ctypes.CDLL, dtype: np.dtype,
              num_levels: int, deflate: bool,
              restart: int) -> tuple[float, int]:
     comm = MPI.COMM_WORLD
-    dims = (4, 2, 2, 4)
-    coarse_dims = (2, 2, 2, 2)
+    dims = env_dims("KUPL_LEGACY_TEST_DIMS", (4, 2, 2, 4))
+    grid = env_dims("KUPL_LEGACY_TEST_GRID", (comm.size, 1, 1, 1))
+    coarse_dims = env_dims("KUPL_LEGACY_TEST_COARSE_DIMS", (2, 2, 2, 2))
     (params, argv, set_ptrs, gauge, even, odd,
      coarse_assets) = make_identity_state(
-        dtype, dims, (comm.size, 1, 1, 1), num_levels, deflate, restart,
+        dtype, dims, grid, num_levels, deflate, restart,
         coarse_dims)
     _ = coarse_assets
     rng = np.random.default_rng(8181 + comm.rank + num_levels)
@@ -123,6 +138,8 @@ def run_case(library: ctypes.CDLL, dtype: np.dtype,
             strict.pointer(gauge), strict.pointer(even), strict.pointer(odd),
             strict.pointer(even), strict.pointer(odd),
             strict.pointer(set_ptrs), strict.pointer(params))
+        baseline_iterations = library.getCloverBistabCgIterationsQcu(
+            strict.pointer(set_ptrs), strict.pointer(params))
         before_source = source.copy()
         verify = library.verifyCloverMultigridQcu(
             strict.pointer(multigrid), strict.pointer(source),
@@ -138,12 +155,16 @@ def run_case(library: ctypes.CDLL, dtype: np.dtype,
             strict.pointer(gauge), strict.pointer(even), strict.pointer(odd),
             strict.pointer(even), strict.pointer(odd),
             strict.pointer(set_ptrs), strict.pointer(params))
+        multigrid_iterations = library.getCloverBistabCgIterationsQcu(
+            strict.pointer(set_ptrs), strict.pointer(params))
         warm = multigrid.copy()
         params[57] = 1
         library.applyCloverMultigridQcu(
             strict.pointer(warm), strict.pointer(source),
             strict.pointer(gauge), strict.pointer(even), strict.pointer(odd),
             strict.pointer(even), strict.pointer(odd),
+            strict.pointer(set_ptrs), strict.pointer(params))
+        warm_iterations = library.getCloverBistabCgIterationsQcu(
             strict.pointer(set_ptrs), strict.pointer(params))
     finally:
         library.applyEndQcu(
@@ -154,7 +175,7 @@ def run_case(library: ctypes.CDLL, dtype: np.dtype,
         raise AssertionError(
             f"legacy MG mismatch levels={num_levels} dtype={dtype} "
             f"verify={verify} error={error:.3e}")
-    return error, verify
+    return error, verify, baseline_iterations, multigrid_iterations, warm_iterations
 
 
 def main() -> int:
@@ -179,8 +200,11 @@ def main() -> int:
             f"{MPI.COMM_WORLD.size} "
             + " ".join(
                 f"{dtype}/{levels}/deflate={int(deflate)}/restart={restart}:"
-                f"err={error:.3e},verify={verify}"
-                for dtype, levels, deflate, restart, error, verify in results))
+                f"err={error:.3e},verify={verify},it="
+                f"{baseline_iterations}/{multigrid_iterations}/{warm_iterations}"
+                for dtype, levels, deflate, restart, error, verify,
+                baseline_iterations, multigrid_iterations, warm_iterations
+                in results))
     return 0
 
 

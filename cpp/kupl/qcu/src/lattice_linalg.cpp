@@ -73,7 +73,7 @@ template <typename Real>
 void LatticeSet<Real>::apply_clover_onsite(
     const Complex<Real> *input, const Complex<Real> *matrix,
     Complex<Real> *output, const Complex<Real> *subtract,
-    Real subtract_scale) const {
+    Real subtract_scale, bool may_alias) const {
   using C = Complex<Real>;
   const int64_t count = geometry_.half_sites;
   constexpr int kSiteLanes = 64 / sizeof(Real);
@@ -84,12 +84,21 @@ void LatticeSet<Real>::apply_clover_onsite(
     const int lanes = static_cast<int>(
         std::min<int64_t>(kSiteLanes, count - site));
     C source[kVector][kSiteLanes];
-    for (int column = 0; column < kVector; ++column) {
-      const int64_t base = static_cast<int64_t>(column) * count + site;
+    const C *source_data = nullptr;
+    int64_t source_stride = 0;
+    if (may_alias) {
+      for (int column = 0; column < kVector; ++column) {
+        const int64_t base = static_cast<int64_t>(column) * count + site;
 #pragma omp simd
-      for (int lane = 0; lane < lanes; ++lane) {
-        source[column][lane] = input[base + lane];
+        for (int lane = 0; lane < lanes; ++lane) {
+          source[column][lane] = input[base + lane];
+        }
       }
+      source_data = &source[0][0];
+      source_stride = kSiteLanes;
+    } else {
+      source_data = input + site;
+      source_stride = count;
     }
 
     // In this gamma basis the Wilson-Clover onsite matrix and its inverse are
@@ -113,7 +122,9 @@ void LatticeSet<Real>::apply_clover_onsite(
 #pragma omp simd
           for (int lane = 0; lane < lanes; ++lane) {
             const C &entry = matrix[base + lane];
-            const C &vector = source[column][lane];
+            const C &vector =
+                source_data[static_cast<int64_t>(column) * source_stride +
+                            lane];
             real[lane] += entry.real() * vector.real() -
                           entry.imag() * vector.imag();
             imag[lane] += entry.real() * vector.imag() +
@@ -121,13 +132,19 @@ void LatticeSet<Real>::apply_clover_onsite(
           }
         }
         const int64_t base = static_cast<int64_t>(row) * count + site;
+        if (subtract != nullptr) {
 #pragma omp simd
-        for (int lane = 0; lane < lanes; ++lane) {
-          C value(real[lane], imag[lane]);
-          if (subtract != nullptr) {
-            value -= subtract_scale * subtract[base + lane];
+          for (int lane = 0; lane < lanes; ++lane) {
+            const C &other = subtract[base + lane];
+            output[base + lane] =
+                C(real[lane] - subtract_scale * other.real(),
+                  imag[lane] - subtract_scale * other.imag());
           }
-          output[base + lane] = value;
+        } else {
+#pragma omp simd
+          for (int lane = 0; lane < lanes; ++lane) {
+            output[base + lane] = C(real[lane], imag[lane]);
+          }
         }
       }
     }

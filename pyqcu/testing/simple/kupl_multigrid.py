@@ -462,6 +462,7 @@ def build_coarse_assets(gauge: np.ndarray, lattice: tuple[int, int, int, int],
                 qcu.applyCloversQcu(
                     clover_odd_arg, clover_odd_inv_arg, gauge_arg,
                     set_ptrs_arg, params_arg)
+            params[PARITY] = 1
             params[SET_PLAN] = PLAN_SOLVER
             stage = time.perf_counter()
             if supplied_null_vectors is None:
@@ -515,8 +516,19 @@ def build_coarse_assets(gauge: np.ndarray, lattice: tuple[int, int, int, int],
                     np.linalg.norm(stencil_vector - restricted) / denominator)
                 if (not np.isfinite(galerkin_error) or
                         galerkin_error > 2.0e-5):
+                    difference = stencil_vector - restricted
+                    site_difference = np.linalg.norm(
+                        difference.reshape(E, -1), axis=0)
+                    site_reference = np.linalg.norm(
+                        restricted.reshape(E, -1), axis=0)
+                    worst_site = int(np.argmax(site_difference))
+                    worst_coordinate = np.unravel_index(
+                        worst_site, coarse_lattice)
                     raise RuntimeError(
-                        f"KUPL C++ stencil Galerkin error {galerkin_error:.3e}")
+                        f"KUPL C++ stencil Galerkin error "
+                        f"{galerkin_error:.3e} worst={worst_coordinate} "
+                        f"diff_norm={site_difference[worst_site]:.3e} "
+                        f"reference_norm={site_reference[worst_site]:.3e}")
                 timings["galerkin_validation_seconds"] = (
                     time.perf_counter() - stage)
         finally:
@@ -835,17 +847,24 @@ def main(argv=None) -> int:
     if use_coarse_assets:
         started = time.perf_counter()
         gauge_file_digest = None
+        gauge_canonical_digest = None
         if args.gauge is not None:
             gauge_path = resolve_path(
                 args.gauge, Path(args.gauge).expanduser())
             if rank == 0:
                 gauge_file_digest = file_sha256(gauge_path)
+                if gauge_full is not None:
+                    gauge_canonical_digest = logical_array_sha256(gauge_full)
+                else:
+                    hash_gauge, _ = load_gauge(args.gauge, lattice, dtype)
+                    gauge_canonical_digest = logical_array_sha256(hash_gauge)
+                    del hash_gauge
             if comm is not None:
                 gauge_file_digest = comm.bcast(gauge_file_digest, root=0)
+                gauge_canonical_digest = comm.bcast(
+                    gauge_canonical_digest, root=0)
         cache_identity = legacy_mg_cache_identity(
-            gauge_canonical_sha256=(
-                logical_array_sha256(gauge_full) if gauge_full is not None
-                else gauge_file_digest),
+            gauge_canonical_sha256=gauge_canonical_digest,
             **({
                 "gauge_file_sha256": gauge_file_digest
             } if gauge_file_digest is not None else {}),

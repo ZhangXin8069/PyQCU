@@ -744,11 +744,11 @@ void LatticeSet<Real>::multigrid_build_stencil_local(
       throw std::invalid_argument(
           "local stencil setup requires positive block extents");
     }
-    if (3 * block[dim] + 2 > fine[dim]) {
-      throw std::invalid_argument(
-          "local stencil window exceeds the periodic local lattice");
-    }
-    required_window = std::max(required_window, 3 * block[dim] + 2);
+    // The expanded window is periodic and is clamped to the local extent
+    // below.  This keeps overlap patches with a short compressed time axis
+    // valid while retaining the full-window requirement for larger axes.
+    required_window = std::max(
+        required_window, std::min(fine[dim], 3 * block[dim] + 2));
   }
   if (window < required_window) {
     throw std::invalid_argument(
@@ -909,10 +909,16 @@ void LatticeSet<Real>::multigrid_build_stencil_local(
       expanded_start[dim] =
           (center[dim] * block[dim] - block[dim] - low_padding + fine[dim]) %
           fine[dim];
-      expanded_extent[dim] = std::min(fine[dim], 3 * block[dim] + 3);
+      expanded_extent[dim] =
+          dim == 3 ? fine[dim] : std::min(fine[dim], 3 * block[dim] + 3);
     }
 
     for (int probe = 0; probe < E; ++probe) {
+      // Each probe is a delta on the coarse grid.  Clear the full fine
+      // buffer before injecting the current coarse block; otherwise the
+      // periodic dslash window can consume null vectors left by the
+      // previously processed center.
+      std::fill(source.begin(), source.end(), C(0));
       for (int dx = 0; dx < block[0]; ++dx) {
         for (int dy = 0; dy < block[1]; ++dy) {
           for (int dz = 0; dz < block[2]; ++dz) {

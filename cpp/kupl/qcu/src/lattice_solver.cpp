@@ -50,6 +50,16 @@ bool skip_final_residual() {
   return value != nullptr && value[0] != '\0' && std::strcmp(value, "0") != 0;
 }
 
+double positive_env_double(const char *name, double fallback) {
+  const char *text = std::getenv(name);
+  if (text == nullptr || *text == '\0') {
+    return fallback;
+  }
+  char *end = nullptr;
+  const double value = std::strtod(text, &end);
+  return end != text && *end == '\0' && value > 0.0 ? value : fallback;
+}
+
 template <typename Real>
 std::array<Complex<Real>, 2>
 global_norm_dot_pair(const Complex<Real> *left, const Complex<Real> *right,
@@ -84,6 +94,18 @@ template <typename Real>
 Complex<Real> LatticeSet<Real>::global_dot(const Complex<Real> *left,
                                            const Complex<Real> *right,
                                            int64_t count) const {
+  static const bool profile_opt = std::getenv("KUPL_PROFILE_OPT") != nullptr;
+  const auto profile_start = std::chrono::steady_clock::now();
+  auto profile_finish = [&](Complex<Real> value) {
+    if (profile_opt) {
+      prof_opt_reduce_seconds_ +=
+          std::chrono::duration<double>(std::chrono::steady_clock::now() -
+                                        profile_start)
+              .count();
+      ++prof_opt_reduce_calls_;
+    }
+    return value;
+  };
   Real real_sum = 0;
   Real imag_sum = 0;
   const int64_t chunk = omp_chunk<Real>(count);
@@ -96,18 +118,30 @@ Complex<Real> LatticeSet<Real>::global_dot(const Complex<Real> *left,
   }
   const Real local[2] = {real_sum, imag_sum};
   if (geometry_.size == 1) {
-    return Complex<Real>(local[0], local[1]);
+    return profile_finish(Complex<Real>(local[0], local[1]));
   }
   Real global[2] = {0, 0};
   const MPI_Datatype type =
       sizeof(Real) == sizeof(float) ? MPI_FLOAT : MPI_DOUBLE;
   MPI_Allreduce(local, global, 2, type, MPI_SUM, geometry_.comm);
-  return Complex<Real>(global[0], global[1]);
+  return profile_finish(Complex<Real>(global[0], global[1]));
 }
 
 template <typename Real>
 Real LatticeSet<Real>::global_norm2(const Complex<Real> *field,
                                     int64_t count) const {
+  static const bool profile_opt = std::getenv("KUPL_PROFILE_OPT") != nullptr;
+  const auto profile_start = std::chrono::steady_clock::now();
+  auto profile_finish = [&](Real value) {
+    if (profile_opt) {
+      prof_opt_reduce_seconds_ +=
+          std::chrono::duration<double>(std::chrono::steady_clock::now() -
+                                        profile_start)
+              .count();
+      ++prof_opt_reduce_calls_;
+    }
+    return value;
+  };
   Real local = 0;
   const int64_t chunk = omp_chunk<Real>(count);
 #pragma omp parallel for schedule(static, chunk) reduction(+ : local)
@@ -115,13 +149,53 @@ Real LatticeSet<Real>::global_norm2(const Complex<Real> *field,
     local += std::norm(field[index]);
   }
   if (geometry_.size == 1) {
-    return local;
+    return profile_finish(local);
   }
   Real global = 0;
   const MPI_Datatype type =
       sizeof(Real) == sizeof(float) ? MPI_FLOAT : MPI_DOUBLE;
   MPI_Allreduce(&local, &global, 1, type, MPI_SUM, geometry_.comm);
-  return global;
+  return profile_finish(global);
+}
+
+template <typename Real>
+void LatticeSet<Real>::global_norm_and_dot(const Complex<Real> *left,
+                                           const Complex<Real> *right,
+                                           int64_t count, Real *norm2,
+                                           Complex<Real> *dot) const {
+  static const bool profile_opt = std::getenv("KUPL_PROFILE_OPT") != nullptr;
+  const auto profile_start = std::chrono::steady_clock::now();
+  Real norm_local = 0;
+  Real real_sum = 0;
+  Real imag_sum = 0;
+  const int64_t chunk = omp_chunk<Real>(count);
+#pragma omp parallel for schedule(static, chunk) reduction(+ : norm_local, real_sum, imag_sum)
+  for (int64_t index = 0; index < count; ++index) {
+    const Complex<Real> &a = left[index];
+    const Complex<Real> &b = right[index];
+    norm_local += std::norm(b);
+    real_sum += a.real() * b.real() + a.imag() * b.imag();
+    imag_sum += a.real() * b.imag() - a.imag() * b.real();
+  }
+  if (geometry_.size > 1) {
+    const Real local[3] = {norm_local, real_sum, imag_sum};
+    Real global[3] = {0, 0, 0};
+    const MPI_Datatype type =
+        sizeof(Real) == sizeof(float) ? MPI_FLOAT : MPI_DOUBLE;
+    MPI_Allreduce(local, global, 3, type, MPI_SUM, geometry_.comm);
+    norm_local = global[0];
+    real_sum = global[1];
+    imag_sum = global[2];
+  }
+  *norm2 = norm_local;
+  *dot = Complex<Real>(real_sum, imag_sum);
+  if (profile_opt) {
+    prof_opt_reduce_seconds_ +=
+        std::chrono::duration<double>(std::chrono::steady_clock::now() -
+                                      profile_start)
+            .count();
+    ++prof_opt_reduce_calls_;
+  }
 }
 
 template <typename Real>
@@ -140,7 +214,7 @@ void LatticeSet<Real>::apply_full_operator(
     const Complex<Real> *onsite =
         input + static_cast<std::size_t>(parity) * vectors;
     apply_clover_onsite(onsite, clover[static_cast<std::size_t>(parity)],
-                        destination, scratch, kappa());
+                        destination, scratch, kappa(), false);
     if (parity == 0 && std::getenv("KUPL_DEBUG_OPERATOR") != nullptr) {
       log("OPERATOR", "source=(%g,%g) dslash=(%g,%g) result=(%g,%g)",
           static_cast<double>(source[0].real()),
@@ -201,12 +275,14 @@ void LatticeSet<Real>::solve_compact_bistabcg(
   last_iterations_ = 0;
   const int max_iterations = parameters_.get(kMaxIter);
   for (int iteration = 0; iteration < max_iterations; ++iteration) {
-    const Real residual = std::sqrt(global_norm2(r_.data(), count));
+    Real residual_norm2 = 0;
+    C rho;
+    global_norm_and_dot(rhat_.data(), r_.data(), count, &residual_norm2, &rho);
+    const Real residual = std::sqrt(residual_norm2);
     if (residual <= recurrence_tolerance) {
       last_iterations_ = iteration;
       break;
     }
-    const C rho = global_dot(rhat_.data(), r_.data(), count);
     if (std::abs(rho) <= std::numeric_limits<Real>::min() ||
         std::abs(omega) <= std::numeric_limits<Real>::min()) {
       throw std::runtime_error(std::string(label) +
@@ -415,7 +491,7 @@ void LatticeSet<Real>::prepare_clover_schur(
   const Complex<Real> *rhs_target =
       full_rhs + static_cast<std::size_t>(parity) * vectors;
   apply_clover_onsite(rhs_other, inverse[static_cast<std::size_t>(other)],
-                      work_b_.data());
+                      work_b_.data(), nullptr, Real(0), false);
   bare_dslash(work_c_.data(), work_b_.data(), parity);
 #pragma omp parallel for schedule(static, chunk)
   for (int64_t index = 0; index < vectors; ++index) {
@@ -452,7 +528,8 @@ void LatticeSet<Real>::reconstruct_clover_schur(
         rhs_other[index] + kappa() * work_a_[static_cast<std::size_t>(index)];
   }
   apply_clover_onsite(
-      work_b_.data(), inverse[static_cast<std::size_t>(other)], out_other);
+      work_b_.data(), inverse[static_cast<std::size_t>(other)], out_other,
+      nullptr, Real(0), false);
 }
 
 template <typename Real>
@@ -599,12 +676,24 @@ void LatticeSet<Real>::solve_clover(
   ensure_solver_scratch();
   static const bool profile_dslash =
       std::getenv("KUPL_PROFILE_DSLASH") != nullptr;
+  static const bool profile_opt =
+      std::getenv("KUPL_PROFILE_OPT") != nullptr;
   if (profile_dslash) {
     prof_dslash_halo_seconds_ = 0;
     prof_dslash_interior_seconds_ = 0;
     prof_dslash_wait_seconds_ = 0;
     prof_dslash_boundary_seconds_ = 0;
     prof_dslash_calls_ = 0;
+  }
+  if (profile_opt) {
+    prof_opt_dslash_seconds_ = 0;
+    prof_opt_clover_seconds_ = 0;
+    prof_opt_dslash_bytes_ = 0;
+    prof_opt_clover_bytes_ = 0;
+    prof_opt_reduce_seconds_ = 0;
+    prof_opt_dslash_calls_ = 0;
+    prof_opt_clover_calls_ = 0;
+    prof_opt_reduce_calls_ = 0;
   }
   const int64_t vectors = geometry_.parity_vectors;
   const int64_t full_vectors = vectors * 2;
@@ -619,7 +708,20 @@ void LatticeSet<Real>::solve_clover(
     }
   }
 
+  const auto phase_start = std::chrono::steady_clock::now();
   prepare_clover_schur(bp_.data(), full_input, parity, inverse);
+  const auto phase_prepare = std::chrono::steady_clock::now();
+  const Real clover_relative_tolerance = [&] {
+    if constexpr (sizeof(Real) != sizeof(float)) {
+      return Real(0.1) * atol();
+    } else {
+      const Real factor =
+          static_cast<Real>(positive_env_double("KUPL_CLOVER_TOL_FACTOR", 1.0));
+      return std::min(atol() * factor, std::max(atol(), residual_floor()));
+    }
+  }();
+  log("CLOVER_BISTABCG_SCHUR", "relative_tolerance=%g",
+      static_cast<double>(clover_relative_tolerance));
   solve_compact_bistabcg(
       target, bp_.data(), vectors,
       [this, parity, &clover, &inverse](const Complex<Real> *input,
@@ -627,8 +729,10 @@ void LatticeSet<Real>::solve_clover(
         apply_schur(input, output, parity, clover, inverse, tmp_a_.data(),
                     tmp_b_.data());
       },
-      "CLOVER_BISTABCG_SCHUR", atol());
+      "CLOVER_BISTABCG_SCHUR", clover_relative_tolerance);
+  const auto phase_solve = std::chrono::steady_clock::now();
   reconstruct_clover_schur(full_output, full_input, target, parity, inverse);
+  const auto phase_reconstruct = std::chrono::steady_clock::now();
 
   if (skip_final_residual()) {
     // The strict residual gate is still applied independently by the Python
@@ -667,6 +771,35 @@ void LatticeSet<Real>::solve_clover(
         prof_dslash_halo_seconds_ + prof_dslash_interior_seconds_ +
             prof_dslash_wait_seconds_ + prof_dslash_boundary_seconds_,
         static_cast<long long>(prof_dslash_calls_));
+  }
+  if (profile_opt) {
+    const double dslash_gbps =
+        prof_opt_dslash_seconds_ > 0
+            ? prof_opt_dslash_bytes_ / prof_opt_dslash_seconds_ / 1e9
+            : 0.0;
+    const double clover_gbps =
+        prof_opt_clover_seconds_ > 0
+            ? prof_opt_clover_bytes_ / prof_opt_clover_seconds_ / 1e9
+            : 0.0;
+    const double ranks = static_cast<double>(geometry_.size);
+    const auto seconds = [](const auto &begin, const auto &end) {
+      return std::chrono::duration<double>(end - begin).count();
+    };
+    std::fprintf(
+        stderr,
+        "PYQCU::KUPL::OPT_PROFILE:rank=%d rank_of=%d\ndslash=%.6f/%lld bytes=%.3fMB "
+        "gbps_rank=%.2f gbps_total=%.2f\n"
+        "clover=%.6f/%lld bytes=%.3fMB gbps_rank=%.2f gbps_total=%.2f\n"
+        "reduce=%.6f/%lld\n"
+        "phases prepare=%.6f solve=%.6f reconstruct=%.6f\n",
+        geometry_.rank, geometry_.size,
+        prof_opt_dslash_seconds_, static_cast<long long>(prof_opt_dslash_calls_),
+        prof_opt_dslash_bytes_ / 1e6, dslash_gbps, dslash_gbps * ranks,
+        prof_opt_clover_seconds_, static_cast<long long>(prof_opt_clover_calls_),
+        prof_opt_clover_bytes_ / 1e6, clover_gbps, clover_gbps * ranks,
+        prof_opt_reduce_seconds_, static_cast<long long>(prof_opt_reduce_calls_),
+        seconds(phase_start, phase_prepare), seconds(phase_prepare, phase_solve),
+        seconds(phase_solve, phase_reconstruct));
   }
 }
 

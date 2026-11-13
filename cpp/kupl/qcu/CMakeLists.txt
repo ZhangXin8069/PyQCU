@@ -163,6 +163,17 @@ if(KUPL_BUILD_TESTS)
     --lattice 4 2 2 4
     --grid 1 1 1 2
   )
+  add_test(NAME kupl_qcu_t2_lanes COMMAND
+    ${MPIEXEC_EXECUTABLE}
+    ${MPIEXEC_NUMPROC_FLAG} 2
+    $<TARGET_FILE:kupl_qcu_tests>
+    --lattice 4 2 2 2
+    --grid 1 1 1 2
+  )
+  set_tests_properties(kupl_qcu_t2_lanes PROPERTIES
+    ENVIRONMENT
+      "KUPL_ENABLE_BOUNDARY_LANES=1;KUPL_T_LOCAL_IN_PART1=1;KUPL_HALO_PACK6=1;KUPL_ENABLE_T2_LANES=1"
+  )
   add_test(NAME kupl_qcu_4rank_diagonal COMMAND
     ${MPIEXEC_EXECUTABLE}
     ${MPIEXEC_NUMPROC_FLAG} 4
@@ -392,6 +403,18 @@ if(KUPL_BUILD_TESTS)
         ${Python3_EXECUTABLE}
         ${KUPL_PYTHON_TEST_DIR}/test_legacy_mg.py
         --library $<TARGET_FILE:kupl_qcu>
+      )
+      add_test(NAME kupl_qcu_python_legacy_mg_t_only_2rank COMMAND
+        ${MPIEXEC_EXECUTABLE}
+        ${MPIEXEC_NUMPROC_FLAG} 2
+        ${Python3_EXECUTABLE}
+        ${KUPL_PYTHON_TEST_DIR}/test_legacy_mg.py
+        --library $<TARGET_FILE:kupl_qcu>
+      )
+      set_tests_properties(
+        kupl_qcu_python_legacy_mg_t_only_2rank PROPERTIES
+        ENVIRONMENT
+          "KUPL_LEGACY_TEST_DIMS=8 8 8 2;KUPL_LEGACY_TEST_GRID=1 1 1 2;KUPL_LEGACY_TEST_COARSE_DIMS=4 4 4 1;OMP_NUM_THREADS=1;KUPL_OMP_THREADS=1"
       )
       set_tests_properties(
         kupl_qcu_python_multigrid_1rank

@@ -455,6 +455,112 @@ def run_orthogonalize_test(library: ctypes.CDLL) -> float:
     return worst
 
 
+def run_short_time_stencil_test(library: ctypes.CDLL) -> float:
+    comm = MPI.COMM_WORLD
+    if comm.size != 1:
+        return 0.0
+
+    physical = (4, 4, 16, 6)
+    fine = (4, 4, 16, 3)
+    coarse = (2, 2, 8, 3)
+    E, e = 2, 12
+    gauge = np.empty((2, 3, 3, 4, *fine), dtype=np.complex64)
+    clover_even = np.empty((4, 3, 4, 3, *fine), dtype=np.complex64)
+    clover_odd = np.empty_like(clover_even)
+    clover_even_inv = np.empty_like(clover_even)
+    clover_odd_inv = np.empty_like(clover_even)
+    null_vectors = np.zeros((E, e, *fine), dtype=np.complex64)
+    null_vectors[0, 0] = 1.0
+    null_vectors[1, 1] = 1.0
+    sitting = np.zeros((E, E, *coarse), dtype=np.complex64)
+    hop_nn = np.zeros((2, 4, E, E, *coarse), dtype=np.complex64)
+    hop_diag = np.zeros((2, 2, 6, E, E, *coarse), dtype=np.complex64)
+
+    params = np.zeros(58, dtype=np.int32)
+    params[0:4] = physical
+    params[4] = int(np.prod(physical))
+    params[5:9] = (1, 1, 1, 1)
+    params[10] = 0
+    params[11] = 1
+    params[13] = 200
+    params[14] = 2
+    params[15] = 0
+    params[16] = -1
+    params[19] = E
+    params[20:24] = coarse
+    params[52] = 118
+    argv = np.zeros(8, dtype=np.float32)
+    argv[0], argv[1], argv[2], argv[7] = 0.17, 1.0e-7, 0.1, 0.8
+    set_ptrs = np.zeros(100, dtype=np.int64)
+
+    library.applyInitQcu(pointer(set_ptrs), pointer(params), pointer(argv))
+    try:
+        library.applyGaussGaugeQcu(
+            pointer(gauge), pointer(set_ptrs), pointer(params))
+    finally:
+        library.applyEndQcu(pointer(set_ptrs), pointer(params))
+
+    params[16] = 1
+    library.applyInitQcu(pointer(set_ptrs), pointer(params), pointer(argv))
+    try:
+        params[9] = 0
+        library.applyCloversQcu(
+            pointer(clover_even), pointer(clover_even_inv), pointer(gauge),
+            pointer(set_ptrs), pointer(params))
+        params[9] = 1
+        library.applyCloversQcu(
+            pointer(clover_odd), pointer(clover_odd_inv), pointer(gauge),
+            pointer(set_ptrs), pointer(params))
+        status = library.applyMultigridBuildStencilLocalQcu(
+            pointer(sitting), pointer(hop_nn), pointer(hop_diag),
+            pointer(null_vectors), pointer(gauge), pointer(clover_even),
+            pointer(clover_odd), pointer(clover_even_inv),
+            pointer(clover_odd_inv), pointer(set_ptrs), pointer(params),
+            E, e, *fine, *coarse, 8, 8)
+        if status != 0:
+            raise AssertionError(
+                "KUPL short-time local stencil builder failed with status "
+                f"{status}")
+        rng = np.random.default_rng(942)
+        coarse_vector = (
+            rng.normal(size=(E, *coarse)) +
+            1j * rng.normal(size=(E, *coarse))).astype(np.complex64)
+        prolonged = np.empty((e, *fine), dtype=np.complex64)
+        schur_vector = np.empty_like(prolonged)
+        restricted = np.empty_like(coarse_vector)
+        stencil_vector = np.empty_like(coarse_vector)
+        library.applyMultigridProLongQcu(
+            pointer(prolonged), pointer(coarse_vector), pointer(null_vectors),
+            pointer(set_ptrs), pointer(params))
+        library.applyCloverBistabCgDslashQcu(
+            pointer(schur_vector), pointer(prolonged), pointer(gauge),
+            pointer(clover_even), pointer(clover_odd), pointer(clover_even_inv),
+            pointer(clover_odd_inv), pointer(set_ptrs), pointer(params))
+        library.applyMultigridRestrictQcu(
+            pointer(restricted), pointer(schur_vector), pointer(null_vectors),
+            pointer(set_ptrs), pointer(params))
+        library.applyMultigridCoarseDslashWideQcu(
+            pointer(stencil_vector), pointer(coarse_vector), pointer(sitting),
+            pointer(hop_nn), pointer(hop_diag), pointer(set_ptrs),
+            pointer(params))
+        galerkin_error = float(
+            np.linalg.norm(stencil_vector - restricted) /
+            max(np.linalg.norm(restricted), 1.0))
+        if galerkin_error >= 2.0e-5:
+            raise AssertionError(
+                "KUPL short-time local stencil Galerkin error "
+                f"{galerkin_error:.3e}")
+    finally:
+        library.applyEndQcu(pointer(set_ptrs), pointer(params))
+
+    outputs = (sitting, hop_nn, hop_diag)
+    if not all(np.all(np.isfinite(output)) for output in outputs):
+        raise AssertionError("KUPL short-time local stencil produced non-finite data")
+    if not all(np.any(output) for output in outputs):
+        raise AssertionError("KUPL short-time local stencil produced zero data")
+    return float(np.linalg.norm(sitting))
+
+
 def run_null_vector_test(
         library: ctypes.CDLL) -> tuple[float, float, float]:
     comm = MPI.COMM_WORLD
@@ -656,6 +762,7 @@ def main() -> int:
     orthogonalize_error = 0.0
     null_gram_error = null_deterministic_error = 0.0
     null_galerkin_error = 0.0
+    short_time_stencil_norm = 0.0
     if args.stage in ("all", "gaussian"):
         gaussian_c64 = run_gaussian_test(
             library, np.dtype(np.complex64), 2.0e-5)
@@ -668,6 +775,7 @@ def main() -> int:
     if args.stage in ("all", "orthogonalize"):
         orthogonalize_error = run_orthogonalize_test(library)
     if args.stage in ("all", "null"):
+        short_time_stencil_norm = run_short_time_stencil_test(library)
         (null_gram_error, null_deterministic_error,
          null_galerkin_error) = run_null_vector_test(library)
     if MPI.COMM_WORLD.rank == 0:
@@ -681,7 +789,8 @@ def main() -> int:
             f"orthogonalize={orthogonalize_error:.3e} "
             f"null_gram={null_gram_error:.3e} "
             f"null_deterministic={null_deterministic_error:.3e} "
-            f"null_galerkin={null_galerkin_error:.3e}")
+            f"null_galerkin={null_galerkin_error:.3e} "
+            f"short_time_stencil={short_time_stencil_norm:.3e}")
     return 0
 
 

@@ -65,6 +65,19 @@ inline bool use_boundary_lanes() {
   return enabled;
 }
 
+// Opt-in specialized local_t==2 kernel. Keep it separate from the existing
+// boundary-lane path until a full production A/B has passed.
+inline bool use_t2_lanes() {
+  static const bool enabled = [] {
+    const char *text = std::getenv("KUPL_ENABLE_T2_LANES");
+    return text != nullptr && *text != '\0' && std::strcmp(text, "0") != 0 &&
+           std::strcmp(text, "false") != 0 &&
+           std::strcmp(text, "no") != 0 &&
+           std::strcmp(text, "off") != 0;
+  }();
+  return enabled;
+}
+
 template <typename Real, int Direction, int GammaSign>
 inline void transform_gamma(const Complex<Real> &v0,
                             const Complex<Real> &v1,
@@ -246,51 +259,117 @@ void accumulate_hopping_block(const Complex<Real> *source,
                               Complex<Real> result[kVector][64 / sizeof(Real)]) {
   using C = Complex<Real>;
   constexpr int kSiteLanes = 64 / sizeof(Real);
-  C transported[kVector][kSiteLanes];
-  for (int spin = 0; spin < kSpin; ++spin) {
-    for (int row = 0; row < kColor; ++row) {
-      Real real[kSiteLanes] = {};
-      Real imag[kSiteLanes] = {};
-      for (int column = 0; column < kColor; ++column) {
-        const int gauge_component =
-            Dagger ? column * kColor + row : row * kColor + column;
-        const C *entries = gauge + gauge_component * gauge_stride;
-        const C *vectors =
-            source + static_cast<int64_t>(spin * kColor + column) *
-                         source_stride;
+  Real projected0_real[kColor][kSiteLanes];
+  Real projected0_imag[kColor][kSiteLanes];
+  Real projected1_real[kColor][kSiteLanes];
+  Real projected1_imag[kColor][kSiteLanes];
 #pragma omp simd
-        for (int lane = 0; lane < lanes; ++lane) {
-          const Real entry_imag = Dagger ? -entries[lane].imag()
-                                         : entries[lane].imag();
-          real[lane] += entries[lane].real() * vectors[lane].real() -
-                        entry_imag * vectors[lane].imag();
-          imag[lane] += entries[lane].real() * vectors[lane].imag() +
-                        entry_imag * vectors[lane].real();
-        }
-      }
-      for (int lane = 0; lane < lanes; ++lane) {
-        transported[spin * kColor + row][lane] =
-            C(real[lane], imag[lane]);
+  for (int lane = 0; lane < lanes; ++lane) {
+    for (int color = 0; color < kColor; ++color) {
+      const C &v0 = source[(0 * kColor + color) * source_stride + lane];
+      const C &v1 = source[(1 * kColor + color) * source_stride + lane];
+      const C &v2 = source[(2 * kColor + color) * source_stride + lane];
+      const C &v3 = source[(3 * kColor + color) * source_stride + lane];
+      if constexpr (Direction == 0) {
+        projected0_real[color][lane] =
+            v0.real() + (GammaSign < 0 ? -v3.imag() : v3.imag());
+        projected0_imag[color][lane] =
+            v0.imag() + (GammaSign < 0 ? v3.real() : -v3.real());
+        projected1_real[color][lane] =
+            v1.real() + (GammaSign < 0 ? -v2.imag() : v2.imag());
+        projected1_imag[color][lane] =
+            v1.imag() + (GammaSign < 0 ? v2.real() : -v2.real());
+      } else if constexpr (Direction == 1) {
+        projected0_real[color][lane] =
+            GammaSign < 0 ? v0.real() - v3.real() : v0.real() + v3.real();
+        projected0_imag[color][lane] =
+            GammaSign < 0 ? v0.imag() - v3.imag() : v0.imag() + v3.imag();
+        projected1_real[color][lane] =
+            GammaSign < 0 ? v1.real() + v2.real() : v1.real() - v2.real();
+        projected1_imag[color][lane] =
+            GammaSign < 0 ? v1.imag() + v2.imag() : v1.imag() - v2.imag();
+      } else if constexpr (Direction == 2) {
+        projected0_real[color][lane] =
+            v0.real() + (GammaSign < 0 ? -v2.imag() : v2.imag());
+        projected0_imag[color][lane] =
+            v0.imag() + (GammaSign < 0 ? v2.real() : -v2.real());
+        projected1_real[color][lane] =
+            v1.real() + (GammaSign < 0 ? v3.imag() : -v3.imag());
+        projected1_imag[color][lane] =
+            v1.imag() + (GammaSign < 0 ? -v3.real() : v3.real());
+      } else {
+        projected0_real[color][lane] =
+            GammaSign < 0 ? v0.real() + v2.real() : v0.real() - v2.real();
+        projected0_imag[color][lane] =
+            GammaSign < 0 ? v0.imag() + v2.imag() : v0.imag() - v2.imag();
+        projected1_real[color][lane] =
+            GammaSign < 0 ? v1.real() + v3.real() : v1.real() - v3.real();
+        projected1_imag[color][lane] =
+            GammaSign < 0 ? v1.imag() + v3.imag() : v1.imag() - v3.imag();
       }
     }
   }
 
-  for (int color = 0; color < kColor; ++color) {
-    C h0[kSiteLanes];
-    C h1[kSiteLanes];
-    C h2[kSiteLanes];
-    C h3[kSiteLanes];
+  for (int row = 0; row < kColor; ++row) {
+    Real transported0_real[kSiteLanes] = {};
+    Real transported0_imag[kSiteLanes] = {};
+    Real transported1_real[kSiteLanes] = {};
+    Real transported1_imag[kSiteLanes] = {};
 #pragma omp simd
     for (int lane = 0; lane < lanes; ++lane) {
-      transform_gamma<Real, Direction, GammaSign>(
-          transported[color][lane], transported[kColor + color][lane],
-          transported[2 * kColor + color][lane],
-          transported[3 * kColor + color][lane], h0[lane], h1[lane],
-          h2[lane], h3[lane]);
-      result[color][lane] += h0[lane];
-      result[kColor + color][lane] += h1[lane];
-      result[2 * kColor + color][lane] += h2[lane];
-      result[3 * kColor + color][lane] += h3[lane];
+      Real sum0_real = 0;
+      Real sum0_imag = 0;
+      Real sum1_real = 0;
+      Real sum1_imag = 0;
+      for (int column = 0; column < kColor; ++column) {
+        const int entry =
+            Dagger ? column * kColor + row : row * kColor + column;
+        const C &u = gauge[entry * gauge_stride + lane];
+        const Real entry_real = u.real();
+        const Real entry_imag = Dagger ? -u.imag() : u.imag();
+        const Real p0_real = projected0_real[column][lane];
+        const Real p0_imag = projected0_imag[column][lane];
+        const Real p1_real = projected1_real[column][lane];
+        const Real p1_imag = projected1_imag[column][lane];
+        sum0_real += p0_real * entry_real - p0_imag * entry_imag;
+        sum0_imag += p0_real * entry_imag + p0_imag * entry_real;
+        sum1_real += p1_real * entry_real - p1_imag * entry_imag;
+        sum1_imag += p1_real * entry_imag + p1_imag * entry_real;
+      }
+      transported0_real[lane] = sum0_real;
+      transported0_imag[lane] = sum0_imag;
+      transported1_real[lane] = sum1_real;
+      transported1_imag[lane] = sum1_imag;
+    }
+#pragma omp simd
+    for (int lane = 0; lane < lanes; ++lane) {
+      const Real t0_real = transported0_real[lane];
+      const Real t0_imag = transported0_imag[lane];
+      const Real t1_real = transported1_real[lane];
+      const Real t1_imag = transported1_imag[lane];
+      result[0 * kColor + row][lane] += C(t0_real, t0_imag);
+      result[1 * kColor + row][lane] += C(t1_real, t1_imag);
+      if constexpr (Direction == 0) {
+        result[2 * kColor + row][lane] +=
+            GammaSign < 0 ? C(t1_imag, -t1_real) : C(-t1_imag, t1_real);
+        result[3 * kColor + row][lane] +=
+            GammaSign < 0 ? C(t0_imag, -t0_real) : C(-t0_imag, t0_real);
+      } else if constexpr (Direction == 1) {
+        result[2 * kColor + row][lane] +=
+            GammaSign < 0 ? C(t1_real, t1_imag) : C(-t1_real, -t1_imag);
+        result[3 * kColor + row][lane] +=
+            GammaSign < 0 ? C(-t0_real, -t0_imag) : C(t0_real, t0_imag);
+      } else if constexpr (Direction == 2) {
+        result[2 * kColor + row][lane] +=
+            GammaSign < 0 ? C(t0_imag, -t0_real) : C(-t0_imag, t0_real);
+        result[3 * kColor + row][lane] +=
+            GammaSign < 0 ? C(-t1_imag, t1_real) : C(t1_imag, -t1_real);
+      } else {
+        result[2 * kColor + row][lane] +=
+            GammaSign < 0 ? C(t0_real, t0_imag) : C(-t0_real, -t0_imag);
+        result[3 * kColor + row][lane] +=
+            GammaSign < 0 ? C(t1_real, t1_imag) : C(-t1_real, -t1_imag);
+      }
     }
   }
 }
@@ -600,16 +679,6 @@ inline bool is_periodic_face_site(const std::array<int, kDim> &local,
           (z == 0 || z == local[2] - 1) && xy_interior);
 }
 
-template <typename Real>
-inline Complex<Real> rotate_plus_i(const Complex<Real> &value) {
-  return Complex<Real>(-value.imag(), value.real());
-}
-
-template <typename Real>
-inline Complex<Real> rotate_minus_i(const Complex<Real> &value) {
-  return Complex<Real>(value.imag(), -value.real());
-}
-
 // Fold the gamma matrix into two spin projections, then apply SU(3) to the two
 // projected vectors.  This mirrors the CUDA kernel (wilson_dslash.cu): two
 // 3x3 complex multiplies (18 MACs) instead of 12 components times 3 columns
@@ -623,8 +692,10 @@ void accumulate_hop_lanes(const Complex<Real> source[kVector][64 / sizeof(Real)]
   constexpr int kSiteLanes = 64 / sizeof(Real);
   constexpr bool kNegative = GammaSign < 0;
 
-  C projected0[kColor][kSiteLanes];
-  C projected1[kColor][kSiteLanes];
+  Real projected0_real[kColor][kSiteLanes];
+  Real projected0_imag[kColor][kSiteLanes];
+  Real projected1_real[kColor][kSiteLanes];
+  Real projected1_imag[kColor][kSiteLanes];
 #pragma omp simd
   for (int lane = 0; lane < kSiteLanes; ++lane) {
     for (int color = 0; color < kColor; ++color) {
@@ -633,31 +704,50 @@ void accumulate_hop_lanes(const Complex<Real> source[kVector][64 / sizeof(Real)]
       const C &v2 = source[2 * kColor + color][lane];
       const C &v3 = source[3 * kColor + color][lane];
       if constexpr (Direction == 0) {
-        const C minus_ig2 =
-            kNegative ? rotate_plus_i(v2) : rotate_minus_i(v2);
-        const C minus_ig3 =
-            kNegative ? rotate_plus_i(v3) : rotate_minus_i(v3);
-        projected0[color][lane] = v0 + minus_ig3;
-        projected1[color][lane] = v1 + minus_ig2;
+        projected0_real[color][lane] =
+            v0.real() + (kNegative ? -v3.imag() : v3.imag());
+        projected0_imag[color][lane] =
+            v0.imag() + (kNegative ? v3.real() : -v3.real());
+        projected1_real[color][lane] =
+            v1.real() + (kNegative ? -v2.imag() : v2.imag());
+        projected1_imag[color][lane] =
+            v1.imag() + (kNegative ? v2.real() : -v2.real());
       } else if constexpr (Direction == 1) {
-        projected0[color][lane] = kNegative ? v0 - v3 : v0 + v3;
-        projected1[color][lane] = kNegative ? v1 + v2 : v1 - v2;
+        projected0_real[color][lane] =
+            kNegative ? v0.real() - v3.real() : v0.real() + v3.real();
+        projected0_imag[color][lane] =
+            kNegative ? v0.imag() - v3.imag() : v0.imag() + v3.imag();
+        projected1_real[color][lane] =
+            kNegative ? v1.real() + v2.real() : v1.real() - v2.real();
+        projected1_imag[color][lane] =
+            kNegative ? v1.imag() + v2.imag() : v1.imag() - v2.imag();
       } else if constexpr (Direction == 2) {
-        const C minus_ig2 =
-            kNegative ? rotate_plus_i(v2) : rotate_minus_i(v2);
-        const C ig3 = kNegative ? rotate_minus_i(v3) : rotate_plus_i(v3);
-        projected0[color][lane] = v0 + minus_ig2;
-        projected1[color][lane] = v1 + ig3;
+        projected0_real[color][lane] =
+            v0.real() + (kNegative ? -v2.imag() : v2.imag());
+        projected0_imag[color][lane] =
+            v0.imag() + (kNegative ? v2.real() : -v2.real());
+        projected1_real[color][lane] =
+            v1.real() + (kNegative ? v3.imag() : -v3.imag());
+        projected1_imag[color][lane] =
+            v1.imag() + (kNegative ? -v3.real() : v3.real());
       } else {
-        projected0[color][lane] = kNegative ? v0 + v2 : v0 - v2;
-        projected1[color][lane] = kNegative ? v1 + v3 : v1 - v3;
+        projected0_real[color][lane] =
+            kNegative ? v0.real() + v2.real() : v0.real() - v2.real();
+        projected0_imag[color][lane] =
+            kNegative ? v0.imag() + v2.imag() : v0.imag() - v2.imag();
+        projected1_real[color][lane] =
+            kNegative ? v1.real() + v3.real() : v1.real() - v3.real();
+        projected1_imag[color][lane] =
+            kNegative ? v1.imag() + v3.imag() : v1.imag() - v3.imag();
       }
     }
   }
 
   for (int row = 0; row < kColor; ++row) {
-    C transported0[kSiteLanes];
-    C transported1[kSiteLanes];
+    Real transported0_real[kSiteLanes] = {};
+    Real transported0_imag[kSiteLanes] = {};
+    Real transported1_real[kSiteLanes] = {};
+    Real transported1_imag[kSiteLanes] = {};
     // Explicit real/imaginary arithmetic so the lane loop vectorises; a
     // std::complex multiply here defeats the OpenMP simd pragma.
 #pragma omp simd
@@ -672,38 +762,48 @@ void accumulate_hop_lanes(const Complex<Real> source[kVector][64 / sizeof(Real)]
         const C &u = gauge[entry][lane];
         const Real entry_real = u.real();
         const Real entry_imag = Dagger ? -u.imag() : u.imag();
-        const C &p0 = projected0[column][lane];
-        const C &p1 = projected1[column][lane];
-        sum0_real += p0.real() * entry_real - p0.imag() * entry_imag;
-        sum0_imag += p0.real() * entry_imag + p0.imag() * entry_real;
-        sum1_real += p1.real() * entry_real - p1.imag() * entry_imag;
-        sum1_imag += p1.real() * entry_imag + p1.imag() * entry_real;
+        const Real p0_real = projected0_real[column][lane];
+        const Real p0_imag = projected0_imag[column][lane];
+        const Real p1_real = projected1_real[column][lane];
+        const Real p1_imag = projected1_imag[column][lane];
+        sum0_real += p0_real * entry_real - p0_imag * entry_imag;
+        sum0_imag += p0_real * entry_imag + p0_imag * entry_real;
+        sum1_real += p1_real * entry_real - p1_imag * entry_imag;
+        sum1_imag += p1_real * entry_imag + p1_imag * entry_real;
       }
-      transported0[lane] = C(sum0_real, sum0_imag);
-      transported1[lane] = C(sum1_real, sum1_imag);
+      transported0_real[lane] = sum0_real;
+      transported0_imag[lane] = sum0_imag;
+      transported1_real[lane] = sum1_real;
+      transported1_imag[lane] = sum1_imag;
     }
 #pragma omp simd
     for (int lane = 0; lane < kSiteLanes; ++lane) {
-      const C &t0 = transported0[lane];
-      const C &t1 = transported1[lane];
-      result[0 * kColor + row][lane] += t0;
-      result[1 * kColor + row][lane] += t1;
+      const Real t0_real = transported0_real[lane];
+      const Real t0_imag = transported0_imag[lane];
+      const Real t1_real = transported1_real[lane];
+      const Real t1_imag = transported1_imag[lane];
+      result[0 * kColor + row][lane] += C(t0_real, t0_imag);
+      result[1 * kColor + row][lane] += C(t1_real, t1_imag);
       if constexpr (Direction == 0) {
         result[2 * kColor + row][lane] +=
-            kNegative ? rotate_minus_i(t1) : rotate_plus_i(t1);
+            kNegative ? C(t1_imag, -t1_real) : C(-t1_imag, t1_real);
         result[3 * kColor + row][lane] +=
-            kNegative ? rotate_minus_i(t0) : rotate_plus_i(t0);
+            kNegative ? C(t0_imag, -t0_real) : C(-t0_imag, t0_real);
       } else if constexpr (Direction == 1) {
-        result[2 * kColor + row][lane] += kNegative ? t1 : -t1;
-        result[3 * kColor + row][lane] += kNegative ? -t0 : t0;
+        result[2 * kColor + row][lane] +=
+            kNegative ? C(t1_real, t1_imag) : C(-t1_real, -t1_imag);
+        result[3 * kColor + row][lane] +=
+            kNegative ? C(-t0_real, -t0_imag) : C(t0_real, t0_imag);
       } else if constexpr (Direction == 2) {
         result[2 * kColor + row][lane] +=
-            kNegative ? rotate_minus_i(t0) : rotate_plus_i(t0);
+            kNegative ? C(t0_imag, -t0_real) : C(-t0_imag, t0_real);
         result[3 * kColor + row][lane] +=
-            kNegative ? rotate_plus_i(t1) : rotate_minus_i(t1);
+            kNegative ? C(-t1_imag, t1_real) : C(t1_imag, -t1_real);
       } else {
-        result[2 * kColor + row][lane] += kNegative ? t0 : -t0;
-        result[3 * kColor + row][lane] += kNegative ? t1 : -t1;
+        result[2 * kColor + row][lane] +=
+            kNegative ? C(t0_real, t0_imag) : C(-t0_real, -t0_imag);
+        result[3 * kColor + row][lane] +=
+            kNegative ? C(t1_real, t1_imag) : C(-t1_real, -t1_imag);
       }
     }
   }
@@ -1115,6 +1215,12 @@ void LatticeSet<Real>::compute_dslash_boundary_part(
   const int64_t count = static_cast<int64_t>(boundary_sites_.size());
   const int64_t chunk = omp_chunk<Real>(count);
   const bool block_dslash = use_block_dslash(geometry_.half_sites);
+  if (use_t2_lanes() && use_boundary_lanes() && t_local_part1_enabled() &&
+      geometry_.local[3] == 2 && geometry_.grid[0] == 1 &&
+      geometry_.grid[1] == 1 && geometry_.grid[2] == 1) {
+    compute_dslash_t2_lanes(local_source, output, target, part);
+    return;
+  }
   if (use_boundary_lanes()) {
     auto source_fn = [&](int direction, int x, int y, int z, int t2,
                          int sign) {
@@ -1221,6 +1327,306 @@ void LatticeSet<Real>::compute_dslash_boundary_part(
       compute_dslash_site(local_source, output, x, y, z, t2, target, part);
     }
   }
+}
+
+// Specialized t-only kernel for the production geometry grid=(1,1,1,N) and
+// local_t=2.  It keeps the four spin projections folded through the SU(3)
+// multiply and resolves the t axis without the generic coordinate/gauge
+// accessors used by the scalar fallback.
+template <typename Real>
+void LatticeSet<Real>::compute_dslash_t2_lanes(
+    const Complex<Real> *local_source, Complex<Real> *output, int target,
+    int part, bool dagger, bool accumulate, Real scale) {
+  using C = Complex<Real>;
+  constexpr int kSiteLanes = 64 / sizeof(Real);
+  const int x_dim = geometry_.local[0];
+  const int y_dim = geometry_.local[1];
+  const int z_dim = geometry_.local[2];
+  const int64_t half_sites = geometry_.half_sites;
+  const int source_parity = 1 - target;
+  const bool pack6 = halo_pack6_enabled();
+  const bool half_face =
+      halo_pack6_half_face(3, x_dim, y_dim, z_dim);
+  const int64_t face_count = halo_pack6_face_count(
+      3, geometry_.face_sites[3], x_dim, y_dim, z_dim);
+  const auto &forward_halo = fermion_recv_[face_offset(3, 1)];
+  const auto &backward_halo = fermion_recv_[face_offset(3, -1)];
+  const auto &backward_gauge_halo =
+      gauge_halo_.faces[face_offset(3, -1)];
+  const C *gauge = gauge_halo_.source;
+
+  auto gauge_entry = [&](int parity, int entry, int direction, int64_t site) {
+    return gauge + (static_cast<int64_t>(parity) * kGauge + entry) *
+                           kDim * half_sites +
+                   static_cast<int64_t>(direction) * half_sites + site;
+  };
+
+  auto halo_entry = [&](const std::vector<C> &halo, int component,
+                        int64_t face_site, int64_t face_rank) {
+    return halo[pack6 ? static_cast<int64_t>(component) * face_count +
+                            face_rank
+                      : face_site * kVector + component];
+  };
+
+#pragma omp parallel for collapse(2) schedule(static)
+  for (int x = 0; x < x_dim; ++x) {
+    for (int y = 0; y < y_dim; ++y) {
+      for (int z0 = 0; z0 < z_dim; z0 += kSiteLanes) {
+        const int lanes = std::min(kSiteLanes, z_dim - z0);
+        C result[kVector][kSiteLanes];
+        for (int component = 0; component < kVector; ++component) {
+#pragma omp simd
+          for (int lane = 0; lane < kSiteLanes; ++lane) {
+            result[component][lane] = C(0);
+          }
+        }
+
+        auto add_spatial = [&](auto direction_tag) {
+          constexpr int Direction = decltype(direction_tag)::value;
+          C forward_source[kVector][kSiteLanes];
+          C backward_source[kVector][kSiteLanes];
+          C forward_gauge[kGauge][kSiteLanes];
+          C backward_gauge[kGauge][kSiteLanes];
+          for (int component = 0; component < kVector; ++component) {
+#pragma omp simd
+            for (int lane = 0; lane < kSiteLanes; ++lane) {
+              forward_source[component][lane] = C(0);
+              backward_source[component][lane] = C(0);
+            }
+          }
+          for (int entry = 0; entry < kGauge; ++entry) {
+#pragma omp simd
+            for (int lane = 0; lane < kSiteLanes; ++lane) {
+              forward_gauge[entry][lane] = C(0);
+              backward_gauge[entry][lane] = C(0);
+            }
+          }
+
+          const int64_t x_forward =
+              static_cast<int64_t>(x + 1 < x_dim ? x + 1 : 0) *
+              y_dim * z_dim;
+          const int64_t x_backward =
+              static_cast<int64_t>(x > 0 ? x - 1 : x_dim - 1) *
+              y_dim * z_dim;
+          const int64_t y_forward =
+              static_cast<int64_t>(x) * y_dim * z_dim +
+              static_cast<int64_t>(y + 1 < y_dim ? y + 1 : 0) * z_dim;
+          const int64_t y_backward =
+              static_cast<int64_t>(x) * y_dim * z_dim +
+              static_cast<int64_t>(y > 0 ? y - 1 : y_dim - 1) * z_dim;
+          if constexpr (Direction == 0 || Direction == 1) {
+            const int64_t current_site =
+                (static_cast<int64_t>(x) * y_dim + y) * z_dim + z0;
+            const int64_t forward_base =
+                Direction == 0
+                    ? x_forward + static_cast<int64_t>(y) * z_dim + z0
+                    : y_forward + z0;
+            const int64_t backward_base =
+                Direction == 0
+                    ? x_backward + static_cast<int64_t>(y) * z_dim + z0
+                    : y_backward + z0;
+            for (int component = 0; component < kVector; ++component) {
+#pragma omp simd
+              for (int lane = 0; lane < lanes; ++lane) {
+                const int64_t source_base =
+                    static_cast<int64_t>(component) * half_sites;
+                forward_source[component][lane] =
+                    local_source[source_base + forward_base + lane];
+                backward_source[component][lane] =
+                    local_source[source_base + backward_base + lane];
+              }
+            }
+            for (int entry = 0; entry < kGauge; ++entry) {
+              const C *forward_link =
+                  gauge_entry(target, entry, Direction, current_site);
+              const C *backward_link =
+                  gauge_entry(source_parity, entry, Direction, backward_base);
+#pragma omp simd
+              for (int lane = 0; lane < lanes; ++lane) {
+                forward_gauge[entry][lane] = forward_link[lane];
+                backward_gauge[entry][lane] = backward_link[lane];
+              }
+            }
+          } else {
+            for (int lane = 0; lane < lanes; ++lane) {
+              const int z = z0 + lane;
+              const int64_t site =
+                  (static_cast<int64_t>(x) * y_dim + y) * z_dim + z;
+              const int64_t forward_site =
+                  static_cast<int64_t>(x) * y_dim * z_dim +
+                  static_cast<int64_t>(y) * z_dim +
+                  (z + 1 < z_dim ? z + 1 : 0);
+              const int64_t backward_site =
+                  static_cast<int64_t>(x) * y_dim * z_dim +
+                  static_cast<int64_t>(y) * z_dim +
+                  (z > 0 ? z - 1 : z_dim - 1);
+              for (int component = 0; component < kVector; ++component) {
+                forward_source[component][lane] =
+                    local_source[static_cast<int64_t>(component) * half_sites +
+                                 forward_site];
+                backward_source[component][lane] =
+                    local_source[static_cast<int64_t>(component) * half_sites +
+                                 backward_site];
+              }
+              for (int entry = 0; entry < kGauge; ++entry) {
+                forward_gauge[entry][lane] =
+                    *gauge_entry(target, entry, Direction, site);
+                backward_gauge[entry][lane] =
+                    *gauge_entry(source_parity, entry, Direction,
+                                 backward_site);
+              }
+            }
+          }
+          if (dagger) {
+            accumulate_hop_lanes<Real, Direction, true, 1>(
+                backward_source, backward_gauge, result);
+            accumulate_hop_lanes<Real, Direction, false, -1>(
+                forward_source, forward_gauge, result);
+          } else {
+            accumulate_hop_lanes<Real, Direction, false, 1>(
+                forward_source, forward_gauge, result);
+            accumulate_hop_lanes<Real, Direction, true, -1>(
+                backward_source, backward_gauge, result);
+          }
+        };
+
+        if (part != 2) {
+          add_spatial(std::integral_constant<int, 0>{});
+          add_spatial(std::integral_constant<int, 1>{});
+          add_spatial(std::integral_constant<int, 2>{});
+        }
+
+        C forward_source[kVector][kSiteLanes];
+        C backward_source[kVector][kSiteLanes];
+        C forward_gauge[kGauge][kSiteLanes];
+        C backward_gauge[kGauge][kSiteLanes];
+        for (int component = 0; component < kVector; ++component) {
+#pragma omp simd
+          for (int lane = 0; lane < kSiteLanes; ++lane) {
+            forward_source[component][lane] = C(0);
+            backward_source[component][lane] = C(0);
+          }
+        }
+        for (int entry = 0; entry < kGauge; ++entry) {
+#pragma omp simd
+          for (int lane = 0; lane < kSiteLanes; ++lane) {
+            forward_gauge[entry][lane] = C(0);
+            backward_gauge[entry][lane] = C(0);
+          }
+        }
+        for (int lane = 0; lane < lanes; ++lane) {
+          const int z = z0 + lane;
+          const int64_t site = (static_cast<int64_t>(x) * y_dim + y) *
+                                   z_dim +
+                               z;
+          const int target_time = ((x + y + z) & 1) ^ target;
+          const int64_t face_site = site;
+          const int64_t forward_rank =
+              half_face
+                  ? halo_t_half_rank(x, y, z, 1 - target, y_dim, z_dim)
+                  : face_site;
+          const int64_t backward_rank =
+              half_face
+                  ? halo_t_half_rank(x, y, z, target, y_dim, z_dim)
+                  : face_site;
+          const bool local_forward = target_time == 0;
+          const bool local_backward = target_time == 1;
+          if ((part == 0 || part == 1) &&
+              (local_forward || local_backward)) {
+            for (int component = 0; component < kVector; ++component) {
+              const C value =
+                  local_source[static_cast<int64_t>(component) * half_sites +
+                               site];
+              if (local_forward) {
+                forward_source[component][lane] = value;
+              } else {
+                backward_source[component][lane] = value;
+              }
+            }
+            for (int entry = 0; entry < kGauge; ++entry) {
+              if (local_forward) {
+                forward_gauge[entry][lane] =
+                    *gauge_entry(target, entry, 3, site);
+              } else {
+                backward_gauge[entry][lane] =
+                    *gauge_entry(source_parity, entry, 3, site);
+              }
+            }
+          }
+          if (part == 0 || part == 2) {
+            if (local_forward) {
+              for (int component = 0; component < kVector; ++component) {
+                backward_source[component][lane] =
+                    halo_entry(backward_halo, component, face_site,
+                               backward_rank);
+              }
+              for (int entry = 0; entry < kGauge; ++entry) {
+                const int64_t face_base =
+                    face_site * 2 * kGauge * kDim;
+                const int64_t parity_base =
+                    static_cast<int64_t>(source_parity) * kGauge * kDim;
+                backward_gauge[entry][lane] =
+                    backward_gauge_halo[face_base + parity_base +
+                                        entry * kDim + 3];
+              }
+            } else {
+              for (int component = 0; component < kVector; ++component) {
+                forward_source[component][lane] =
+                    halo_entry(forward_halo, component, face_site,
+                               forward_rank);
+              }
+              for (int entry = 0; entry < kGauge; ++entry) {
+                forward_gauge[entry][lane] =
+                    *gauge_entry(target, entry, 3, site);
+              }
+            }
+          }
+        }
+          if (dagger) {
+            accumulate_hop_lanes<Real, 3, true, 1>(
+                backward_source, backward_gauge, result);
+            accumulate_hop_lanes<Real, 3, false, -1>(
+                forward_source, forward_gauge, result);
+          } else {
+            accumulate_hop_lanes<Real, 3, false, 1>(
+                forward_source, forward_gauge, result);
+            accumulate_hop_lanes<Real, 3, true, -1>(
+                backward_source, backward_gauge, result);
+          }
+
+        for (int lane = 0; lane < lanes; ++lane) {
+          const int64_t site = (static_cast<int64_t>(x) * y_dim + y) *
+                                   z_dim +
+                               z0 + lane;
+          for (int component = 0; component < kVector; ++component) {
+            C *destination =
+                output + static_cast<int64_t>(component) * half_sites + site;
+            if (part == 2 || accumulate) {
+              *destination += scale * result[component][lane];
+            } else {
+              *destination = result[component][lane];
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+template <typename Real>
+void LatticeSet<Real>::bare_dslash_t2_scaled(
+    Complex<Real> *output, const Complex<Real> *input, int target,
+    Real scale) {
+  g_halo_pack_dagger = false;
+  const int source_parity = 1 - target;
+  post_fermion_halo(input, source_parity);
+  compute_dslash_t2_lanes(input, output, target, 1, false, true, scale);
+  if (!fermion_requests_.empty()) {
+    MPI_Waitall(static_cast<int>(fermion_requests_.size()),
+                fermion_requests_.data(), MPI_STATUSES_IGNORE);
+    fermion_requests_.clear();
+  }
+  compute_dslash_t2_lanes(input, output, target, 2, false, true, scale);
 }
 
 template <typename Real>
@@ -1584,6 +1990,12 @@ void LatticeSet<Real>::compute_dslash_dagger_boundary_part(
   const int64_t count = static_cast<int64_t>(boundary_sites_.size());
   const int64_t chunk = omp_chunk<Real>(count);
   const bool block_dslash = use_block_dslash(geometry_.half_sites);
+  if (use_t2_lanes() && use_boundary_lanes() && t_local_part1_enabled() &&
+      geometry_.local[3] == 2 && geometry_.grid[0] == 1 &&
+      geometry_.grid[1] == 1 && geometry_.grid[2] == 1) {
+    compute_dslash_t2_lanes(local_source, output, target, part, true);
+    return;
+  }
   if (use_boundary_lanes()) {
     auto source_fn = [&](int direction, int x, int y, int z, int t2,
                          int sign) {
@@ -1848,15 +2260,67 @@ void LatticeSet<Real>::apply_schur(
     const std::array<const Complex<Real> *, 2> &clover,
     const std::array<const Complex<Real> *, 2> &inverse,
     Complex<Real> *scratch_a, Complex<Real> *scratch_b) {
+  static const bool profile_opt = std::getenv("KUPL_PROFILE_OPT") != nullptr;
+  const auto tick = [] { return std::chrono::steady_clock::now(); };
+  const auto span = [](const auto &begin, const auto &end) {
+    return std::chrono::duration<double>(end - begin).count();
+  };
+  const double half_sites = static_cast<double>(geometry_.half_sites);
+  const double vector_bytes_per_site =
+      static_cast<double>(kVector) * sizeof(Complex<Real>);
+  const double t_slices =
+      static_cast<double>(geometry_.local[3] / 2 > 0 ? geometry_.local[3] / 2
+                                                    : 1);
+  const double dslash_bytes =
+      2.0 * ((2.0 * kDim * kGauge + 2.0 * kVector) * half_sites *
+                 sizeof(Complex<Real>) +
+             4.0 * half_sites / t_slices * vector_bytes_per_site);
+  const double clover_bytes =
+      2.0 * ((2.0 * 6.0 * 6.0 + 2.0 * kVector) * half_sites *
+             sizeof(Complex<Real>));
   const int other = 1 - parity;
+  auto t0 = tick();
   bare_dslash(scratch_a, input, other);
+  auto t1 = tick();
   apply_clover_onsite(
-      scratch_a, inverse[static_cast<std::size_t>(other)], scratch_b);
-  bare_dslash(scratch_a, scratch_b, parity);
+      scratch_a, inverse[static_cast<std::size_t>(other)], scratch_b, nullptr,
+      Real(0), false);
+  auto t2 = tick();
   const Real k = kappa();
+  if (use_t2_lanes() && use_boundary_lanes() && t_local_part1_enabled() &&
+      geometry_.local[3] == 2 && geometry_.grid[0] == 1 &&
+      geometry_.grid[1] == 1 && geometry_.grid[2] == 1 &&
+      !use_block_dslash(geometry_.half_sites)) {
+    apply_clover_onsite(
+        input, clover[static_cast<std::size_t>(parity)], output, nullptr,
+        Real(0), false);
+    auto t3 = tick();
+    bare_dslash_t2_scaled(output, scratch_b, parity, -(k * k));
+    auto t4 = tick();
+    if (profile_opt) {
+      prof_opt_dslash_seconds_ += span(t0, t1) + span(t3, t4);
+      prof_opt_dslash_calls_ += 2;
+      prof_opt_clover_seconds_ += span(t1, t2) + span(t2, t3);
+      prof_opt_clover_calls_ += 2;
+      prof_opt_dslash_bytes_ += dslash_bytes;
+      prof_opt_clover_bytes_ += clover_bytes;
+    }
+    return;
+  }
+  bare_dslash(scratch_a, scratch_b, parity);
+  auto t3 = tick();
   apply_clover_onsite(
       input, clover[static_cast<std::size_t>(parity)], output, scratch_a,
-      k * k);
+      k * k, false);
+  auto t4 = tick();
+  if (profile_opt) {
+    prof_opt_dslash_seconds_ += span(t0, t1) + span(t2, t3);
+    prof_opt_dslash_calls_ += 2;
+    prof_opt_clover_seconds_ += span(t1, t2) + span(t3, t4);
+    prof_opt_clover_calls_ += 2;
+    prof_opt_dslash_bytes_ += dslash_bytes;
+    prof_opt_clover_bytes_ += clover_bytes;
+  }
 }
 
 template <typename Real>

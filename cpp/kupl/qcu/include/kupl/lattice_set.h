@@ -227,6 +227,14 @@ private:
   double prof_dslash_wait_seconds_ = 0;
   double prof_dslash_boundary_seconds_ = 0;
   int64_t prof_dslash_calls_ = 0;
+  double prof_opt_dslash_seconds_ = 0;
+  double prof_opt_clover_seconds_ = 0;
+  double prof_opt_dslash_bytes_ = 0;
+  double prof_opt_clover_bytes_ = 0;
+  mutable double prof_opt_reduce_seconds_ = 0;
+  int64_t prof_opt_dslash_calls_ = 0;
+  int64_t prof_opt_clover_calls_ = 0;
+  mutable int64_t prof_opt_reduce_calls_ = 0;
 
   void allocate_scratch();
   void ensure_solver_scratch();
@@ -297,7 +305,7 @@ private:
   void apply_clover_onsite(
       const Complex<Real> *input, const Complex<Real> *matrix,
       Complex<Real> *output, const Complex<Real> *subtract = nullptr,
-      Real subtract_scale = Real(0)) const;
+      Real subtract_scale = Real(0), bool may_alias = true) const;
 
   void pack_fermion_face(const Complex<Real> *source, int parity, int dim,
                          int boundary, Complex<Real> *buffer);
@@ -312,6 +320,13 @@ private:
   void compute_dslash_boundary_part(const Complex<Real> *local_source,
                                     Complex<Real> *output, int target,
                                     int part);
+  void compute_dslash_t2_lanes(const Complex<Real> *local_source,
+                               Complex<Real> *output, int target, int part,
+                               bool dagger = false, bool accumulate = false,
+                               Real scale = Real(1));
+  void bare_dslash_t2_scaled(Complex<Real> *output,
+                             const Complex<Real> *input, int target,
+                             Real scale);
   void compute_dslash_t2_spatial_zblocks(
       const Complex<Real> *local_source, Complex<Real> *output, int target);
   void compute_dslash_t2_time_zblocks(
@@ -354,6 +369,9 @@ private:
   Complex<Real> global_dot(const Complex<Real> *left,
                            const Complex<Real> *right, int64_t count) const;
   Real global_norm2(const Complex<Real> *field, int64_t count) const;
+  void global_norm_and_dot(const Complex<Real> *left,
+                           const Complex<Real> *right, int64_t count,
+                           Real *norm2, Complex<Real> *dot) const;
   void apply_full_operator(
       const Complex<Real> *input, Complex<Real> *output,
       const std::array<const Complex<Real> *, 2> &clover,

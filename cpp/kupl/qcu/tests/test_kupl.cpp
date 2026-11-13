@@ -987,9 +987,28 @@ bool runLaplacianTests(const Grid<Real> &grid) {
 template <typename Real>
 bool runTests(const Grid<Real> &grid) {
   using C = Complex<Real>;
-  const Real mass = Real(0.10);
-  const Real csw = Real(1.0);
-  const Real atol = sizeof(Real) == sizeof(float) ? Real(1e-7) : Real(1e-12);
+  const Real mass = [] {
+    if (const char *text = std::getenv("KUPL_TEST_MASS");
+        text != nullptr && *text != '\0') {
+      return static_cast<Real>(std::strtod(text, nullptr));
+    }
+    return Real(0.10);
+  }();
+  const Real csw = [] {
+    if (const char *text = std::getenv("KUPL_TEST_CSW");
+        text != nullptr && *text != '\0') {
+      return static_cast<Real>(std::strtod(text, nullptr));
+    }
+    return Real(1.0);
+  }();
+  const Real atol = [] {
+    if (const char *text = std::getenv("KUPL_TEST_ATOL");
+        text != nullptr && *text != '\0') {
+      return static_cast<Real>(std::strtod(text, nullptr));
+    }
+    return sizeof(Real) == sizeof(float) ? Real(1e-7) : Real(1e-12);
+  }();
+  const bool skip_cg = std::getenv("KUPL_TEST_SKIP_CG") != nullptr;
 
   std::array<int32_t, kupl::qcu::kParamsSize> params{};
   std::array<Real, kupl::qcu::kArgvSize> argv{};
@@ -1112,20 +1131,23 @@ bool runTests(const Grid<Real> &grid) {
       reinterpret_cast<long long>(gauge.data()),
       reinterpret_cast<long long>(set_ptrs.data()),
       reinterpret_cast<long long>(params.data()));
-  std::vector<C> normal_output(block);
-  applyWilsonCgDslashQcu(
-      reinterpret_cast<long long>(normal_output.data()),
-      reinterpret_cast<long long>(wilson_schur_input.data()),
-      reinterpret_cast<long long>(gauge.data()),
-      reinterpret_cast<long long>(set_ptrs.data()),
-      reinterpret_cast<long long>(params.data()));
-  const C normal_left =
-      globalCompactDot(probe_schur, wilson_schur_output);
-  const C normal_right =
-      globalCompactDot(wilson_probe, normal_output);
-  const Real normal_adjoint_error =
-      std::abs(normal_left - normal_right) /
-      std::max(std::abs(normal_left), Real(1e-30));
+  Real normal_adjoint_error = 0;
+  if (!skip_cg) {
+    std::vector<C> normal_output(block);
+    applyWilsonCgDslashQcu(
+        reinterpret_cast<long long>(normal_output.data()),
+        reinterpret_cast<long long>(wilson_schur_input.data()),
+        reinterpret_cast<long long>(gauge.data()),
+        reinterpret_cast<long long>(set_ptrs.data()),
+        reinterpret_cast<long long>(params.data()));
+    const C normal_left =
+        globalCompactDot(probe_schur, wilson_schur_output);
+    const C normal_right =
+        globalCompactDot(wilson_probe, normal_output);
+    normal_adjoint_error =
+        std::abs(normal_left - normal_right) /
+        std::max(std::abs(normal_left), Real(1e-30));
+  }
 
   params[kupl::qcu::kSetPlan] = kupl::qcu::kSetPlanClover;
   params[kupl::qcu::kParity] = 0;
@@ -1406,18 +1428,21 @@ bool runTests(const Grid<Real> &grid) {
       trueResidual(grid, mass, Real(0), global_wilson_bistab_solution,
                    full_source);
 
-  std::vector<C> wilson_cg_solution(full_source.size(), C(0));
-  applyWilsonCgQcu(
-      reinterpret_cast<long long>(wilson_cg_solution.data()),
-      reinterpret_cast<long long>(full_source.data()),
-      reinterpret_cast<long long>(gauge.data()),
-      reinterpret_cast<long long>(set_ptrs.data()),
-      reinterpret_cast<long long>(params.data()));
-  const auto global_wilson_cg_solution =
-      makeGlobalField(grid, wilson_cg_solution);
-  const Real wilson_cg_residual =
-      trueResidual(grid, mass, Real(0), global_wilson_cg_solution,
-                   full_source);
+  Real wilson_cg_residual = 0;
+  if (!skip_cg) {
+    std::vector<C> wilson_cg_solution(full_source.size(), C(0));
+    applyWilsonCgQcu(
+        reinterpret_cast<long long>(wilson_cg_solution.data()),
+        reinterpret_cast<long long>(full_source.data()),
+        reinterpret_cast<long long>(gauge.data()),
+        reinterpret_cast<long long>(set_ptrs.data()),
+        reinterpret_cast<long long>(params.data()));
+    const auto global_wilson_cg_solution =
+        makeGlobalField(grid, wilson_cg_solution);
+    wilson_cg_residual =
+        trueResidual(grid, mass, Real(0), global_wilson_cg_solution,
+                     full_source);
+  }
 
   std::vector<C> compact_rhs(block, C(0));
   const int prepare_status = applyCloverBistabCgPrepareQcu(
@@ -1600,7 +1625,7 @@ int main(int argc, char **argv) {
         Grid<float> grid(local, process_grid);
         pass = runTests(grid);
       }
-      {
+      if (std::getenv("KUPL_TEST_SKIP_C128") == nullptr) {
         Grid<double> grid(local, process_grid);
         pass = runTests(grid) && pass;
       }
