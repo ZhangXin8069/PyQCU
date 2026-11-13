@@ -1332,3 +1332,11 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: 生产局部格点实测共享槽 21233920 B/rank（约 20.25 MiB），32 rank 约 648 MiB
 - 验证: path, size, required sections, conflict markers
 - 批次状态: in-progress
+## S36 - general - 2026-11-13 23:22:02 +0800
+- 主任务: kupl-l24-opt-20261113
+- 日志文件: logs/v20261113232202.txt
+- 文件大小: 2149 bytes
+- 触发原因: 一般记录
+- 关键内容: 共享 halo：UBSAN 2/4 rank 0 runtime error 且 PASS；Legacy-MG levels/deflate/restart 全部 PASS（verify=0）
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress

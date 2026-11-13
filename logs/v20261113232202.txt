@@ -1,0 +1,45 @@
+[日志元数据]
+日志类型: general
+生成时间: 2026-11-13 23:22:02 +0800
+批次: S36
+主任务: kupl-l24-opt-20261113
+触发原因: 一般记录
+摘要: 共享 halo：UBSAN 2/4 rank 0 runtime error 且 PASS；Legacy-MG levels/deflate/restart 全部 PASS（verify=0）
+Git 根目录: /home/zhangxin/PyQCU
+
+## 关键日志
+### S36-1 — UBSAN 下的共享 halo
+- 目标: 检查共享窗口、原子计数与打包路径是否触发未定义行为。
+- 命令/操作: `build-ubsan`（Debug、`-fsanitize=undefined`、
+  `-fno-omit-frame-pointer`、单 OpenMP 线程），
+  `UBSAN_OPTIONS=halt_on_error=1 KUPL_SHM_HALO=1`，分别以 2 rank
+  （`--lattice 4 2 4 2 --grid 1 1 1 2`）和 4 rank（`--lattice 2 2 2 4
+  --grid 2 1 2 1`）运行 `kupl_qcu_tests`。
+- 关键输出: 两次均 `RC=0`、`runtime error` 计数 `0`、`overall_status=PASS`
+  （c64/c128）。
+- 退出码: 0 / 0。
+- 证据与判断: 共享路径在 UBSAN 下无告警；协议中的原子访问与对齐未见问题。
+
+### S36-2 — Legacy-MG 在共享 halo 下
+- 命令/操作: `KUPL_SHM_HALO=1`、2 rank 运行
+  `pyqcu/testing/kupl/test_legacy_mg.py --library build/libqcu.so`。
+- 关键输出: `status=PASS`；覆盖 `complex64/128`、`levels=1/2`、deflate、
+  `restart=3`，全部 `verify=0`；误差量级 `8.03e-08`（c64）、`2.01e-12`（c128）。
+- 退出码: 0。
+- 证据与判断: 多级生命周期与共享 halo 兼容，粗细层切换不破坏数值。
+
+## 验证与证据
+- 测试/检查: UBSAN 2/4 rank；Legacy-MG 2 rank。
+- 结果: 0 runtime error；`PASS`。
+- 未验证项: 生产规模（24³×2、32 rank）下的 UBSAN（耗时过长未跑）。
+
+## 变更与产物
+- 文件: `docs/kupl_l24_perf_20261113.md` §14、
+  `skills/pyqcu-kupl/references/kupl-history-2026.md`。
+- 新建（未跟踪、被忽略）: `cpp/kupl/qcu/build-ubsan`。
+- 未改动范围: 代码与默认配置。
+
+## 风险、限制与下一步
+- 风险: UBSAN 不覆盖数据竞争；共享协议的并发正确性仍靠协议不变量与测试。
+- 阻塞: 远端会话未恢复。
+- 下一步: 若远端恢复，补 32 rank 的 A/B 与 RSS/共享内存核对。
