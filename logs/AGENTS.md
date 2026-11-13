@@ -1324,3 +1324,11 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: 共享 halo 启用日志增加 slot_bytes（4x2x4x2 示例 49408 B）；全量 CTest 42/42
 - 验证: path, size, required sections, conflict markers
 - 批次状态: in-progress
+## S35 - general - 2026-11-13 23:15:16 +0800
+- 主任务: kupl-l24-opt-20261113
+- 日志文件: logs/v20261113231516.txt
+- 文件大小: 1604 bytes
+- 触发原因: 一般记录
+- 关键内容: 生产局部格点实测共享槽 21233920 B/rank（约 20.25 MiB），32 rank 约 648 MiB
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress

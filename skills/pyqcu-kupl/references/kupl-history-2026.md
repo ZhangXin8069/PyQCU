@@ -639,6 +639,8 @@ not a KUPL code defect.
   （rel `0`），2/4 rank 求解 `PASS`；新增 `kupl_qcu_shm_halo`（时间面）与
   `kupl_qcu_shm_halo_4rank`（对角分解）与 `kupl_qcu_shm_halo_dedup`、
   `kupl_qcu_python_shm_abi` 四个对称回归门，全量 CTest `42/42`；
+  `24 24 24 2` 实测 `slot_bytes=21233920`（约 20.25 MiB/rank，32 rank 约
+  648 MiB）；
   `KUPL_OMP_THREADS=4` 下 2/4 rank 也 `PASS`；独立 NumPy 差分
   （`2 2 2 4`、`--grid 2 1 1 1`、2 线程）在该开关下 c64/c128 均 `PASS`；
   `KUPL_HALO_PACK6=0` 的 dedup 分支 2/4 rank `PASS`；
