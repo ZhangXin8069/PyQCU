@@ -639,7 +639,9 @@ not a KUPL code defect.
   （rel `0`），2/4 rank 求解 `PASS`；新增 `kupl_qcu_shm_halo`（时间面）与
   `kupl_qcu_shm_halo_4rank`（对角分解）两个对称回归门，全量 CTest `40/40`；
   `KUPL_OMP_THREADS=4` 下 2/4 rank 也 `PASS`；独立 NumPy 差分
-  （`2 2 2 4`、`--grid 2 1 1 1`、2 线程）在该开关下 c64/c128 均 `PASS`。
+  （`2 2 2 4`、`--grid 2 1 1 1`、2 线程）在该开关下 c64/c128 均 `PASS`；
+  `KUPL_HALO_PACK6=0` 的 dedup 分支 2/4 rank `PASS`；
+  `test_dslash_block_mpi.py`（含 `--solve`）在 c64/c128 下也 `PASS`。
   旋转等待有 30 s 上限，超时抛出 `KUPL shared halo handshake timeout`，
   只适用于对称调用序列。远端 3+3 A/B（`2119917/2119919/2119921/2119925/
   2119926/2119927`）因 SSH 停滞未读取，收益未验证，不得宣称加速。

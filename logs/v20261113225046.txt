@@ -1,0 +1,41 @@
+[日志元数据]
+日志类型: general
+生成时间: 2026-11-13 22:50:46 +0800
+批次: S28
+主任务: kupl-l24-opt-20261113
+触发原因: 一般记录
+摘要: 共享 halo 的 dedup 分支 2/4 rank PASS；block dslash/Schur/solve 独立参考 c64/c128 PASS
+Git 根目录: /home/zhangxin/PyQCU
+
+## 关键日志
+### S28-1 — 共享 halo 的 dedup 分支
+- 目标: 覆盖 `KUPL_HALO_PACK6=0` 时共享路径用同一 `send_minus` 填两个面的分支。
+- 命令/操作: `KUPL_SHM_HALO=1 KUPL_HALO_PACK6=0 KUPL_HALO_DEDUP_PACK=1`，
+  2 线程/rank，2 rank 与 4 rank 运行 `kupl_qcu_tests`（`--lattice 4 2 4 2`）。
+- 关键输出: 两次 `overall_status=PASS`。
+- 退出码: 0 / 0。
+- 证据与判断: dedup 拷贝分支与 pack6 分支结果一致，无额外缺陷。
+
+### S28-2 — block dslash 独立参考
+- 命令/操作: `pyqcu/testing/kupl/test_dslash_block_mpi.py --library ... --lattice 4 4 8 8
+  --grid 2 1 1 1 --threads 2 --solve`，分别 c64/c128，带 `KUPL_SHM_HALO=1`。
+- 关键输出: c64 `status=PASS`，dslash `8.78e-08`、schur `9.21e-08`、
+  solve `1.15e-06`；c128 dslash `1.65e-16`、schur `1.68e-16`、solve `8.67e-14`。
+- 退出码: 0 / 0。
+- 证据与判断: 共享路径在 block dslash/Schur/adjoint 与整次求解上都与独立全局
+  参考一致。
+
+## 验证与证据
+- 测试/检查: dedup 分支 2/4 rank；block dslash 差分 c64/c128（含 solve）。
+- 结果: 全部 PASS。
+- 未验证项: 远端 32 rank 的收益（SSH 未恢复）。
+
+## 变更与产物
+- 文件: `docs/kupl_l24_perf_20261113.md` §14、
+  `skills/pyqcu-kupl/references/kupl-history-2026.md`。
+- 未改动范围: 代码与默认配置。
+
+## 风险、限制与下一步
+- 风险: 覆盖仍限于本地 x86_64 小格点。
+- 阻塞: 远端会话未恢复。
+- 下一步: 若连接恢复，读取 A/B；否则继续本地一致性核对。
