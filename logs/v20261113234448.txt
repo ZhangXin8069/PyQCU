@@ -1,0 +1,45 @@
+[日志元数据]
+日志类型: general
+生成时间: 2026-11-13 23:44:48 +0800
+批次: S39
+主任务: kupl-l24-opt-20261113
+触发原因: 一般记录
+摘要: ASAN：2 rank 与生产几何 0 报告 PASS；4 rank 段错误在默认 MPI 路径同样复现且无报告，判为环境问题
+Git 根目录: /home/zhangxin/PyQCU
+
+## 关键日志
+### S39-1 — ASAN 检查与对照
+- 目标: 检查共享窗口与打包/拷贝路径的越界与释放后使用。
+- 命令/操作: 新建 `build-asan`（Debug、`-fsanitize=address`、单 OpenMP 线程），
+  `ASAN_OPTIONS=handle_segv=0:detect_leaks=0:abort_on_error=1`：
+  1. `KUPL_SHM_HALO=1`，2 rank，`--lattice 4 2 4 2 --grid 1 1 1 2`；
+  2. `KUPL_SHM_HALO=1`，2 rank，生产局部格点 `24 24 24 2`；
+  3. `KUPL_SHM_HALO=1`，4 rank，`--lattice 2 2 2 4 --grid 2 1 2 1`；
+  4. 对照：4 rank、**不带** `KUPL_SHM_HALO`。
+- 关键输出: (1)(2) `RC=0`、0 条 ASAN 报告、`PASS`；(3) `RC=139`（signal 11），
+  0 条 ASAN 报告；(4) 对照同样 `RC=139`、0 条报告。
+- 退出码: 0 / 0 / 139 / 139。
+- 证据与判断: 4 rank 的 ASAN 段错误与共享 halo 无关，属 ASAN+OpenMPI 环境
+  问题；按技能要求，无报告栈时不能把 4 rank 计为通过。
+
+### S39-2 — 口径
+- 关键输出: 文档 §14 与技能历史记录 ASAN 的 2 rank/生产几何通过，以及 4 rank
+  的对照结论。
+- 证据与判断: 只声明有证据的部分，不把环境失败写成缺陷或通过。
+
+## 验证与证据
+- 测试/检查: ASAN 2 rank、生产几何、4 rank 与对照。
+- 结果: 2 rank 与生产几何 PASS/0 报告；4 rank 环境失败（对照复现）。
+- 未验证项: ASAN 下的 4 rank 覆盖。
+
+## 变更与产物
+- 文件: `docs/kupl_l24_perf_20261113.md` §14、
+  `skills/pyqcu-kupl/references/kupl-history-2026.md`。
+- 新建（未跟踪、被忽略）: `cpp/kupl/qcu/build-asan`。
+- 未改动范围: 代码与默认配置。
+
+## 风险、限制与下一步
+- 风险: ASAN 只覆盖 2 rank 与生产几何的堆访问。
+- 阻塞: 远端会话未恢复。
+- 下一步: 若需要 4 rank 的内存检查，需改用无 OpenMPI 的通信替身或单进程
+  多 rank 模拟，成本较高，暂不推进。

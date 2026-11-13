@@ -1356,3 +1356,11 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: 共享 halo 重复运行：2 rank 20/20、4 rank 10/10 全部 PASS，无间歇失败
 - 验证: path, size, required sections, conflict markers
 - 批次状态: in-progress
+## S39 - general - 2026-11-13 23:44:48 +0800
+- 主任务: kupl-l24-opt-20261113
+- 日志文件: logs/v20261113234448.txt
+- 文件大小: 2216 bytes
+- 触发原因: 一般记录
+- 关键内容: ASAN：2 rank 与生产几何 0 报告 PASS；4 rank 段错误在默认 MPI 路径同样复现且无报告，判为环境问题
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
