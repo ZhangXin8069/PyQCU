@@ -1220,3 +1220,11 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: 鲲鹏登录节点 CTest 33/38，5 项因 OpenMPI affinity 限制失败；写入 §12.4 口径说明
 - 验证: path, size, required sections, conflict markers
 - 批次状态: in-progress
+## S22 - general - 2026-11-13 20:40:34 +0800
+- 主任务: kupl-l24-opt-20261113
+- 日志文件: logs/v20261113204034.txt
+- 文件大小: 2378 bytes
+- 触发原因: 一般记录
+- 关键内容: 阶段进度：z-block 修复、参数/rank 扫描、9 样本基线 0.184694 s、wait 归因、pack6 2.21x；本轮转向逐邻居序号的共享内存 halo
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
