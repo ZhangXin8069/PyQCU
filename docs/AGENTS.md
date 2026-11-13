@@ -5,7 +5,7 @@ PyQCU 参考文档。
 > 2026-09-27 迁移：顶层 `examples/` 已迁入 `pyqcu/testing/`。本目录旧报告中若
 > 出现 `examples/...`，应映射为 `pyqcu/testing/...`；现行文档已统一使用新路径。
 
-当前 `docs/` 顶层共有 **44 份 Markdown 文档（含本索引）**。下表只维护文件职责；
+当前 `docs/` 顶层共有 **45 份 Markdown 文档（含本索引）**。下表只维护文件职责；
 权威级别、唯一主责技能和提取边界见
 [`skills/pyqcu-docs/references/project-docs-map.md`](../skills/pyqcu-docs/references/project-docs-map.md)。
 
@@ -18,7 +18,7 @@ PyQCU 参考文档。
 约定：站点根不设 `.readthedocs.yaml`，两份配置分别位于 `docs/en/` 与 `docs/zh/`，
 在 RTD 网页按语言指定；项目 slug 固定为 `pyqcu`。站点视角是已安装的
 `pip install pyqcu` 包，不引用仓库内 `pyqcu/testing` 路径；确需源码仓库的段落必须
-显式标注。`docs/` 根目录的 39 份研究报告与 `.tex` 不在站点源文内。
+显式标注。`docs/` 根目录的 45 份研究报告与 `.tex` 不在站点源文内。
 
 ## 核心操作规范
 
@@ -35,6 +35,7 @@ PyQCU 参考文档。
 | `kupl_kunpeng_progress_20261110.md` | 2026-11-05 至 11-10 鲲鹏真实环境进展：计算节点/登录节点硬件实测、HBM 早期失败与后期成功、计算节点与登录节点性能数据、dev108 以来代码改动、已否决路线与阻塞项（C 级时点证据，未打 tag） |
 | `kupl_kunpeng_hpc_config_20261112.md` | 2026-11-12 鲲鹏 HBM 高性能配置实测：拓扑与绑定变量、MPI 映射、调度器用法、超时协议、cn19699/cn19698 实测表与待补项（C 级时点证据，未打 tag） |
 | `kupl_opt_handover_20261112.md` | KUPL QCU 极致优化接手文档：远端/本地环境、已应用补丁与 md5、门控变量、审计结论、基准现状、已知坑与复现命令、待办（C 级工作文档，未打 tag） |
+| `kupl_l24_perf_20261113.md` | 2026-11-13 KUPL L24（`24³×64`、c64）单节点实测：cn19699/cn19650 的 8 条用例（最优 `0.188526 s`，32r×16t + ACTIVE）、`OMP_WAIT_POLICY` 同节点 A/B 的 1.28×、dslash/clover/reduce 分项与 7.96 GB/s·rank、STREAM triad 18.3–20.1 GB/s·rank 峰值口径、节点差异与 MG cache 阻塞（C 级时点证据，未打 tag） |
 | `qcu_l24_solver_timing_20261111.md` | L24（`24³×64`）全配置耗时台账：7 个环境 × BiCGStab/Legacy-MG/Strict-MG × c64/c128 的 solve 时间、迭代、残差、样本数与证据等级；含弱扩展外推与相对 89.13 s 基线的加速比（C 级时点证据，未打 tag） |
 | `qcu_l24_environment_bandwidth_20261111.md` | 上述环境（`cn10579`/login/控制节点/Xeon/V100/A100/DCU）的硬件字段与带宽实测对照：LX2 STREAM 全表、DDR↔HBM 实测比、每线程饱和点、聚合效率、3 处 Add/Triad 抄录更正，以及 `16×t24` 的**用途相关**语义（对全节点容量是下界，对 384 线程可实现带宽是乐观上限） |
 | `kupl_kunpeng_figures_20261110.tex` / `.pdf` | 上述进展的同源图表集（9 页、13 图 2 表）：绝对耗时与加速比、作业台账与几何不可比性、瓶颈归属与 roofline、STREAM 带宽、HBM 绑定统计、NUMA→片上内存映射、登录节点 A/B 与分格扫描、setup/初始化成本、证据台账。两遍 `xelatex` 通过 `Overfull=0`、`Float too large=0`、`Missing character=0` |

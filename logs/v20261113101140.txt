@@ -1,0 +1,55 @@
+[日志元数据]
+日志类型: general
+生成时间: 2026-11-13 10:11:40 +0800
+批次: S11
+主任务: kupl-l24-opt-20261113
+触发原因: 一般记录
+摘要: t18 0.183044 s 为当前最优；docs/skills 已登记并审计 PASS
+Git 根目录: /home/zhangxin/PyQCU
+
+## 关键日志
+### S11-1 — cn19699 32r×18t ACTIVE + t2 lane 达到当前最优
+- 目标: 在 Kunpeng 单计算节点 L24 c64 上确认 OMP 线程数最优点，并固定 t2 lane 配置。
+- 命令/操作: `mpirun -np 32 ... -R cpu=18`，`OMP_NUM_THREADS=18`、`OMP_WAIT_POLICY=ACTIVE`，t2 lane，节点 cn19699。
+- 关键输出: `wall_seconds=0.18304373905993998`，`iterations=12`，`final_true_residual=5.3848659457849185e-05`，`status=PASS`。
+- 退出码: 0（作业正常结束并写出 PASS 结果）。
+- 证据与判断: 该结果优于此前 32r×16t 的 0.188526 s（约 3.0% 改进），是当前已知最优；12 次迭代与真残差 5.38e-05 同时满足收敛与精度门控，说明提速不是靠放松判据获得。
+
+### S11-2 — 本轮对照矩阵（同节点族、L24 c64、t2 口径）
+- 32r×18t ACTIVE + t2: 0.183044 s / 12 it / PASS（当前最优）
+- 32r×16t ACTIVE + t2: 0.188526 s
+- 32r×12t ACTIVE + t2: 0.207077 s
+- 32r×12t PASSIVE（无 t2）: 0.281166 s
+- cn19650 PASSIVE 0.319600 s / ACTIVE 0.249223 s
+- 证据与判断: 单线程策略从 PASSIVE 切到 ACTIVE 带来最大的一档收益（0.2812 → 0.2071 s），线程数从 12 增到 18 再贡献约 12%；不同节点（cn19650 vs cn19699）绝对墙钟不可直接对比，只能看同节点内的相对趋势。
+
+### S11-3 — 未能取得的配置（调度器阻塞）
+- 32r×19t（`-R cpu=19`，需 608 CPU 占满整节点）: 长期 PENDING，已 `dkill` 取消，无数据。
+- 16r×36t: 同样长期 PENDING，已 `dkill` 取消，无数据。
+- 关键输出: 调度器返回 `number of available nodes can't satisfy job placement requirement`。
+- 证据与判断: 这两点属于队列容量限制而非代码或配置问题；在未取得实测前不得外推 19/36 线程的性能结论。
+
+## 验证与证据
+- 测试/检查: 32 rank × 18 thread 生产求解（L24 c64，t2 lane，cn19699）实测通过。
+- 结果: `status=PASS`，12 iterations，`final_true_residual=5.3848659457849185e-05`，`wall_seconds=0.18304373905993998`。
+- 测试/检查: `python3 -B skills/pyqcu-docs/scripts/audit-docs-skills.py`。
+- 结果: `PASS docs=45 skills=36`。
+- 测试/检查: `git diff --check`。
+- 结果: 无告警。
+- 未验证项: 32r×19t 与 16r×36t 因调度器无法放置作业而未运行；多节点跨节点扩展性未在本轮测量。
+
+## 变更与产物
+- 文件: 新建 `docs/kupl_l24_perf_20261113.md`（193+ 行），并在 `docs/AGENTS.md` 登记（文档计数 44→45）。
+- 文件: `skills/pyqcu-kupl/SKILL.md` 与 `skills/pyqcu-kupl/references/kupl-history-2026.md` 增加 `OMP_WAIT_POLICY`、L24 最优点、`KUPL_PROFILE_OPT` 与带宽口径说明。
+- 文件: `skills/pyqcu-docs` 三处登记同步更新（索引/指导/项目文档映射）。
+- 产物: 性能数据集与结论集中在 `docs/kupl_l24_perf_20261113.md`，本日志只记录增量，不重复既有 S1–S10 阶段日志全文。
+- 未改动范围: `cpp/**`、`pyqcu/**` 核心算法与接口本轮无新增改动；未提交、未推送、未打 tag。
+
+## 风险、限制与下一步
+- 风险: 0.183044 s 是单次测量值，尚无重复采样的 median/min/max，噪声带宽未知；报告中必须与硬件/环境身份一起引用（cn19699、32 rank、18 thread、ACTIVE、t2 lane、L24 c64）。
+- 风险: 不同节点（cn19699 / cn19650）的绝对墙钟不具备可比性，跨节点只能比较相对加速趋势。
+- 阻塞: 32r×19t 与 16r×36t 受调度器节点放置限制长期 PENDING，已取消；在队列容量变化前无法补齐这两点。
+- 下一步: 在 cn19699 上对 32r×18t 做多次重复采样并记录 median/min/max；尝试绕开整节点占满约束的等价线程/rank 组合；把这些数据补入 `docs/kupl_l24_perf_20261113.md` 后按 tag 流程归档。
+
+## 用户输入指令
+派发子代理实时记录logs和docs和skills

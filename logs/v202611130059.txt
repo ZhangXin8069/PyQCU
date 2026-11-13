@@ -1,0 +1,74 @@
+[日志元数据]
+日志类型: stage
+生成时间: 2026-11-13 00:59:48 +0800
+批次: S1-S4
+主任务: kupl-l24-opt-20261113
+触发原因: 阶段成果
+摘要: KUPL L24 基线与候选 A/B、内核修复、远端 screen 自动注销阻塞
+Git 根目录: /home/zhangxin/PyQCU
+
+## 关键日志
+### S1 — 接手与环境确认
+- 目标: 接管 4275.ku，验证 KUPL L24 单节点优化基线。
+- 命令/操作: screen 闸门、远端 hash、HEAD、djob、dnode。
+- 关键输出: 会话 Attached；远端工作树与本地 c128 修复前目标文件 hash 一致；qcu_opt_base 2108699 因 preferNodes cn19497 无空闲节点 PENDING。
+- 退出码: 本地 hash/审计命令 0；screen 注入经显式许可后恢复。
+- 证据与判断: 远端不是 Git 仓库，只能以 hash/patch 同步；未新建 SSH/SCP 通道。
+
+### S2 — 生产候选 A/B
+- 目标: 在 cn19650 同输入同节点验证 16r/32r KUPL 全门控候选。
+- 命令/操作: dsub + x_case_y76p_2010.sh；每点独立 FULL 残差。
+- 关键输出: 16r×8t base 0.686156 s/12 it/5.3849e-5 PASS；16r×8t all 0.393942 s/12 it/5.3848e-5 PASS（1.742×）；32r×12t all 0.315161 s/12 it/5.3849e-5 PASS；32r×16t 1.054136 s/12 it PASS（线程超订负收益）；T2_ZBLOCK 0.227195 s 但独立残差 0.5184 FAIL，淘汰。
+- 退出码: 各有效 dsub 作业 SUCCEEDED 且报告 PASS；FAIL 候选仅用于阻断分析。
+- 证据与判断: 32r×12t HBM/preferred 是当前最佳已验证点；尚未达到 <0.1 s，不能把 16r 结果外推为最终结论。
+
+### S3 — 内核与回归
+- 目标: 修复 ULP 级 Clover c128 回归并提升 lane kernel。
+- 命令/操作: c128 容差精度分层；gamma-first block；real/imag lane；Clover onsite alias/分支优化；新增 t2_lanes CTest。
+- 关键输出: 本地 CTest 36/36 PASS；本地 2-rank c64 Schur 微基准旧 lane 中位约 0.375 s，融合 t2 lane 中位约 0.333 s（约 1.13×）；24³×2 local_t=2 双精度 Wilson/Clover/CG/BiCGStab PASS。
+- 退出码: CTest exit=0；微基准 exit=0。
+- 证据与判断: 修复了融合 lane spatial forward gauge 取邻居站点而非当前站点的根因；旧实验路径曾因该错误在 32r L24 FAIL。
+
+### S4 — 阻塞与恢复点
+- 目标: 继续远端 32r L24 A/B。
+- 命令/操作: 长时间 ARM64 32r/12t 小格点测试期间 login03 触发 auto-logout。
+- 关键输出: Connection to 10.44.9.4 closed；本地 screen 回到 zhangxin@ZhangXin-Computer；不新建 SSH 通道。
+- 退出码: 远端前台测试被会话注销终止，未得到 c128 结论。
+- 证据与判断: 远端执行阻塞于现有 screen 连接，不是代码死锁；需用户恢复原 screen SSH 会话后继续。
+
+## 验证与证据
+- 测试/检查: ctest --test-dir cpp/kupl/qcu/build --output-on-failure；git diff --check；本地 24³×2 和 16³×2 SMP 基准。
+- 结果: 36/36 CTest PASS；diff check PASS；恢复后的 t2_lanes 真正覆盖 local_t=2。
+- 未验证项: 新融合 lane 的 32r L24 真机性能；KUPL_CLOVER_TOL_FACTOR=2 的 32r L24 真残差；Legacy-MG 32r t-only 路径；远端重连后的最终 0.1 s 门槛。
+
+## 变更与产物
+- 文件: cpp/kupl/qcu/src/lattice_solver.cpp；cpp/kupl/qcu/src/lattice_linalg.cpp；cpp/kupl/qcu/src/lattice_wilson_dslash.cpp；cpp/kupl/qcu/include/kupl/lattice_set.h；cpp/kupl/qcu/CMakeLists.txt。
+- 产物: 远端 data/kupl_hbm_opt_20261106/scan8_20261112/{opt16p_base_v2,opt16p_all_v2,opt32p_all_v2,opt32p_t16b_v2,opt32p_zblock_v2}/report.json；本地 build-native-lto 尚未同步当前全部补丁。
+- 未改动范围: 未删除用户文件；未提交/推送；未创建新 SSH/SCP 通道。
+
+## 风险、限制与下一步
+- 风险: remote SSH 自动注销导致当前本地补丁尚未在远端重建；融合 lane 需重新做 32r L24 真机验证；所有最终性能结论必须来自恢复后的远端。
+- 阻塞: screen 会话当前为本地 shell，远端 login03 连接已断开。
+- 下一步: 用户恢复 4275.ku 的 ssh 后，应用一体化补丁并重建；优先跑 32r×12t `KUPL_ENABLE_T2_LANES=1` + `KUPL_CLOVER_TOL_FACTOR=2`，再跑旧 lane base，记录 3 样本、迭代数、真残差、硬件和绑定证据。
+
+## 用户输入指令
+~screen[ 4275.ku]，接手[docs/kupl_opt_handover_20261112.md]，要求最终kupl版qcu能够充分利用kunpeng计算节点[目前为单节点]的计算与带宽潜力(当前利用率非常低),例如L24收敛耗时最终应小于0.1s,允许大规模改写kupl版qcu,进行快速有效的迭代升级,在计算节点的任务超五分即核查是否正常,超十分钟则终止并进行阻塞分析,本任务使用多子代理且全自动模式,持续执行至少八小时
+
+## Agent 全文报告
+--- report begin ---
+## 阶段报告：KUPL L24 优化第 1–3 轮
+
+**任务定义**：在单 Kunpeng 节点上用 KUPL 完成 L24 c64 收敛，目标 solve wall <0.1 s；所有候选必须提供独立 FULL 真残差门。当前状态为未收敛，不应把中间 0.315 s 当作最终交付。
+
+**已取得证据**：
+- 16r×8t：base `0.686156 s` → all `0.393942 s`，1.742×，12 it，真残差约 `5.38e-5` PASS。
+- 32r×12t：all `0.315161 s`，12 it，真残差约 `5.38e-5` PASS。
+- 32r×16t：`1.054136 s`，证明线程超订负收益。
+- T2_ZBLOCK：`0.227195 s` 但真残差 `0.5184` FAIL，已淘汰。
+- 本地 CTest 36/36 PASS；新增 t2_lanes 覆盖真实 local_t=2 后通过。
+- 修复融合 lane 的 forward gauge 站点错误；本地 2-rank 微基准约 1.13×。
+
+**当前阻塞**：远端 login03 在长时间测试中触发 auto-logout，screen 回到本地 shell；没有新建 SSH/SCP 通道。需要恢复原有 screen SSH 连接后同步当前补丁、重建并执行 32r L24 A/B。尚未达到 <0.1 s，也尚未完成至少八小时的远端持续迭代。
+
+**后续唯一下一步**：恢复 `4275.ku` 远端连接，应用当前一体化 patch，重建 `build-native-lto`，先验证新增 t2 CTest，再跑 32r×12t fused+rtol2 与旧 lane 的三样本 A/B；每点记录完整硬件、绑定、迭代数和独立真残差。
+--- report end ---

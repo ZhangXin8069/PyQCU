@@ -114,6 +114,12 @@ identity 不一致时才重建。
   下可能让部分拓扑集合算法回退，因此库内绑定只作无调度器回退。
 - 默认不设置 `OMP_PROC_BIND=close/spread`；只在稳定独占 cpuset 上做同题 A/B。
   短 OpenMP 并行区的历史回退证据禁止把该设置写成通用默认。
+- Kunpeng 计算节点上显式设 `OMP_WAIT_POLICY=ACTIVE`。同节点同 lane A/B
+  （`cn19650`、32r×12t、t2 lane、`preferred`、L24 c64、12 it、均 `PASS`）：
+  PASSIVE `0.319600 s` → ACTIVE `0.249223 s`（`1.28×`）。原因是全局归约与
+  向量更新这类小并行区的线程唤醒开销：reduce 单次约 `1.02 ms`（PASSIVE 批次
+  rank 26，`0.052268 s/51`）降到约 `0.45 ms`（ACTIVE 批次 rank 17，
+  `0.023190 s/51`）。每分支各 1 个样本，未做多样本中位数。
 - `KUPL_FUSED_BICG_DOTS=0` 可回退 BiCGStab `(t,t)`/`(t,s)` 成对归约；
   `KUPL_HUGEPAGE=1` 只对大型内部 scratch 发 `MADV_HUGEPAGE` advice。
 - Clover cache 默认要求 gauge 内容在 set 生命周期内不可变。原地改写同一地址时
@@ -217,6 +223,60 @@ KUPL_BENCH_SHOW_AFFINITY=1 KUPL_OMP_THREADS=8 KUPL_NUMA_BIND=1 \
 benchmark 的 `estimated_gflops` 分别使用 Wilson `4*12*12*8` 和
 Clover 再加 onsite `12*12*8` flop/site/application 模型，不是硬件计数器。
 
+### L24 单节点最优点与带宽口径（2026-11-13）
+
+固定用例：L24 `24^3x64`、c64、点源 `seed 42`、`mass=-0.277`、
+`csw=1.160920226`、`atol=1e-4`、`levels=1`、`restart=0`（parity-Schur
+BiCGStab，不是 multigrid）、grid `1 1 1 32`、每 rank 线程数由作业申请的
+`-R cpu=TH` 决定（32r×12t 的 report `memory.omp_threads` 为 `12`）、
+`KUPL_NUMA_BIND=1`、`KUPL_MEMORY_POLICY=preferred`、
+`KUPL_REQUIRE_MEMORY_BIND=0`、
+`mpirun --bind-to none --map-by ppr:2:numa`；全部另加 `KUPL_HALO_PACK6=1`、
+`KUPL_HALO_DEDUP_PACK=1`、`KUPL_T_LOCAL_IN_PART1=1`、
+`KUPL_ENABLE_BOUNDARY_LANES=1`、`KUPL_SKIP_FINAL_RESIDUAL=1`（求解器内残差
+复查被跳过，外层独立分布式 FULL Wilson-Clover 真残差门仍在跑）。所有数字为
+单样本 `wall_seconds`。
+
+| 用例 | 节点 | 规模 | 关键配置 | wall (s) | 迭代 | 状态 |
+|---|---|---|---:|---:|---:|---|
+| t18 | cn19699 | 32r×18t（`-R cpu=18`） | ACTIVE + t2 lane | **中位 0.186230**（5 次：0.180422–0.193310） | 12 | PASS（真残差 5.384866e-05） |
+| t16 | cn19699 | 32r×16t（`-R cpu=16`） | ACTIVE + t2 lane | 0.188526 | 12 | PASS |
+| prof4 | cn19699 | 32r×12t | ACTIVE + t2 lane | 0.207077 | 12 | PASS |
+| base | cn19699 | 32r×12t | PASSIVE，无 t2 | 0.281166 | 12 | PASS |
+| c50_act | cn19650 | 32r×12t | ACTIVE + t2 lane | 0.249223 | 12 | PASS |
+| c50_base | cn19650 | 32r×12t | PASSIVE + t2 lane | 0.319600 | 12 | PASS |
+
+`t18` 的独立 FULL 真残差为 `5.384866e-05`、`t16` 为 `5.384853e-05`，其余为
+`5.38e-05` 量级。当前最优为 `t18` 的同配置 5 次重复：中位 `0.186230 s`、最小
+`0.180422 s`、最大 `0.193310 s`、极差 `6.9%`（全部 12 it、PASS）；单点
+`0.183044 s` 比中位低 `1.74%`，只可当作样本区间内的一点。其次是 `t16` 的
+`0.188526 s`。t16/t18 与 `prof4` 同时改变了 `-R cpu=TH` 资源申请，不是纯线程数
+单变量实验。当前最优点仍高于 `0.1 s` 目标约 `1.86×`。
+
+`KUPL_PROFILE_OPT=1` 是逐 rank 诊断变量（默认关闭，仅计时，不改变算法与停机）。
+每个 rank 输出 `dslash`/`clover`/`reduce` 的秒数与调用次数、`dslash`/`clover`
+的字节数与 `GB/s`（rank 与全 rank 聚合），以及 `prepare`/`solve`/`reconstruct`
+三阶段。ACTIVE、cn19699、rank 17 实测：
+
+| 项 | 次数 | 时间 (s) | 字节 (MB) | 每 rank | 聚合 |
+|---|---:|---:|---:|---:|---:|
+| dslash | 52 | 0.104099 | 828.113 | 7.96 GB/s | 254.56 GB/s |
+| clover | 52 | 0.013720 | 552.075 | 40.24 GB/s | 1287.63 GB/s |
+| reduce | 51 | 0.023190 | — | 0.45 ms/次 | — |
+
+phases：`prepare=0.003573`、`solve=0.156956`、`reconstruct=0.002327`；solve 外的
+setup 约 `44 ms`（scratch/gauge halo）。
+
+带宽口径：同节点 STREAM triad 探针（8M double × 3 数组、5 次取最优、
+12 线程/rank、`--bind-to numa --map-by ppr:2:numa`）为 `18.3–20.1 GB/s·rank`，
+32 rank 聚合约 `600 GB/s`。据此 dslash 的 `7.96 GB/s·rank` 约为探针峰值的
+`40%`，属计算/latency 受限；clover 的 `40.24 GB/s·rank` 高于探针值，来自
+clover cache 的复用命中，不是超过硬件峰值。
+
+数据来源为远端 `data/kupl_opt_20261113/remote/<tag>/report.json` 与
+`meta.txt`（C 级时点证据、未提交）；逐用例残差、派生比值口径与复现命令见
+[`references/kupl-history-2026.md#2026-11-13-l24-单节点性能与带宽剖析`](references/kupl-history-2026.md#2026-11-13-l24-单节点性能与带宽剖析)。
+
 ## 鲲鹏 HBM 高性能配置（2026-11-12）
 
 L24 独占 HBM 节点实测配方：所有 rank 报告 `memory_bound=true`，`memory_node`
@@ -259,6 +319,19 @@ c128 coarse V-cycle 性能；同规模 c128 coarse 性能仍未验证。
 - 不要用进程当前 cpuset 覆盖显式 `KUPL_OMP_THREADS`；OpenMP runtime 可能已把
   master thread 临时绑定到单核。
 - 不要让 MPI 集合调用依赖 rank 的提前返回。
+- 不要把 clover 的 `40.24 GB/s·rank` 与 STREAM triad 探针峰值直接比较；clover
+  有 cache 复用，探针不命中缓存，两者口径不同。
+- 不要用单一节点的绝对值跨节点外推。同为 PASSIVE 基线，`cn19650`
+  `0.319600 s` 对 `cn19699` `0.266416 s`，约 `20%` 差异，硬件/负载/cpuset
+  身份未逐项对齐，只能作上界。
+- 不要据单次样本宣称 `-ffast-math` 或 block-dslash 加速：cn19699 同 lane 上
+  `0.204288 s` 对 `0.207077 s`（约 1.4%）、cn19650 `0.244864 s` 对
+  `0.249223 s`（约 1.8%）均在噪声级。
+- 真实 MG（`levels=2`）多 rank 目前无法运行：需要预置全局 `--coarse-cache`，
+  而 `kupl_multigrid.py` 的多 rank 导出会以
+  `multi-rank coarse-cache export is not implemented` 拒绝。1-rank L24 缓存
+  构建（作业 2112385）运行约 25 分钟未产出 `cache_l24_v1.h5`，已 `dkill`
+  终止；这是工具链阻塞，不是算法结论。
 
 ## 历史性能与运行时证据
 

@@ -1034,3 +1034,116 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: 接管 screen 22627.lingsheng，修复远端 verify_status 初始化，独占节点复测 6 个 L24 用例并生成 docs/skills
 - 验证: path, size, required sections, conflict markers
 - 批次状态: in-progress
+## S1-S4 - stage - 2026-11-13 00:59:48 +0800
+- 主任务: kupl-l24-opt-20261113
+- 日志文件: logs/v202611130059.txt
+- 文件大小: 6088 bytes
+- 触发原因: 阶段成果
+- 关键内容: KUPL L24 基线与候选 A/B、内核修复、远端 screen 自动注销阻塞
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## S1-S3 - stage - 2026-11-13 01:29:45 +0800
+- 主任务: kupl-l24-opt-20261113
+- 日志文件: logs/v202611130129.txt
+- 文件大小: 4923 bytes
+- 触发原因: 阶段成果
+- 关键内容: 融合 lane 修复、本地 36/36 CTest、远端 screen 自动注销阻塞
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## S1-S3 - stage - 2026-11-13 01:40:20 +0800
+- 主任务: kupl-l24-opt-20261113
+- 日志文件: logs/v202611130140.txt
+- 文件大小: 3746 bytes
+- 触发原因: 阶段成果
+- 关键内容: Schur 输出融合、本地 36/36 CTest、远端 screen 仍断线
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## S1-S3 - stage - 2026-11-13 01:49:55 +0800
+- 主任务: kupl-l24-opt-20261113
+- 日志文件: logs/v202611130149.txt
+- 文件大小: 3504 bytes
+- 触发原因: 阶段成果
+- 关键内容: t-only Legacy-MG 32-rank geometry PASS、Schur fusion、远端 SSH 仍断开
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## S1-S3 - stage - 2026-11-13 01:56:40 +0800
+- 主任务: kupl-l24-opt-20261113
+- 日志文件: logs/v202611130156.txt
+- 文件大小: 3372 bytes
+- 触发原因: 阶段成果
+- 关键内容: t-only Legacy-MG 32-rank PASS、Schur fusion、37/37 CTest、远端仍断线
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## S4 - stage - 2026-11-13 02:22:41 +0800
+- 主任务: kupl-l24-opt-20261113
+- 日志文件: logs/v202611130222.txt
+- 文件大小: 3470 bytes
+- 触发原因: 阶段成果
+- 关键内容: 最新树回归重启：local stencil 窗口 clamp 与 MG cache canonical SHA 修复待全量验证
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+
+## S5 - stage - 2026-11-13 03:10:21 +0800
+- 主任务: kupl-l24-opt-20261113
+- 日志文件: logs/v202611130310.txt
+- 文件大小: 7397 bytes
+- 触发原因: 阶段成果
+- 关键内容: MG 预构造 Clover parity 根因修复、真实 8-rank 消融、t2 lane 0.121 s 与全量回归
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## S6 - stage - 2026-11-13 03:18:51 +0800
+- 主任务: kupl-l24-opt-20261113
+- 日志文件: logs/v202611130318.txt
+- 文件大小: 3901 bytes
+- 触发原因: 阶段成果
+- 关键内容: t2 全门控容差扫描：本机真实 8-rank 中位 0.092582 s / 25 it / PASS
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## S7 - general - 2026-11-13 07:33:05 +0800
+- 主任务: kupl-l24-opt-20261113
+- 日志文件: logs/v20261113073305.txt
+- 文件大小: 2357 bytes
+- 触发原因: 一般记录
+- 关键内容: 验收口径修正为仅 Kunpeng 单计算节点 L24；screen keepalive 已启动且远端 top 前台禁止注入
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## S8 - stage - 2026-11-13 09:00:50 +0800
+- 主任务: kupl-l24-opt-20261113
+- 日志文件: logs/v202611130900.txt
+- 文件大小: 5564 bytes
+- 触发原因: 阶段成果
+- 关键内容: 恢复 L24 优化：0.2812 s 基线、t2 0.2664 s、dslash 5.58 GB/s·rank 与 19-20 GB/s·rank 峰值
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## S9 - stage - 2026-11-13 09:26:36 +0800
+- 主任务: kupl-l24-opt-20261113
+- 日志文件: logs/v202611130926.txt
+- 文件大小: 4196 bytes
+- 触发原因: 阶段成果
+- 关键内容: OMP ACTIVE 1.28×，dslash 7.96 GB/s·rank、clover 40.24 GB/s·rank，最优 0.2071 s
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## S10 - stage - 2026-11-13 09:46:37 +0800
+- 主任务: kupl-l24-opt-20261113
+- 日志文件: logs/v202611130946.txt
+- 文件大小: 7437 bytes
+- 触发原因: 阶段成果
+- 关键内容: cn19699 32r×16t ACTIVE 0.188526 s 最优；build-fast/block-dslash 均在噪声内；MG coarse-cache 仍阻塞
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## S11 - general - 2026-11-13 10:11:40 +0800
+- 主任务: kupl-l24-opt-20261113
+- 日志文件: logs/v20261113101140.txt
+- 文件大小: 4147 bytes
+- 触发原因: 一般记录
+- 关键内容: t18 0.183044 s 为当前最优；docs/skills 已登记并审计 PASS
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## S12 - final - 2026-11-13 12:04:10 +0800
+- 主任务: kupl-l24-opt-20261113
+- 日志文件: logs/v2026111312.txt
+- 文件大小: 7639 bytes
+- 触发原因: 任务完成
+- 关键内容: t18 五次重复中位 0.186230 s；CTest 37/37、pytest 67、form 审计 PASS；代码已提交，待 docs/logs 提交与 dev112
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete

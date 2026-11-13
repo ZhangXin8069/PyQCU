@@ -1,6 +1,6 @@
 # PyQCU `docs/**` 来源映射
 
-本表覆盖当前 `docs/` 顶层的 44 份 Markdown 文档。`docs/AGENTS.md` 是文件索引；
+本表覆盖当前 `docs/` 顶层的 45 份 Markdown 文档。`docs/AGENTS.md` 是文件索引；
 需要判断“原文应保留在哪里”时先读该文件和 `docs/ORGANIZATION.md`。
 
 ## 权威级别
@@ -32,6 +32,7 @@
 | [`docs/kupl_kunpeng_guide.md`](../../../docs/kupl_kunpeng_guide.md) | A | `pyqcu-kupl` | `pyqcu-testing-cpu`, `pyqcu-benchmark`, `pyqcu-docs` | KUPL 通用 C++17 兼容边界、鲲鹏 HMPI/MPI/OpenMP 放置、NUMA/片上内存/大页策略、环境检测、生产 MG/BiStabCG 选路、专项测试和性能证据模板。 |
 | [`docs/kupl_kunpeng_progress_20261110.md`](../../../docs/kupl_kunpeng_progress_20261110.md) | C | `pyqcu-benchmark` | `pyqcu-kupl`, `pyqcu-testing-cpu`, `pyqcu-docs` | 2026-11-05 至 11-10 鲲鹏真实环境时点证据：计算节点（`cn10579`，16 CPU NUMA + 16 片上 NUMA）与登录节点（`Kunpeng-920`，4 NUMA、无 SVE）实测拓扑、LX2 STREAM 带宽、HBM `set_mempolicy` 早期失败与后期成功、计算节点 `0.4346 s` 基线、登录节点 true-MG 筛选、dev108 以来代码改动与已否决路线。未打 tag，不得升级为永久承诺；证据实体多在远端未入库。 |
 | [`docs/kupl_kunpeng_hpc_config_20261112.md`](../../../docs/kupl_kunpeng_hpc_config_20261112.md) | C | `pyqcu-benchmark` | `pyqcu-kupl`, `pyqcu-docs` | 2026-11-12 鲲鹏 HBM 节点实测：`cn19699`/`cn19698` 独占 `-x job` 的 6 条 L24 用例（32r×12t `0.8410 s` 最优，16r×8t `1.1442 s`，32r×18t `1.5979 s`，8r×16t `2.0595 s`；`cn19698` 16r×8t `1.0946 s`、4r×8t `4.7462 s`），全部 16 it、真残差 ≈`3.541e-6`、PASS；含 `KUPL_MEMORY_NODE=local+16` 与 `--map-by ppr:P:numa` 配方、`dsub` 调度与 `execNodes` 核对、400–600 s 超时协议。跨节点与标志已分离：y76 原配方复现 `0.5193 s`（相对 x_case_dbg 1.62× 标志开销，相对 `cn10579` 1.20× 节点差异）；grid 变体、多样本与 `KUPL_ENABLE_T2_ZBLOCK_DSLASH` 语义待补。未打 tag。 |
+| [`docs/kupl_l24_perf_20261113.md`](../../../docs/kupl_l24_perf_20261113.md) | C | `pyqcu-benchmark` | `pyqcu-kupl`, `pyqcu-docs` | 2026-11-13 单 Kunpeng 节点 KUPL L24（24^3x64, c64）实测：32r×12t PASSIVE 0.281166 s → ACTIVE 0.207077 s（t2 lane），32r×16t 0.188526 s，32r×18t 0.183044 s，全部 12 it 且独立 FULL 真残差 PASS；cn19650 同节点 PASSIVE/ACTIVE A/B 0.319600 → 0.249223 s（1.28×）；分项 dslash 7.96 GB/s·rank、clover 40.24 GB/s·rank、reduce 0.45 ms/次；STREAM triad 峰值 18.3–20.1 GB/s·rank（聚合约 600 GB/s）；含 `KUPL_PROFILE_OPT` 方法学、MG 缓存工具链阻塞与待补项。未打 tag。 |
 | [`docs/kupl_opt_handover_20261112.md`](../../../docs/kupl_opt_handover_20261112.md) | C | `pyqcu-kupl` | `pyqcu-benchmark`, `pyqcu-docs` | 2026-11-12 KUPL 极致优化接手文档：环境入口、已应用补丁/md5/备份、10 项优化门控（默认关闭）、审计结论、基准现状（`opt16p_base 0.6814 s / 12 it / PASS`）、已知坑与复现命令、待办。未打 tag。 |
 | [`docs/kupl_kunpeng_figures_20261110.tex`](../../../docs/kupl_kunpeng_figures_20261110.tex) / [`.pdf`](../../../docs/kupl_kunpeng_figures_20261110.pdf) | C | `pyqcu-benchmark` | `pyqcu-kupl`, `pyqcu-docs` | 与 `kupl_kunpeng_progress_20261110.md` 同源的 9 页图表集（13 图 2 表）：对数轴柱标签必须用 `point meta=explicit symbolic` 输出真实值；误差条只表示 min–max 半幅；含作业台账、几何不可比性外推、HBM 绑定统计与 NUMA→片上内存映射。两遍 `xelatex` 实测 `Overfull=0`/`Float too large=0`/`Missing character=0`。未打 tag。 |
 | [`docs/qcu_l24_solver_timing_20261111.md`](../../../docs/qcu_l24_solver_timing_20261111.md) | C | `pyqcu-benchmark` | `pyqcu-kupl`, `pyqcu-cuda`, `pyqcu-testing-dcu`, `pyqcu-docs` | L24 全配置耗时台账；7 环境 × 3 路径 × 2 精度；每行带 ranks/threads/grid/迭代/残差/样本数/证据等级；含弱扩展外推与 0.1 s 目标差距。未打 tag，K 系列来源含被 gitignore 的工作区文件。 |

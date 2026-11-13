@@ -1,0 +1,122 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-11-13 12:04:10 +0800
+批次: S12
+主任务: kupl-l24-opt-20261113
+触发原因: 任务完成
+摘要: t18 五次重复中位 0.186230 s；CTest 37/37、pytest 67、form 审计 PASS；代码已提交，待 docs/logs 提交与 dev112
+Git 根目录: /home/zhangxin/PyQCU
+
+## 关键日志
+### S1 — 本地全量重建与回归
+- 目标: 验证工作区未提交的 KUPL 改动（t2 lane、融合归约、onsite 免拷贝、剖析计数）。
+- 命令/操作: `cd cpp/kupl/qcu && KUPL_ENABLE_NATIVE=OFF KUPL_ENABLE_LTO=OFF bash ./make.sh`。
+- 关键输出: `make.sh: SUCCESS`，库软链接更新为 `build/libqcu.so`。
+- 退出码: 0。
+- 证据与判断: 构建产物包含当前工作区源码，后续回归以该库为准。
+
+### S2 — CTest 与 Python 回归
+- 命令/操作: `ctest --test-dir cpp/kupl/qcu/build --output-on-failure`；
+  `bash -c 'source ./env.sh; python3 -m pytest -q pyqcu/testing/kupl pyqcu/testing/simple/test_legacy_mg_setup.py'`。
+- 关键输出: `100% tests passed out of 37`，`Total Test time (real) = 120.72 sec`；`67 passed, 1 warning`。
+- 退出码: 0 / 0。
+- 证据与判断: 含新增 `kupl_qcu_t2_lanes` 与 `kupl_qcu_python_legacy_mg_t_only_2rank`，覆盖 t2 lane 与 t-only 几何。
+
+### S3 — 远端工作集与构建一致性
+- 命令/操作: 本地与 `/home/share/nsls_yangyb/PyQCU` 对 10 个工作集文件执行 `md5sum`。
+- 关键输出: 10/10 完全一致；远端 `build-native-lto/libqcu.so` 时间戳 11-13 10:57 晚于源码 10:56/08:48。
+- 退出码: 0。
+- 证据与判断: 远端采样使用当前源码构建，无旧库混用。
+
+### S4 — cn19699 t18 五次重复采样
+- 命令/操作: 通过 `screen` 会话 `1820.ku`（ssh login10）提交 5 个 `dsub` 作业
+  `2113436/2113439/2113445/2113447/2113452`，配置 32r×18t、ACTIVE、t2 lane、
+  `KUPL_MEMORY_POLICY=preferred`、`-R cpu=18,mem=8G`、`-nl cn19699`。
+- 关键输出: 墙钟 `0.180422/0.186732/0.181537/0.193310/0.186230 s`；中位 `0.186230`、
+  均值 `0.185646`、MAD `0.004693`、极差 `6.9%`；5/5 为 12 it、`PASS`、
+  真残差恒为 `5.384866e-05`。
+- 退出码: 每个作业 `meta.txt` 均 `RC=0`。
+- 证据与判断: 抖动来自运行时而非收敛路径；S11 单点 `0.183044 s` 比中位低 `1.74%`。
+
+### S5 — 文档与技能证据同步
+- 命令/操作: 更新 `docs/kupl_l24_perf_20261113.md`（§1 重复性、§3 统计行与样本明细、
+  §7 样本量与目标倍数、§9 待补项、§10 证据路径）、`skills/pyqcu-kupl/SKILL.md`
+  （t18 行与结论段）、`skills/pyqcu-kupl/references/kupl-history-2026.md`（表格行与重复性条目）。
+- 关键输出: `PASS docs=45 skills=36`。
+- 退出码: 0。
+- 证据与判断: 全文不再把单点 `0.183044 s` 当作稳定中位；目标差距改为约 `1.86×`。
+
+### S6 — form 审计例外登记
+- 命令/操作: `bash skills/pyqcu-form/form-audit.sh` 报 2 条 `TAG_NAME_IN_PATH`
+  （`logs/screen-73056-ss-20261106-1536-test1000.txt`、`...-1538-test700.txt`）。
+- 关键输出: 两文件自提交 `b026c90e` 起已被跟踪，属历史第一方 screen 捕获，非 Git 标签。
+- 退出码: 修正前 FAIL；在 wrapper 增加两条精确匹配后 `PASS: form 审计通过；36 个技能目录与索引一致，豁免 18 个既有资产 finding`。
+- 证据与判断: 未删除、改名或整体禁用检查，只做精确登记。
+
+## 验证与证据
+- 测试/检查: `ctest --test-dir cpp/kupl/qcu/build --output-on-failure`。
+- 结果: 37/37 PASS，总耗时 120.72 s。
+- 测试/检查: `python3 -m pytest -q pyqcu/testing/kupl pyqcu/testing/simple/test_legacy_mg_setup.py`。
+- 结果: 67 passed，1 个 TileLang 缺失警告。
+- 测试/检查: 远端 5 个 t18 作业独立分布式 FULL 真残差门。
+- 结果: 5/5 PASS，12 it，`5.384866e-05`。
+- 测试/检查: `python3 -B skills/pyqcu-docs/scripts/audit-docs-skills.py`。
+- 结果: `PASS docs=45 skills=36`。
+- 测试/检查: `bash skills/pyqcu-form/form-audit.sh`；大文件闸门；`git diff --check`。
+- 结果: 审计 PASS（18 项豁免）；闸门检查 0 文件；diff 无告警。
+- 未验证项: 跨节点扩展性；32r×19t、16r×36t（调度器无法放置）；远端 `report.json` 与
+  共享路径挂载核对（本机不可见，仅经会话读取）。
+
+## 变更与产物
+- 文件: `cpp/kupl/qcu/{CMakeLists.txt,include/kupl/lattice_set.h,src/lattice_linalg.cpp,
+  src/lattice_multigrid.cpp,src/lattice_solver.cpp,src/lattice_wilson_dslash.cpp,
+  tests/test_kupl.cpp,tests/test_multigrid.py}`。
+- 文件: `pyqcu/testing/kupl/test_legacy_mg.py`、`pyqcu/testing/simple/kupl_multigrid.py`、
+  新增 `pyqcu/testing/simple/test_legacy_mg_setup.py`。
+- 文件: 新增 `docs/kupl_l24_perf_20261113.md`；`docs/AGENTS.md`；
+  `skills/pyqcu-kupl/{SKILL.md,references/kupl-history-2026.md}`；
+  `skills/pyqcu-docs/{SKILL.md,references/extracted-guidance.md,references/project-docs-map.md}`；
+  `skills/pyqcu-form/form-audit.sh`。
+- 产物: 远端 `data/kupl_opt_20261113/remote/t18rep1_1113` … `t18rep5_1113` 的
+  `report.json`/`meta.txt`/`out.txt`。
+- 未改动范围: 未推送远端、未改写既有标签；`cpp/cuda/**`、Torch 后端无改动。
+
+## 风险、限制与下一步
+- 风险: t18 统计仍限于单节点 cn19699；跨节点绝对墙钟不可比。
+- 风险: 目标 0.1 s 未达成，当前中位约为目标的 1.86 倍。
+- 阻塞: 32r×19t、16r×36t 受调度器节点放置限制，多次提交后长期 PENDING。
+- 下一步: 推送提交与 dev112 标签；`tag-chain.sh --check` 存在既有 `[BLOCK] bug45`
+  与 `gitlab.itp.ac.cn` 解析失败，未做自动修正。
+
+## 用户输入指令
+1. 运行契约与身份/规则说明（长文本，按规则执行，不在此重复全文）。
+2. `继续 KUPL L24 工作`（选择继续承接未提交的 KUPL 改动）。
+3. `继续~screen[1820.ku ]`（接管 screen 会话 1820.ku 继续任务）。
+
+## Agent 全文报告
+--- report begin ---
+✓ KUPL L24 续作完成
+
+任务：承接 `cpp/kupl/qcu` 与 `pyqcu/testing/kupl` 的未提交改动，补齐 t18 多样本统计并收尾提交。
+
+改动内容：
+1. 本地以 `KUPL_ENABLE_NATIVE=OFF KUPL_ENABLE_LTO=OFF` 重建 KUPL，CTest 37/37 PASS（120.72 s），pytest 67 passed。
+2. 通过 screen 会话在 cn19699 提交 5 个同配置 t18 作业（32r×18t、ACTIVE、t2 lane、preferred），
+   全部 12 it / PASS / 真残差 `5.384866e-05`。墙钟 `0.180422/0.186732/0.181537/0.193310/0.186230 s`，
+   中位 `0.186230 s`、均值 `0.185646 s`、MAD `0.004693 s`、极差 `6.9%`。
+3. 把统计写回 `docs/kupl_l24_perf_20261113.md`、`skills/pyqcu-kupl/SKILL.md` 与
+   `references/kupl-history-2026.md`，修正“单点 0.183044 s 即最优”的表述。
+4. form 审计对两条 11-06 已跟踪 screen 日志做精确例外登记，审计恢复 PASS（18 项豁免）。
+
+推理依据：
+- t18 是唯一进入 0.18 s 区间的配置，但此前只有单点；5 次重复给出中位与离散度，避免把低端
+  样本当作稳定值。
+- 5 次迭代数均为 12、真残差完全一致，说明墙钟差异来自运行时抖动，而不是收敛路径改变。
+
+验证结果：CTest 37/37、pytest 67 passed、远端 5/5 PASS、docs-skills 审计 PASS
+（docs=45 skills=36）、form 审计 PASS、大文件闸门 0 命中、`git diff --check` 无告警。
+
+限制：仅单节点 cn19699；32r×19t 与 16r×36t 因调度器无法放置未取得；中位距 0.1 s 目标约 1.86×。
+
+后续：提交文档/技能/日志并创建 dev112；远端推送与标签推送未执行。
+--- report end ---

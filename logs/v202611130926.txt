@@ -1,0 +1,57 @@
+[日志元数据]
+日志类型: stage
+生成时间: 2026-11-13 09:26:36 +0800
+批次: S9
+主任务: kupl-l24-opt-20261113
+触发原因: 阶段成果
+摘要: OMP ACTIVE 1.28×，dslash 7.96 GB/s·rank、clover 40.24 GB/s·rank，最优 0.2071 s
+Git 根目录: /home/zhangxin/PyQCU
+
+## 关键日志
+### S8 — 逐 rank 剖析与 OMP 等待策略
+- 目标: 定位 solve 内各阶段耗时并验证线程唤醒开销。
+- 命令/操作: `KUPL_PROFILE_OPT=1` 每 rank 输出；`OMP_WAIT_POLICY` PASSIVE/ACTIVE 同节点 A/B。
+- 关键输出: 逐 rank 一致（rank 26：dslash 0.1317 s/52、clover 0.0200 s、reduce 0.0523 s/51、solve 0.2296 s）。
+- A/B（cn19650）: PASSIVE 0.319600 s → ACTIVE 0.249223 s（1.28×），12 it，均 PASS。
+- 退出码: 两个作业 RC=0。
+- 证据与判断: 小并行区（归约/向量更新）的线程唤醒是主要隐藏成本；ACTIVE 后 reduce 由约 1.02 ms/次降至约 0.45 ms/次。
+
+### S9 — ACTIVE 下的复剖与 block-dslash 对照
+- 命令/操作: cn19699 ACTIVE + t2 + `KUPL_PROFILE_OPT=1`；cn19650 ACTIVE + `KUPL_BLOCK_DSLASH_MIN_HALF_SITES=8192`。
+- 关键输出: cn19699 `0.207077 s / 12 it / PASS`；分项 dslash 0.104099 s（7.96 GB/s·rank，聚合 254.56 GB/s）、clover 0.013720 s（40.24 GB/s·rank，聚合 1287.63 GB/s）、reduce 0.023190 s/51、phases prepare 0.003573 / solve 0.156956 / reconstruct 0.002327。
+- cn19650 block-dslash: `0.244864 s`（同节点 t2 为 0.249223 s），差异在噪声级。
+- 证据与判断: 当前最优 0.2071 s；dslash 仍占约 50%，setup 约 44 ms（scratch/gauge halo），reduce 约 23 ms。
+
+## 验证与证据
+- 测试/检查: 每个样本均执行独立分布式 FULL Wilson-Clover 真残差门；状态 PASS。
+- 结果: 最优 `0.207077 s / 12 it / PASS`（cn19699，32r×12t，ACTIVE，t2）。
+- 未验证项: L24 真实 MG（levels=2）；`<0.1 s` 尚未达成。
+
+## 变更与产物
+- 文件: 无新增源码修改（沿用 `KUPL_PROFILE_OPT` 与探针）。
+- 产物（远端）: `data/kupl_opt_20261113/remote/{v7_prof3,v7_prof4,v7_c50_base,v7_c50_act,v7_blk}/`。
+- 带宽峰值: STREAM triad 12 线程/rank 为 18.3–20.1 GB/s·rank（聚合约 600 GB/s）；ACTIVE 下 dslash 实测 7.96 GB/s·rank，clover 40.24 GB/s·rank。
+
+## 风险、限制与下一步
+- 风险: 节点间绝对值差异可达 20%（cn19650 0.3196 s vs cn19699 0.2664 s，同为 PASSIVE 基线）。
+- 阻塞: 1-rank L24 MG 缓存构建（作业 2112385）已运行约 20 分钟，仍未产出 cache 文件。
+- 下一步: 等待 MG cache；若可用则测 restart 扫描；否则继续优化 dslash 内核（当前 7.96 GB/s·rank，峰值约 19 GB/s·rank）。
+
+## 用户输入指令
+参考相关的代码和文档和docs和skills和logs,resume[20261112T224251.xFqGzM]
+注意统计运行时的带宽峰值
+
+## Agent 全文报告
+--- report begin ---
+## 阶段报告：OMP 等待策略带来 1.28×，当前最优 0.2071 s
+
+逐 rank 剖析确认 32 个 rank 的耗时基本一致（无显著负载失衡）。solve 内部构成为：dslash 约 57%、reduce 约 23%、clover 约 9%、其余为向量更新。
+
+关键发现是 `OMP_WAIT_POLICY=PASSIVE` 对小并行区（全局归约与向量更新）造成显著唤醒开销：同一节点 cn19650 上，PASSIVE 为 0.319600 s，ACTIVE 为 0.249223 s，提升 1.28×，两次均通过独立真残差门。ACTIVE 下 reduce 从约 1.02 ms/次降到约 0.45 ms/次。
+
+在 cn19699 上以 ACTIVE + t2 lane 复测，达到 0.207077 s / 12 it / PASS，为当前最优。分项为 dslash 0.1041 s（7.96 GB/s·rank，聚合 254.6 GB/s）、clover 0.0137 s（40.24 GB/s·rank，聚合 1287.6 GB/s）、reduce 0.0232 s/51、solve 0.1570 s。与 STREAM triad 探针的 18.3–20.1 GB/s·rank（聚合约 600 GB/s）相比，dslash 仍只有峰值带宽的约 40%，是后续主攻方向；clover 因缓存复用已超过探针峰值。
+
+block-dslash 阈值对照（`KUPL_BLOCK_DSLASH_MIN_HALF_SITES=8192`）为 0.244864 s，与同节点 t2 的 0.249223 s 属噪声级差异。真实 MG 仍在构建 1-rank 全局 cache。
+
+节点间绝对值差异需注意：同为 PASSIVE 基线，cn19650 为 0.3196 s、cn19699 为 0.2664 s。
+--- report end ---

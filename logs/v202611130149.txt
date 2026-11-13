@@ -1,0 +1,47 @@
+[日志元数据]
+日志类型: stage
+生成时间: 2026-11-13 01:49:55 +0800
+批次: S1-S3
+主任务: kupl-l24-opt-20261113
+触发原因: 阶段成果
+摘要: t-only Legacy-MG 32-rank geometry PASS、Schur fusion、远端 SSH 仍断开
+Git 根目录: /home/zhangxin/PyQCU
+
+## 关键日志
+### S1 — t-only Legacy-MG 几何验证
+- 目标: 验证 32r t-only local_t=2 不能在时间方向 coarse，但可否保持 coarse_t=1、对空间做 coarsening。
+- 命令/操作: 扩展 pyqcu/testing/kupl/test_legacy_mg.py 的 dims/grid/coarse_dims 环境配置；新增 CTest `kupl_qcu_python_legacy_mg_t_only_2rank`。
+- 关键输出: 2/8/32-rank，dims=8 8 8 2、grid=1 1 1 N、coarse=4 4 4 1，c64/c128 levels 1/2、deflate/restart 全部 PASS；verify=0；deflate c64 误差 9.811e-09，c128 约 1.98e-12。
+- 退出码: 全部 MPI 测试 exit=0；新增 CTest exit=0。
+- 证据与判断: t-only Legacy-MG 的 geometry/halo/correction 路径在本地多 rank 可运行，下一步必须在 Kunpeng 真机用真实 L24 gauge/source 测迭代数和 solve wall。
+
+### S2 — Schur 输出融合
+- 目标: 减少 local_t=2 Schur apply 的整场 scratch 流量。
+- 命令/操作: 先对输入应用 onsite 生成 A*x，再用 specialized dslash 直接累加 -kappa^2*D，避免额外 scratch 写读。
+- 关键输出: 本地 24³×2、2-rank c64 Schur 50 次中位约 0.617 s，旧 lane 约 0.641 s；完整本地 CTest 通过。
+- 退出码: 测试/基准 exit=0。
+- 证据与判断: 方向性收益约 3.8%，但本地差异噪声较大，不能替代远端同节点 A/B。
+
+### S3 — 回归与产物
+- 命令/操作: `ctest --test-dir cpp/kupl/qcu/build --output-on-failure`；`git diff --check`；v3 patch roundtrip。
+- 结果: 本地 CTest 36/36 PASS；t-only 2-rank 新增测试 PASS；v3 patch 36176 B roundtrip PASS。
+- 未验证项: 远端 32r L24 fused/rtol2；真实 Legacy-MG cache/solve；最终 <0.1 s。
+
+## 风险、限制与下一步
+- 风险: 本地 MG 测试使用 identity synthetic assets；不能从 verify=0 推出 L24 生产收益。
+- 阻塞: screen 4275.ku 仍停在本地 zhangxin@ZhangXin-Computer，原 SSH 已注销；不新建通道。
+- 下一步: 恢复原有 screen SSH 后，同步 v3 patch，重建 build-native-lto；先跑新增 t2/MG CTest，再用真实 cache + 32r×12t 比较 BiCGStab、fused BiCGStab、Legacy-MG restart=5/10 的中位 wall、迭代数和独立真残差。
+
+## 用户输入指令
+自动续跑：请简要汇报当前阶段性工作进度到日志目录，并继续下一轮工作或进一步拓展本轮工作；不要重复已完成工作。
+
+## Agent 全文报告
+--- report begin ---
+## 阶段报告：t-only Legacy-MG 与 Schur 融合
+
+本轮完成了此前缺失的 t-only MG 几何验证。新增可配置 dims/grid/coarse_dims 的 Legacy-MG 测试，2/8/32-rank、local_t=2、coarse `[4,4,4,1]` 均在 c64/c128 下 PASS，verify=0；这说明 temporal coarse 维保持 1、spatial coarsening 的本地几何和 halo 路径可用。该结果仍是 synthetic-assets 证据，不能替代真实 L24 收益。
+
+同时把 local_t=2 Schur 的最后 dslash 融合为直接累加到 onsite 预填充的 `A*x`，本地 24³×2 微基准中位约 0.617 s，对旧 lane 约 0.641 s。完整 CTest 36/36 PASS。
+
+远端 `4275.ku` 仍未恢复 SSH，32r L24 fused+rtol2、真实 Legacy-MG solve 和最终 `<0.1 s` 仍未验证；恢复后先使用 `data/kupl_opt_20261113/remote_to_current_v3.patch`，再跑真机三样本 A/B。
+--- report end ---

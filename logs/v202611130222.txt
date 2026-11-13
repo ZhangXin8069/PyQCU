@@ -1,0 +1,47 @@
+[日志元数据]
+日志类型: stage
+生成时间: 2026-11-13 02:22:41 +0800
+批次: S4
+主任务: kupl-l24-opt-20261113
+触发原因: 阶段成果
+摘要: 最新树回归重启：local stencil 窗口 clamp 与 MG cache canonical SHA 修复待全量验证
+Git 根目录: /home/zhangxin/PyQCU
+
+## 关键日志
+### S4 — 自动续跑检查点
+- 目标: 在上一阶段 t-only Legacy-MG 与 Schur 融合后，验证最新两处修复，并继续追求 Kunpeng 单节点 L24 c64 solve < 0.1 s。
+- 命令/操作: 检查 `git status --short`、最新 diff、`logs/v202611130156.txt`、screen 会话与构建产物时间戳。
+- 关键输出: 工作树包含 10 个已修改文件；最新 `lattice_multigrid.cpp` 将 local stencil 所需窗口改为 `min(fine[dim], 3*block[dim]+2)`；`kupl_multigrid.py` 改为 rank 0 计算 canonical gauge SHA 后向所有 rank 广播。
+- 退出码: 只读检查 exit=0。
+- 证据与判断: 上一份日志的 37/37 CTest 产生于这两处修改之前，不能代表当前最新树；必须重新构建并运行完整 CTest。
+- 远端状态: `4275.ku` screen 仍 Attached，但原 SSH 已自动注销，当前仍在本地 shell；本轮不新建 SSH/SCP/SFTP 通道。
+- 下一步: 运行当前 `cpp/kupl/qcu/build` 全量构建和 CTest；新增 `fine_t=3/patch_coarse_t=3/window=8` 的 local stencil 边界回归；再测真实 8-rank 输入 MG restart/容差候选。
+
+## 验证与证据
+- 测试/检查: 当前最新树尚未执行全量构建与 CTest。
+- 结果: 未验证。
+- 未验证项: 最新 local stencil clamp 的 build/CTest；最新 canonical SHA 修改；L24 Kunpeng 真机 <0.1 s 与独立 FULL 真残差。
+
+## 变更与产物
+- 文件: `cpp/kupl/qcu/src/lattice_multigrid.cpp`、`pyqcu/testing/simple/kupl_multigrid.py` 等 10 个工作树修改文件。
+- 产物: `data/kupl_opt_20261113/remote_to_current_v5.patch` 已落后于当前最新修改，不能作为最终恢复补丁。
+- 未改动范围: 未提交、未推送、未创建新远端连接。
+
+## 风险、限制与下一步
+- 风险: 最新 clamp 可能掩盖真正的窗口不足；必须以真实调用语义和差分回归验证。
+- 阻塞: 原 screen SSH 自动注销，真实 Kunpeng 性能 A/B 暂不可执行。
+- 下一步: 最新树全量回归 → local_t=3 边界回归 → 真实输入 8-rank MG 参数扫描 → 重新生成恢复补丁。
+
+## 用户输入指令
+【自动续跑】请简要汇报当前阶段性工作进度到日志目录，并继续下一轮工作或进一步拓展本轮工作；不要重复已完成工作。
+
+## Agent 全文报告
+--- report begin ---
+## 阶段报告：最新树回归重启
+
+当前性能结论仍以已完成的远端样本为准：32r×12t、grid `1 1 1 32`、旧 lane 全门控为 `0.31516066 s / 12 it / residual 5.384894e-5 PASS`；T2_ZBLOCK 曾达到 `0.227195 s`，但独立残差 `0.518375 FAIL`，已淘汰。最终 L24 `<0.1 s` 尚未达成。
+
+本轮新增状态是：工作树最新两处修复尚未经过全量回归。`lattice_multigrid.cpp` 已允许短 compressed-time 轴将局部 stencil 窗口按周期局部 extent 截断；`kupl_multigrid.py` 已避免把 HDF5 文件 SHA 错当成 canonical gauge SHA。上一份 `37/37 PASS` 不能外推到当前树。
+
+下一步先构建并跑完整 CTest，再增加 `fine_t=3/patch_coarse_t=3/window=8` 回归；远端 `4275.ku` 当前没有 SSH 会话，恢复前继续做本地可验证工作，不新建通道。
+--- report end ---

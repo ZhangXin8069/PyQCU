@@ -1,0 +1,88 @@
+[日志元数据]
+日志类型: stage
+生成时间: 2026-11-13 03:10:21 +0800
+批次: S5
+主任务: kupl-l24-opt-20261113
+触发原因: 阶段成果
+摘要: MG 预构造 Clover parity 根因修复、真实 8-rank 消融、t2 lane 0.121 s 与全量回归
+Git 根目录: /home/zhangxin/PyQCU
+
+## 关键日志
+### S1 — 最新树全量回归
+- 目标: 在 local stencil 窗口 clamp 与 canonical gauge SHA 修复后重新建立当前树证据。
+- 命令/操作: `cmake --build cpp/kupl/qcu/build --parallel 8`；`ctest --test-dir cpp/kupl/qcu/build --output-on-failure`。
+- 关键输出: build exit=0；CTest `37/37 PASS`，总耗时 82.30 s。
+- 退出码: 0。
+- 证据与判断: 最新 C++ 修改不再依赖旧日志中的 37/37。
+
+### S2 — 短 compressed-time stencil 回归
+- 目标: 覆盖 `fine_t=3`、`coarse_t=3`、`window=8` 的合法周期 patch。
+- 命令/操作: 在 `cpp/kupl/qcu/tests/test_multigrid.py` 新增 `run_short_time_stencil_test()`，同时检查非零、有限和 Galerkin `2e-5` 门。
+- 关键输出: 单 rank `short_time_stencil=9.271e+01`；CTest 1/2-rank multigrid 均 PASS。
+- 退出码: 0。
+- 证据与判断: 旧 per-dimension 硬门会拒绝该几何，新 clamp 路径已被回归固定。
+
+### S3 — 真实 Legacy-MG cache 根因定位
+- 目标: 构建 8×8×16×16、`mg-grid=2 2 2 1`、`dof=12 12` 的真实 33-tensor cache。
+- 首次失败: 预构造 Clover 复用路径 Galerkin 误差 `2.338e-02`；内部自建 Clover 路径通过，定位差异为 builder 新建 `params` 时未设置 `PARITY=1`。
+- 修复: `build_coarse_assets()` 在 Clover 处理结束后显式 `params[PARITY]=1`。
+- 回归: 新增 mock ABI 测试 `test_reused_clovers_keep_odd_target_parity`，断言 null/stencil 调用看到 parity 1；`1 passed`。
+- cache 结果: cache `/home/zhangxin/PyQCU/data/kupl_opt_20261113/real8/cache_v1.h5`，48,373,760 bytes；identity `b2ea4db9...`；builder `10.464823 s`；1-rank solve `0.905960 s`；independent residual `4.848434e-07`；verify=0；status PASS。
+- 退出码: 0。
+
+### S4 — 真实 8-rank MG/BiCG 参数消融
+- 输入: c64、gauge `data/release_8x8x16x16/gauge_8x8x16x16_c64.h5`、mass 0.05、csw 1.0、point source `[0,0,0,0]`、grid `1 1 1 8`、OMP=1。
+- 标量 BiCGStab: `0.199063 s / 35 it / residual 5.171e-07 PASS`。
+- `restart=5/factor=1` 三次样本: `0.643643, 0.613607, 0.630148 s`，中位 `0.630148 s`，三次 final residual 均 PASS 且 verify=0。
+- `restart=10/factor=1` 三次样本: `0.533308, 0.526984, 0.459511 s`，中位 `0.526984 s`，相对 restart=5 中位快约 16.4%，三次 PASS。
+- `restart=1/2` 分别 `0.896640/0.935219 s` PASS，但显著慢于 restart=5/10。
+- `restart=20/50/100` 分别 `0.414827/0.416601/0.403361 s` PASS；均 verify=0、独立残差低于 `1e-6`。
+- 判断: 小规模真实输入上 true-MG 全部慢于 restart=0 BiCGStab；不得把 restart=100 写成 MG 收益。
+
+### S5 — t2 lane 全门控复验
+- 命令/操作: `KUPL_ENABLE_BOUNDARY_LANES=1 KUPL_T_LOCAL_IN_PART1=1 KUPL_ENABLE_T2_LANES=1 KUPL_HALO_PACK6=1 KUPL_HALO_DEDUP_PACK=1`。
+- BiCGStab: `0.120658 s / 35 it / residual 5.178084e-07 PASS`，相对标量 BiCGStab `0.199063 s` 快约 39.4%。
+- factor=2: `0.169678 s / 32 it / residual 1.008247e-06 PASS`，本次样本反而更慢；不据此改变默认 factor。
+- t2 MG: `restart=20/100` 为 `0.323709/0.265058 s`，均 PASS，但仍慢于 t2 BiCGStab。
+- 判断: t2 lane 的当前价值主要落在非 MG Schur/BiCG 快速路径；小输入继续选择 BiCGStab。
+
+### S6 — Python 与交付物
+- 命令/操作: `python -B -m pytest -q pyqcu/testing/simple`；`py_compile` 四个修改/新增 Python 文件。
+- 结果: pytest `93 passed, 1 warning`；py_compile exit=0。
+- 补丁: `data/kupl_opt_20261113/remote_to_current_v6.patch`，65,571 bytes，SHA256 `9ab9331fed322d2a4cdccf458535e3ba4a036c10dfcc26b345de96ff903d14f8`，包含 11 个代码/测试文件。
+- 补丁验证: `git apply --cached --check` exit=0。
+- 工作树: 未提交、未推送。
+
+## 验证与证据
+- 测试/检查: latest build；完整 CTest；simple pytest；py_compile；真实 cache；真实 8-rank BiCG/MG；v6 patch index apply check。
+- 结果: 全部上述命令 exit=0；所有真实样本最终状态 PASS，`verify=0` 或 restart=0 的独立残差门 PASS。
+- 未验证项: Kunpeng `4275.ku` 真机 L24 32r×12t A/B；L24 `<0.1 s`；真实 L24 独立 FULL 真残差。
+- 限制: 本机为 8 逻辑核 Intel i7-13620H，绝对墙钟不可外推为 Kunpeng；小输入 MG 负收益不代表 L24 结论。
+
+## 变更与产物
+- 文件: `cpp/kupl/qcu/src/lattice_multigrid.cpp`、`pyqcu/testing/simple/kupl_multigrid.py`、`cpp/kupl/qcu/tests/test_multigrid.py`、新增 `pyqcu/testing/simple/test_legacy_mg_setup.py` 及其余本轮既有修改。
+- 产物: `data/kupl_opt_20261113/real8/cache_v1.h5`、`bicg_t2_f1.json`、`r5_f1*.json`、`r10_f1*.json`、`r20/r50/r100*.json`、`data/kupl_opt_20261113/remote_to_current_v6.patch`。
+- 未改动范围: 未创建远端连接、未同步远端、未提交/推送、未改系统配置。
+
+## 风险、限制与下一步
+- 风险: 真实 L24 条件数与 32-rank halo 组合不同，本地 small-case 参数排序不能直接外推。
+- 阻塞: `4275.ku` 的 SSH 已自动注销，当前只在本地 shell；恢复前无法执行最终 Kunpeng 验收。
+- 下一步: 用户恢复原 screen SSH 后，经现有会话应用 v6，重建 native/LTO；先跑 CTest，再跑 L24 32r×12t 的 scalar/t2 BiCG 与 restart=20/50 true-MG 三样本 A/B，保持独立 FULL 真残差门。
+
+## 用户输入指令
+【自动续跑】请简要汇报当前阶段性工作进度到日志目录，并继续下一轮工作或进一步拓展本轮工作；不要重复已完成工作。
+
+## Agent 全文报告
+--- report begin ---
+## 阶段报告：真实 MG parity 修复与 8-rank 消融
+
+当前最新树已重新完成完整验证：C++ CTest `37/37 PASS`，`pyqcu/testing/simple` 为 `93 passed`，新增短时间 stencil 与预构造 Clover parity 回归均通过。
+
+本轮最重要的正确性修复是：`build_coarse_assets()` 复用预构造 Clover 数组时没有把新 `params` 的 target parity 设为 1，导致真实 cache 的 null-vector/stencil 在错误 parity 上构建，表现为 Galerkin 误差 `2.338e-02`；内部自建 Clover 路径因恰好保留 parity 1 而没有暴露。修复后 8×8×16×16 cache 成功构建并通过 `verify=0` 与独立残差 `4.848e-07`。
+
+真实 8-rank 消融上，标量 BiCGStab 为 `0.199063 s / 35 it / PASS`。true-MG 的 restart=5 三次中位 `0.630148 s`，restart=10 三次中位 `0.526984 s`，restart=20/50/100 约 `0.403–0.417 s`；虽然均 PASS，但都慢于 BiCGStab。小输入应保留 BiCGStab，不能把 restart=100 冒充 MG 收益。
+
+启用 boundary-lanes、t-local-part1、t2-lanes、halo-pack6/dedup 全门控后，BiCGStab 达到 `0.120658 s / 35 it / residual 5.178084e-07 PASS`，相对标量路径快约 39.4%。t2 MG 仍为 `0.265 s` 以上，因此 t2 路径的当前价值在非 MG Schur/BiCG 快速路径。
+
+远端 `4275.ku` 仍没有 SSH 连接，Kunpeng L24、`<0.1 s` 与独立 FULL 残差尚未验证。最新恢复物为 `data/kupl_opt_20261113/remote_to_current_v6.patch`，已通过 `git apply --cached --check`；恢复原会话后应先重建并跑 CTest，再做 L24 32r×12t 三样本 A/B。
+--- report end ---

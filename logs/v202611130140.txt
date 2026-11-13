@@ -1,0 +1,59 @@
+[日志元数据]
+日志类型: stage
+生成时间: 2026-11-13 01:40:20 +0800
+批次: S1-S3
+主任务: kupl-l24-opt-20261113
+触发原因: 阶段成果
+摘要: Schur 输出融合、本地 36/36 CTest、远端 screen 仍断线
+Git 根目录: /home/zhangxin/PyQCU
+
+## 关键日志
+### S1 — Schur 输出融合
+- 目标: 减少 KUPL t2 路径每次 Schur apply 的 scratch 整场读写。
+- 命令/操作: 在 fused lane 路径先用 onsite 生成 A*x，再由 `bare_dslash_t2_scaled` 将 `-kappa^2*D` 直接累加；新增 accumulate/scale 接口。
+- 关键输出: 本地 24³×2 c64 Schur 微基准 50 次中位约 0.617 s；旧 lane 同题约 0.641 s。
+- 退出码: 基准 exit=0。
+- 证据与判断: 本地方向性收益约 3.8%，必须远端同节点复测；不能作为 Kunpeng 最终结论。
+
+### S2 — 回归
+- 目标: 确认 fused、dagger、onsite alias 与新测试均稳定。
+- 命令/操作: ctest --test-dir cpp/kupl/qcu/build --output-on-failure；patch roundtrip；git diff --check。
+- 关键输出: 36/36 CTest PASS；`kupl_qcu_t2_lanes` PASS；v3 patch roundtrip PASS；补丁 36176 B。
+- 退出码: CTest/diff/roundtrip exit=0。
+- 证据与判断: c64/c128、Wilson/Clover、CG/BiCGStab、1/2/4-rank 均通过本地门。
+
+### S3 — 远端状态
+- 目标: 执行修复后 32r L24 A/B。
+- 命令/操作: 只读轮询既有 screen 4275.ku。
+- 关键输出: screen 仍停在 `zhangxin@ZhangXin-Computer`，原 SSH 已关闭。
+- 退出码: 远端不可执行。
+- 证据与判断: 未新建 SSH；最终 <0.1 s 仍未验证。
+
+## 验证与证据
+- 测试/检查: 本地 36/36 CTest；v3 patch roundtrip；git diff --check。
+- 结果: 全部本地门 PASS；远端门缺失。
+- 未验证项: 32r L24 fused+rtol2 A/B；最终 0.1 s；远端 cache/MG 路线。
+
+## 变更与产物
+- 文件: KUPL dslash/solver/linalg、lattice_set.h、CMakeLists、test_kupl.cpp。
+- 产物: data/kupl_opt_20261113/remote_to_current_v3.patch；logs/v202611130143.txt。
+- 未改动范围: 未删除用户文件；未提交、推送或新建远端通道。
+
+## 风险、限制与下一步
+- 风险: 本地微基准噪声；fused Schur 仅在 local_t2 分支生效；远端尚未验证。
+- 阻塞: 4275.ku 的原 SSH 会话已自动注销。
+- 下一步: 恢复 screen 中的原有 SSH，应用 v3 patch、重建 build-native-lto，执行新增 t2 CTest 与 32r×12t 三样本 A/B。
+
+## 用户输入指令
+~screen[ 4275.ku]，接手[docs/kupl_opt_handover_20261112.md]，要求最终kupl版qcu能够充分利用kunpeng计算节点[目前为单节点]的计算与带宽潜力(当前利用率非常低),例如L24收敛耗时最终应小于0.1s,允许大规模改写kupl版qcu,进行快速有效的迭代升级,在计算节点的任务超五分即核查是否正常,超十分钟则终止并进行阻塞分析,本任务使用多子代理且全自动模式,持续执行至少八小时
+
+## Agent 全文报告
+--- report begin ---
+## 阶段报告：KUPL L24 第 4 轮本地推进
+
+本轮新增 Schur 输出融合：last dslash 直接累加到预填充的 `A*x`，减少一次整场 scratch 写读。融合路径已通过真实 `local_t=2`、c64/c128、Wilson/Clover、CG/BiCGStab 回归。完整本地 CTest 为 36/36 PASS，v3 patch roundtrip PASS。本地 24³×2 c64 微基准中位约 0.617 s，对旧 lane 约 0.641 s，仅作方向证据。
+
+远端 `4275.ku` 仍为断线后的本地 shell；已有 32r×12t 旧 lane 远端最佳仍为 0.315161 s PASS。修复后的 32r L24 fused+rtol2、真实 0.1 s 门槛和至少八小时远端迭代尚未完成，状态继续为 blocked，不能把本地微基准冒充实测结果。
+
+恢复物为 `data/kupl_opt_20261113/remote_to_current_v3.patch`，roundtrip 已通过。
+--- report end ---

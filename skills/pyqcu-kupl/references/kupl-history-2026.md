@@ -500,3 +500,76 @@ On a shared node, `KUPL_MEMORY_POLICY=bind` with
 (SIGKILL) after `87-110 s`, while `preferred` or an exclusive node
 completed. This is a co-tenancy OOM on the 4 GB on-package HBM domains,
 not a KUPL code defect.
+
+## 2026-11-13 L24 单节点性能与带宽剖析
+
+数据来源：远端 `data/kupl_opt_20261113/remote/*/report.json` 与 `meta.txt`
+（`/home/share/nsls_yangyb/PyQCU`，本机未挂载，数值经 screen 捕获的
+`grep wall_seconds/iterations/final_true` 转抄）、`logs/v202611130900.txt`、
+`logs/v202611130926.txt`、`logs/v202611130946.txt`。**C 级时点证据、未提交**；
+除注明外每用例 1 个样本。
+
+- 用例：L24 `24^3x64`、c64、点源 `seed 42`、`mass=-0.277`、
+  `csw=1.160920226`、`atol=1e-4`、`levels=1`、`restart=0`（parity-Schur
+  BiCGStab，不是 multigrid）、grid `1 1 1 32`；`KUPL_NUMA_BIND=1`、
+  `KUPL_MEMORY_POLICY=preferred`、`KUPL_REQUIRE_MEMORY_BIND=0`、
+  `mpirun --bind-to none --map-by ppr:2:numa`，另加
+  `KUPL_HALO_PACK6=1`、`KUPL_HALO_DEDUP_PACK=1`、`KUPL_T_LOCAL_IN_PART1=1`、
+  `KUPL_ENABLE_BOUNDARY_LANES=1`、`KUPL_SKIP_FINAL_RESIDUAL=1`。验收为外层
+  独立分布式 FULL Wilson-Clover 真残差门，全部 `PASS`、全部 12 it。
+
+| 用例 | 节点 | 规模 | 关键配置 | wall (s) | 真残差 |
+|---|---|---|---:|---:|---|
+| `v7_t16` | cn19699 | 32r×16t（`-R cpu=16`） | ACTIVE + t2 | **0.188526** | 5.384853e-05 |
+| `v7_t18` | cn19699 | 32r×18t（`-R cpu=18`） | ACTIVE + t2 | 0.183044 | 5.384866e-05 |
+| `t18rep1–5` | cn19699 | 32r×18t（`-R cpu=18`） | ACTIVE + t2，同配置 5 次 | **中位 0.186230**（min 0.180422 / max 0.193310） | 5.384866e-05 |
+| `v7_prof4` | cn19699 | 32r×12t | ACTIVE + t2 | 0.207077 | 5.38e-05 量级 |
+| `v7_fast` | cn19699 | 32r×12t | ACTIVE + t2，`build-fast`（`-ffast-math`） | 0.204288 | 5.384889e-05 |
+| `v7_base3_hbm` | cn19699 | 32r×12t | PASSIVE，无 t2 | 0.281166 | 5.384894e-05 |
+| `v7_t2` | cn19699 | 32r×12t | PASSIVE + t2 | 0.266416 | 未单列，`PASS` |
+| `v7_c50_base` | cn19650 | 32r×12t | PASSIVE + t2 | 0.319600 | 5.384831e-05 |
+| `v7_c50_act` | cn19650 | 32r×12t | ACTIVE + t2 | 0.249223 | 未单列，`PASS` |
+| `v7_blk` | cn19650 | 32r×12t | ACTIVE，`KUPL_BLOCK_DSLASH_MIN_HALF_SITES=8192` | 0.244864 | 未单列，`PASS` |
+
+`v7_t18` 是同一远端捕获中更晚完成的样本（`END=2026-11-13T09:50:32`），未进入
+`logs/v202611130946.txt`（该日志以 `v7_t16` `0.188526 s` 为当前最优）；其迭代数
+未单独抓取。`v7_t18` 之后提交的 `v7_t19`（32r×19t）、`v7_r16t38`/`v7_r16t36`
+均无可用报告：前者只到 `Submit job`，后者 `meta.txt` 不存在且已被 `dkill`。
+
+- `t18` 重复性（2026-11-13 11:43–12:00，作业 `2113436/2113439/2113445/2113447/
+  2113452`，cn19699，32r×18t，ACTIVE + t2，`KUPL_MEMORY_POLICY=preferred`）：
+  5 次墙钟 `0.180422`、`0.186732`、`0.181537`、`0.193310`、`0.186230 s`；
+  中位 `0.186230 s`、均值 `0.185646 s`、MAD `0.004693 s`、极差 `6.9%`。
+  5 次均 12 it、`PASS`、真残差 `5.384866e-05`。S11 单点 `0.183044 s` 落在
+  样本区间内，但比中位低 `1.74%`，只能作为区间内一点引用。
+
+- `OMP_WAIT_POLICY` 是本次唯一受控单变量：`cn19650` 同 lane 由 PASSIVE
+  `0.319600 s` 降至 ACTIVE `0.249223 s`（`1.28×`）。逐 rank 剖析给出的机制是
+  小并行区（全局归约、向量更新）的线程唤醒开销：reduce 约 `1.02 ms/次`
+  （PASSIVE 批次 rank 26，`0.052268 s/51`）降到约 `0.45 ms/次`（ACTIVE 批次
+  rank 17，`0.023190 s/51`）。`1.055×`（t2 对 base）与 `1.287×`（prof4 对 t2）
+  是跨批次派生值，不是同窗 A/B。
+- 新增 `KUPL_PROFILE_OPT=1`（默认关闭、仅计时、不改变算法）：每 rank 输出
+  dslash/clover/reduce 秒数与调用次数、dslash/clover 字节与 `GB/s`
+  （rank 与聚合），以及 prepare/solve/reconstruct 阶段。ACTIVE、cn19699、
+  rank 17：dslash `0.104099 s/52`、`828.113 MB`、`7.96 GB/s·rank`
+  （聚合 `254.56 GB/s`）；clover `0.013720 s/52`、`552.075 MB`、
+  `40.24 GB/s·rank`（聚合 `1287.63 GB/s`）；reduce `0.023190 s/51`；
+  phases `prepare=0.003573`、`solve=0.156956`、`reconstruct=0.002327`，
+  solve 外 setup 约 `44 ms`。
+- 带宽峰值：同节点 STREAM triad 探针（8M double × 3 数组、5 次取最优、
+  12 线程/rank、`--bind-to numa --map-by ppr:2:numa`）为
+  `18.3–20.1 GB/s·rank`（逐轮 `18.267/18.327/18.522/18.648/18.654/18.797/
+  18.964/20.120`），32 rank 聚合约 `600 GB/s`。dslash 因此约为峰值的 `40%`；
+  clover 的 `40.24 GB/s·rank` 高于探针值，来自 clover cache 复用，不得当作
+  超峰值或用作 clover 的带宽分母。
+- 跨节点：同为 PASSIVE 基线，`cn19650` `0.319600 s` 对 `cn19699`
+  `0.266416 s`，约 `20%` 差异；两节点硬件/负载/cpuset 身份未逐项对齐，
+  不得据此宣称节点性能差，也不得用单一节点绝对值外推。
+- 噪声级候选：`-ffast-math` 约 `1.4%`（0.204288 对 0.207077）、block-dslash
+  约 `1.8%`（0.244864 对 0.249223），均不作为默认构建或默认门控。
+- 阻塞：真实 MG（`levels=2`）多 rank 需要预置全局 `--coarse-cache`，
+  `kupl_multigrid.py` 的多 rank 导出以
+  `multi-rank coarse-cache export is not implemented` 拒绝；1-rank L24 缓存
+  构建（作业 2112385）约 25 分钟未产出 `cache_l24_v1.h5`，已 `dkill` 终止。
+  属工具链限制，不是算法结论。

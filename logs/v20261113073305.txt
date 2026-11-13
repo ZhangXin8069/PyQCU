@@ -1,0 +1,33 @@
+[日志元数据]
+日志类型: general
+生成时间: 2026-11-13 07:33:05 +0800
+批次: S7
+主任务: kupl-l24-opt-20261113
+触发原因: 一般记录
+摘要: 验收口径修正为仅 Kunpeng 单计算节点 L24；screen keepalive 已启动且远端 top 前台禁止注入
+Git 根目录: /home/zhangxin/PyQCU
+
+## 关键日志
+### S7 — L24-only 验收口径与 screen 保活
+- 用户修正: 最终性能必须以 Kunpeng 单计算节点的 L24（24^3×64）为准；WSL2 8×8×16×16 的 0.092582 s 降级为代码诊断，不构成验收。
+- screen 状态: `4275.ku` 为 Attached；窗口 0 前台为 `ssh 10.44.9.4 -l nsls_yangyb`，TCP 10.44.12.219:45497 -> 10.44.9.4:22 为 ESTAB。
+- 当前远端画面: login03 的 `top - 07:32:57`，load average `19.68 19.82 20.31`，8 users；画面动态。
+- 保活: `screen-keepalive.sh` 以 `setsid` 运行，pid=168946，interval=20 s，lock/activity/log/pid/stop 均位于 `data/kupl_opt_20261113/screen/`。
+- 门控: keepalive 日志记录 `gate failed rc=3, skip (background 不自动清除阻塞)`；未向 top 注入任何按键。
+- 判断: top 属于用户前台程序，且画面动态；按 screen 硬门不得清屏或注入。L24 计算必须等待用户退出 top 回到远端 shell，再经原 screen 执行。
+- 下一步: 恢复远端 shell 后先定位当前登录/计算节点与仓库状态，应用 v6，重建 Kunpeng native/LTO；通过 dsub 启动 L24 32r×12t 三样本 A/B，并用独立 FULL 真残差门验收。
+
+## 验证与证据
+- 测试/检查: screen -ls；screen hardcopy；进程树；ss ESTAB；keepalive pid/log。
+- 结果: screen 和 SSH 仍连接；保活进程存活；当前无法安全注入远端命令。
+- 未验证项: 尚未获得任何新的 Kunpeng L24 数据；现有小格点数据不得用于最终性能结论。
+
+## 变更与产物
+- 文件: 无源码变更。
+- 产物: `data/kupl_opt_20261113/screen/4275.ku.current`、`ku.keepalive.log`、`ku.keepalive.pid`、`ku.lock`。
+- 未改动范围: 未新开 SSH、未清除 top、未提交或推送。
+
+## 风险、限制与下一步
+- 风险: 登录节点高负载下的短测只能作功能证据，不能代表单计算节点 L24 性能。
+- 阻塞: 用户前台 top 占用 screen；按规则不得注入。
+- 下一步: 等前台回 shell 后执行 L24-only 流程；screen 空闲保活继续运行。

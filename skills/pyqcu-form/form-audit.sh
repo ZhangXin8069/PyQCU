@@ -94,6 +94,13 @@ while IFS=$'\t' read -r severity rule path message; do
             # evidence rather than renaming the job's canonical output.
             allowed=$((allowed + 1))
             ;;
+        WARNING:TAG_NAME_IN_PATH:logs/screen-73056-ss-20261106-1536-test1000.txt|\
+        WARNING:TAG_NAME_IN_PATH:logs/screen-73056-ss-20261106-1538-test700.txt)
+            # Screen captures tracked since b026c90e.  The embedded
+            # test1000/test700 labels are the captured run names of the
+            # 2026-11-06 session, not Git tags; keep the original paths.
+            allowed=$((allowed + 1))
+            ;;
         *)
             if [[ "${severity}:${rule}:${path}" == WARNING:LOG_EXTENSION:logs/* ]]; then
                 case "${path##*.}" in

@@ -1,0 +1,47 @@
+[日志元数据]
+日志类型: stage
+生成时间: 2026-11-13 01:56:40 +0800
+批次: S1-S3
+主任务: kupl-l24-opt-20261113
+触发原因: 阶段成果
+摘要: t-only Legacy-MG 32-rank PASS、Schur fusion、37/37 CTest、远端仍断线
+Git 根目录: /home/zhangxin/PyQCU
+
+## 关键日志
+### S1 — t-only Legacy-MG 覆盖扩展
+- 目标: 将 t-only MG 从 synthetic 单点扩展为可重复的多 rank 回归。
+- 命令/操作: 为 `test_legacy_mg.py` 增加 `KUPL_LEGACY_TEST_DIMS/GRID/COARSE_DIMS` 配置；新增 CTest `kupl_qcu_python_legacy_mg_t_only_2rank`。
+- 关键输出: 2/8/32-rank、local_t=2、coarse `[4,4,4,1]`，levels 1/2、deflate/restart、c64/c128 全部 PASS，verify=0；deflate c64 误差 9.811e-09、c128 约 1.98e-12。
+- 退出码: 所有 MPI/CTest exit=0。
+- 证据与判断: t-only 的时间粗层保持 1、空间粗化 `[4,4,4,1]` 可运行；但 identity synthetic assets 不能证明真实 L24 的迭代或墙钟收益。
+
+### S2 — Schur 输出融合
+- 目标: 减少 local_t=2 每次 Schur apply 的整场 scratch 流量。
+- 命令/操作: 先 onsite 生成 A*x，再让 specialized dslash 以 accumulate/scale 直接加上 `-kappa^2*D`。
+- 关键输出: 本地 24³×2 c64 Schur 50 次中位约 0.617 s，旧 lane 约 0.641 s。
+- 退出码: 基准 exit=0。
+- 证据与判断: 方向性收益约 3.8%，本地噪声较大，不能替代 Kunpeng 真机 A/B。
+
+### S3 — 最终本地门与恢复物
+- 命令/操作: `ctest --test-dir cpp/kupl/qcu/build --output-on-failure`；`git diff --check`；v4 patch roundtrip。
+- 结果: 本地 CTest 37/37 PASS；diff check PASS；v4 patch 44235 B roundtrip PASS。
+- 未验证项: 修复后 32r L24 fused/rtol2；真实 L24 Legacy-MG cache/solve；最终 <0.1 s。
+
+## 风险、限制与下一步
+- 风险: synthetic MG 验证只覆盖几何、halo、deflate 与数值一致性，不覆盖真实 gauge 条件数。
+- 阻塞: screen 4275.ku 仍停在本地 shell，原 SSH 自动注销；未新建通道。
+- 下一步: 恢复原 screen SSH，应用 v4 patch，重建 `build-native-lto`；运行 37 项 CTest，然后用真实 L24 cache 对比 BiCGStab、fused BiCGStab、Legacy-MG restart=5/10 的 wall/iterations/独立真残差。
+
+## 用户输入指令
+【自动续跑】请简要汇报当前阶段性工作进度到日志目录，并继续下一轮工作或进一步拓展本轮工作；不要重复已完成工作。
+
+## Agent 全文报告
+--- report begin ---
+## 阶段报告：t-only Legacy-MG 与 Schur 输出融合
+
+本轮新增了 t-only Legacy-MG 的真实多 rank 几何回归。2/8/32-rank、local_t=2、coarse `[4,4,4,1]` 下，c64/c128、levels 1/2、deflate/restart 全部 PASS，`verify=0`。这证明 temporal coarse dimension 保持 1、spatial coarsening 路径在本地几何和 halo 上可用，但 synthetic identity assets 不能证明真实 L24 收益。
+
+同时实现了 local_t=2 Schur 输出融合，避免最后一次 dslash 产生独立 scratch 整场写读。本地 24³×2 c64 微基准中位约 0.617 s，旧 lane 约 0.641 s，完整本地 CTest 为 37/37 PASS。
+
+远端 `4275.ku` 仍没有 SSH 连接，真实 32r L24 fused/rtol2、Legacy-MG cache/solve 和 <0.1 s 未验证。恢复物 `data/kupl_opt_20261113/remote_to_current_v4.patch` 已通过 roundtrip，目标是恢复后先跑新增 CTest，再做真机三样本 A/B。
+--- report end ---

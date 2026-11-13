@@ -1,0 +1,77 @@
+[日志元数据]
+日志类型: stage
+生成时间: 2026-11-13 09:00:50 +0800
+批次: S8
+主任务: kupl-l24-opt-20261113
+触发原因: 阶段成果
+摘要: 恢复 L24 优化：0.2812 s 基线、t2 0.2664 s、dslash 5.58 GB/s·rank 与 19-20 GB/s·rank 峰值
+Git 根目录: /home/zhangxin/PyQCU
+
+## 关键日志
+### S1 — 会话恢复与远端状态确认
+- 目标: 恢复 run 20261112T224251.xFqGzM 的 KUPL L24 优化任务。
+- 命令/操作: 读取 run manifest/events、logs/AGENTS.md、v202611130310/0318/073305 阶段日志；screen -ls；hardcopy 闸门。
+- 关键输出: 4275.ku Attached；远端 login01 已回到 /home/share/nsls_yangyb/PyQCU shell；keepalive pid=168946 存活。
+- 退出码: 0。
+- 证据与判断: 远端不是 Git 仓库，只能按 hash/整文件同步。
+
+### S2 — 工作集同步与重建
+- 目标: 把本地 11 个改动文件同步到远端并重建 native/LTO。
+- 命令/操作: gzip+base64 分块（600 B/块）经 screen 注入；sha256 校验；tar 解包；md5sum 逐文件比对；cmake --build build-native-lto。
+- 关键输出: 补丁/文件包 sha256 与本地一致；11 个文件 MD5 全部一致；构建 100%。
+- 退出码: 0。
+- 证据与判断: 首次 800 B/块注入被 screen 静默丢弃，实测 700 B 可用、800 B 失败，最终固定 600 B。
+
+### S3 — CTest 与首轮 L24 作业
+- 命令/操作: ctest --test-dir build-native-lto；dsub 提交 32r×12t L24。
+- 关键输出: 远端 CTest 32/37 通过，5 项失败全部是登录节点 `Setting processor affinity failed`（同一根因，环境限制）；本地 CTest 37/37 PASS。
+- 证据与判断: cn12038（DDR 节点、标量剖析路径）得到 0.5196 s / 12 it / PASS；cn19699 HBM 节点全门控基线 0.2812 s / 12 it / PASS。
+
+### S4 — 分项剖析与带宽峰值
+- 目标: 按用户要求统计运行期带宽峰值与各阶段实际带宽。
+- 命令/操作: 新增 `KUPL_PROFILE_OPT`（默认关闭）计时；新增 STREAM triad 探针 `bw_probe.c`，与 solve 同节点同 rank/NUMA 布局运行。
+- 关键输出: dslash 0.148528 s/52 次、828.113 MB、5.58 GB/s·rank（聚合 178.42 GB/s）；clover 0.022939 s/52 次、552.075 MB、24.07 GB/s·rank（聚合 770.15 GB/s）；reduce 0.030734 s/51 次（约 0.60 ms/次 Allreduce）。
+- 带宽峰值: STREAM triad、12 线程/rank、8M double：18.647 与 20.058 GB/s·rank，聚合约 600 GB/s。
+- 证据与判断: dslash 占 solve 约 53%，仅为峰值带宽的 29%，属计算/latency 受限；clover 已达/超过探针峰值，属带宽受限。
+
+### S5 — t2 lane 对照
+- 命令/操作: 同基线配置加 `KUPL_ENABLE_T2_LANES=1`，作业 2112337。
+- 关键输出: `wall_seconds=0.266416`，12 it；相对基线 0.281166 s 约 5.3% 收益。
+- 退出码: 0（RC=0）。
+- 证据与判断: t2 lane 有效但不足以单独达成 0.1 s；需结构性削减迭代或内核重写。
+
+## 验证与证据
+- 测试/检查: 本地 CTest 37/37；远端核心 32 项；11 文件 MD5；补丁/包 sha256；实际 L24 solve 与独立真残差。
+- 结果: 基线 cn19699 0.2812 s / 12 it / PASS；prof2 作业 RC=0。
+- 未验证项: 真实 MG（levels=2）缓存构建与 solve（作业 2112359 运行中）；L24 `<0.1 s` 尚未达成。
+
+## 变更与产物
+- 文件: `cpp/kupl/qcu/include/kupl/lattice_set.h`、`cpp/kupl/qcu/src/lattice_solver.cpp`、`cpp/kupl/qcu/src/lattice_wilson_dslash.cpp`（新增 `KUPL_PROFILE_OPT` 计时与字节统计，默认关闭）。
+- 产物（远端）: `/home/share/nsls_yangyb/sh/x_case_l24_v7.sh`、`bw_probe.c`；`data/kupl_opt_20261113/remote/{v7_base3_hbm,v7_prof2,v7_t2}/`。
+- 未改动范围: 未提交、未推送；未新建 SSH/SCP 通道。
+
+## 风险、限制与下一步
+- 风险: `KUPL_MEMORY_POLICY=bind` + `KUPL_REQUIRE_MEMORY_BIND=1` 在 cn19650 触发 rank 16 SIGKILL（RC=137），改用 preferred 后正常；HBM 硬绑定需单独复核。
+- 阻塞: 无。
+- 下一步: 完成 L24 真实 MG 缓存构建与 restart 扫描；按剖析结果优化 dslash 内核（当前 5.58 GB/s·rank，峰值约 19 GB/s·rank）；复测并保持独立 FULL 真残差门。
+
+## 用户输入指令
+参考相关的代码和文档和docs和skills和logs,resume[20261112T224251.xFqGzM]
+注意统计运行时的带宽峰值
+
+## Agent 全文报告
+--- report begin ---
+## 阶段报告：恢复 L24 优化并完成首轮带宽/分项剖析
+
+已恢复上次会话目标：单 Kunpeng 节点 KUPL L24（24^3×64）收敛 < 0.1 s。远端 screen 已回到 login01 shell，11 个工作集文件按 MD5 全量同步，native/LTO 重建完成；本地 CTest 37/37 PASS，远端核心 32 项通过，5 项失败均为登录节点禁止设置 CPU 亲和性。
+
+实测（cn19699，32 rank × 12 thread，preferred，全门控）：基线 0.2812 s / 12 it / PASS，优于上次记录的 0.3152 s。新增 `KUPL_PROFILE_OPT` 分项计时后：
+
+- dslash：0.1485 s / 52 次，828 MB，5.58 GB/s·rank（聚合 178 GB/s）
+- clover：0.0229 s / 52 次，552 MB，24.07 GB/s·rank（聚合 770 GB/s）
+- reduce：0.0307 s / 51 次，约 0.60 ms/次
+
+带宽峰值用 STREAM triad 探针在同节点同绑定下测得：12 线程/rank 时 18.6–20.1 GB/s·rank，聚合约 600 GB/s。因此 dslash 只跑到峰值带宽的 29%，是计算/latency 受限，也是当前最大瓶颈（占 solve 约 53%）；clover 已达到或超过探针峰值，属带宽受限。
+
+后续：以 t2 lane 对照确认快速路径收益，再针对 dslash 内核做 SIMD/数据布局优化，并持续用独立 FULL 真残差门验收。
+--- report end ---

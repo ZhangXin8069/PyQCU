@@ -1,0 +1,71 @@
+[日志元数据]
+日志类型: stage
+生成时间: 2026-11-13 01:29:45 +0800
+批次: S1-S3
+主任务: kupl-l24-opt-20261113
+触发原因: 阶段成果
+摘要: 融合 lane 修复、本地 36/36 CTest、远端 screen 自动注销阻塞
+Git 根目录: /home/zhangxin/PyQCU
+
+## 关键日志
+### S1 — 融合 lane 修复
+- 目标: 修复 KUPL local_t=2 融合 lane 的正确性并在真实 local_t=2 测试中闭环。
+- 命令/操作: 将 `t2_lanes` CTest 从 local_t=4 修正为 local_t=2；定位 spatial forward gauge 取邻居站点错误；为 dagger 路径加入同一融合实现；补齐 real/imag lane 运算。
+- 关键输出: `kupl_qcu_t2_lanes` PASS；24³×2、2-rank c64/c128 Wilson/Clover/CG/BiCGStab 与独立残差 PASS。
+- 退出码: ctest exit=0；目标候选本地 full CTest exit=0。
+- 证据与判断: 之前 32r L24 的 FAIL 根因已定位为 forward gauge 站点错误，不再把该失败路径作为生产默认；必须重新在远端复测修复后的候选。
+
+### S2 — 本地回归与微基准
+- 目标: 验证 gamma-fold、real/imag、onsite alias 和容差 factor 不破坏接口。
+- 命令/操作: `ctest --test-dir cpp/kupl/qcu/build --output-on-failure`；本机 2-rank c64 Schur 基准。
+- 关键输出: 36/36 CTest PASS；24³×2 fused lane 中位约 0.60 s（50 次 Schur），旧 lane 中位约 0.64 s；16³×2 fused 中位约 0.33 s。
+- 退出码: CTest exit=0；基准 exit=0。
+- 证据与判断: 本地只验证方向和正确性，不能替代 Kunpeng 真机；墙钟有抖动，不能据此宣称最终收益。
+
+### S3 — 远端阻塞
+- 目标: 恢复远端并执行 32r L24 fused+rtol A/B。
+- 命令/操作: 已有 screen 会话轮询；未新建 SSH/SCP。
+- 关键输出: `Connection to 10.44.9.4 closed`；screen 最后停在 `zhangxin@ZhangXin-Computer`；已有远端候选 opt32p_all_v2=0.315161 s PASS。
+- 退出码: 远端会话不可用，最终 A/B 未运行成功。
+- 证据与判断: 阻塞是既有 screen SSH 会话自动注销，不是本地构建或 kernel 死锁；不得把本地微基准冒充远端结果。
+
+## 验证与证据
+- 测试/检查: 本地 CTest 36/36；`git diff --check`；patch roundtrip；form audit。
+- 结果: CTest/diff/patch roundtrip PASS；form audit 仍有两条既有 logs 命名 finding，与本次修改文件无关。
+- 未验证项: 新融合 kernel 的 32r L24 真机性能；KUPL_CLOVER_TOL_FACTOR=2 真机残差；最终 <0.1 s。
+
+## 变更与产物
+- 文件: cpp/kupl/qcu/src/{lattice_wilson_dslash,lattice_solver,lattice_linalg}.cpp；cpp/kupl/qcu/include/kupl/lattice_set.h；cpp/kupl/qcu/CMakeLists.txt；cpp/kupl/qcu/tests/test_kupl.cpp。
+- 补丁: data/kupl_opt_20261113/remote_to_current.patch（33925 B，roundtrip PASS）。
+- 未改动范围: 未删除用户数据；未提交/推送；未重建或伪造远端结果。
+
+## 风险、限制与下一步
+- 风险: 远端 SSH 自动注销；新融合路径仍需真实 L24 验收；本地短基准噪声较大。
+- 阻塞: screen 4275.ku 已回到本地 shell，未获准新建 SSH 通道。
+- 下一步: 用户在 4275.ku 恢复 `ssh 10.44.9.4 -l nsls_yangyb`，应用 data/kupl_opt_20261113/remote_to_current.patch，重建 build-native-lto；先跑 local_t2 CTest，再跑 32r×12t `KUPL_ENABLE_T2_LANES=1` + `KUPL_CLOVER_TOL_FACTOR=2` 对旧 lane 三样本 A/B。
+
+## 用户输入指令
+~screen[ 4275.ku]，接手[docs/kupl_opt_handover_20261112.md]，要求最终kupl版qcu能够充分利用kunpeng计算节点[目前为单节点]的计算与带宽潜力(当前利用率非常低),例如L24收敛耗时最终应小于0.1s,允许大规模改写kupl版qcu,进行快速有效的迭代升级,在计算节点的任务超五分即核查是否正常,超十分钟则终止并进行阻塞分析,本任务使用多子代理且全自动模式,持续执行至少八小时
+
+## Agent 全文报告
+--- report begin ---
+## 阶段报告：KUPL L24 优化第 3 轮
+
+**已修复**：
+- 融合 lane 的 spatial forward gauge 错误地读取邻居站点，已改为当前站点。
+- t2_lanes 测试原先未真正进入 local_t=2，已修正并补 dagger 路径。
+- c128 Clover 容差按精度分层，c64 性能路径保持；gamma-fold、real/imag 和 onsite alias 优化进入本地回归。
+
+**已验证**：
+- 本地 CTest 36/36 PASS。
+- 新增 t2_lanes 真实覆盖 local_t=2，c64/c128、Wilson/Clover、CG/BiCGStab PASS。
+- 本地 24³×2 融合 lane 与旧 lane 均 PASS；微基准显示小幅收益，但只作方向证据。
+
+**远端现状**：
+- 既有 32r×12t 旧 lane 全门控候选 `0.315161 s` PASS。
+- 修复后的融合候选尚未在远端执行，因为 screen SSH 被系统自动注销。
+- 最终 `<0.1 s` 目标尚未达成，状态为 blocked，需恢复远端会话。
+
+**恢复物**：
+`data/kupl_opt_20261113/remote_to_current.patch` 已通过远端基线 roundtrip 校验，可在恢复 4275.ku 后一次应用。
+--- report end ---

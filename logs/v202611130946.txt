@@ -1,0 +1,114 @@
+[日志元数据]
+日志类型: stage
+生成时间: 2026-11-13 09:46:37 +0800
+批次: S10
+主任务: kupl-l24-opt-20261113
+触发原因: 阶段成果
+摘要: cn19699 32r×16t ACTIVE 0.188526 s 最优；build-fast/block-dslash 均在噪声内；MG coarse-cache 仍阻塞
+Git 根目录: /home/zhangxin/PyQCU
+
+## 关键日志
+### S10-1 — cn19699：32 rank × 12 thread，preferred + ACTIVE，t2 lane
+- 目标: 单 Kunpeng 节点 KUPL L24（24^3×64, c64）收敛墙钟 < 0.1 s；本阶段做 32 rank × 12/16 thread 对照。
+- 命令/操作: 远端 cn19699，preferred 绑定，OMP ACTIVE，t2 lane 起解。
+- 关键输出: 0.207077 s / 12 it / PASS，独立 FULL 真残差 5.38e-05 量级。
+- 退出码: 未单独记录（求解判据 PASS）
+- 证据与判断: 与 S9 记录的 0.2071 s 同量级，属可复现基线。
+
+### S10-2 — cn19699：32r×12t，ACTIVE，t2 lane，build-fast（-ffast-math）
+- 命令/操作: 使用 -ffast-math 快速构建重跑同一 lane。
+- 关键输出: 0.204288 s / 12 it / PASS，独立 FULL 真残差 5.384889e-05。
+- 退出码: 未单独记录（求解判据 PASS）
+- 证据与判断: 相对普通构建仅约 1.4%，属噪声级；不构成有效加速，不作为默认构建。
+
+### S10-3 — cn19699：32r×16t（-R cpu=16），ACTIVE，t2 lane
+- 命令/操作: 以 `-R cpu=16` 申请 16 线程/rank 重跑。
+- 关键输出: 0.188526 s / 12 it / PASS，独立 FULL 真残差 5.384853e-05。
+- 退出码: 未单独记录（求解判据 PASS）
+- 证据与判断: 本阶段当前最优；距 <0.1 s 目标仍差约 1.9 倍。
+
+### S10-4 — cn19650 对照：PASSIVE / ACTIVE / block-dslash
+- 命令/操作: 同 lane 在 cn19650 依次跑 PASSIVE、ACTIVE、block-dslash（`KUPL_BLOCK_DSLASH_MIN_HALF_SITES=8192`）。
+- 关键输出: PASSIVE 0.319600 s；ACTIVE 0.249223 s；block-dslash 0.244864 s。
+- 退出码: 未单独记录
+- 证据与判断: block-dslash 与同节点 t2 差异属噪声级，未取得实质收益；cn19650 整体慢于 cn19699。
+
+### S10-5 — 剖析（ACTIVE，cn19699，rank 17）
+- 关键输出:
+  - dslash 0.104099 s / 52 次，828.113 MB，7.96 GB/s·rank（聚合 254.56 GB/s）
+  - clover 0.013720 s / 52 次，552.075 MB，40.24 GB/s·rank（聚合 1287.63 GB/s）
+  - reduce 0.023190 s / 51 次（约 0.45 ms/次）
+  - phases: prepare=0.003573、solve=0.156956、reconstruct=0.002327；setup 约 44 ms
+- 证据与判断: reduce 单次开销 PASSIVE 约 1.02 ms、ACTIVE 约 0.45 ms；dslash 仍是主要耗时项。
+
+### S10-6 — STREAM triad 峰值探针
+- 命令/操作: 12 线程/rank，8M double triad。
+- 关键输出: 18.3–20.1 GB/s·rank，聚合约 600 GB/s。
+- 证据与判断: dslash 实测 7.96 GB/s·rank 约为该峰值探针的 40–44%，存在提升空间。
+
+### S10-7 — MG 阻塞记录
+- 关键输出: 多 rank 需要预置全局 `--coarse-cache`，且多 rank 导出未实现（`multi-rank coarse-cache export is not implemented`）；1-rank L24 缓存构建作业 2112385 运行约 25 分钟未产出 `cache_l24_v1.h5`，已 dkill 终止。
+- 证据与判断: 记录为工具链阻塞，不作为求解性能结论。
+
+## 验证与证据
+- 测试/检查: 本地 CTest；`pyqcu/testing/simple`；`pyqcu/testing/kupl`；远端各 lane 的求解判据与独立 FULL 真残差。
+- 结果: CTest 37/37 PASS；`pyqcu/testing/simple` 93 passed（需 PYTHONPATH）；`pyqcu/testing/kupl` 66 passed；远端 lane 均 PASS，真残差 5.38e-05 量级（build-fast 5.384889e-05、16 线程 5.384853e-05）。
+- 未验证项: L24 端到端 MG 路线（受 coarse-cache 多 rank 导出阻塞）；跨节点加速比（cn19699 与 cn19650 硬件/负载身份未逐项对齐）。
+
+## 变更与产物
+- 文件: `logs/` 新增日志与索引；代码侧仅新增 `KUPL_PROFILE_OPT` 计时（默认关闭，环境变量开启）。
+- 产物: 远端 `/home/share/nsls_yangyb/PyQCU/data/kupl_opt_20261113/remote/{v7_prof4,v7_c50_base,v7_c50_act,v7_blk,v7_fast,v7_t16}/`。
+- 未改动范围: 未修改核心算法实现；未提交或推送 Git。
+
+## 风险、限制与下一步
+- 风险: build-fast 与 block-dslash 的收益均在噪声内，若据单次样本宣称加速会误导；跨节点墙钟需先对齐硬件与环境身份。
+- 阻塞: 多 rank coarse-cache 导出未实现；1-rank 缓存构建 25 分钟无产出已 dkill。
+- 下一步: 以 cn19699 32r×16t ACTIVE 0.188526 s 为新基线；优先压 dslash 带宽（7.96 → 接近 18.3–20.1 GB/s·rank 探针）与 reduce 单次开销（0.45 ms × 51）；MG 路线待缓存工具链解除阻塞后再评估。
+
+## 用户输入指令
+- `参考相关的代码和文档和docs和skills和logs,resume[20261112T224251.xFqGzM]`
+- `注意统计运行时的带宽峰值`
+- `派发子代理实时记录logs和docs和skills`
+
+## Agent 全文报告
+--- report begin ---
+KUPL L24 优化阶段报告（S10）
+
+任务：单 Kunpeng 节点 KUPL L24（24^3×64，complex64）求解收敛墙钟 < 0.1 s。本阶段在 cn19699 / cn19650 上做 32 rank × 12/16 thread 对照，所有数字均为实测。
+
+一、实测结果（t2 lane）
+
+| 节点 | 线程/rank | 配置 | 墙钟 (s) | 迭代 | 判据 | 独立 FULL 真残差 |
+|---|---|---|---|---|---|---|
+| cn19699 | 12 | preferred + OMP ACTIVE | 0.207077 | 12 | PASS | 5.38e-05 量级 |
+| cn19699 | 12 | ACTIVE + build-fast (-ffast-math) | 0.204288 | 12 | PASS | 5.384889e-05 |
+| cn19699 | 16 (`-R cpu=16`) | ACTIVE | 0.188526 | 12 | PASS | 5.384853e-05 |
+
+cn19650 同节点对照：PASSIVE 0.319600 s；ACTIVE 0.249223 s；block-dslash（`KUPL_BLOCK_DSLASH_MIN_HALF_SITES=8192`）0.244864 s。
+
+判断：
+- build-fast 相对普通构建仅约 1.4%，属噪声级，不作为默认构建。
+- block-dslash 与同节点 t2 差异同样在噪声级，未取得实质收益。
+- 当前最优为 cn19699、32r×16t、ACTIVE 的 0.188526 s，距 <0.1 s 目标仍差约 1.9 倍。
+
+二、剖析（ACTIVE，cn19699，rank 17）
+- dslash：0.104099 s / 52 次，828.113 MB，7.96 GB/s·rank（聚合 254.56 GB/s）
+- clover：0.013720 s / 52 次，552.075 MB，40.24 GB/s·rank（聚合 1287.63 GB/s）
+- reduce：0.023190 s / 51 次，约 0.45 ms/次（PASSIVE 下约 1.02 ms/次）
+- phases：prepare=0.003573、solve=0.156956、reconstruct=0.002327；setup 约 44 ms
+
+三、带宽峰值参考
+STREAM triad 探针（12 线程/rank，8M double）：18.3–20.1 GB/s·rank，聚合约 600 GB/s。dslash 实测 7.96 GB/s·rank 约为该峰值的 40–44%，说明 dslash 仍受有效带宽限制。
+
+四、阻塞
+多 rank 使用 MG 需要预置全局 `--coarse-cache`，而多 rank 导出尚未实现（`multi-rank coarse-cache export is not implemented`）；1-rank L24 缓存构建作业 2112385 运行约 25 分钟未产出 `cache_l24_v1.h5`，已 dkill 终止并记录为工具链阻塞。
+
+五、本地验证
+CTest 37/37 PASS；`pyqcu/testing/simple` 93 passed（需 PYTHONPATH）；`pyqcu/testing/kupl` 66 passed。
+
+六、变更与产物
+代码侧仅新增 `KUPL_PROFILE_OPT` 计时（默认关闭，环境变量开启），外加 `logs/` 新日志与索引；未改核心算法。远端产物位于 `/home/share/nsls_yangyb/PyQCU/data/kupl_opt_20261113/remote/{v7_prof4,v7_c50_base,v7_c50_act,v7_blk,v7_fast,v7_t16}/`。
+
+七、下一步
+以 0.188526 s 为新基线，优先压缩 dslash 有效带宽差距与 reduce 单次开销（0.45 ms × 51 次）；MG 路线待 coarse-cache 工具链解除阻塞后再评估。
+--- report end ---
