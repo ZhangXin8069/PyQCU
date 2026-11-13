@@ -1244,3 +1244,11 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: 共享 halo 自旋加 30 s 上限与失败错误、启用日志；新增 4-rank 对角测试，全量 CTest 40/40
 - 验证: path, size, required sections, conflict markers
 - 批次状态: in-progress
+## S25 - general - 2026-11-13 22:42:13 +0800
+- 主任务: kupl-l24-opt-20261113
+- 日志文件: logs/v20261113224213.txt
+- 文件大小: 1638 bytes
+- 触发原因: 一般记录
+- 关键内容: 共享 halo 在 4 线程/rank、2/4 rank 下 PASS；文档同步多线程覆盖
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
