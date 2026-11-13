@@ -1196,3 +1196,11 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: boundary_lanes=0 慢 22%（默认必要）；t_local_in_part1 5+5 差 0.68% 但顺序未随机化，判为噪声；默认不变
 - 验证: path, size, required sections, conflict markers
 - 批次状态: in-progress
+## S19 - general - 2026-11-13 20:06:24 +0800
+- 主任务: kupl-l24-opt-20261113
+- 日志文件: logs/v20261113200624.txt
+- 文件大小: 2102 bytes
+- 触发原因: 一般记录
+- 关键内容: pack6=1 dslash 中位 0.096633 s、solve 0.139138 s；pack6=0 为 0.213639/0.266636 s，慢 2.21x/1.92x
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
