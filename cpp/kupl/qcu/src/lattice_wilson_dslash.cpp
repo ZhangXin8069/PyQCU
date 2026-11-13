@@ -256,7 +256,8 @@ void accumulate_hopping_block(const Complex<Real> *source,
                               const Complex<Real> *gauge,
                               int64_t source_stride,
                               int64_t gauge_stride, int lanes,
-                              Complex<Real> result[kVector][64 / sizeof(Real)]) {
+                              Complex<Real> result[kVector][64 / sizeof(Real)],
+                              int dest_offset = 0) {
   using C = Complex<Real>;
   constexpr int kSiteLanes = 64 / sizeof(Real);
   Real projected0_real[kColor][kSiteLanes];
@@ -347,27 +348,28 @@ void accumulate_hopping_block(const Complex<Real> *source,
       const Real t0_imag = transported0_imag[lane];
       const Real t1_real = transported1_real[lane];
       const Real t1_imag = transported1_imag[lane];
-      result[0 * kColor + row][lane] += C(t0_real, t0_imag);
-      result[1 * kColor + row][lane] += C(t1_real, t1_imag);
+      const int dest = dest_offset + lane;
+      result[0 * kColor + row][dest] += C(t0_real, t0_imag);
+      result[1 * kColor + row][dest] += C(t1_real, t1_imag);
       if constexpr (Direction == 0) {
-        result[2 * kColor + row][lane] +=
+        result[2 * kColor + row][dest] +=
             GammaSign < 0 ? C(t1_imag, -t1_real) : C(-t1_imag, t1_real);
-        result[3 * kColor + row][lane] +=
+        result[3 * kColor + row][dest] +=
             GammaSign < 0 ? C(t0_imag, -t0_real) : C(-t0_imag, t0_real);
       } else if constexpr (Direction == 1) {
-        result[2 * kColor + row][lane] +=
+        result[2 * kColor + row][dest] +=
             GammaSign < 0 ? C(t1_real, t1_imag) : C(-t1_real, -t1_imag);
-        result[3 * kColor + row][lane] +=
+        result[3 * kColor + row][dest] +=
             GammaSign < 0 ? C(-t0_real, -t0_imag) : C(t0_real, t0_imag);
       } else if constexpr (Direction == 2) {
-        result[2 * kColor + row][lane] +=
+        result[2 * kColor + row][dest] +=
             GammaSign < 0 ? C(t0_imag, -t0_real) : C(-t0_imag, t0_real);
-        result[3 * kColor + row][lane] +=
+        result[3 * kColor + row][dest] +=
             GammaSign < 0 ? C(-t1_imag, t1_real) : C(t1_imag, -t1_real);
       } else {
-        result[2 * kColor + row][lane] +=
+        result[2 * kColor + row][dest] +=
             GammaSign < 0 ? C(t0_real, t0_imag) : C(-t0_real, -t0_imag);
-        result[3 * kColor + row][lane] +=
+        result[3 * kColor + row][dest] +=
             GammaSign < 0 ? C(t1_real, t1_imag) : C(-t1_real, -t1_imag);
       }
     }
@@ -1689,17 +1691,19 @@ void LatticeSet<Real>::compute_dslash_t2_spatial_zblocks(
         const int z_interior_end = std::min(z0 + lanes, z_dim - 1);
         if (z_interior_begin < z_interior_end) {
           const int interior_lanes = z_interior_end - z_interior_begin;
-          const int64_t interior_site =
-              site + (z_interior_begin - z0);
+          const int interior_offset = z_interior_begin - z0;
+          const int64_t interior_site = site + interior_offset;
           accumulate_hopping_block<Real, 2, false, 1>(
               local_source + interior_site + 1,
               local_gauge(target, 2, x, y, z_interior_begin, 0).data,
-              half_sites, gauge_stride, interior_lanes, result);
+              half_sites, gauge_stride, interior_lanes, result,
+              interior_offset);
           accumulate_hopping_block<Real, 2, true, -1>(
               local_source + interior_site - 1,
               local_gauge(source_parity, 2, x, y,
                           z_interior_begin - 1, 0).data,
-              half_sites, gauge_stride, interior_lanes, result);
+              half_sites, gauge_stride, interior_lanes, result,
+              interior_offset);
         }
 
         if (z0 == 0) {
@@ -1716,15 +1720,16 @@ void LatticeSet<Real>::compute_dslash_t2_spatial_zblocks(
         }
         if (z0 + lanes == z_dim) {
           const int64_t upper_site = site + lanes - 1;
-          const int64_t wrapped_site = site;
+          // +z from the last site wraps to z == 0, not to this block start.
+          const int64_t wrapped_site = site - z0;
           accumulate_hopping_block<Real, 2, false, 1>(
               local_source + wrapped_site,
               local_gauge(target, 2, x, y, z_dim - 1, 0).data,
-              half_sites, gauge_stride, 1, result);
+              half_sites, gauge_stride, 1, result, lanes - 1);
           accumulate_hopping_block<Real, 2, true, -1>(
               local_source + upper_site - 1,
               local_gauge(source_parity, 2, x, y, z_dim - 2, 0).data,
-              half_sites, gauge_stride, 1, result);
+              half_sites, gauge_stride, 1, result, lanes - 1);
         }
 
         for (int component = 0; component < kVector; ++component) {
@@ -1822,7 +1827,9 @@ void LatticeSet<Real>::compute_dslash_t2_time_zblocks(
                     ? local_source[local_index]
                     : backward_halo[halo_index];
           }
-          if (forward_remote) {
+          // The backward hop is remote exactly when the forward hop is local;
+          // its gauge link therefore lives in the halo in that case.
+          if (!forward_remote) {
             const int64_t face_base =
                 face_site * 2 * kGauge * kDim;
             const int64_t parity_base =
