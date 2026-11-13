@@ -1364,3 +1364,11 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: ASAN：2 rank 与生产几何 0 报告 PASS；4 rank 段错误在默认 MPI 路径同样复现且无报告，判为环境问题
 - 验证: path, size, required sections, conflict markers
 - 批次状态: in-progress
+## S40 - general - 2026-11-13 23:50:39 +0800
+- 主任务: kupl-l24-opt-20261113
+- 日志文件: logs/v20261113235039.txt
+- 文件大小: 1998 bytes
+- 触发原因: 一般记录
+- 关键内容: 4 rank ASAN 换 BTL 仍段错误（环境）；新增 §14.1 验证矩阵（11 行）
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress

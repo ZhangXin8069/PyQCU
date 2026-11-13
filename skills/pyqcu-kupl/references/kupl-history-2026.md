@@ -653,3 +653,8 @@ not a KUPL code defect.
   旋转等待有 30 s 上限，超时抛出 `KUPL shared halo handshake timeout`，
   只适用于对称调用序列。远端 3+3 A/B（`2119917/2119919/2119921/2119925/
   2119926/2119927`）因 SSH 停滞未读取，收益未验证，不得宣称加速。
+- **共享 halo 验证矩阵（2026-11-13 夜）**：四个 CTest 门
+  （`shm_halo`、`shm_halo_dedup`、`shm_halo_4rank`、`python_shm_abi`）+
+  `test_dslash_block_mpi.py --solve`、Legacy-MG、30 次重复压力均 `PASS`；
+  UBSAN（2/4 rank、24³×2）与 ASAN（2 rank、24³×2）0 报告；ASAN 4 rank 的
+  段错误在默认 MPI 路径同样复现，判为环境问题。
