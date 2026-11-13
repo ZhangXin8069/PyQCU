@@ -1116,7 +1116,12 @@ void LatticeSet<Real>::ensure_shm_halo() {
     shm_halo_peer_[static_cast<std::size_t>(peer)] =
         static_cast<Complex<Real> *>(base);
   }
-  std::memset(shm_halo_self_, 0, static_cast<std::size_t>(slot_bytes));
+  // Only the counters need zeroing; the data region is published before any
+  // reader can observe it, and it is not trivially copyable.
+  uint64_t *counters = reinterpret_cast<uint64_t *>(shm_halo_self_);
+  for (int index = 0; index < 32; ++index) {
+    __atomic_store_n(counters + index, uint64_t{0}, __ATOMIC_RELAXED);
+  }
   MPI_Barrier(shm_halo_comm_);
   shm_halo_ = true;
   log("SHM_HALO", "enabled rank=%d ranks=%d stride=%lld", geometry_.rank,
