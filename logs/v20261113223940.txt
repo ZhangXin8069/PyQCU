@@ -1,0 +1,44 @@
+[日志元数据]
+日志类型: general
+生成时间: 2026-11-13 22:39:40 +0800
+批次: S24
+主任务: kupl-l24-opt-20261113
+触发原因: 一般记录
+摘要: 共享 halo 自旋加 30 s 上限与失败错误、启用日志；新增 4-rank 对角测试，全量 CTest 40/40
+Git 根目录: /home/zhangxin/PyQCU
+
+## 关键日志
+### S24-1 — 共享 halo 的健壮性收尾
+- 目标: 消除共享 halo 在调用序列不对称时的静默挂起，并扩大覆盖。
+- 命令/操作: 把读方 `published == seq` 与写方 `consumed >= seq-2` 的空转
+  改为 `shm_halo_spin`：30 s 上限，超时抛出带标签的
+  `KUPL shared halo handshake timeout`；启用时打印一次 stride 日志。
+- 关键输出: 构建 `make.sh: SUCCESS`。
+- 退出码: 0。
+- 证据与判断: 该路径仍是 opt-in；默认 MPI 路径未改变。
+
+### S24-2 — 4 rank 覆盖
+- 命令/操作: 新增 `kupl_qcu_shm_halo_4rank`（4 rank、`--lattice 2 2 2 4`、
+  `--grid 2 1 2 1`，对角线 x/z 分解，带 `KUPL_SHM_HALO=1`）。
+- 关键输出: `2/2` 共享 halo 测试通过；全量 `100% tests passed out of 40`
+  （104.94 s）。
+- 退出码: 0。
+- 证据与判断: 共享路径在时间面之外的空间面对角分解也通过；默认套件扩至 40 项。
+
+## 验证与证据
+- 测试/检查: `ctest -R shm_halo`。
+- 结果: 2/2 PASS（2.00 s、2.16 s）。
+- 测试/检查: 全量 `ctest`。
+- 结果: 40/40 PASS，104.94 s。
+- 未验证项: 远端 32 rank 的共享 halo 收益（SSH 断开，作业 2119917 等结果不可读）；
+  超时错误路径没有人为构造非对称调用做端到端验证。
+
+## 变更与产物
+- 文件: `cpp/kupl/qcu/src/lattice_wilson_dslash.cpp`、`cpp/kupl/qcu/CMakeLists.txt`。
+- 提交: `2aa73010`，标签 `dev123`。
+- 未改动范围: 默认配置与 MPI 路径。
+
+## 风险、限制与下一步
+- 风险: 30 s 超时若被触发会中止求解；这是有意的 fail-closed 行为。
+- 阻塞: 远端会话仍断开，A/B 数据待连接恢复后读取。
+- 下一步: 连接恢复后补读 6 个作业；若共享 halo 收益 <10%，保持 opt-in。

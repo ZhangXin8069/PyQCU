@@ -1236,3 +1236,11 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: 共享内存 halo（序号+双缓冲）与 MPI 逐位一致，2/4 rank PASS，默认 CTest 38/38；远端 3+3 A/B 因 SSH 停滞待读
 - 验证: path, size, required sections, conflict markers
 - 批次状态: in-progress
+## S24 - general - 2026-11-13 22:39:40 +0800
+- 主任务: kupl-l24-opt-20261113
+- 日志文件: logs/v20261113223940.txt
+- 文件大小: 2101 bytes
+- 触发原因: 一般记录
+- 关键内容: 共享 halo 自旋加 30 s 上限与失败错误、启用日志；新增 4-rank 对角测试，全量 CTest 40/40
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
