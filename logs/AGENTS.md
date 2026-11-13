@@ -1284,3 +1284,11 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: 共享 halo 与 z-block/part1off/blaneoff 三条分支组合均 PASS（2 rank）
 - 验证: path, size, required sections, conflict markers
 - 批次状态: in-progress
+## S30 - general - 2026-11-13 22:53:32 +0800
+- 主任务: kupl-l24-opt-20261113
+- 日志文件: logs/v20261113225332.txt
+- 文件大小: 2866 bytes
+- 触发原因: 一般记录
+- 关键内容: 八小时窗口收尾：默认配置为局部最优（中位 0.1847 s，差距 1.85x）；共享 halo opt-in 本地全验证；远端 A/B 与推送仍阻塞
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
