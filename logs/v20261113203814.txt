@@ -1,0 +1,41 @@
+[日志元数据]
+日志类型: general
+生成时间: 2026-11-13 20:38:14 +0800
+批次: S21
+主任务: kupl-l24-opt-20261113
+触发原因: 一般记录
+摘要: 鲲鹏登录节点 CTest 33/38，5 项因 OpenMPI affinity 限制失败；写入 §12.4 口径说明
+Git 根目录: /home/zhangxin/PyQCU
+
+## 关键日志
+### S21-1 — 鲲鹏生产构建的完整 CTest
+- 目标: 在远端 native+LTO 构建上跑完整测试套件，检查与本地 x86_64 的差异。
+- 命令/操作: `ctest --test-dir build-native-lto --output-on-failure`。
+- 关键输出: 33/38 通过；失败 5 项：`kupl_qcu_kunpeng_runtime_plan`、
+  `kupl_qcu_python_failure_modes`、`kupl_qcu_runtime_benchmark_smoke`、
+  `kupl_qcu_explicit_threads`、`kupl_qcu_kunpeng_profile_contract`。
+- 退出码: CTest 非零（失败项）。
+- 证据与判断: 5 项均在 `MPI_Init_thread` 报
+  `Setting processor affinity failed`，属登录节点 OpenMPI 亲和性限制；
+  本机 x86_64 同一套测试 38/38。登录节点结果不能作为代码回归结论。
+
+### S21-2 — 口径固化
+- 关键输出: `docs/kupl_l24_perf_20261113.md` 新增 §12.4。
+- 证据与判断: 生产节点经调度器运行不受该限制；文档明确区分两种口径。
+
+## 验证与证据
+- 测试/检查: 远端登录节点完整 CTest。
+- 结果: 33/38；5 项因 affinity 环境限制失败。
+- 测试/检查: 本地 x86_64 CTest。
+- 结果: 38/38（86.04 s，见 S17）。
+- 未验证项: 在计算节点上通过调度器跑完整 CTest（需要整节点分配）。
+
+## 变更与产物
+- 文件: `docs/kupl_l24_perf_20261113.md` §12.4。
+- 产物: 远端 `/tmp/ctest_remote.log`。
+- 未改动范围: 代码与配置。
+
+## 风险、限制与下一步
+- 风险: 读者可能把登录节点失败误判为回归；已在文档中说明。
+- 限制: 未在计算节点做整套 CTest。
+- 下一步: 如需完整门禁，提交一个整节点作业运行 ctest。
