@@ -1074,9 +1074,15 @@ Complex<Real> *LatticeSet<Real>::shm_data(Complex<Real> *base, int face,
 
 template <typename Real>
 void LatticeSet<Real>::ensure_shm_halo() {
+  // Single-node runs use the shared window by default; an explicit
+  // KUPL_SHM_HALO=0/false/no/off restores the MPI exchange.
   const char *flag = std::getenv("KUPL_SHM_HALO");
-  if (flag == nullptr || *flag == '\0' || std::strcmp(flag, "0") == 0 ||
-      geometry_.size == 1) {
+  const bool disabled =
+      flag != nullptr &&
+      (*flag == '\0' || std::strcmp(flag, "0") == 0 ||
+       std::strcmp(flag, "false") == 0 || std::strcmp(flag, "no") == 0 ||
+       std::strcmp(flag, "off") == 0);
+  if (disabled || geometry_.size == 1) {
     return;
   }
   MPI_Comm shared = MPI_COMM_NULL;

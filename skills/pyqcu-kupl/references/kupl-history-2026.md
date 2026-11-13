@@ -633,8 +633,8 @@ not a KUPL code defect.
   `=0` 时为 `0.213639 s` / `0.266636 s`，即 dslash 慢 `2.21×`、solve 慢 `1.92×`。
   作业 `2118031/2118035/2118039/2118042/2118049/2118056`，全部带
   `KUPL_PROFILE_OPT=1`。pack6 把线上 12 分量压到 6 分量，收益远超投影成本。
-- **共享内存 halo 原型（2026-11-13 夜，opt-in）**：`KUPL_SHM_HALO=1` 且同节点
-  时用 `MPI_Win_allocate_shared` 交换时间面，每面 `published/consumed` 计数 +
+- **共享内存 halo（2026-11-13 夜，单节点默认开启）**：同节点时用
+  `MPI_Win_allocate_shared` 交换时间面，`KUPL_SHM_HALO=0` 回退；每面 `published/consumed` 计数 +
   双缓冲，无全局 barrier。本地 c64、2 rank、`8 4 24 2` 与 MPI 路径逐位一致
   （rel `0`），2/4 rank 求解 `PASS`；新增 `kupl_qcu_shm_halo`（时间面）与
   `kupl_qcu_shm_halo_4rank`（对角分解）与 `kupl_qcu_shm_halo_dedup`、
@@ -652,7 +652,10 @@ not a KUPL code defect.
   复现且无报告，判为环境问题，不作为结论。
   旋转等待有 30 s 上限，超时抛出 `KUPL shared halo handshake timeout`，
   只适用于对称调用序列。远端 3+3 A/B（`2119917/2119919/2119921/2119925/
-  2119926/2119927`）因 SSH 停滞未读取，收益未验证，不得宣称加速。
+  2119926/2119927`）：wall 中位 `0.154389` 对 `0.180999 s`（-14.7%），
+  wait 中位 `0.000164` 对 `0.000775 s`（约 4.3×），dslash 中位 `0.067483` 对
+  `0.093351 s`；共享样本全部 `converged=true`、12 it、真残差与基线逐位相同。
+  据此单节点默认开启，`KUPL_SHM_HALO=0` 回退，两条路径 CTest 均 `42/42`。
 - **共享 halo 验证矩阵（2026-11-13 夜）**：四个 CTest 门
   （`shm_halo`、`shm_halo_dedup`、`shm_halo_4rank`、`python_shm_abi`）+
   `test_dslash_block_mpi.py --solve`、Legacy-MG、30 次重复压力均 `PASS`；

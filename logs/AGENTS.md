@@ -1372,3 +1372,11 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: 4 rank ASAN 换 BTL 仍段错误（环境）；新增 §14.1 验证矩阵（11 行）
 - 验证: path, size, required sections, conflict markers
 - 批次状态: in-progress
+## S41 - general - 2026-11-14 00:08:44 +0800
+- 主任务: kupl-l24-opt-20261113
+- 日志文件: logs/v20261114000844.txt
+- 文件大小: 2523 bytes
+- 触发原因: 一般记录
+- 关键内容: 共享 halo A/B：wall 0.154389 对 0.180999 s（-14.7%），wait 4.3x 降低，残差/迭代不变；单节点默认开启，默认与回退 CTest 均 42/42
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
