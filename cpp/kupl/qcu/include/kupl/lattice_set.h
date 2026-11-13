@@ -227,6 +227,9 @@ private:
   double prof_dslash_wait_seconds_ = 0;
   double prof_dslash_boundary_seconds_ = 0;
   int64_t prof_dslash_calls_ = 0;
+  double prof_arrival_seconds_ = 0;
+  double prof_wait_sum_seconds_ = 0;
+  int64_t prof_wait_calls_ = 0;
   double prof_opt_dslash_seconds_ = 0;
   double prof_opt_clover_seconds_ = 0;
   double prof_opt_dslash_bytes_ = 0;

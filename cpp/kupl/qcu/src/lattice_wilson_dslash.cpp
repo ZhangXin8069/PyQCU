@@ -2166,6 +2166,8 @@ void LatticeSet<Real>::bare_dslash(Complex<Real> *output,
   g_halo_pack_dagger = false;
   static const bool profile =
       std::getenv("KUPL_PROFILE_DSLASH") != nullptr;
+  static const bool profile_opt =
+      std::getenv("KUPL_PROFILE_OPT") != nullptr;
   const auto tick = [] { return std::chrono::steady_clock::now(); };
   const auto span = [](const auto &begin, const auto &end) {
     return std::chrono::duration<double>(end - begin).count();
@@ -2191,7 +2193,10 @@ void LatticeSet<Real>::bare_dslash(Complex<Real> *output,
     const auto wait_done = tick();
     compute_dslash_t2_time_zblocks(input, output, target);
     const auto boundary_done = tick();
-    if (profile) {
+    if (profile || profile_opt) {
+      prof_arrival_seconds_ += span(start, interior_done);
+      prof_wait_sum_seconds_ += span(interior_done, wait_done);
+      ++prof_wait_calls_;
       prof_dslash_halo_seconds_ += span(start, halo_done);
       prof_dslash_interior_seconds_ += span(halo_done, interior_done);
       prof_dslash_wait_seconds_ += span(interior_done, wait_done);
@@ -2222,7 +2227,10 @@ void LatticeSet<Real>::bare_dslash(Complex<Real> *output,
     const auto wait_done = tick();
     compute_dslash_boundary_part(input, output, target, 2);
     const auto boundary_done = tick();
-    if (profile) {
+    if (profile || profile_opt) {
+      prof_arrival_seconds_ += span(start, interior_done);
+      prof_wait_sum_seconds_ += span(interior_done, wait_done);
+      ++prof_wait_calls_;
       prof_dslash_halo_seconds_ += span(start, halo_done);
       prof_dslash_interior_seconds_ += span(halo_done, interior_done);
       prof_dslash_wait_seconds_ += span(interior_done, wait_done);
@@ -2258,6 +2266,9 @@ void LatticeSet<Real>::bare_dslash(Complex<Real> *output,
   const auto elapsed = [](const auto &begin, const auto &end) {
     return std::chrono::duration<double>(end - begin).count();
   };
+  prof_arrival_seconds_ += elapsed(start, interior_done);
+  prof_wait_sum_seconds_ += elapsed(interior_done, wait_done);
+  ++prof_wait_calls_;
   prof_dslash_halo_seconds_ += elapsed(start, halo_done);
   prof_dslash_interior_seconds_ += elapsed(halo_done, interior_done);
   prof_dslash_wait_seconds_ += elapsed(interior_done, wait_done);

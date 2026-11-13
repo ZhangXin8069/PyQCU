@@ -686,6 +686,9 @@ void LatticeSet<Real>::solve_clover(
     prof_dslash_calls_ = 0;
   }
   if (profile_opt) {
+    prof_arrival_seconds_ = 0;
+    prof_wait_sum_seconds_ = 0;
+    prof_wait_calls_ = 0;
     prof_opt_dslash_seconds_ = 0;
     prof_opt_clover_seconds_ = 0;
     prof_opt_dslash_bytes_ = 0;
@@ -785,6 +788,19 @@ void LatticeSet<Real>::solve_clover(
     const auto seconds = [](const auto &begin, const auto &end) {
       return std::chrono::duration<double>(end - begin).count();
     };
+    const double arrival_mean =
+        prof_wait_calls_ > 0
+            ? prof_arrival_seconds_ / static_cast<double>(prof_wait_calls_)
+            : 0.0;
+    const double wait_mean =
+        prof_wait_calls_ > 0
+            ? prof_wait_sum_seconds_ / static_cast<double>(prof_wait_calls_)
+            : 0.0;
+    std::fprintf(
+        stderr,
+        "PYQCU::KUPL::SKEW:rank=%d arrival=%.6f wait=%.6f calls=%lld\n",
+        geometry_.rank, arrival_mean, wait_mean,
+        static_cast<long long>(prof_wait_calls_));
     std::fprintf(
         stderr,
         "PYQCU::KUPL::OPT_PROFILE:rank=%d rank_of=%d\ndslash=%.6f/%lld bytes=%.3fMB "
