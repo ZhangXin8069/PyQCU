@@ -1204,3 +1204,11 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: pack6=1 dslash 中位 0.096633 s、solve 0.139138 s；pack6=0 为 0.213639/0.266636 s，慢 2.21x/1.92x
 - 验证: path, size, required sections, conflict markers
 - 批次状态: in-progress
+## S20 - general - 2026-11-13 20:30:07 +0800
+- 主任务: kupl-l24-opt-20261113
+- 日志文件: logs/v20261113203007.txt
+- 文件大小: 1909 bytes
+- 触发原因: 一般记录
+- 关键内容: 晚间 6 样本中位 0.186925 s，比 9 样本基线高 1.2%，无显著漂移；§13 结论与差距分析固化
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
