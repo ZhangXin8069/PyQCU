@@ -1340,3 +1340,11 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: 共享 halo：UBSAN 2/4 rank 0 runtime error 且 PASS；Legacy-MG levels/deflate/restart 全部 PASS（verify=0）
 - 验证: path, size, required sections, conflict markers
 - 批次状态: in-progress
+## S37 - general - 2026-11-13 23:28:29 +0800
+- 主任务: kupl-l24-opt-20261113
+- 日志文件: logs/v20261113232829.txt
+- 文件大小: 1304 bytes
+- 触发原因: 一般记录
+- 关键内容: 生产局部格点 24x24x24x2（2 rank、4 线程）UBSAN+共享 halo：0 runtime error、PASS
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress

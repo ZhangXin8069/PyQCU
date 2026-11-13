@@ -640,7 +640,7 @@ not a KUPL code defect.
   `kupl_qcu_shm_halo_4rank`（对角分解）与 `kupl_qcu_shm_halo_dedup`、
   `kupl_qcu_python_shm_abi` 四个对称回归门，全量 CTest `42/42`；
   `24 24 24 2` 实测 `slot_bytes=21233920`（约 20.25 MiB/rank，32 rank 约
-  648 MiB）；UBSAN（2/4 rank）0 runtime error，Legacy-MG（levels 1/2、
+  648 MiB）；UBSAN（2/4 rank 及 24³×2 生产局部格点）0 runtime error，Legacy-MG（levels 1/2、
   deflate、restart=3）在该开关下 `PASS`；
   `KUPL_OMP_THREADS=4` 下 2/4 rank 也 `PASS`；独立 NumPy 差分
   （`2 2 2 4`、`--grid 2 1 1 1`、2 线程）在该开关下 c64/c128 均 `PASS`；

@@ -1,0 +1,33 @@
+[日志元数据]
+日志类型: general
+生成时间: 2026-11-13 23:28:29 +0800
+批次: S37
+主任务: kupl-l24-opt-20261113
+触发原因: 一般记录
+摘要: 生产局部格点 24x24x24x2（2 rank、4 线程）UBSAN+共享 halo：0 runtime error、PASS
+Git 根目录: /home/zhangxin/PyQCU
+
+## 关键日志
+### S37-1 — 生产几何的 UBSAN 共享 halo
+- 目标: 在与生产相同的每 rank 局部格点上检查未定义行为。
+- 命令/操作: `build-ubsan`、`UBSAN_OPTIONS=halt_on_error=1`、
+  `KUPL_SHM_HALO=1`、2 rank、`--lattice 24 24 24 2 --grid 1 1 1 2`、
+  4 线程/rank。
+- 关键输出: `RC=0`、`runtime error` 计数 `0`、`overall_status=PASS`。
+- 退出码: 0。
+- 证据与判断: 生产尺寸的共享槽（`slot_bytes=21233920`）与协议路径在 UBSAN
+  下无告警。
+
+## 验证与证据
+- 测试/检查: 生产局部格点的 UBSAN 运行。
+- 结果: PASS，0 runtime error。
+- 未验证项: UBSAN 不检测数据竞争；32 rank 仍只在远端可用。
+
+## 变更与产物
+- 文件: 文档与技能历史各一处补充。
+- 未改动范围: 代码与默认配置。
+
+## 风险、限制与下一步
+- 风险: 无新增；UBSAN 的覆盖边界不变。
+- 阻塞: 远端会话未恢复。
+- 下一步: 远端恢复后补 32 rank A/B 与实际共享内存占用。
