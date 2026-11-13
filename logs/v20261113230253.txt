@@ -1,0 +1,43 @@
+[日志元数据]
+日志类型: general
+生成时间: 2026-11-13 23:02:53 +0800
+批次: S31
+主任务: kupl-l24-opt-20261113
+触发原因: 一般记录
+摘要: -Wall -Wextra 审查发现共享 halo 对 std::complex 的 memset 告警，改为仅清零计数词；本文件 0 告警，全量 CTest 40/40
+Git 根目录: /home/zhangxin/PyQCU
+
+## 关键日志
+### S31-1 — 告警审查与修复
+- 目标: 对共享 halo 新增代码做 `-Wall -Wextra` 静态审查。
+- 命令/操作: 新建 `cpp/kupl/qcu/build-warn`，以
+  `-DCMAKE_CXX_FLAGS='-Wall -Wextra'` 构建；汇总告警。
+- 关键输出: 仅两类告警：
+  1. `lattice_multigrid.cpp:810` 的 `half_sites` shadow（既有代码，非本轮）；
+  2. `lattice_wilson_dslash.cpp:1119` 对 `std::complex` 执行 `memset`
+     （`-Wclass-memaccess`，本轮新增）。
+- 证据与判断: 第二类是本轮代码；清零整个槽并无必要，数据区在发布前不会被读。
+
+### S31-2 — 修复与回归
+- 命令/操作: 把整槽 `memset` 改为仅对 32 个计数词做 `__atomic_store_n`；
+  重建 `build-warn` 与默认构建；跑共享 halo 测试与全量 CTest。
+- 关键输出: 该文件告警数 `0`；`ctest -R shm_halo` 2/2 PASS；
+  全量 `100% tests passed out of 40`（120.51 s）。
+- 退出码: 0。
+- 证据与判断: 修复不改变协议语义，默认路径与共享路径均保持全绿。
+
+## 验证与证据
+- 测试/检查: `-Wall -Wextra` 构建；`ctest -R shm_halo`；全量 ctest。
+- 结果: 本文件 0 告警；2/2；40/40。
+- 未验证项: `lattice_multigrid.cpp` 的既有 shadow 告警未处理（不在本轮范围）。
+
+## 变更与产物
+- 文件: `cpp/kupl/qcu/src/lattice_wilson_dslash.cpp`（提交 `6a2f1e9d`）。
+- 新建（未跟踪、被忽略）: `cpp/kupl/qcu/build-warn` 临时构建目录。
+- 未改动范围: 其他既有告警与默认配置。
+
+## 风险、限制与下一步
+- 风险: 计数清零依赖“数据在发布前不被读”的协议不变量；该不变量与读方的
+  `published == seq` 等待一致。
+- 阻塞: 远端会话仍未恢复。
+- 下一步: 连接恢复后补读 A/B；本地可继续小范围静态审查。
