@@ -1,0 +1,37 @@
+[日志元数据]
+日志类型: general
+生成时间: 2026-11-13 23:14:02 +0800
+批次: S34
+主任务: kupl-l24-opt-20261113
+触发原因: 一般记录
+摘要: 共享 halo 启用日志增加 slot_bytes（4x2x4x2 示例 49408 B）；全量 CTest 42/42
+Git 根目录: /home/zhangxin/PyQCU
+
+## 关键日志
+### S34-1 — 共享窗口开销可观测
+- 目标: 让启用日志同时给出每 rank 的共享槽字节数，便于核对内存开销。
+- 命令/操作: `ensure_shm_halo` 的 `SHM_HALO` 日志增加 `slot_bytes`；
+  `KUPL_SHM_VERBOSE` 冒烟运行 `--lattice 4 2 4 2 --grid 1 1 1 2`。
+- 关键输出: `enabled rank=1 ranks=2 stride=384 slot_bytes=49408`。
+- 退出码: 0。
+- 证据与判断: 槽大小 = 32×8 字节计数 + 16×stride×sizeof(C)；该例为 49 408 B。
+
+### S34-2 — 全量回归
+- 命令/操作: `ctest --test-dir cpp/kupl/qcu/build --output-on-failure`。
+- 关键输出: `100% tests passed out of 42`（108.22 s）。
+- 退出码: 0。
+- 证据与判断: 日志改动不影响数值路径与门禁。
+
+## 验证与证据
+- 测试/检查: 启用日志冒烟；全量 ctest；`git diff --check`。
+- 结果: 日志字段正确；42/42；diff 干净。
+- 未验证项: 生产规模（stride 6912）下的槽大小与 32 rank 聚合开销只能在远端确认。
+
+## 变更与产物
+- 文件: `cpp/kupl/qcu/src/lattice_wilson_dslash.cpp`。
+- 未改动范围: 协议与默认配置。
+
+## 风险、限制与下一步
+- 风险: 无；仅新增日志字段。
+- 阻塞: 远端会话未恢复。
+- 下一步: 重连后在 32 rank 上读取 `slot_bytes` 与实际内存占用。

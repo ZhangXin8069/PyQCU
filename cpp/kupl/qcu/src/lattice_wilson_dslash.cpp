@@ -1124,8 +1124,9 @@ void LatticeSet<Real>::ensure_shm_halo() {
   }
   MPI_Barrier(shm_halo_comm_);
   shm_halo_ = true;
-  log("SHM_HALO", "enabled rank=%d ranks=%d stride=%lld", geometry_.rank,
-      geometry_.size, static_cast<long long>(stride));
+  log("SHM_HALO", "enabled rank=%d ranks=%d stride=%lld slot_bytes=%lld",
+      geometry_.rank, geometry_.size, static_cast<long long>(stride),
+      static_cast<long long>(slot_bytes));
 }
 
 template <typename Real>
