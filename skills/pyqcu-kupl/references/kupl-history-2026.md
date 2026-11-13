@@ -600,7 +600,7 @@ not a KUPL code defect.
   gauge halo/local 条件写反。修复后本地 ctypes 探针（c64、2 rank）相对差：
   lattice `8 4 4 2` 为 `4.59e-08`，`8 4 24 2`（两 block）为 `4.35e-08`；
   退化 gauge 隔离显示修复前仅空间跳差 `33–39%`，仅时间跳差值为 0。全量
-  CTest `38/38`，新增 `kupl_qcu_t2_zblock_lanes`（`4 2 24 2`）。远端 A/B
+  CTest `38/38`（当时规模），新增 `kupl_qcu_t2_zblock_lanes`（`4 2 24 2`）。远端 A/B
   （cn19699、32r×18t、ACTIVE + t2 lane、`preferred`）：z-block 中位
   `0.18324761 s`（0.18324761/0.17664439/0.18536645），基线中位
   `0.18410848 s`（0.18410848/0.18148361/0.18796321），全部 `converged=true`，

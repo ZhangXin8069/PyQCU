@@ -1308,3 +1308,11 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: 新增 shm_halo_dedup 与 python_shm_abi 两个 CTest 门；套件 42/42
 - 验证: path, size, required sections, conflict markers
 - 批次状态: in-progress
+## S33 - general - 2026-11-13 23:11:24 +0800
+- 主任务: kupl-l24-opt-20261113
+- 日志文件: logs/v20261113231124.txt
+- 文件大小: 1483 bytes
+- 触发原因: 一般记录
+- 关键内容: 核对并修正文档中的 CTest 计数语境（38 为当时规模、42 为当前、33 为登录节点口径）
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
