@@ -637,7 +637,8 @@ not a KUPL code defect.
   时用 `MPI_Win_allocate_shared` 交换时间面，每面 `published/consumed` 计数 +
   双缓冲，无全局 barrier。本地 c64、2 rank、`8 4 24 2` 与 MPI 路径逐位一致
   （rel `0`），2/4 rank 求解 `PASS`；新增 `kupl_qcu_shm_halo`（时间面）与
-  `kupl_qcu_shm_halo_4rank`（对角分解）两个对称回归门，全量 CTest `40/40`；
+  `kupl_qcu_shm_halo_4rank`（对角分解）与 `kupl_qcu_shm_halo_dedup`、
+  `kupl_qcu_python_shm_abi` 四个对称回归门，全量 CTest `42/42`；
   `KUPL_OMP_THREADS=4` 下 2/4 rank 也 `PASS`；独立 NumPy 差分
   （`2 2 2 4`、`--grid 2 1 1 1`、2 线程）在该开关下 c64/c128 均 `PASS`；
   `KUPL_HALO_PACK6=0` 的 dedup 分支 2/4 rank `PASS`；

@@ -196,6 +196,17 @@ if(KUPL_BUILD_TESTS)
     ENVIRONMENT
       "KUPL_SHM_HALO=1;KUPL_ENABLE_BOUNDARY_LANES=1;KUPL_T_LOCAL_IN_PART1=1;KUPL_HALO_PACK6=1;KUPL_ENABLE_T2_LANES=1"
   )
+  add_test(NAME kupl_qcu_shm_halo_dedup COMMAND
+    ${MPIEXEC_EXECUTABLE}
+    ${MPIEXEC_NUMPROC_FLAG} 2
+    $<TARGET_FILE:kupl_qcu_tests>
+    --lattice 4 2 4 2
+    --grid 1 1 1 2
+  )
+  set_tests_properties(kupl_qcu_shm_halo_dedup PROPERTIES
+    ENVIRONMENT
+      "KUPL_SHM_HALO=1;KUPL_HALO_PACK6=0;KUPL_HALO_DEDUP_PACK=1;KUPL_T_LOCAL_IN_PART1=1;KUPL_ENABLE_BOUNDARY_LANES=1"
+  )
   add_test(NAME kupl_qcu_shm_halo_4rank COMMAND
     ${MPIEXEC_EXECUTABLE}
     ${MPIEXEC_NUMPROC_FLAG} 4
@@ -319,6 +330,18 @@ if(KUPL_BUILD_TESTS)
         --grid 2 1 1 1
         --threads ${KUPL_TEST_OMP_THREADS}
       )
+      add_test(NAME kupl_qcu_python_shm_abi COMMAND
+        ${MPIEXEC_EXECUTABLE}
+        ${MPIEXEC_NUMPROC_FLAG} 2
+        ${Python3_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_new_abi.py
+        --library $<TARGET_FILE:kupl_qcu>
+        --lattice 2 2 2 4
+        --grid 2 1 1 1
+        --threads ${KUPL_TEST_OMP_THREADS}
+      )
+      set_tests_properties(kupl_qcu_python_shm_abi PROPERTIES
+        ENVIRONMENT "KUPL_SHM_HALO=1")
       add_test(NAME kupl_qcu_python_new_abi_rectangular COMMAND
         ${MPIEXEC_EXECUTABLE}
         ${MPIEXEC_NUMPROC_FLAG} 1

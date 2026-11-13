@@ -1300,3 +1300,11 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: -Wall -Wextra 审查发现共享 halo 对 std::complex 的 memset 告警，改为仅清零计数词；本文件 0 告警，全量 CTest 40/40
 - 验证: path, size, required sections, conflict markers
 - 批次状态: in-progress
+## S32 - general - 2026-11-13 23:10:52 +0800
+- 主任务: kupl-l24-opt-20261113
+- 日志文件: logs/v20261113231052.txt
+- 文件大小: 1745 bytes
+- 触发原因: 一般记录
+- 关键内容: 新增 shm_halo_dedup 与 python_shm_abi 两个 CTest 门；套件 42/42
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress

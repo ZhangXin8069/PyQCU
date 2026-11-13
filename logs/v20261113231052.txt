@@ -1,0 +1,40 @@
+[日志元数据]
+日志类型: general
+生成时间: 2026-11-13 23:10:52 +0800
+批次: S32
+主任务: kupl-l24-opt-20261113
+触发原因: 一般记录
+摘要: 新增 shm_halo_dedup 与 python_shm_abi 两个 CTest 门；套件 42/42
+Git 根目录: /home/zhangxin/PyQCU
+
+## 关键日志
+### S32-1 — 固化共享 halo 的额外覆盖
+- 目标: 把此前手工验证的两条路径变成常规 CTest 门。
+- 命令/操作:
+  1. 新增 `kupl_qcu_shm_halo_dedup`：2 rank、`--lattice 4 2 4 2`、
+     `KUPL_SHM_HALO=1;KUPL_HALO_PACK6=0;KUPL_HALO_DEDUP_PACK=1`；
+  2. 新增 `kupl_qcu_python_shm_abi`：2 rank、`test_new_abi.py`
+     （`--lattice 2 2 2 4 --grid 2 1 1 1`）、仅设 `KUPL_SHM_HALO=1`。
+- 关键输出: `ctest -R shm` 4/4 PASS（8.18 s）。
+- 退出码: 0。
+- 证据与判断: 两条路径从“手工一次性验证”升级为回归门，后续改动会被覆盖。
+
+### S32-2 — 全量回归
+- 命令/操作: `ctest --test-dir cpp/kupl/qcu/build --output-on-failure`。
+- 关键输出: `100% tests passed out of 42`（111.76 s）。
+- 退出码: 0。
+- 证据与判断: 套件从 40 项扩到 42 项，默认路径不受影响。
+
+## 验证与证据
+- 测试/检查: `ctest -R shm`；全量 ctest；`git diff --check`。
+- 结果: 4/4；42/42；diff 干净。
+- 未验证项: 远端 32 rank 的共享 halo 收益（SSH 未恢复）。
+
+## 变更与产物
+- 文件: `cpp/kupl/qcu/CMakeLists.txt`。
+- 未改动范围: 代码与默认配置。
+
+## 风险、限制与下一步
+- 风险: Python 门依赖 mpi4py 与 numpy，缺失时该项会失败；与既有 Python 门一致。
+- 阻塞: 远端会话未恢复。
+- 下一步: 连接恢复后读 A/B；本地可继续把文档中的手工验证清单与 CTest 名对齐。
