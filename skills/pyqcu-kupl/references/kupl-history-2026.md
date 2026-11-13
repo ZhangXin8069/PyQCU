@@ -615,3 +615,12 @@ not a KUPL code defect.
   `3.533757 s`，32 rank `0.183248`/`0.176644`/`0.185366 s`；更少 rank 时
   local time extent 变为 4/8，不再走 `local[3]==2` 的 t2 lane 路径，墙钟
   显著变差且不稳定，32 rank 仍是最优点。
+- **稳定性与 wait 归因（2026-11-13 傍晚）**：同配置 9 个有效样本中位
+  `0.184694 s`、均值 `0.184138 s`、σ `0.002176 s`、极差 `3.8%`（一个样本
+  600 s 超时 `RC=124` 作废）。`KUPL_PROFILE_OPT=1` 的逐 rank `SKEW` 诊断
+  （作业 `2117260`）：arrival 均值 `0.912 ms`（sd `0.110`）、wait 均值
+  `0.762 ms`（sd `0.168`）、相关 `+0.26`；wait 主要是通信而非 rank 偏斜，
+  共享内存 halo 的理论上限约 `17–19%`。`MPI_Win_allocate_shared` 原型在修正
+  面判定与 `MPI_Win_sync` 后与 MPI 路径逐位一致（rel `0`），但全局 barrier 对
+  rank 非对称调用不安全（该开关下 ctest 600 s 超时），已回退；继续需要逐邻居
+  序号或双缓冲收发协议。

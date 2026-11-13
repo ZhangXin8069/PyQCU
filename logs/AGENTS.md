@@ -1180,3 +1180,11 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: R3/R4 参数 A/B 负结果：spin=1000 中位差仅 0.26%，spin=30000 与 KUPL_HALO_DEDUP_PACK=0 均为噪声级或略差，默认配置不变
 - 验证: path, size, required sections, conflict markers
 - 批次状态: in-progress
+## S17 - general - 2026-11-13 18:36:22 +0800
+- 主任务: kupl-l24-opt-20261113
+- 日志文件: logs/v20261113183622.txt
+- 文件大小: 3954 bytes
+- 触发原因: 一般记录
+- 关键内容: 9 样本中位 0.184694 s；SKEW 显示 wait 0.762 ms 与 arrival 相关 +0.26（通信而非偏斜）；共享 halo 原型 CTest 超时已回退；CTest 38/38
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
