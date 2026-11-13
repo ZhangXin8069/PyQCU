@@ -7,11 +7,31 @@
 #include <chrono>
 #include <cstdlib>
 #include <cstring>
+#include <string>
 #include <type_traits>
 #include <vector>
 
 namespace kupl::qcu {
 namespace {
+
+// Bounded spin used by the node-local shared halo.  A mismatch means the
+// neighbour is not following the same dslash call sequence, so fail loudly
+// instead of hanging the whole job.
+inline void shm_halo_spin(const uint64_t *address, uint64_t target,
+                          bool at_least, const char *label) {
+  const auto deadline =
+      std::chrono::steady_clock::now() + std::chrono::seconds(30);
+  for (;;) {
+    const uint64_t value = __atomic_load_n(address, __ATOMIC_ACQUIRE);
+    if (at_least ? (value >= target) : (value == target)) {
+      return;
+    }
+    if (std::chrono::steady_clock::now() > deadline) {
+      throw std::runtime_error(
+          std::string("KUPL shared halo handshake timeout: ") + label);
+    }
+  }
+}
 
 inline bool use_block_dslash(int64_t half_sites) {
   static const bool allowed =
@@ -1099,6 +1119,8 @@ void LatticeSet<Real>::ensure_shm_halo() {
   std::memset(shm_halo_self_, 0, static_cast<std::size_t>(slot_bytes));
   MPI_Barrier(shm_halo_comm_);
   shm_halo_ = true;
+  log("SHM_HALO", "enabled rank=%d ranks=%d stride=%lld", geometry_.rank,
+      geometry_.size, static_cast<long long>(stride));
 }
 
 template <typename Real>
@@ -1121,8 +1143,7 @@ void LatticeSet<Real>::wait_fermion_halo() {
         const uint64_t seq = ++shm_recv_seq_[my_face];
         const int buffer = static_cast<int>(seq & 1);
         uint64_t *published = shm_published(base, peer_face, buffer);
-        while (__atomic_load_n(published, __ATOMIC_ACQUIRE) != seq) {
-        }
+        shm_halo_spin(published, seq, false, "publish");
         std::memcpy(fermion_recv_[my_face].data(),
                     shm_data(base, peer_face, buffer), bytes);
         __atomic_store_n(shm_consumed(base, peer_face, buffer), seq,
@@ -1170,9 +1191,8 @@ void LatticeSet<Real>::post_fermion_halo(const Complex<Real> *source,
         const int buffer = static_cast<int>(seq & 1);
         if (seq > 2) {
           const uint64_t need = seq - 2;
-          while (__atomic_load_n(shm_consumed(shm_halo_self_, face, buffer),
-                                 __ATOMIC_ACQUIRE) < need) {
-          }
+          shm_halo_spin(shm_consumed(shm_halo_self_, face, buffer), need,
+                        true, "consume");
         }
         const Complex<Real> *source_buffer =
             (side < 0 || dedup_pack) ? send_minus.data() : send_plus.data();
