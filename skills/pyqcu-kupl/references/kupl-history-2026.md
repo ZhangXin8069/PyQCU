@@ -592,3 +592,17 @@ not a KUPL code defect.
   `82.74 s` 两次），本地 2-rank 剖析冒烟 `PASS`（c64 `calls=91`、
   c128 `calls=111`）。远端重建后复测 `2114720` 已取得生产分解；wait 仍约占
   生产 dslash 的 40%，part 1 本地计算只覆盖其约 83%。
+- **t2 z-block 缺陷修复（提交 `1ad6ed7e`）**：
+  `compute_dslash_t2_spatial_zblocks` 有四处缺陷：z 内点块未加 lane 偏移，
+  统一从 lane 0 累加；z 上界周期 wrap 误写 lane 0，应写 `lanes-1`；多 block
+  （`z_dim > kSiteLanes`）时 `wrapped_site` 应为 `site - z0`（本地 z=0），
+  原实现指向当前 block 起点；`compute_dslash_t2_time_zblocks` 的 backward
+  gauge halo/local 条件写反。修复后本地 ctypes 探针（c64、2 rank）相对差：
+  lattice `8 4 4 2` 为 `4.59e-08`，`8 4 24 2`（两 block）为 `4.35e-08`；
+  退化 gauge 隔离显示修复前仅空间跳差 `33–39%`，仅时间跳差值为 0。全量
+  CTest `38/38`，新增 `kupl_qcu_t2_zblock_lanes`（`4 2 24 2`）。远端 A/B
+  （cn19699、32r×18t、ACTIVE + t2 lane、`preferred`）：z-block 中位
+  `0.18324761 s`（0.18324761/0.17664439/0.18536645），基线中位
+  `0.18410848 s`（0.18410848/0.18148361/0.18796321），全部 `converged=true`，
+  真残差 `5.3848760834813754e-05`，中位差 `0.47%`。结论：噪声级，z-block
+  保持 opt-in，不设为默认；错误路径的 `0.1395 s` 无效。

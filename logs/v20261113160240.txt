@@ -1,0 +1,79 @@
+[日志元数据]
+日志类型: general
+生成时间: 2026-11-13 16:02:40 +0800
+批次: S15
+主任务: kupl-l24-opt-20261113
+触发原因: 一般记录
+摘要: t2 z-block dslash 修复 lane 偏移/wrap 邻居/time backward halo gauge；c64 相对差 4.59e-08 与 4.35e-08，CTest 38/38，A/B 中位差 0.47% 保持 opt-in，提交 1ad6ed7e
+Git 根目录: /home/zhangxin/PyQCU
+
+## 关键日志
+### S15-1 — 缺陷定位（`cpp/kupl/qcu/src/lattice_wilson_dslash.cpp`）
+- 目标: 说明 t2 z-block dslash 与 split-boundary 参考路径输出不一致的代码来源。
+- 命令/操作: 核对 `compute_dslash_t2_spatial_zblocks` 与
+  `compute_dslash_t2_time_zblocks` 的 lane 偏移、wrap 邻居和 halo gauge 选择。
+- 关键输出: 四处缺陷：
+  1. `compute_dslash_t2_spatial_zblocks` 的 z 内点块从 lane 0 累加，未加
+     `interior_offset`；
+  2. 上界 wrap 贡献写入 lane 0，应写入 `lanes-1`；
+  3. 多 block 时 `wrapped_site = site`，z=`z_dim-1` 的 +z 邻居被指向当前
+     block 起点而非本地 z=0；应 `site - z0`；
+  4. `compute_dslash_t2_time_zblocks` 的 backward gauge 在 `forward_remote`
+     时取 halo，条件写反；应在其反向（backward 远端）时取 halo。
+- 退出码: 只读检查 exit=0。
+- 证据与判断: 修复提交 `1ad6ed7e` 同时覆盖上述四处。
+
+### S15-2 — 本地数值与回归验证
+- 命令/操作: 用独立 ctypes 探针对比 z-block 与 split-boundary 的 Wilson
+  dslash 输出，lattice `8 4 4 2` 与 `8 4 24 2`（z 跨两个 kSiteLanes block）；
+  做退化 gauge 隔离；跑本地 2-rank z-block 求解与全量 CTest。
+- 关键输出: c64 相对差 `4.59e-08` / `4.35e-08`；退化 gauge 隔离中仅时间跳
+  （zero-spatial）差值为 0，仅空间跳（zero-time）修复前差 33–39%；
+  本地 2-rank z-block 求解 `overall_status=PASS`；全量 CTest `38/38`
+  （`84.54 s`，新增 `kupl_qcu_t2_zblock_lanes`，lattice `4 2 24 2`）。
+- 退出码: 0 / 0 / 0。
+- 证据与判断: 修复后 z-block 与参考路径在 c64 下达到浮点一致量级；
+  空间跳正是缺陷所在，时间跳保持 0 差值。
+
+### S15-3 — 远端 A/B（cn19699，32r×18t，ACTIVE + t2 lane，preferred）
+- 命令/操作: 同配置对比 t2 z-block 与基线，各 3 次重复；
+  作业 `2115857`/`2115861`/`2115862`/`2115864`/`2115866`/`2115867`。
+- 关键输出: z-block 墙钟 `0.18324761`、`0.17664439`、`0.18536645`
+  （中位 `0.18324761`）；基线 `0.18410848`、`0.18148361`、`0.18796321`
+  （中位 `0.18410848`）；全部 `converged=true`，真残差
+  `5.3848760834813754e-05`。
+- 退出码: 0。
+- 证据与判断: 中位差 `0.47%`，属噪声级；z-block 保持 opt-in
+  （`KUPL_ENABLE_T2_ZBLOCK_DSLASH`），不设为默认。此前错误路径的
+  `0.1395 s` 不能当作加速。
+
+## 验证与证据
+- 测试/检查: 独立 ctypes 探针 z-block vs split-boundary（c64，`8 4 4 2`、`8 4 24 2`）。
+- 结果: 相对差 `4.59e-08`、`4.35e-08`。
+- 测试/检查: 退化 gauge 隔离。
+- 结果: 仅时间跳（zero-spatial）差值 0；仅空间跳（zero-time）修复前差 33–39%。
+- 测试/检查: 本地 2-rank z-block 求解。
+- 结果: `overall_status=PASS`。
+- 测试/检查: 全量 CTest。
+- 结果: `38/38`，`84.54 s`，含新增 `kupl_qcu_t2_zblock_lanes`（lattice `4 2 24 2`）。
+- 测试/检查: 远端 A/B，作业 `2115857`/`2115861`/`2115862`/`2115864`/`2115866`/`2115867`。
+- 结果: z-block 中位 `0.18324761 s`，基线中位 `0.18410848 s`，差 `0.47%`；
+  全部收敛，真残差 `5.3848760834813754e-05`。
+- 未验证项: 本轮数值对比为 c64，未记录 c128 z-block 对比；
+  z-block 多 rank 收敛仅有本地 2-rank 冒烟。
+
+## 变更与产物
+- 文件: `cpp/kupl/qcu/src/lattice_wilson_dslash.cpp`（lane 偏移、上界 wrap 目标 lane、
+  `wrapped_site` 与 time backward halo gauge 选择）。
+- 文件: `cpp/kupl/qcu/CMakeLists.txt`（注册 `kupl_qcu_t2_zblock_lanes`）。
+- 产物: 提交 `1ad6ed7e fix(kupl): correct t2 z-block dslash lanes and time gauge selection`。
+- 产物: 远端 A/B 结果（作业 `2115857`/`2115861`/`2115862`/`2115864`/`2115866`/`2115867`）。
+- 未改动范围: z-block 仍为 opt-in，求解算法、停机判据与默认 dslash 路径未改变。
+
+## 风险、限制与下一步
+- 风险: 若把 z-block 设为默认，multi-block z 几何才刚修复，覆盖面仍小于 split-boundary。
+- 限制: A/B 差异 `0.47%` 在噪声内，不支持性能结论；旧 `0.1395 s` 来自错误路径，不可引用。
+- 限制: 数值一致性证据限于 c64 与 `8 4 4 2`/`8 4 24 2`/`4 2 24 2`。
+- 阻塞: 无。
+- 下一步: 保持 `KUPL_ENABLE_T2_ZBLOCK_DSLASH` 为显式实验开关；
+  若继续推进，补 c128 与更多 multi-block 几何的对照。

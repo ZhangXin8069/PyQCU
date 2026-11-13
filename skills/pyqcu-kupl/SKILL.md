@@ -253,6 +253,9 @@ BiCGStab，不是 multigrid）、grid `1 1 1 32`、每 rank 线程数由作业�
 `0.188526 s`。t16/t18 与 `prof4` 同时改变了 `-R cpu=TH` 资源申请，不是纯线程数
 单变量实验。当前最优点仍高于 `0.1 s` 目标约 `1.86×`。
 
+t2 z-block 相对 split 路径的同 lane A/B（cn19699、32r×18t、ACTIVE + t2 lane、
+`preferred`）中位差 `0.47%`，属噪声级，z-block 保持 opt-in。
+
 `KUPL_PROFILE_OPT=1` 是逐 rank 诊断变量（默认关闭，仅计时，不改变算法与停机）。
 每个 rank 输出 `dslash`/`clover`/`reduce` 的秒数与调用次数、`dslash`/`clover`
 的字节数与 `GB/s`（rank 与全 rank 聚合），以及 `prepare`/`solve`/`reconstruct`
@@ -337,6 +340,9 @@ c128 coarse V-cycle 性能；同规模 c128 coarse 性能仍未验证。
 - 不要据单次样本宣称 `-ffast-math` 或 block-dslash 加速：cn19699 同 lane 上
   `0.204288 s` 对 `0.207077 s`（约 1.4%）、cn19650 `0.244864 s` 对
   `0.249223 s`（约 1.8%）均在噪声级。
+- 不要用 `wrapped_site = site` 处理多 block 的 +z 周期；z-block 累加必须给
+  内点/上界 wrap 传目标 lane 偏移；时间 backward gauge 在 backward 远端时
+  取 halo。
 - 真实 MG（`levels=2`）多 rank 目前无法运行：需要预置全局 `--coarse-cache`，
   而 `kupl_multigrid.py` 的多 rank 导出会以
   `multi-rank coarse-cache export is not implemented` 拒绝。1-rank L24 缓存

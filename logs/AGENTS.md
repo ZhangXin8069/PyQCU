@@ -1164,3 +1164,11 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: 生产 dslash 分解修正：split-boundary 路径就地计时，作业 2114720 halo 0.007918/interior 0.018824/wait 0.022757/boundary 0.008081 s；CTest 37/37
 - 验证: path, size, required sections, conflict markers
 - 批次状态: in-progress
+## S15 - general - 2026-11-13 16:02:40 +0800
+- 主任务: kupl-l24-opt-20261113
+- 日志文件: logs/v20261113160240.txt
+- 文件大小: 4797 bytes
+- 触发原因: 一般记录
+- 关键内容: t2 z-block dslash 修复 lane 偏移/wrap 邻居/time backward halo gauge；c64 相对差 4.59e-08 与 4.35e-08，CTest 38/38，A/B 中位差 0.47% 保持 opt-in，提交 1ad6ed7e
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
