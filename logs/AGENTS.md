@@ -1260,3 +1260,11 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: 共享 halo 下 NumPy 差分 ABI 测试 c64/c128 PASS（x 分解、2 线程），覆盖非时间面与 Laplacian
 - 验证: path, size, required sections, conflict markers
 - 批次状态: in-progress
+## S27 - general - 2026-11-13 22:44:29 +0800
+- 主任务: kupl-l24-opt-20261113
+- 日志文件: logs/v20261113224429.txt
+- 文件大小: 2756 bytes
+- 触发原因: 一般记录
+- 关键内容: 阶段收尾：共享 halo 超时/4-rank/多线程/NumPy 差分全通过；CTest 40/40、pytest 67；远端 SSH 断开，A/B 未验证
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress

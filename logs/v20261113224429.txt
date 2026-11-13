@@ -1,0 +1,53 @@
+[日志元数据]
+日志类型: general
+生成时间: 2026-11-13 22:44:29 +0800
+批次: S27
+主任务: kupl-l24-opt-20261113
+触发原因: 一般记录
+摘要: 阶段收尾：共享 halo 超时/4-rank/多线程/NumPy 差分全通过；CTest 40/40、pytest 67；远端 SSH 断开，A/B 未验证
+Git 根目录: /home/zhangxin/PyQCU
+
+## 关键日志
+### S27-1 — 阶段收尾状态（自动续跑轮次）
+- 目标: 在远端会话不可用期间，完成共享 halo 的健壮性与覆盖面收尾。
+- 关键输出: 共享 halo 自旋改为 30 s 上限并抛出
+  `KUPL shared halo handshake timeout`；新增 `kupl_qcu_shm_halo`（时间面 2 rank）
+  与 `kupl_qcu_shm_halo_4rank`（对角 x/z 分解）两个对称门；全量 CTest `40/40`
+  （104.94 s）。
+- 证据与判断: 默认路径不变；共享路径为 opt-in。
+
+### S27-2 — 独立参考与多线程
+- 关键输出: `test_new_abi.py` 在 `KUPL_SHM_HALO=1`、`--grid 2 1 1 1`、2 线程下
+  c64/c128 均 `status=PASS`（dslash c64 `8.76e-08`、c128 `1.66e-16`）；
+  `KUPL_OMP_THREADS=4` 时 2/4 rank 均 `PASS`。
+- 证据与判断: 非时间面、Laplacian 与多线程并行区均得到独立验证。
+
+### S27-3 — 最终回归与审计
+- 命令/操作: 全量 CTest；`pytest pyqcu/testing/kupl + test_legacy_mg_setup.py`；
+  docs-skills 审计；form 审计；大文件闸门；`git diff --check`。
+- 关键输出: CTest `40/40`；pytest `67 passed`；`PASS docs=45 skills=36`；
+  form `PASS`（18 项豁免）；闸门 0 命中；diff 干净。
+- 退出码: 全部 0。
+- 证据与判断: 本地状态可作为交付基线。
+
+### S27-4 — 远端阻塞
+- 关键输出: SSH 于约 22:33 断开（`Broken pipe`），screen 会话回到本地 shell；
+  6 个共享 halo A/B 作业（`2119917/2119919/2119921/2119925/2119926/2119927`）
+  的结果无法读取。按规则未新建 SSH 通道。
+- 证据与判断: 共享 halo 的墙钟收益仍属未验证项，不得声明加速。
+
+## 验证与证据
+- 测试/检查: `ctest`（40 项）、`pytest`（67 项）、docs/form 审计、diff 检查。
+- 结果: 全部通过。
+- 未验证项: 远端 32 rank 下共享 halo 的 wall/dslash/wait；推送因 DNS 仍不可用。
+
+## 变更与产物
+- 提交: `2aa73010`、`6d7a725c`、`274b73f3`、`5b1eb1fc`（本轮）；
+  标签 `dev123`–`dev126`。
+- 文件: `docs/kupl_l24_perf_20261113.md` §14、KUPL 技能历史、S24–S26 日志。
+- 未改动范围: 生产默认配置（共享 halo 默认关闭）。
+
+## 风险、限制与下一步
+- 风险: 共享 halo 只适用于对称调用；不对称会 fail-closed。
+- 阻塞: 远端 SSH 断开，A/B 数据待读。
+- 下一步: 重连后读取六个作业，按同期对照判断是否推进；否则保持 opt-in。
