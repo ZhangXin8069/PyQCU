@@ -638,7 +638,8 @@ not a KUPL code defect.
   双缓冲，无全局 barrier。本地 c64、2 rank、`8 4 24 2` 与 MPI 路径逐位一致
   （rel `0`），2/4 rank 求解 `PASS`；新增 `kupl_qcu_shm_halo`（时间面）与
   `kupl_qcu_shm_halo_4rank`（对角分解）两个对称回归门，全量 CTest `40/40`；
-  `KUPL_OMP_THREADS=4` 下 2/4 rank 也 `PASS`。
+  `KUPL_OMP_THREADS=4` 下 2/4 rank 也 `PASS`；独立 NumPy 差分
+  （`2 2 2 4`、`--grid 2 1 1 1`、2 线程）在该开关下 c64/c128 均 `PASS`。
   旋转等待有 30 s 上限，超时抛出 `KUPL shared halo handshake timeout`，
   只适用于对称调用序列。远端 3+3 A/B（`2119917/2119919/2119921/2119925/
   2119926/2119927`）因 SSH 停滞未读取，收益未验证，不得宣称加速。

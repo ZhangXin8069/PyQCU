@@ -1,0 +1,40 @@
+[日志元数据]
+日志类型: general
+生成时间: 2026-11-13 22:43:50 +0800
+批次: S26
+主任务: kupl-l24-opt-20261113
+触发原因: 一般记录
+摘要: 共享 halo 下 NumPy 差分 ABI 测试 c64/c128 PASS（x 分解、2 线程），覆盖非时间面与 Laplacian
+Git 根目录: /home/zhangxin/PyQCU
+
+## 关键日志
+### S26-1 — 共享 halo 下的独立 NumPy 差分
+- 目标: 用与 C++ 无关的参考实现验证共享路径在非时间面上的正确性。
+- 命令/操作: `KUPL_SHM_HALO=1`、`--lattice 2 2 2 4`、`--grid 2 1 1 1`、
+  `--threads 2` 运行 `cpp/kupl/qcu/tests/test_new_abi.py`（2 rank）。
+- 关键输出: `status=PASS`；c64 dslash `8.76e-08`、schur `9.69e-08`、
+  laplacian `1.27e-07`；c128 对应 `1.66e-16`、`1.73e-16`、`2.25e-16`。
+- 退出码: 0。
+- 证据与判断: 共享路径在 x 方向面与 Laplacian 路径上同样与独立实现一致。
+
+### S26-2 — 参数口径教训
+- 关键输出: 同一脚本用 `--grid 1 1 1 2` 会在 3D Laplacian 初始化时报
+  `process-grid product does not equal MPI_COMM_WORLD size`；该脚本要求
+  x 方向分解（CTest 用 `--grid 2 1 1 1`）。
+- 证据与判断: 失败来自参数与脚本的 Laplacian 约束，与共享 halo 无关；
+  已用 CTest 同款参数复测通过。
+
+## 验证与证据
+- 测试/检查: `test_new_abi.py` 在共享 halo 下的 c64/c128 差分。
+- 结果: `status=PASS`。
+- 未验证项: 远端 32 rank 的收益（SSH 断开）。
+
+## 变更与产物
+- 文件: `docs/kupl_l24_perf_20261113.md` §14、
+  `skills/pyqcu-kupl/references/kupl-history-2026.md`。
+- 未改动范围: 代码与默认配置。
+
+## 风险、限制与下一步
+- 风险: 测试参数选择错误会误判为代码问题，需以 CTest 命令为准。
+- 阻塞: 远端会话未恢复。
+- 下一步: 连接恢复后读取 A/B；本地继续做只读一致性核对。
