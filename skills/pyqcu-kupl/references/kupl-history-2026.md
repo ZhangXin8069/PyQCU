@@ -646,7 +646,8 @@ not a KUPL code defect.
   （`2 2 2 4`、`--grid 2 1 1 1`、2 线程）在该开关下 c64/c128 均 `PASS`；
   `KUPL_HALO_PACK6=0` 的 dedup 分支 2/4 rank `PASS`；
   `test_dslash_block_mpi.py`（含 `--solve`）在 c64/c128 下也 `PASS`；
-  与 z-block、`T_LOCAL_IN_PART1=0`、`BOUNDARY_LANES=0` 三条分支组合也 `PASS`。
+  与 z-block、`T_LOCAL_IN_PART1=0`、`BOUNDARY_LANES=0` 三条分支组合也 `PASS`；
+  重复运行 2 rank 20 次、4 rank 10 次全部 `PASS`，无间歇失败。
   旋转等待有 30 s 上限，超时抛出 `KUPL shared halo handshake timeout`，
   只适用于对称调用序列。远端 3+3 A/B（`2119917/2119919/2119921/2119925/
   2119926/2119927`）因 SSH 停滞未读取，收益未验证，不得宣称加速。
