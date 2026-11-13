@@ -1,0 +1,69 @@
+[日志元数据]
+日志类型: general
+生成时间: 2026-11-13 13:07:01 +0800
+批次: S13
+主任务: kupl-l24-opt-20261113
+触发原因: 一般记录
+摘要: kupl-l24-opt-20261113
+Git 根目录: /home/zhangxin/PyQCU
+
+## 关键日志
+
+### S13-1 — cn19699 t18 五次重复基线
+- 配置：32r×18t，`OMP_WAIT_POLICY=ACTIVE`，t2 lane，`KUPL_MEMORY_POLICY=preferred`，
+  `KUPL_REQUIRE_MEMORY_BIND=0`，grid `1 1 1 32`，L24 c64，点源 seed 42；远端 cn19699。
+- 作业号：2113436 / 2113439 / 2113445 / 2113447 / 2113452。
+- wall_seconds：0.18042170302942395 / 0.18673199601471424 / 0.18153667508158833 /
+  0.1933097670553252 / 0.18622971302829683。
+- 统计：中位 0.18622971302829683，均值 0.1856459708418697，MAD 0.0046930379467085，
+  极差 6.920519726056266%。
+- 一致性：5/5 均为 12 iterations、status PASS、final_true_residual 5.3848659457849185e-05。
+
+### S13-2 — 诊断作业 2114373 的 OPT/DSLASH 剖析
+- 配置：与 S13-1 相同，另加 `KUPL_PROFILE_DSLASH=1`、`KUPL_PROFILE_OPT=1`。
+- 结果：wall_seconds 0.1797297460725531，RC=0。
+- OPT_PROFILE rank 0：dslash=0.094981/52，bytes=828.113MB，gbps_rank=8.72；
+  clover=0.013244/52，bytes=552.075MB，gbps_rank=41.69；reduce=0.012464/39；
+  phases prepare=0.003727、solve=0.131958、reconstruct=0.002065。
+- DSLASH_PROFILE rank 0：halo=0.007089、interior=0.004421、wait=0.020300、
+  boundary=0.020990、total=0.052800，calls=28。
+- 判断：该 DSLASH 分解来自通用 interior/boundary 路径，因为 `KUPL_PROFILE_DSLASH`
+  会绕过生产 t2 zblock 路径（`if (!profile && use_t2_zblock_dslash() ...)`），
+  故不代表生产 t2 路径的时间构成。
+
+### S13-3 — 本地补丁与回归
+- 修改 `cpp/kupl/qcu/src/lattice_wilson_dslash.cpp`：把 t2 zblock 生产路径纳入
+  `KUPL_PROFILE_DSLASH` 计时，生产行为不变。
+- 本地重新构建成功。
+- 本地全量 CTest：`100% tests passed out of 37`，`Total Test time (real) = 114.55 sec`。
+- 本地 2-rank 剖析冒烟（4x2x2x2、c64/c128）：`status=PASS`，
+  DSLASH_PROFILE calls=91（c64）/ 111（c128）。
+
+### S13-4 — 远端同步与重建
+- 补丁经 screen 会话分块传输，远端 `patch -p1` 应用成功。
+- 远端目标文件 md5=ee52bdbc5e7c666ed5138cb771727aea，与本地一致。
+- 远端 `build-native-lto` 以 `KUPL_ENABLE_NATIVE=ON`、`KUPL_ENABLE_LTO=ON` 后台重建
+  （13:04 启动）。
+
+## 验证与证据
+- 基线一致性：5/5 作业 12 iterations、PASS、真残差同为 5.3848659457849185e-05；
+  wall_seconds 中位 0.18622971302829683、均值 0.1856459708418697、
+  MAD 0.0046930379467085、极差 6.920519726056266%。
+- 本地回归：CTest 37/37 通过，总耗时 114.55 sec；2-rank 剖析冒烟 c64/c128 均 PASS，
+  DSLASH_PROFILE calls=91/111。
+- 源码一致性：远端 `lattice_wilson_dslash.cpp` md5 与本地一致
+  （ee52bdbc5e7c666ed5138cb771727aea）。
+- 剖析证据：OPT_PROFILE/DSLASH_PROFILE 的 rank 0 数值见 S13-2，仅覆盖通用路径。
+
+## 变更与产物
+- 代码：`cpp/kupl/qcu/src/lattice_wilson_dslash.cpp`（本次补丁，仅扩展剖析计时覆盖）。
+- 构建：本地重新构建成功；远端 `build-native-lto`（NATIVE=ON、LTO=ON）13:04 启动重建，
+  结果待收集。
+- 补丁：screen 会话分块传输后在远端 `patch -p1` 应用成功，md5 校验一致。
+
+## 风险、限制与下一步
+- 未验证：生产 t2 路径的 halo/wait/boundary 分解需在远端重建完成后重测。
+- 当前 `KUPL_PROFILE_DSLASH` 样本来自通用 interior/boundary 路径，其 wait/boundary 占比
+  （约 40%/38%）不得写成生产 t2 路径结论。
+- 下一步：远端重建完成后，以同配置（32r×18t、grid `1 1 1 32`、L24 c64、seed 42）重跑
+  剖析作业，取得生产 t2 路径分解并与 S13-1 基线核对。

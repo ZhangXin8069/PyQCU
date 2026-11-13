@@ -267,6 +267,11 @@ BiCGStab，不是 multigrid）、grid `1 1 1 32`、每 rank 线程数由作业�
 phases：`prepare=0.003573`、`solve=0.156956`、`reconstruct=0.002327`；solve 外的
 setup 约 `44 ms`（scratch/gauge halo）。
 
+诊断作业 `2114373`/`2114720`（cn19699、32r×18t、ACTIVE + t2 lane、L24 c64）
+的 `KUPL_PROFILE_OPT=1`（与 dslash 路径无关）给出 rank 0 的生产 dslash 约
+`1.83–1.95 ms/次`（`0.094981`/52 与 `0.101344`/52，各 `828.113 MB`）；
+逐 rank `8.2–9.2 GB/s·rank` 为运行时派生值。
+
 带宽口径：同节点 STREAM triad 探针（8M double × 3 数组、5 次取最优、
 12 线程/rank、`--bind-to numa --map-by ppr:2:numa`）为 `18.3–20.1 GB/s·rank`，
 32 rank 聚合约 `600 GB/s`。据此 dslash 的 `7.96 GB/s·rank` 约为探针峰值的
@@ -321,6 +326,11 @@ c128 coarse V-cycle 性能；同规模 c128 coarse 性能仍未验证。
 - 不要让 MPI 集合调用依赖 rank 的提前返回。
 - 不要把 clover 的 `40.24 GB/s·rank` 与 STREAM triad 探针峰值直接比较；clover
   有 cache 复用，探针不命中缓存，两者口径不同。
+- 不要把旧 `KUPL_PROFILE_DSLASH` 的 halo/wait/boundary 分解当作生产
+  split-boundary 路径的分解；旧实现用 `!profile` 跳过该路径。现已在
+  split-boundary 与 t2 z-block 路径就地计时：作业 `2114720` 的 rank 0 为
+  halo `0.007918`、interior `0.018824`、wait `0.022757`、
+  boundary `0.008081 s`（28 次），wait 仍占约 40%。
 - 不要用单一节点的绝对值跨节点外推。同为 PASSIVE 基线，`cn19650`
   `0.319600 s` 对 `cn19699` `0.266416 s`，约 `20%` 差异，硬件/负载/cpuset
   身份未逐项对齐，只能作上界。

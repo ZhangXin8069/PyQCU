@@ -1147,3 +1147,20 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: t18 五次重复中位 0.186230 s；CTest 37/37、pytest 67、form 审计 PASS；代码已提交，待 docs/logs 提交与 dev112
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
+## S13 - general - 2026-11-13 13:07:01 +0800
+- 主任务: kupl-l24-opt-20261113
+- 日志文件: logs/v20261113130701.txt
+- 文件大小: 3842 bytes
+- 触发原因: 一般记录
+- 关键内容: kupl-l24-opt-20261113
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+
+## S14 - general - 2026-11-13 13:34:04 +0800
+- 主任务: kupl-l24-opt-20261113
+- 日志文件: logs/v20261113133404.txt
+- 文件大小: 4974 bytes
+- 触发原因: 一般记录
+- 关键内容: 生产 dslash 分解修正：split-boundary 路径就地计时，作业 2114720 halo 0.007918/interior 0.018824/wait 0.022757/boundary 0.008081 s；CTest 37/37
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress

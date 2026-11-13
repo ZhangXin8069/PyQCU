@@ -1,0 +1,87 @@
+[日志元数据]
+日志类型: general
+生成时间: 2026-11-13 13:34:04 +0800
+批次: S14
+主任务: kupl-l24-opt-20261113
+触发原因: 一般记录
+摘要: 生产 dslash 分解修正：split-boundary 路径就地计时，作业 2114720 halo 0.007918/interior 0.018824/wait 0.022757/boundary 0.008081 s；CTest 37/37
+Git 根目录: /home/zhangxin/PyQCU
+
+## 关键日志
+### S14-1 — 生产路径剖析口径修正
+- 目标: 让 `KUPL_PROFILE_DSLASH` 计量实际执行的 dslash 路径，而不是被它绕过的回退路径。
+- 命令/操作: 检查 `bare_dslash` 分支后发现，`if (!profile)` 同时跳过了
+  split-boundary 生产路径与 t2 z-block 路径；而 `use_t2_zblock_dslash()` 需要
+  显式 `KUPL_ENABLE_T2_ZBLOCK_DSLASH`，本用例未设置，生产实际走 split-boundary。
+- 关键输出: 作业 `2114373` 的 DSLASH_PROFILE（halo `0.007089`、interior
+  `0.004421`、wait `0.020300`、boundary `0.020990`、total `0.052800 s`/28）
+  属通用路径，不是生产分解。
+- 退出码: 只读检查 exit=0。
+- 证据与判断: 旧分解与生产分解在结构上不同（part 1/part 2 划分），不能混用。
+
+### S14-2 — 代码修复与本地验证
+- 命令/操作: 修改 `cpp/kupl/qcu/src/lattice_wilson_dslash.cpp`，把
+  split-boundary 与 t2 z-block 两条路径就地纳入 halo/interior/wait/boundary
+  计时（生产行为不变）；`KUPL_ENABLE_NATIVE=OFF bash ./make.sh`；全量 CTest；
+  2-rank 剖析冒烟。
+- 关键输出: build `make.sh: SUCCESS`；`100% tests passed out of 37`，
+  `Total Test time (real) = 82.74 sec`；本地剖析 `overall_status=PASS`，
+  c64 `calls=91`、c128 `calls=111`。
+- 退出码: 0 / 0 / 0。
+- 证据与判断: 计时埋点不改变数值路径，回归全绿。
+
+### S14-3 — 远端补丁同步与重建
+- 命令/操作: 以 `diff -u` 生成增量补丁（2426 B），经 screen 会话按 150 B 分块
+  传输并逐块校验累计字节（3258 B）；`patch -p1` 应用；以
+  `KUPL_ENABLE_NATIVE=ON KUPL_ENABLE_LTO=ON` 后台重建 `build-native-lto`。
+- 关键输出: 远端文件 md5 `30f39c44d522be5f3b6d6d8a8df2dced` 与本地一致；
+  `/tmp/rebuild_prof2.log` 含 `make.sh: SUCCESS`，库时间戳 13:26。
+- 退出码: 0。
+- 证据与判断: 远端复测使用与本地同一份源码。
+
+### S14-4 — 生产 dslash 分解复测（作业 2114720）
+- 命令/操作: 同配置 t18 复测
+  （`KUPL_PROFILE_DSLASH=1` + `KUPL_PROFILE_OPT=1`）。
+- 关键输出: `wall_seconds=0.18316925200633705`，RC=0。rank 0 的
+  DSLASH_PROFILE：halo `0.007918`、interior `0.018824`、wait `0.022757`、
+  boundary `0.008081`、total `0.057580 s`（28 次）。rank 0 的 OPT_PROFILE：
+  dslash `0.101344 s/52`（`828.113 MB`、`8.17 GB/s·rank`）、clover
+  `0.012212 s/52`、reduce `0.012635 s/39`，phases `prepare=0.002618`、
+  `solve=0.137568`、`reconstruct=0.002382`。
+- 退出码: 0。
+- 证据与判断: wait 仍是生产 dslash 的单项最大（约 40%），part 1 本地计算
+  （`0.018824 s`）只覆盖其约 83%；剩余部分是通信延迟还是 part 1 线程不平衡，
+  尚未拆开。
+
+### S14-5 — 子代理并行记录与主代理校正
+- 命令/操作: 通过 `agent-dispatch.sh` 并行派发 logs/docs/skills 三个子代理，
+  各自只写互不重叠的文件域。
+- 关键输出: 新增 `logs/v20261113130701.txt`；`docs/kupl_l24_perf_20261113.md`
+  第 4/9 节与 `skills/pyqcu-kupl/{SKILL.md,references/kupl-history-2026.md}`
+  写入剖析口径说明。
+- 证据与判断: 子代理初稿把生产路径写成 t2 zblock；主代理按实际分支
+  （split-boundary）与作业 `2114720` 的实测值完成校正。
+
+## 验证与证据
+- 测试/检查: `ctest --test-dir cpp/kupl/qcu/build --output-on-failure`。
+- 结果: 37/37 PASS，82.74 s。
+- 测试/检查: 本地 2-rank `KUPL_PROFILE_DSLASH=1` 冒烟。
+- 结果: `overall_status=PASS`，c64/c128 均输出 DSLASH_PROFILE。
+- 测试/检查: 远端复测作业 `2114720`。
+- 结果: RC=0，12 it 路径不变，生产分解已取得。
+- 测试/检查: 远端文件 md5 与本地比对。
+- 结果: `30f39c44d522be5f3b6d6d8a8df2dced`，一致。
+- 未验证项: wait 中通信延迟与线程不平衡的占比；生产分解只有 rank 0 样本。
+
+## 变更与产物
+- 文件: `cpp/kupl/qcu/src/lattice_wilson_dslash.cpp`（剖析埋点，生产行为不变）。
+- 文件: `docs/kupl_l24_perf_20261113.md`；`skills/pyqcu-kupl/SKILL.md`；
+  `skills/pyqcu-kupl/references/kupl-history-2026.md`。
+- 产物: 远端 `data/kupl_opt_20261113/remote/t18prof3_1113`。
+- 未改动范围: 求解算法、停机判据、迭代数均未改变。
+
+## 风险、限制与下一步
+- 风险: 生产分解仅 rank 0 单样本；逐 rank 分布未知。
+- 限制: 目标 0.1 s 未达成；本轮只修正测量口径，不改变 wall。
+- 下一步: 拆分 wait 的通信延迟与 part 1 线程不平衡；评估在 wait 窗口内前移
+  更多本地工作量的可行性。

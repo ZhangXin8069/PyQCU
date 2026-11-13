@@ -573,3 +573,22 @@ not a KUPL code defect.
   `multi-rank coarse-cache export is not implemented` 拒绝；1-rank L24 缓存
   构建（作业 2112385）约 25 分钟未产出 `cache_l24_v1.h5`，已 `dkill` 终止。
   属工具链限制，不是算法结论。
+- **剖析口径修正**（作业 `2114373` → `2114720`，cn19699、32r×18t、
+  ACTIVE + t2 lane、L24 c64）：旧 `KUPL_PROFILE_DSLASH` 用 `!profile` 条件让
+  该变量绕过生产 split-boundary 路径，`2114373` 的 halo `0.007089`、
+  interior `0.004421`、wait `0.020300`、boundary `0.020990`、
+  total `0.052800 s`（28 次）属于通用 interior/boundary 路径，不是生产分解。
+  修复后 `2114720` 的生产分解为 halo `0.007918`、interior `0.018824`、
+  wait `0.022757`、boundary `0.008081`、total `0.057580 s`（28 次），
+  `wall_seconds=0.18316925200633705`；同作业 rank 0 的 `OPT_PROFILE` 为
+  dslash `0.101344 s/52`（`8.17 GB/s·rank`）、clover `0.012212 s/52`、
+  reduce `0.012635 s/39`、phases `prepare=0.002618`、`solve=0.137568`、
+  `reconstruct=0.002382`。`2114373` 的 `OPT_PROFILE`（与路径无关）为
+  dslash `0.094981 s/52`（`8.72 GB/s·rank`）、clover `0.013244 s/52`、
+  reduce `0.012464 s/39`、`wall_seconds=0.1797297460725531`。
+- **修复与验证**：`cpp/kupl/qcu/src/lattice_wilson_dslash.cpp` 的 `bare_dslash`
+  已把 split-boundary 与 t2 z-block 两条生产路径就地纳入
+  halo/interior/wait/boundary 计时；本地 CTest `37/37` 通过（`114.55 s` 与
+  `82.74 s` 两次），本地 2-rank 剖析冒烟 `PASS`（c64 `calls=91`、
+  c128 `calls=111`）。远端重建后复测 `2114720` 已取得生产分解；wait 仍约占
+  生产 dslash 的 40%，part 1 本地计算只覆盖其约 83%。

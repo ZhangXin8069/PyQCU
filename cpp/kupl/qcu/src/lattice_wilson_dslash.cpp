@@ -2159,38 +2159,72 @@ void LatticeSet<Real>::bare_dslash(Complex<Real> *output,
   g_halo_pack_dagger = false;
   static const bool profile =
       std::getenv("KUPL_PROFILE_DSLASH") != nullptr;
+  const auto tick = [] { return std::chrono::steady_clock::now(); };
+  const auto span = [](const auto &begin, const auto &end) {
+    return std::chrono::duration<double>(end - begin).count();
+  };
   const int source_parity = 1 - target;
-  if (!profile && use_t2_zblock_dslash() &&
+  // The t2 z-block path is the production dslash for a pure time grid with
+  // two local slices.  Profile it in place so KUPL_PROFILE_DSLASH does not
+  // silently switch to the generic interior/boundary path.
+  if (use_t2_zblock_dslash() &&
       geometry_.grid[0] == 1 && geometry_.grid[1] == 1 &&
       geometry_.grid[2] == 1 && geometry_.grid[3] > 1 &&
       geometry_.local[3] == 2) {
+    const auto start = tick();
     post_fermion_halo(input, source_parity);
+    const auto halo_done = tick();
     compute_dslash_t2_spatial_zblocks(input, output, target);
+    const auto interior_done = tick();
     if (!fermion_requests_.empty()) {
       MPI_Waitall(static_cast<int>(fermion_requests_.size()),
                   fermion_requests_.data(), MPI_STATUSES_IGNORE);
       fermion_requests_.clear();
     }
+    const auto wait_done = tick();
     compute_dslash_t2_time_zblocks(input, output, target);
+    const auto boundary_done = tick();
+    if (profile) {
+      prof_dslash_halo_seconds_ += span(start, halo_done);
+      prof_dslash_interior_seconds_ += span(halo_done, interior_done);
+      prof_dslash_wait_seconds_ += span(interior_done, wait_done);
+      prof_dslash_boundary_seconds_ += span(wait_done, boundary_done);
+      ++prof_dslash_calls_;
+    }
+    return;
+  }
+  // Pure time grids below the block-dslash threshold use the split boundary
+  // path in production.  Instrument it in place for the same reason as the
+  // t2 z-block path above.
+  const bool split_t_boundary =
+      geometry_.grid[0] == 1 && geometry_.grid[1] == 1 &&
+      geometry_.grid[2] == 1 && !use_block_dslash(geometry_.half_sites) &&
+      (geometry_.local[3] == 2 ||
+       (geometry_.local[3] == 4 && use_ht2_tboundary_split()));
+  if (split_t_boundary) {
+    const auto start = tick();
+    post_fermion_halo(input, source_parity);
+    const auto halo_done = tick();
+    compute_dslash_boundary_part(input, output, target, 1);
+    const auto interior_done = tick();
+    if (!fermion_requests_.empty()) {
+      MPI_Waitall(static_cast<int>(fermion_requests_.size()),
+                  fermion_requests_.data(), MPI_STATUSES_IGNORE);
+      fermion_requests_.clear();
+    }
+    const auto wait_done = tick();
+    compute_dslash_boundary_part(input, output, target, 2);
+    const auto boundary_done = tick();
+    if (profile) {
+      prof_dslash_halo_seconds_ += span(start, halo_done);
+      prof_dslash_interior_seconds_ += span(halo_done, interior_done);
+      prof_dslash_wait_seconds_ += span(interior_done, wait_done);
+      prof_dslash_boundary_seconds_ += span(wait_done, boundary_done);
+      ++prof_dslash_calls_;
+    }
     return;
   }
   if (!profile) {
-    const bool split_t_boundary =
-        geometry_.grid[0] == 1 && geometry_.grid[1] == 1 &&
-        geometry_.grid[2] == 1 && !use_block_dslash(geometry_.half_sites) &&
-        (geometry_.local[3] == 2 ||
-         (geometry_.local[3] == 4 && use_ht2_tboundary_split()));
-    if (split_t_boundary) {
-      post_fermion_halo(input, source_parity);
-      compute_dslash_boundary_part(input, output, target, 1);
-      if (!fermion_requests_.empty()) {
-        MPI_Waitall(static_cast<int>(fermion_requests_.size()),
-                    fermion_requests_.data(), MPI_STATUSES_IGNORE);
-        fermion_requests_.clear();
-      }
-      compute_dslash_boundary_part(input, output, target, 2);
-      return;
-    }
     post_fermion_halo(input, source_parity);
     compute_dslash_interior(input, output, target);
     if (!fermion_requests_.empty()) {
