@@ -104,6 +104,7 @@ template <typename Real>
 class LatticeSet final : public LatticeSetBase {
 public:
   LatticeSet(const int32_t *params, const Real *argv);
+  ~LatticeSet();
 
   void update_params(const int32_t *params) override;
   void wilson_dslash(const void *out, const void *in,
@@ -195,6 +196,15 @@ private:
   std::array<std::vector<Complex<Real>>, 8> fermion_send_;
   std::array<std::vector<Complex<Real>>, 8> fermion_recv_;
   std::vector<MPI_Request> fermion_requests_;
+  bool shm_halo_ = false;
+  bool shm_halo_pending_ = false;
+  MPI_Win shm_halo_window_ = MPI_WIN_NULL;
+  MPI_Comm shm_halo_comm_ = MPI_COMM_NULL;
+  Complex<Real> *shm_halo_self_ = nullptr;
+  std::vector<Complex<Real> *> shm_halo_peer_;
+  int64_t shm_halo_stride_ = 0;
+  std::array<uint64_t, 8> shm_send_seq_{};
+  std::array<uint64_t, 8> shm_recv_seq_{};
   std::array<std::vector<Complex<Real>>, 8> laplacian_source_send_;
   std::array<std::vector<Complex<Real>>, 8> laplacian_source_recv_;
   std::array<std::vector<Complex<Real>>, 8> laplacian_gauge_send_;
@@ -310,6 +320,12 @@ private:
       Complex<Real> *output, const Complex<Real> *subtract = nullptr,
       Real subtract_scale = Real(0), bool may_alias = true) const;
 
+  int64_t halo_face_elements(int dim) const;
+  void ensure_shm_halo();
+  void wait_fermion_halo();
+  uint64_t *shm_published(Complex<Real> *base, int face, int buffer) const;
+  uint64_t *shm_consumed(Complex<Real> *base, int face, int buffer) const;
+  Complex<Real> *shm_data(Complex<Real> *base, int face, int buffer) const;
   void pack_fermion_face(const Complex<Real> *source, int parity, int dim,
                          int boundary, Complex<Real> *buffer);
   void post_fermion_halo(const Complex<Real> *source, int parity);

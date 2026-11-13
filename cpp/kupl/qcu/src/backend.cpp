@@ -41,6 +41,7 @@ LatticeSet<Real>::LatticeSet(const int32_t *params, const Real *argv)
   }
   mark("parameters");
   allocate_scratch();
+  ensure_shm_halo();
   mark("allocate-scratch");
   log("INIT",
       "rank=%d size=%d grid=%d,%d,%d,%d local=%d,%d,%d,%d "
@@ -49,6 +50,18 @@ LatticeSet<Real>::LatticeSet(const int32_t *params, const Real *argv)
       geometry_.grid[1], geometry_.grid[2], geometry_.grid[3],
       geometry_.local[0], geometry_.local[1], geometry_.local[2],
       geometry_.local[3], threads_, static_cast<double>(csw()));
+}
+
+template <typename Real>
+LatticeSet<Real>::~LatticeSet() {
+  if (shm_halo_window_ != MPI_WIN_NULL) {
+    MPI_Win_free(&shm_halo_window_);
+    shm_halo_window_ = MPI_WIN_NULL;
+  }
+  if (shm_halo_comm_ != MPI_COMM_NULL) {
+    MPI_Comm_free(&shm_halo_comm_);
+    shm_halo_comm_ = MPI_COMM_NULL;
+  }
 }
 
 template <typename Real>

@@ -1019,10 +1019,172 @@ void LatticeSet<Real>::pack_fermion_face(const Complex<Real> *source,
 }
 
 template <typename Real>
+int64_t LatticeSet<Real>::halo_face_elements(int dim) const {
+  const bool pack6 = halo_pack6_enabled();
+  const int64_t face_count =
+      pack6 ? halo_pack6_face_count(dim, geometry_.face_sites[dim],
+                                    geometry_.local[0], geometry_.local[1],
+                                    geometry_.local[2])
+            : geometry_.face_sites[dim];
+  return pack6 ? 6 * face_count
+               : face_count * static_cast<int64_t>(kVector);
+}
+
+// Shared slot layout: 8 faces x 2 buffers of publish/consume counters,
+// followed by 8 faces x 2 buffers of packed data.
+template <typename Real>
+uint64_t *LatticeSet<Real>::shm_published(Complex<Real> *base, int face,
+                                          int buffer) const {
+  return reinterpret_cast<uint64_t *>(base) + face * 2 + buffer;
+}
+
+template <typename Real>
+uint64_t *LatticeSet<Real>::shm_consumed(Complex<Real> *base, int face,
+                                         int buffer) const {
+  return reinterpret_cast<uint64_t *>(base) + 16 + face * 2 + buffer;
+}
+
+template <typename Real>
+Complex<Real> *LatticeSet<Real>::shm_data(Complex<Real> *base, int face,
+                                          int buffer) const {
+  Complex<Real> *data = reinterpret_cast<Complex<Real> *>(
+      reinterpret_cast<uint64_t *>(base) + 32);
+  return data + static_cast<int64_t>(face * 2 + buffer) * shm_halo_stride_;
+}
+
+template <typename Real>
+void LatticeSet<Real>::ensure_shm_halo() {
+  const char *flag = std::getenv("KUPL_SHM_HALO");
+  if (flag == nullptr || *flag == '\0' || std::strcmp(flag, "0") == 0 ||
+      geometry_.size == 1) {
+    return;
+  }
+  MPI_Comm shared = MPI_COMM_NULL;
+  MPI_Comm_split_type(geometry_.comm, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
+                      &shared);
+  int shared_size = 0;
+  MPI_Comm_size(shared, &shared_size);
+  if (shared_size != geometry_.size) {
+    MPI_Comm_free(&shared);
+    return;
+  }
+  int64_t stride = 0;
+  for (int dim = 0; dim < kDim; ++dim) {
+    if (geometry_.grid[dim] == 1) {
+      continue;
+    }
+    stride = std::max(stride, halo_face_elements(dim));
+  }
+  if (stride <= 0) {
+    MPI_Comm_free(&shared);
+    return;
+  }
+  shm_halo_comm_ = shared;
+  shm_halo_stride_ = stride;
+  const int64_t slot_bytes =
+      32 * static_cast<int64_t>(sizeof(uint64_t)) +
+      16 * stride * static_cast<int64_t>(sizeof(Complex<Real>));
+  MPI_Win_allocate_shared(static_cast<MPI_Aint>(slot_bytes), 64, MPI_INFO_NULL,
+                          shm_halo_comm_, &shm_halo_self_,
+                          &shm_halo_window_);
+  shm_halo_peer_.assign(static_cast<std::size_t>(geometry_.size), nullptr);
+  for (int peer = 0; peer < geometry_.size; ++peer) {
+    MPI_Aint size = 0;
+    int displacement = 0;
+    void *base = nullptr;
+    MPI_Win_shared_query(shm_halo_window_, peer, &size, &displacement, &base);
+    shm_halo_peer_[static_cast<std::size_t>(peer)] =
+        static_cast<Complex<Real> *>(base);
+  }
+  std::memset(shm_halo_self_, 0, static_cast<std::size_t>(slot_bytes));
+  MPI_Barrier(shm_halo_comm_);
+  shm_halo_ = true;
+}
+
+template <typename Real>
+void LatticeSet<Real>::wait_fermion_halo() {
+  if (shm_halo_pending_) {
+    const std::size_t element_bytes = sizeof(Complex<Real>);
+    for (int dim = 0; dim < kDim; ++dim) {
+      if (geometry_.grid[dim] == 1) {
+        continue;
+      }
+      const std::size_t bytes =
+          static_cast<std::size_t>(halo_face_elements(dim)) * element_bytes;
+      for (int side_index = 0; side_index < 2; ++side_index) {
+        const int side = side_index == 0 ? -1 : 1;
+        const int my_face = face_offset(dim, side);
+        const int peer_face = face_offset(dim, -side);
+        const int peer = side < 0 ? geometry_.neighbor_minus[dim]
+                                  : geometry_.neighbor_plus[dim];
+        Complex<Real> *base = shm_halo_peer_[static_cast<std::size_t>(peer)];
+        const uint64_t seq = ++shm_recv_seq_[my_face];
+        const int buffer = static_cast<int>(seq & 1);
+        uint64_t *published = shm_published(base, peer_face, buffer);
+        while (__atomic_load_n(published, __ATOMIC_ACQUIRE) != seq) {
+        }
+        std::memcpy(fermion_recv_[my_face].data(),
+                    shm_data(base, peer_face, buffer), bytes);
+        __atomic_store_n(shm_consumed(base, peer_face, buffer), seq,
+                         __ATOMIC_RELEASE);
+      }
+    }
+    shm_halo_pending_ = false;
+    return;
+  }
+  if (!fermion_requests_.empty()) {
+    MPI_Waitall(static_cast<int>(fermion_requests_.size()),
+                fermion_requests_.data(), MPI_STATUSES_IGNORE);
+    fermion_requests_.clear();
+  }
+}
+
+template <typename Real>
 void LatticeSet<Real>::post_fermion_halo(const Complex<Real> *source,
                                          int parity) {
   fermion_requests_.clear();
   fermion_requests_.reserve(16);
+  if (shm_halo_) {
+    for (int dim = 0; dim < kDim; ++dim) {
+      if (geometry_.grid[dim] == 1) {
+        continue;
+      }
+      auto &send_minus = fermion_send_[face_offset(dim, -1)];
+      auto &send_plus = fermion_send_[face_offset(dim, 1)];
+      const bool dedup_pack =
+          !halo_pack6_enabled() && halo_dedup_pack_enabled() &&
+          geometry_.last_half_coordinate(dim) == 0;
+      pack_fermion_face(source, parity, dim, 0, send_minus.data());
+      if (!dedup_pack) {
+        pack_fermion_face(source, parity, dim,
+                          geometry_.last_half_coordinate(dim),
+                          send_plus.data());
+      }
+      const std::size_t bytes =
+          static_cast<std::size_t>(halo_face_elements(dim)) *
+          sizeof(Complex<Real>);
+      for (int side_index = 0; side_index < 2; ++side_index) {
+        const int side = side_index == 0 ? -1 : 1;
+        const int face = face_offset(dim, side);
+        const uint64_t seq = ++shm_send_seq_[face];
+        const int buffer = static_cast<int>(seq & 1);
+        if (seq > 2) {
+          const uint64_t need = seq - 2;
+          while (__atomic_load_n(shm_consumed(shm_halo_self_, face, buffer),
+                                 __ATOMIC_ACQUIRE) < need) {
+          }
+        }
+        const Complex<Real> *source_buffer =
+            (side < 0 || dedup_pack) ? send_minus.data() : send_plus.data();
+        std::memcpy(shm_data(shm_halo_self_, face, buffer), source_buffer,
+                    bytes);
+        __atomic_store_n(shm_published(shm_halo_self_, face, buffer), seq,
+                         __ATOMIC_RELEASE);
+      }
+    }
+    shm_halo_pending_ = true;
+    return;
+  }
   for (int dim = 0; dim < kDim; ++dim) {
     if (geometry_.grid[dim] == 1) {
       continue;
@@ -1623,11 +1785,7 @@ void LatticeSet<Real>::bare_dslash_t2_scaled(
   const int source_parity = 1 - target;
   post_fermion_halo(input, source_parity);
   compute_dslash_t2_lanes(input, output, target, 1, false, true, scale);
-  if (!fermion_requests_.empty()) {
-    MPI_Waitall(static_cast<int>(fermion_requests_.size()),
-                fermion_requests_.data(), MPI_STATUSES_IGNORE);
-    fermion_requests_.clear();
-  }
+  wait_fermion_halo();
   compute_dslash_t2_lanes(input, output, target, 2, false, true, scale);
 }
 
@@ -2185,11 +2343,7 @@ void LatticeSet<Real>::bare_dslash(Complex<Real> *output,
     const auto halo_done = tick();
     compute_dslash_t2_spatial_zblocks(input, output, target);
     const auto interior_done = tick();
-    if (!fermion_requests_.empty()) {
-      MPI_Waitall(static_cast<int>(fermion_requests_.size()),
-                  fermion_requests_.data(), MPI_STATUSES_IGNORE);
-      fermion_requests_.clear();
-    }
+    wait_fermion_halo();
     const auto wait_done = tick();
     compute_dslash_t2_time_zblocks(input, output, target);
     const auto boundary_done = tick();
@@ -2219,11 +2373,7 @@ void LatticeSet<Real>::bare_dslash(Complex<Real> *output,
     const auto halo_done = tick();
     compute_dslash_boundary_part(input, output, target, 1);
     const auto interior_done = tick();
-    if (!fermion_requests_.empty()) {
-      MPI_Waitall(static_cast<int>(fermion_requests_.size()),
-                  fermion_requests_.data(), MPI_STATUSES_IGNORE);
-      fermion_requests_.clear();
-    }
+    wait_fermion_halo();
     const auto wait_done = tick();
     compute_dslash_boundary_part(input, output, target, 2);
     const auto boundary_done = tick();
@@ -2242,11 +2392,7 @@ void LatticeSet<Real>::bare_dslash(Complex<Real> *output,
   if (!profile) {
     post_fermion_halo(input, source_parity);
     compute_dslash_interior(input, output, target);
-    if (!fermion_requests_.empty()) {
-      MPI_Waitall(static_cast<int>(fermion_requests_.size()),
-                  fermion_requests_.data(), MPI_STATUSES_IGNORE);
-      fermion_requests_.clear();
-    }
+    wait_fermion_halo();
     compute_dslash_boundary(input, output, target);
     return;
   }
@@ -2255,11 +2401,7 @@ void LatticeSet<Real>::bare_dslash(Complex<Real> *output,
   const auto halo_done = std::chrono::steady_clock::now();
   compute_dslash_interior(input, output, target);
   const auto interior_done = std::chrono::steady_clock::now();
-  if (!fermion_requests_.empty()) {
-    MPI_Waitall(static_cast<int>(fermion_requests_.size()),
-                fermion_requests_.data(), MPI_STATUSES_IGNORE);
-    fermion_requests_.clear();
-  }
+  wait_fermion_halo();
   const auto wait_done = std::chrono::steady_clock::now();
   compute_dslash_boundary(input, output, target);
   const auto boundary_done = std::chrono::steady_clock::now();
@@ -2288,21 +2430,13 @@ void LatticeSet<Real>::bare_dslash_dagger(Complex<Real> *output,
        (geometry_.local[3] == 4 && use_ht2_tboundary_split()))) {
     post_fermion_halo(input, source_parity);
     compute_dslash_dagger_boundary_part(input, output, target, 1);
-    if (!fermion_requests_.empty()) {
-      MPI_Waitall(static_cast<int>(fermion_requests_.size()),
-                  fermion_requests_.data(), MPI_STATUSES_IGNORE);
-      fermion_requests_.clear();
-    }
+    wait_fermion_halo();
     compute_dslash_dagger_boundary_part(input, output, target, 2);
     return;
   }
   post_fermion_halo(input, source_parity);
   compute_dslash_dagger_interior(input, output, target);
-  if (!fermion_requests_.empty()) {
-    MPI_Waitall(static_cast<int>(fermion_requests_.size()),
-                fermion_requests_.data(), MPI_STATUSES_IGNORE);
-    fermion_requests_.clear();
-  }
+  wait_fermion_halo();
   compute_dslash_dagger_boundary(input, output, target);
 }
 
