@@ -1388,3 +1388,19 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: 共享 halo 8+8 样本中位 0.154883 对 0.181733 s（-14.77%），区间不重叠；wait 0.164 对 0.775 ms；残差与迭代一致
 - 验证: path, size, required sections, conflict markers
 - 批次状态: in-progress
+## S31 - general - 2026-11-14 00:53:01 +0800
+- 主任务: kupl-l24-opt-20261113
+- 日志文件: logs/v20261114005301.txt
+- 文件大小: 1733 bytes
+- 触发原因: 一般记录
+- 关键内容: 阶段状态：共享 halo 中位 0.154883 s（-14.77%），CTest 42/42，dev141；下一轮多节点回退验证与技能最优值同步
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## S32 - general - 2026-11-14 01:01:27 +0800
+- 主任务: kupl-l24-opt-20261113
+- 日志文件: logs/v20261114010127.txt
+- 文件大小: 2516 bytes
+- 触发原因: 一般记录
+- 关键内容: 两节点回退作业因 mpirun 缺 hostfile 失败（RC=255），回退仅代码审查；技能 L24 表更新为 0.154883 s
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
