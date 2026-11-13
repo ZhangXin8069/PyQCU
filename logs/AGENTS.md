@@ -1150,7 +1150,7 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 ## S13 - general - 2026-11-13 13:07:01 +0800
 - 主任务: kupl-l24-opt-20261113
 - 日志文件: logs/v20261113130701.txt
-- 文件大小: 3842 bytes
+- 文件大小: 3838 bytes
 - 触发原因: 一般记录
 - 关键内容: kupl-l24-opt-20261113
 - 验证: path, size, required sections, conflict markers
@@ -1170,5 +1170,13 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 文件大小: 4797 bytes
 - 触发原因: 一般记录
 - 关键内容: t2 z-block dslash 修复 lane 偏移/wrap 邻居/time backward halo gauge；c64 相对差 4.59e-08 与 4.35e-08，CTest 38/38，A/B 中位差 0.47% 保持 opt-in，提交 1ad6ed7e
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## S16 - general - 2026-11-13 16:47:31 +0800
+- 主任务: kupl-l24-opt-20261113
+- 日志文件: logs/v20261113164731.txt
+- 文件大小: 3838 bytes
+- 触发原因: 一般记录
+- 关键内容: R3/R4 参数 A/B 负结果：spin=1000 中位差仅 0.26%，spin=30000 与 KUPL_HALO_DEDUP_PACK=0 均为噪声级或略差，默认配置不变
 - 验证: path, size, required sections, conflict markers
 - 批次状态: in-progress
