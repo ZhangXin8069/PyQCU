@@ -143,6 +143,26 @@ identity 不一致时才重建。
   parity-canonical，返回后再转回；direct full-site 指针会造成非平凡 κ 的静默
   错误解，近单位测试无法发现。
 
+## 硬件取向与 CUDA 差异（2026-11-14）
+
+鲲鹏节点是**高带宽、低单核算力、高同步延迟**；GPU 是**高算力、强延迟隐藏**。
+两侧实现不对称是有意选择，不是待统一的缺陷。改动前先读
+[`references/kupl-vs-cuda-algorithms.md`](references/kupl-vs-cuda-algorithms.md)，
+完整算法对照见 [`docs/kupl_vs_cuda_algorithms_20261114.md`](../../docs/kupl_vs_cuda_algorithms_20261114.md)。
+
+- CPU 侧并行轴是 **site-lane**（c64 16 site、c128 8 site，128 B tile），
+  不是 thread-per-site；gamma 先投影成 2×3 再两次 3×3（18 MAC）。
+- 单节点 halo 默认共享内存窗口（`KUPL_SHM_HALO=0` 回退 MPI）；CPU 上照搬 CUDA 的
+  阻塞 MPI 会多付约 0.6 ms/次 wait。
+- 求解器是双容差 + 强制真残差；冷启动置零。CUDA 冷启动随机、递推残差停机，
+  迭代数口径不可直接比较。
+- Legacy MG 只保留两层 V-cycle 与 BiCGStab 平滑，显式拒绝 GCR/CA-GCR/W-F-K/
+  混合精度；不要因为 CUDA 有就默认在 CPU 上开。
+- `half_sites` 跌破 65536 时 block SIMD 自动关闭；固定全局格点增加 rank 会触发，
+  是多 rank 性能断崖的候选机制之一。调参必须同时记录
+  `half_sites`/`grid`/`local[3]`/命中内核。
+- Gauss gauge：KUPL 用确定性正态，CUDA 用 curand 均匀；同 seed 不同场。
+
 ## 构建与验证
 
 ```bash
@@ -358,3 +378,7 @@ c128 coarse V-cycle 性能；同规模 c128 coarse 性能仍未验证。
 
 2026-10 至 2026-11 的 cache builder、Clover 6×6、rank scaling、鲲鹏运行时、HMPI 记录见
 [`references/kupl-history-2026.md`](references/kupl-history-2026.md)。
+
+与 CUDA 的算法取向对照与“不可照搬”清单见
+[`references/kupl-vs-cuda-algorithms.md`](references/kupl-vs-cuda-algorithms.md)；
+节点频率/拓扑核验记录见 [`docs/kupl_kunpeng_node_survey_20261114.md`](../../docs/kupl_kunpeng_node_survey_20261114.md)。
