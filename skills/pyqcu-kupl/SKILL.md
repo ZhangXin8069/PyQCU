@@ -143,6 +143,31 @@ identity 不一致时才重建。
   parity-canonical，返回后再转回；direct full-site 指针会造成非平凡 κ 的静默
   错误解，近单位测试无法发现。
 
+## 收敛判据（2026-11-14）
+
+- **生产求解**：c64 相对 **norm** 收敛条件 `1e-6`；c128 为 `1e-9`。
+  判据是 `||r|| / ||b||`（代码内部 `sqrt(norm2)`），**不是 norm²**。
+- 驱动按 dtype 设默认 `ATOL`（c64 `1e-6`、c128 `1e-9`），并传
+  `--strict-acceptance`：Python 报告的 PASS/FAIL 只按 `atol`，不再叠加
+  dtype 地板。
+- 测试/单元用例仍保留 dtype 地板（c64 `2048ε`、c128 `128ε`），用于探测
+  浮点可达极限；不得把测试地板的宽松值当成生产判据。
+- C++ 递推停机用 `max(atol, 4ε)·||b||`，收尾真残差门用
+  `max(atol, floor)·||b||`；生产严格门由 `--strict-acceptance` 在 Python
+  侧执行。若 c64 在目标格点上到不了 `1e-6`，报告必须如实标 FAIL/WARN，
+  不得用地板放行。
+
+## 求解产物协议（2026-11-14）
+
+- **每次 solve 必须保存 `dest`**：驱动应传 `--output "$W/solution_${DTYPE}.h5"`；
+  这是独立正确性/精度校验的输入，不得只写 `report.json`。
+- **`src` 若原本就是被读取的文件，则跳过重复保存**；但必须把
+  `SRC=<path>`、`DEST=<path>` 写入 `meta.txt`，保证后续可用
+  gauge + src + dest 复算残差。
+- 校验入口：把 `dest` 代入原方程 `A x = b`，用与求解器相对独立的实现
+  （Torch-QCU 或 NumPy 参考）计算 `||b - A x|| / ||b||`，并与
+  `report.json` 的 `final_true_residual` 对照。
+
 ## 硬件取向与 CUDA 差异（2026-11-14）
 
 鲲鹏节点是**高带宽、低单核算力、高同步延迟**；GPU 是**高算力、强延迟隐藏**。
@@ -254,8 +279,16 @@ BiCGStab，不是 multigrid）、grid `1 1 1 32`、每 rank 线程数由作业�
 `mpirun --bind-to none --map-by ppr:2:numa`；全部另加 `KUPL_HALO_PACK6=1`、
 `KUPL_HALO_DEDUP_PACK=1`、`KUPL_T_LOCAL_IN_PART1=1`、
 `KUPL_ENABLE_BOUNDARY_LANES=1`、`KUPL_SKIP_FINAL_RESIDUAL=1`（求解器内残差
-复查被跳过，外层独立分布式 FULL Wilson-Clover 真残差门仍在跑）。所有数字为
-单样本 `wall_seconds`。
+复查被跳过，外层独立分布式 FULL Wilson-Clover 真残差门仍在跑）、
+`OMP_WAIT_POLICY=ACTIVE`。表中 `t18+shm` 与 `KUPL_SHM_HALO=0` 两行为
+**8 样本中位**（同时给出范围），其余用例为单样本 `wall_seconds`。
+
+2026-11-14 另按“全格所有点实部=1、虚部=0”的点源重测（各 3 样本，配置同上）：
+L24 中位 `0.173362 s`（0.171331/0.173362/0.182659，11 it，真残差 `6.756e-05`）、
+L32 中位 `0.348549 s`（0.348549/0.369371/0.340658，12 it，`6.832e-05`），均 PASS；
+源不同，不得与 `0.154883 s` 直接比较。TH 扫描（L24）：TH9 `0.215964 s`、
+TH16 `0.182221 s`、TH18 中位 `0.173362 s`；L32：TH9 `0.460573 s`、
+TH16 `0.352243 s`、TH18 中位 `0.348549 s`；两尺寸均 TH18 最优，TH36 失败关闭。
 
 | 用例 | 节点 | 规模 | 关键配置 | wall (s) | 迭代 | 状态 |
 |---|---|---|---:|---:|---:|---|
@@ -309,6 +342,83 @@ clover cache 的复用命中，不是超过硬件峰值。
 数据来源为远端 `data/kupl_opt_20261113/remote/<tag>/report.json` 与
 `meta.txt`（C 级时点证据、未提交）；逐用例残差、派生比值口径与复现命令见
 [`references/kupl-history-2026.md#2026-11-13-l24-单节点性能与带宽剖析`](references/kupl-history-2026.md#2026-11-13-l24-单节点性能与带宽剖析)。
+
+### L24 Legacy-MG cache（2026-11-14）
+
+1-rank 构建、32 rank 复用的路径已打通（此前“多 rank MG 无法运行”的旧结论作废，
+但仅限**已有预置 cache** 的场景）：
+
+| 项 | 值 |
+|---|---|
+| cache 文件 | `data/kupl_scaling_20261114/cache_l24_parallel.h5`（+ 同名 `.json`） |
+| `setup_seconds` | `493.63817879895214`（1 rank × 18 线程，并行 stencil 默认开） |
+| `file_size_bytes` | `143,335,424`（约 `136.7 MiB`） |
+| `status` / `setup_method` / `setup_backend` | `PASS` / `cxx-null-vector+local-33-stencil` / `kupl-qcu-cxx` |
+| `mg_grid` / `nv_iters` / lattice | `[2,2,2,1]` / `2` / `[24,24,24,64]` |
+
+构建期修复：删除 per-probe 全量 fill；第一步 dslash 稀疏到 `block+1-hop`（约 48
+site）；时间窗口改为 `min(fine, 3*block+3)`（含 t 维）；并行 stencil 默认开。
+修复前 1-rank 串行/并行均 `rc=124`（>600 s 未完成）；修复后 493.6 s 完成，仍比
+`30 s` 目标慢约 `16.5×`。
+
+32 rank 参数扫描（`grid 1 1 1 32`、`--coarse-cache` 复用上表、`--mg-grid 2 2 2 1
+--nv-iters 2`、`atol=1e-4`、全 1 点源、c64、`OMP_WAIT_POLICY=ACTIVE`、
+t2/PACK6/DEDUP/T_LOCAL/BOUNDARY 全开，**单样本**）：
+
+| 用例 | restart | coarse-max-iter | tol | wall (s) | 真残差 | 状态 |
+|---|---:|---:|---|---:|---:|---|
+| r3_m200_t4 | 3 | 200 | 1e4 | 0.136258 | 6.756443214052956e-05 | PASS |
+| r1_m200_t4 | 1 | 200 | 1e4 | **0.135579** | 6.756443214052956e-05 | PASS |
+| r6_m200_t4 | 6 | 200 | 1e4 | 0.136228 | 6.756443214052956e-05 | PASS |
+
+- `restart=1` 的 `0.135579 s` 对照同 gauge/source、`atol=1e-4` 的 BiCGStab
+  3 样本中位 `0.173362 s`，快约 **21.8%**；真残差逐位一致
+  （`6.756443214052956e-05`）。
+- restart 1/3/6 极差约 `0.5%`，单样本、在噪声内，不得据此对 restart 排序。
+- MG 的 `iterations` 为 `None`（native MG 不暴露可靠外迭代计数），**不得按
+  迭代数比较 MG 与 BiCGStab**。
+- MG 墙钟不含 cache 构建（`493.6 s`）；只有同一 gauge 长期复用才使 21.8% 成立。
+- 第二轮扫描（作业 `2125551`，`cmax=50`、`tol=1e3/1e5`、`--no-deflate`、
+  `atol=1e-6`）写入时 **running**，本文件不预判。
+
+### 多 rank Legacy-MG patch 构建（2026-11-14）
+
+**旧路径根因**：`_periodic_window(gauge_local, …)` 把 rank 局部 slab 周期平铺成
+patch；4-rank `8³×16` 实测 **75%（6144/8192）站点 gauge 错误**，导致
+`hnn=0.493 / hdg=0.787 / sit=0.039`。两次逐位实验（生产窗口→复现失败 cache；
+真实全局窗口→复现 1-rank 参考）闭合因果。**不是 C++ slot/halo 语义问题。**
+
+**正确算法（照抄 CUDA-QCU patch 语义）**：
+- patch 每轴 `extent = local + 4*mg`（`halo=2*mg`）；
+- `start = (coord*local - 2*mg) % global`；
+- 若 `local + 4*mg > global` 且 `global % mg == 0`，退化为整轴（`start=0`）；
+- patch 用 **serial-local `1×1×1×1`**（`node_rank=0,node_size=1`）调用单 rank
+  builder，截 `coarse_center = 2*mg/step`（t 轴 `1`）的中心 block；
+- patch gauge 必须来自**全局** HDF5/全局数组/slab gather，禁止局部平铺；
+  保持 `patch_galerkin=True` 作为 halo 门。
+
+**32-rank 实测（全部 `verify_status=0`）**：
+
+| 格点 | grid | `builder_seconds` | 真残差 |
+|---|---|---:|---:|
+| `24³×64` | `2×2×2×4` | **24.476 s** | 4.535e-07 |
+| `32³×64` | `2×2×2×4` | **53.023 s** | 4.543e-07 |
+| `32³×12` | `4×2×2×2` | **11.368 s** | 4.460e-07 |
+
+**t-only 禁用**：`grid 1 1 1 32` 时 x/y patch 退化为整轴，每 rank 建全格
+（≈493 s），32 rank 仍 `rc=124`；多 rank MG 一律均衡 4D 分解。
+
+**MG 容差语义**：`coarse_atol = atol × coarse_tol_factor × 3^(levels−1)`。
+`atol=1e-4` + 默认 `factor=1e4` → `coarse_atol=1.0` → 粗层解恒 0 → 修正全拒 →
+回退纯 BiCGStab；**历史 `1e-4` 的 `0.128 s` 不是 MG**。同网格 1e-6 对照：
+BiCGStab `0.0316 s` vs MG `0.0379 s`（MG 慢 20%，非 2.93×）。
+32-rank MG 1e-6 回读：L24 `0.519831 s`（`2×2×2×4`）、L32 `1.175139 s`
+（`2×2×2×4`）、`32³×12` `0.266999 s`（`4×2×2×2`），均 `verify_status=0`、
+真残差约 `4.5e-07`。
+
+**旧分布式路径**：`StencilFrame` 的 push/pull slot 混叠、pull cell 索引、
+压缩时间 hop `±1`、3 维 corner 缺失均未修；生产禁用
+`KUPL_MG_STENCIL_FORCE_DISTRIBUTED=1`。
 
 ## 鲲鹏 HBM 高性能配置（2026-11-12）
 
@@ -368,11 +478,14 @@ c128 coarse V-cycle 性能；同规模 c128 coarse 性能仍未验证。
 - 不要用 `wrapped_site = site` 处理多 block 的 +z 周期；z-block 累加必须给
   内点/上界 wrap 传目标 lane 偏移；时间 backward gauge 在 backward 远端时
   取 halo。
-- 真实 MG（`levels=2`）多 rank 目前无法运行：需要预置全局 `--coarse-cache`，
-  而 `kupl_multigrid.py` 的多 rank 导出会以
-  `multi-rank coarse-cache export is not implemented` 拒绝。1-rank L24 缓存
-  构建（作业 2112385）运行约 25 分钟未产出 `cache_l24_v1.h5`，已 `dkill`
-  终止；这是工具链阻塞，不是算法结论。
+- 真实 MG（`levels=2`）多 rank 仍必须预置全局 `--coarse-cache`；
+  `kupl_multigrid.py` 的多 rank 导出仍以
+  `multi-rank coarse-cache export is not implemented` 拒绝。2026-11-14 起
+  1-rank 构建的 L24 cache 已被 32 rank 读取复用（见“L24 Legacy-MG cache”：
+  `setup_seconds=493.63817879895214`、`143,335,424 B`），所以“多 rank MG 无法
+  运行”已不成立；当前真实边界是 cache 构建 `493.6 s`（>30 s 目标）与 L32
+  无可复用 cache。早前作业 2112385 的 25 分钟超时 `dkill` 属旧构建器的失败，
+  不是算法结论。
 
 ## 历史性能与运行时证据
 

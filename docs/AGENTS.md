@@ -35,9 +35,9 @@ PyQCU 参考文档。
 | `kupl_kunpeng_progress_20261110.md` | 2026-11-05 至 11-10 鲲鹏真实环境进展：计算节点/登录节点硬件实测、HBM 早期失败与后期成功、计算节点与登录节点性能数据、dev108 以来代码改动、已否决路线与阻塞项（C 级时点证据，未打 tag） |
 | `kupl_kunpeng_hpc_config_20261112.md` | 2026-11-12 鲲鹏 HBM 高性能配置实测：拓扑与绑定变量、MPI 映射、调度器用法、超时协议、cn19699/cn19698 实测表与待补项（C 级时点证据，未打 tag） |
 | `kupl_opt_handover_20261112.md` | KUPL QCU 极致优化接手文档：远端/本地环境、已应用补丁与 md5、门控变量、审计结论、基准现状、已知坑与复现命令、待办（C 级工作文档，未打 tag） |
-| `kupl_l24_perf_20261113.md` | 2026-11-13 KUPL L24（`24³×64`、c64）单节点实测：cn19699/cn19650 的 8 条用例（最优 `0.188526 s`，32r×16t + ACTIVE）、`OMP_WAIT_POLICY` 同节点 A/B 的 1.28×、dslash/clover/reduce 分项与 7.96 GB/s·rank、STREAM triad 18.3–20.1 GB/s·rank 峰值口径、节点差异与 MG cache 阻塞（C 级时点证据，未打 tag） |
+| `kupl_l24_perf_20261113.md` | 2026-11-13 KUPL L24（`24³×64`、c64）单节点实测：cn19699/cn19650 的 8 条用例（最优中位 `0.154883 s`，8 样本，32r×18t + 共享 halo）、`OMP_WAIT_POLICY` 同节点 A/B 的 1.28×、dslash/clover/reduce 分项与 7.96 GB/s·rank、STREAM triad 18.3–20.1 GB/s·rank 峰值口径、节点差异与 MG cache 阻塞（C 级时点证据，dev141） |
 | `kupl_vs_cuda_algorithms_20261114.md` | KUPL-QCU 与 CUDA-QCU 的算法级差异：布局（component-major vs 半 T 压缩）、gamma 预投影 18 MAC vs 手写展开、site-lane vs thread-per-site、shm halo vs MPI、双容差真残差 vs 递推停机、Legacy/Strict MG 菜单、Gauss gauge 正态 vs 均匀，以及“高带宽/低算力”如何决定这些选择（B 级源码核对） |
-| `kupl_mpi_scaling_20261114.md` | KUPL 多 rank/多线程扩展性与断崖巡查：L24 的 halo/计算比、带宽 roofline（dslash 已近 600 GB/s 量级）、每迭代 2 次 Allreduce 的固定成本、`TH_max` 公式与静默超订阅、t 方向 32 rank 几何上限与路径门限 |
+| `kupl_mpi_scaling_20261114.md` | KUPL 多 rank/多线程扩展性与断崖巡查：L24 的 halo/计算比、带宽 roofline（dslash 已近 600 GB/s 量级）、每迭代 2 次 Allreduce 的固定成本、`TH_max` 公式与静默超订阅、t 方向 32 rank 几何上限与路径门限；§6.4 记录 2026-11-14 L24 Legacy-MG cache（1 rank 构建 `493.63817879895214 s`、`143,335,424 B`）与 32 rank 复用扫描（`restart=1` `0.135579 s`，单样本） |
 | `kupl_kunpeng_node_survey_20261114.md` | 2026-11-14 18 个鲲鹏计算节点轻量核验：592 CPU、16 CPU NUMA + 16 内存 NUMA、565 GiB、1.55 GHz 当前频率 / 2.0 GHz 上限、userspace governor；逐节点表与 1.55↔2.0 判定规则 |
 | `qcu_l24_solver_timing_20261111.md` | L24（`24³×64`）全配置耗时台账：7 个环境 × BiCGStab/Legacy-MG/Strict-MG × c64/c128 的 solve 时间、迭代、残差、样本数与证据等级；含弱扩展外推与相对 89.13 s 基线的加速比（C 级时点证据，未打 tag） |
 | `qcu_l24_environment_bandwidth_20261111.md` | 上述环境（`cn10579`/login/控制节点/Xeon/V100/A100/DCU）的硬件字段与带宽实测对照：LX2 STREAM 全表、DDR↔HBM 实测比、每线程饱和点、聚合效率、3 处 Add/Triad 抄录更正，以及 `16×t24` 的**用途相关**语义（对全节点容量是下界，对 384 线程可实现带宽是乐观上限） |

@@ -66,8 +66,12 @@ def test_boolean_optional_action_supports_positive_and_negative_forms():
 def test_default_grid_keeps_even_local_extents():
     lattice = (8, 8, 8, 16)
     grid = default_grid(lattice, 4)
-    assert grid == (1, 4, 1, 1)
+    # The shared ranking minimizes max(local)/min(local); every single-axis
+    # split of these four ranks ties at aspect 2, so the axis preference keeps
+    # x, y and z unsplit and splits the long time axis instead.
+    assert grid == (1, 1, 1, 4)
     assert all((lattice[axis] // grid[axis]) % 2 == 0 for axis in range(4))
+    assert (lattice[3] // 2) % grid[3] == 0
 
 
 def test_distributed_mg_lonv_patch_keeps_interleaved_axes():

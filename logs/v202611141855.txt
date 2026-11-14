@@ -1,0 +1,91 @@
+[日志元数据]
+日志类型: stage
+生成时间: 2026-11-14 18:55:00 +0800
+批次: S8
+主任务: KUPL 多 rank Legacy-MG cache patch 构建攻坚
+触发原因: 阶段成果（4-rank 对拍通过、32-rank 三组 PASS）
+摘要: 根因=gauge patch 取自 rank 局部 slab（75% 站点错）；改全局 patch 后 4-rank verify=0；32-rank L24 24.476s/L32 53.023s/32³×12 11.368s 全 PASS；t-only 禁用；1e-4 的 MG 0.128s 实为 BiCGStab 回退
+Git 根目录: /home/zhangxin/PyQCU
+
+## 关键日志
+
+### S1 — 根因：gauge patch 取自 rank 局部 slab
+- 旧导出路径 `pyqcu/testing/simple/kupl_multigrid.py` 用
+  `_periodic_window(gauge_local, patch_starts, patch_extent, ...)` 构造 patch。
+- `gauge_local` 是本 rank 局部 slab；patch 在 x/y 上比局部盒大时，该函数把
+  局部盒周期平铺，halo 拿到本 rank 自己的 gauge。实测 4-rank `8³×16`
+  每个 rank 的 patch 有 `6144/8192 = 75.0%` 站点与真实全局 gauge 不同。
+- 两次逐位实验闭合因果：
+  - 实验 A（生产窗口）：与失败 cache `88816_r4_p0` 组装**逐位相同**，
+    `lonv/hnn/hdg/sit` 全部 `max_abs=0.0`；
+  - 实验 B（真实全局 gauge + 参考 lonv）：与 1-rank `88816_ref_p0`
+    **逐位相同**，四项 `max_abs=0.0`。
+- 因此 `hnn=0.493 / hdg=0.787 / sit=0.039` 全部由 gauge 窗口错误产生，
+  与 C++ slot/halo 语义无关。
+
+### S2 — 修复：CUDA-QCU patch 算法
+- patch 每轴 `extent = local + 4*mg`（`halo=2*mg`）；
+- `start = (coord*local - 2*mg) % global`；
+- 若 `local + 4*mg > global` 且 `global % mg == 0`，退化为整轴（`start=0`）；
+- patch 用 serial-local `1×1×1×1`（`node_rank=0,node_size=1`）调用
+  单 rank builder，截 `coarse_center = 2*mg/step`（t 轴 `1`）的中心 block；
+- patch gauge 来自全局 HDF5（`_hdf5_gauge_patch`）/全局数组/slab gather，
+  禁止局部平铺；保持 `patch_galerkin=True`。
+
+### S3 — 4-rank `8³×16` 对拍通过
+- `cache 88816_r4_patch`：`RC=0`、`verify_status=0`、`converged=true`，
+  真残差 `3.4070748907825e-07`。
+- 对拍 1-rank 参考：`lonv 2.697e-05 / hnn 1.710e-05 / hdg 3.098e-05 /
+  sit 1.367e-06`；这是 null-vector 集合构建噪声，不是错位。
+
+### S4 — 32-rank 三组构建全部 PASS
+| 格点 | grid | builder_seconds | coarse_export | stencil | gauge patch | 真残差 | verify |
+|---|---|---:|---:|---:|---:|---:|---|
+| 24³×64 | 2×2×2×4 | 24.476 | 22.751 | 14.118 | 3.455 | 4.535e-07 | 0 |
+| 32³×64 | 2×2×2×4 | 53.023 | 48.943 | 29.879 | 10.275 | 4.543e-07 | 0 |
+| 32³×12 | 4×2×2×2 | 11.368 | 10.650 | 6.394 | 1.164 | 4.460e-07 | 0 |
+
+### S5 — t-only 在 patch 算法下不可用
+- `grid 1 1 1 32` 时 x/y patch 因 `grid=1` 退化为整轴（24），t 也退化为整轴（64），
+  每个 rank 构建整格（约 493 s），32 rank 并行仍 `rc=124`（≈355 s）。
+- 同期**纯 BiCGStab 对照也超时**，证明不是 MG 数值问题。
+- 多 rank MG 一律使用均衡 4D 分解（`2×2×2×4`、`4×2×2×2` 等）。
+
+### S6 — MG 容差语义：1e-4 的“MG 0.128 s”不是 MG
+- `coarse_atol = atol × coarse_tol_factor × 3^(levels−1)`，是乘不是除。
+- `atol=1e-4` + 默认 `factor=1e4` → `coarse_atol=1.0`；粗层首行残差判据立即成立，
+  解保持 0 → 修正恒 0 → damping 全回滚 → `fallback_to_fine=true`，最终纯 BiCGStab。
+- 因此历史 `0.128289 s`（`restart=1, cmax=200, tol=1e5`）是 BiCGStab 回退，
+  “MG 快 26.0%”作废。
+- `atol=1e-6` + 默认 `factor=1e4` → `coarse_atol=1e-2`，MG 真正运行。
+- cache identity 不含 `atol/coarse_tol_factor/cmax/restart/deflate`，设计正确。
+
+### S7 — 1e-6 同网格对照
+| 求解器 | wall | 真残差 | 状态 |
+|---|---:|---:|---|
+| BiCGStab（4-rank 8³×16，2×2×1×1） | 0.031577 s | 5.421e-07 | PASS |
+| MG（同网格，cache 回读） | 0.037935 s | 3.409e-07 | PASS |
+
+- MG 仅慢 20%，不是 2.93×。
+- L24 32-rank 均衡 grid `2×2×2×4` MG 1e-6 回读：`0.519831 s`、
+  残差 `4.536e-07`、`verify_status=0`。
+- L32 32-rank 同网格 MG 1e-6 回读：`1.175139 s`、残差 `4.543e-07`、
+  `verify_status=0`、`converged=true`。
+- `32³×12` 32-rank（grid `4×2×2×2`）MG 1e-6 回读：`0.266999 s`、
+  残差 `4.461e-07`、`verify_status=0`、`converged=true`。
+
+### S8 — 旧分布式路径潜伏缺陷（patch 路径不经过）
+1. push 通道 slot 混叠（`lattice_multigrid.cpp:2316/2388`，nn 0..7 与 diag 0..23
+   共用槽；应 `1+slot` / `9+slot`）。
+2. pull cell 索引用 `point=row+shift` 覆盖所有维，非跨界维应取 `row`
+   （`:2385-2386`）。
+3. 压缩时间 hop 用固定 `±1`（`:2079-2081`），正确值是随站点奇偶变化的
+   `Δt2 = ((x+y+z)&1)^parity`。
+4. 3 维 corner 读取缺失（`halo_direction` 对 `count>=3` 返回 -1）。
+- 生产禁用 `KUPL_MG_STENCIL_FORCE_DISTRIBUTED=1`。
+
+### S9 — 回归与边界
+- 本地 `PYTHONPATH=$PWD pytest pyqcu/testing/simple -q` → **119 passed**。
+- 未完成：32-rank 均衡 BiCGStab 对照静默失败（0 字节输出，疑似启动/运行时问题）；
+  L32 `builder_seconds=53.023 s` 仍高于 30 s；两节点 SSH 按指示搁置；
+  所有改动未提交。

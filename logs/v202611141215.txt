@@ -1,0 +1,47 @@
+[日志元数据]
+日志类型: stage
+生成时间: 2026-11-14 12:15:15 +0800
+批次: S4
+主任务: KUPL shm halo 零拷贝鲲鹏 A/B 与分项 profile
+触发原因: 阶段成果
+摘要: 鲲鹏 zc=0 0.180983 s vs zc=1 0.172885 s（-4.47%），11 it、真残差逐位一致；分项 pack 40.6ms/copy 6.6ms；默认仍关闭待重复
+Git 根目录: /home/zhangxin/PyQCU
+
+## 关键日志
+
+### S1 — 鲲鹏 profile A/B（zero-copy 0/1）
+- 目标: 用新拆分的 `halo_pack/sync/copy` 确认 shm halo 零拷贝在鲲鹏上的量级。
+- 操作: 远端同步 3 个源文件 → `build-native-lto` 重建成功；作业 `2124124`（cn19699，32r×18t，L24 全 1 点源，`KUPL_PROFILE_OPT=1`）依次跑 zc=0/1。
+- 结果:
+  - zc=0：wall `0.180983 s`，11 it，真残差 `6.756443e-05`，pack 未计时、sync `0.000985 s`、copy `0.044387 s`。
+  - zc=1：wall `0.172885 s`，11 it，真残差 `6.756443e-05`，pack `0.040603 s`、sync `0.000203 s`、copy `0.006638 s`。
+- 判断: 零拷贝 **快 4.47%**，迭代与真残差逐位一致；与本地 x86 的负结果符号相反，属平台相关。
+
+### S2 — 重复与 TH 扫描
+- 作业 `2124128`（cn19699，32r）：L24/L32 各补 2 次重复 + L24 TH=9/16；运行中。
+- 目的: 给点源结果补 3 次中位；确认 TH 曲线。
+
+### S3 — 文档与技能
+- `docs/kupl_mpi_scaling_20261114.md` §7.1：加入鲲鹏 A/B 表与结论。
+- `skills/pyqcu-kupl/references/kupl-vs-cuda-algorithms.md` §3.3.1：加入鲲鹏结果与“平台相关、暂不改默认”的结论。
+
+## 验证与证据
+- 测试/检查: `report.json` 字段、`OPT_PROFILE` 的 `halo_pack/sync/copy`、`meta.txt RC=0`。
+- 结果: 见 S1；zc=0/1 的迭代与真残差完全相同。
+- 未验证项: 零拷贝只有 1 个样本；未做“双缓冲 + 延迟打包”变体；默认路径的 pack 尚未计时。
+
+## 变更与产物
+- 文件: `docs/kupl_mpi_scaling_20261114.md`、`skills/pyqcu-kupl/references/kupl-vs-cuda-algorithms.md`；此前的 C++ 改动（`lattice_set.h`、`lattice_wilson_dslash.cpp`、`lattice_solver.cpp`）。
+- 产物: 远端 `data/kupl_opt_20261113/remote/prof_l24_zc{0,1}/`；`build-native-lto` 已重建。
+
+## 风险、限制与下一步
+- 风险: 单样本 4.47% 可能被噪声放大；`halo_copy` 的口径含 post+wait 两段。
+- 阻塞: 无。
+- 下一步: ①等 `2124128` 的 3 次重复；②若 zc=1 的重复仍稳定领先，再考虑把默认改为开启；③评估“仅对 dedup 面零拷贝”以降低暴露打包的风险。
+
+## Agent 全文报告
+--- report begin ---
+鲲鹏 profile A/B 完成：zc=0 墙钟 `0.180983 s`（11 it，`6.756443e-05`），zc=1 `0.172885 s`（11 it，同一残差），零拷贝快 **4.47%**。分项：zc=1 的 pack `40.6 ms`、copy `6.6 ms`；zc=0 的 copy `44.4 ms`（pack 未计时）。
+与本地 x86 的负结果（+5.9%）相反，说明该优化对 memcpy/写 shm 成本敏感，属平台相关；当前仍默认关闭，等待 3 次重复确认后再决定是否改默认。
+重复与 TH 扫描作业 `2124128` 正在 cn19699 运行（L24/L32 各 +2 次，L24 TH=9/16）。
+--- report end ---

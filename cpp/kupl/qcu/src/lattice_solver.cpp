@@ -693,6 +693,9 @@ void LatticeSet<Real>::solve_clover(
     prof_opt_clover_seconds_ = 0;
     prof_opt_dslash_bytes_ = 0;
     prof_opt_clover_bytes_ = 0;
+    prof_opt_halo_pack_seconds_ = 0;
+    prof_opt_halo_sync_seconds_ = 0;
+    prof_opt_halo_copy_seconds_ = 0;
     prof_opt_reduce_seconds_ = 0;
     prof_opt_dslash_calls_ = 0;
     prof_opt_clover_calls_ = 0;
@@ -807,6 +810,7 @@ void LatticeSet<Real>::solve_clover(
         "gbps_rank=%.2f gbps_total=%.2f\n"
         "clover=%.6f/%lld bytes=%.3fMB gbps_rank=%.2f gbps_total=%.2f\n"
         "reduce=%.6f/%lld\n"
+        "halo_pack=%.6f halo_sync=%.6f halo_copy=%.6f\n"
         "phases prepare=%.6f solve=%.6f reconstruct=%.6f\n",
         geometry_.rank, geometry_.size,
         prof_opt_dslash_seconds_, static_cast<long long>(prof_opt_dslash_calls_),
@@ -814,6 +818,8 @@ void LatticeSet<Real>::solve_clover(
         prof_opt_clover_seconds_, static_cast<long long>(prof_opt_clover_calls_),
         prof_opt_clover_bytes_ / 1e6, clover_gbps, clover_gbps * ranks,
         prof_opt_reduce_seconds_, static_cast<long long>(prof_opt_reduce_calls_),
+        prof_opt_halo_pack_seconds_, prof_opt_halo_sync_seconds_,
+        prof_opt_halo_copy_seconds_,
         seconds(phase_start, phase_prepare), seconds(phase_prepare, phase_solve),
         seconds(phase_solve, phase_reconstruct));
   }

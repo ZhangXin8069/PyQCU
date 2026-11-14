@@ -98,6 +98,19 @@ inline bool use_t2_lanes() {
   return enabled;
 }
 
+// Opt-in zero-copy shared-halo pack: pack directly into this rank's shm slot
+// after the consume handshake instead of packing into a local buffer first.
+inline bool shm_halo_zerocopy_enabled() {
+  static const bool enabled = [] {
+    const char *text = std::getenv("KUPL_SHM_HALO_ZEROCOPY");
+    return text != nullptr && *text != '\0' && std::strcmp(text, "0") != 0 &&
+           std::strcmp(text, "false") != 0 &&
+           std::strcmp(text, "no") != 0 &&
+           std::strcmp(text, "off") != 0;
+  }();
+  return enabled;
+}
+
 template <typename Real, int Direction, int GammaSign>
 inline void transform_gamma(const Complex<Real> &v0,
                             const Complex<Real> &v1,
@@ -969,7 +982,8 @@ void compute_dslash_boundary_lanes(
 template <typename Real>
 void LatticeSet<Real>::pack_fermion_face(const Complex<Real> *source,
                                          int parity, int dim, int boundary,
-                                         Complex<Real> *buffer) {
+                                         Complex<Real> *buffer,
+                                         bool plus_face) {
   const int64_t count = geometry_.half_sites / surface_extent(dim);
   if (!halo_pack6_enabled()) {
     const int64_t chunk = omp_chunk<Real>(count);
@@ -992,11 +1006,10 @@ void LatticeSet<Real>::pack_fermion_face(const Complex<Real> *source,
     return;
   }
 
-  // KUPL_HALO_PACK6.  `buffer` identifies which face is being packed: the
+  // KUPL_HALO_PACK6.  `plus_face` identifies which face is being packed: the
   // plus buffer feeds the +dim neighbour, which consumes it in its backward
   // hop, and vice versa.  The gamma sign follows the consumer's hop sign and
   // flips for the daggered operator.
-  const bool plus_face = buffer == fermion_send_[face_offset(dim, 1)].data();
   const int receiver_sign = plus_face ? -1 : 1;
   const int gamma_sign = g_halo_pack_dagger ? -receiver_sign : receiver_sign;
   const bool half_face =
@@ -1155,9 +1168,19 @@ void LatticeSet<Real>::wait_fermion_halo() {
         const uint64_t seq = ++shm_recv_seq_[my_face];
         const int buffer = static_cast<int>(seq & 1);
         uint64_t *published = shm_published(base, peer_face, buffer);
+        const auto sync_start = std::chrono::steady_clock::now();
         shm_halo_spin(published, seq, false, "publish");
+        prof_opt_halo_sync_seconds_ +=
+            std::chrono::duration<double>(std::chrono::steady_clock::now() -
+                                          sync_start)
+                .count();
+        const auto copy_start = std::chrono::steady_clock::now();
         std::memcpy(fermion_recv_[my_face].data(),
                     shm_data(base, peer_face, buffer), bytes);
+        prof_opt_halo_copy_seconds_ +=
+            std::chrono::duration<double>(std::chrono::steady_clock::now() -
+                                          copy_start)
+                .count();
         __atomic_store_n(shm_consumed(base, peer_face, buffer), seq,
                          __ATOMIC_RELEASE);
       }
@@ -1178,6 +1201,7 @@ void LatticeSet<Real>::post_fermion_halo(const Complex<Real> *source,
   fermion_requests_.clear();
   fermion_requests_.reserve(16);
   if (shm_halo_) {
+    const bool zerocopy = shm_halo_zerocopy_enabled();
     for (int dim = 0; dim < kDim; ++dim) {
       if (geometry_.grid[dim] == 1) {
         continue;
@@ -1187,11 +1211,13 @@ void LatticeSet<Real>::post_fermion_halo(const Complex<Real> *source,
       const bool dedup_pack =
           !halo_pack6_enabled() && halo_dedup_pack_enabled() &&
           geometry_.last_half_coordinate(dim) == 0;
-      pack_fermion_face(source, parity, dim, 0, send_minus.data());
-      if (!dedup_pack) {
-        pack_fermion_face(source, parity, dim,
-                          geometry_.last_half_coordinate(dim),
-                          send_plus.data());
+      if (!zerocopy) {
+        pack_fermion_face(source, parity, dim, 0, send_minus.data(), false);
+        if (!dedup_pack) {
+          pack_fermion_face(source, parity, dim,
+                            geometry_.last_half_coordinate(dim),
+                            send_plus.data(), true);
+        }
       }
       const std::size_t bytes =
           static_cast<std::size_t>(halo_face_elements(dim)) *
@@ -1201,15 +1227,56 @@ void LatticeSet<Real>::post_fermion_halo(const Complex<Real> *source,
         const int face = face_offset(dim, side);
         const uint64_t seq = ++shm_send_seq_[face];
         const int buffer = static_cast<int>(seq & 1);
+        const auto sync_start = std::chrono::steady_clock::now();
         if (seq > 2) {
           const uint64_t need = seq - 2;
           shm_halo_spin(shm_consumed(shm_halo_self_, face, buffer), need,
                         true, "consume");
         }
-        const Complex<Real> *source_buffer =
-            (side < 0 || dedup_pack) ? send_minus.data() : send_plus.data();
-        std::memcpy(shm_data(shm_halo_self_, face, buffer), source_buffer,
-                    bytes);
+        prof_opt_halo_sync_seconds_ +=
+            std::chrono::duration<double>(std::chrono::steady_clock::now() -
+                                          sync_start)
+                .count();
+        Complex<Real> *slot = shm_data(shm_halo_self_, face, buffer);
+        if (zerocopy) {
+          if (side < 0) {
+            const auto pack_start = std::chrono::steady_clock::now();
+            pack_fermion_face(source, parity, dim, 0, slot, false);
+            prof_opt_halo_pack_seconds_ +=
+                std::chrono::duration<double>(std::chrono::steady_clock::now() -
+                                              pack_start)
+                    .count();
+          } else if (dedup_pack) {
+            const int minus_face = face_offset(dim, -1);
+            const int minus_buffer =
+                static_cast<int>(shm_send_seq_[minus_face] & 1);
+            const auto copy_start = std::chrono::steady_clock::now();
+            std::memcpy(slot,
+                        shm_data(shm_halo_self_, minus_face, minus_buffer),
+                        bytes);
+            prof_opt_halo_copy_seconds_ +=
+                std::chrono::duration<double>(std::chrono::steady_clock::now() -
+                                              copy_start)
+                    .count();
+          } else {
+            const auto pack_start = std::chrono::steady_clock::now();
+            pack_fermion_face(source, parity, dim,
+                              geometry_.last_half_coordinate(dim), slot, true);
+            prof_opt_halo_pack_seconds_ +=
+                std::chrono::duration<double>(std::chrono::steady_clock::now() -
+                                              pack_start)
+                    .count();
+          }
+        } else {
+          const Complex<Real> *source_buffer =
+              (side < 0 || dedup_pack) ? send_minus.data() : send_plus.data();
+          const auto copy_start = std::chrono::steady_clock::now();
+          std::memcpy(slot, source_buffer, bytes);
+          prof_opt_halo_copy_seconds_ +=
+              std::chrono::duration<double>(std::chrono::steady_clock::now() -
+                                            copy_start)
+                  .count();
+        }
         __atomic_store_n(shm_published(shm_halo_self_, face, buffer), seq,
                          __ATOMIC_RELEASE);
       }
@@ -1242,11 +1309,11 @@ void LatticeSet<Real>::post_fermion_halo(const Complex<Real> *source,
     const bool dedup_pack =
         !pack6 && halo_dedup_pack_enabled() &&
         geometry_.last_half_coordinate(dim) == 0;
-    pack_fermion_face(source, parity, dim, 0, send_minus.data());
+    pack_fermion_face(source, parity, dim, 0, send_minus.data(), false);
     if (!dedup_pack) {
       pack_fermion_face(source, parity, dim,
                         geometry_.last_half_coordinate(dim),
-                        send_plus.data());
+                        send_plus.data(), true);
     }
     const Complex<Real> *plus_source =
         dedup_pack ? send_minus.data() : send_plus.data();

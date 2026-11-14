@@ -244,6 +244,9 @@ private:
   double prof_opt_clover_seconds_ = 0;
   double prof_opt_dslash_bytes_ = 0;
   double prof_opt_clover_bytes_ = 0;
+  double prof_opt_halo_pack_seconds_ = 0;
+  double prof_opt_halo_sync_seconds_ = 0;
+  double prof_opt_halo_copy_seconds_ = 0;
   mutable double prof_opt_reduce_seconds_ = 0;
   int64_t prof_opt_dslash_calls_ = 0;
   int64_t prof_opt_clover_calls_ = 0;
@@ -327,7 +330,7 @@ private:
   uint64_t *shm_consumed(Complex<Real> *base, int face, int buffer) const;
   Complex<Real> *shm_data(Complex<Real> *base, int face, int buffer) const;
   void pack_fermion_face(const Complex<Real> *source, int parity, int dim,
-                         int boundary, Complex<Real> *buffer);
+                         int boundary, Complex<Real> *buffer, bool plus_face);
   void post_fermion_halo(const Complex<Real> *source, int parity);
   VectorView<Real> source_at_delta(const Complex<Real> *local_source, int x,
                                    int y, int z, int t2, int dim, int sign,
@@ -414,6 +417,19 @@ private:
                                    Complex<Real> *output);
   void apply_laplacian(Complex<Real> *output, const Complex<Real> *input,
                        const Complex<Real> *gauge);
+
+  void build_local_stencil_serial(
+      void *sitting, void *hop_nn, void *hop_diag, const void *null_vectors,
+      const void *gauge, const void *clover_even, const void *clover_odd,
+      const void *clover_even_inv, const void *clover_odd_inv, int E, int e,
+      int Xf, int Yf, int Zf, int Tf, int Xc, int Yc, int Zc, int Tc,
+      int window);
+  void build_local_stencil_distributed(
+      void *sitting, void *hop_nn, void *hop_diag, const void *null_vectors,
+      const void *gauge, const void *clover_even, const void *clover_odd,
+      const void *clover_even_inv, const void *clover_odd_inv, int E, int e,
+      int Xf, int Yf, int Zf, int Tf, int Xc, int Yc, int Zc, int Tc,
+      int window);
 
   int64_t coarse_volume(const std::array<int, kDim> &dims) const;
   int64_t coarse_site_index(const std::array<int, kDim> &dims, int x, int y,

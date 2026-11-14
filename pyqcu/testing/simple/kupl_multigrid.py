@@ -14,13 +14,23 @@ from typing import Any
 import numpy as np
 
 from pyqcu.tools._legacy_mg_cache import (
+    LEGACY_MG_ASSET_COARSE_AXES,
+    LEGACY_MG_ASSET_NAMES,
+    build_legacy_mg_ranked_cache_manifest,
     file_sha256,
+    is_legacy_mg_ranked_cache,
     legacy_mg_cache_identity,
+    legacy_mg_cache_shapes,
+    legacy_mg_local_shapes,
+    load_legacy_mg_cache_patch,
     load_legacy_mg_cache_slab,
     logical_array_sha256,
+    read_legacy_mg_ranked_manifest,
     save_legacy_mg_cache,
     validate_legacy_mg_cache,
     write_legacy_mg_assets,
+    write_legacy_mg_rank_slice,
+    write_legacy_mg_ranked_cache,
 )
 
 try:
@@ -35,6 +45,7 @@ try:
                           read_h5_metadata, resolve_csw, resolve_path,
                           solver_acceptance, write_h5, write_json)
     from ._layouts import qcu_gauge_to_kupl as gauge_to_parity
+    from ._layouts import qdp_gauge_to_qcu
     from .kupl_bistabcg import (NumpyTensor, PLAN_CLOVER, PLAN_SOLVER,
                                 PARITY, SET_PLAN, cpu_memory_snapshot,
                                 kupl_backend, load_gauge, load_source,
@@ -49,6 +60,7 @@ except ImportError:
                          read_h5_metadata, resolve_csw, resolve_path,
                          solver_acceptance, write_h5, write_json)
     from _layouts import qcu_gauge_to_kupl as gauge_to_parity
+    from _layouts import qdp_gauge_to_qcu
     from kupl_bistabcg import (NumpyTensor, PLAN_CLOVER, PLAN_SOLVER,
                                PARITY, SET_PLAN, cpu_memory_snapshot,
                                kupl_backend, load_gauge, load_source,
@@ -135,10 +147,18 @@ def inspect_cache_layout(path: Path, lattice: tuple[int, int, int, int],
 
     if any(int(value) < 1 for value in mg_grid):
         raise ValueError(f"--mg-grid {tuple(mg_grid)} must be positive")
-    with h5py.File(path, "r") as handle:
-        if "lonv" not in handle or handle["lonv"].ndim != 10:
-            raise ValueError(f"coarse cache {path} has no valid lonv dataset")
-        shape = tuple(int(value) for value in handle["lonv"].shape)
+    if is_legacy_mg_ranked_cache(path):
+        manifest = read_legacy_mg_ranked_manifest(path)
+        declared = manifest["global_shapes"].get("lonv")
+        if declared is None or len(declared) != 10:
+            raise ValueError(
+                f"multi-rank coarse cache {path} has no valid lonv geometry")
+        shape = tuple(int(value) for value in declared)
+    else:
+        with h5py.File(path, "r") as handle:
+            if "lonv" not in handle or handle["lonv"].ndim != 10:
+                raise ValueError(f"coarse cache {path} has no valid lonv dataset")
+            shape = tuple(int(value) for value in handle["lonv"].shape)
     global_time = shape[-2] * shape[-1]
     inferred = (
         "full-site" if global_time == lattice[3] else
@@ -220,6 +240,551 @@ def mg_coarse_geometry(
             "least 1 and divide evenly. Reduce --mg-grid (use 1 on t for "
             "t-only rank grids) or use a different --grid.")
     return coarse
+
+
+def _coarse_step(mg_grid, axis: int) -> int:
+    """Fine-to-cache coarse stride of one axis (odd-Schur time halves)."""
+    return int(mg_grid[axis]) * (2 if axis == 3 else 1)
+
+
+def _patch_axis(global_extent: int, local_extent: int, coordinate: int,
+                block: int) -> tuple[int, int, int]:
+    """Return ``(start, extent, center)`` of a rank-local overlap patch.
+
+    The halo is two coarse blocks per side, which is the minimum window the
+    local 33-stencil build needs to reproduce the global operator at every
+    interior coarse center.  When the halo does not fit, the patch falls back
+    to the whole global axis (only possible when the block grid divides it).
+    """
+    halo = 2 * int(block)
+    desired = int(local_extent) + 2 * halo
+    if desired <= int(global_extent):
+        start = (int(coordinate) * int(local_extent) - halo) % int(global_extent)
+        return int(start), int(desired), int(halo)
+    if int(global_extent) % int(block) == 0:
+        return 0, int(global_extent), int(coordinate) * int(local_extent)
+    raise ValueError(
+        f"cannot build an aligned overlap patch for global={global_extent} "
+        f"local={local_extent} block={block}")
+
+
+def _periodic_window(array: np.ndarray, starts, extents,
+                     axes) -> np.ndarray:
+    """Cut a periodically wrapped window over the listed axes."""
+    value = np.asarray(array)
+    for axis, extent, start in zip(axes, extents, starts):
+        size = int(value.shape[axis])
+        indices = (int(start) + np.arange(int(extent))) % size
+        value = np.take(value, indices, axis=axis)
+    return np.ascontiguousarray(value)
+
+
+def _slice_asset(asset: np.ndarray, name: str, starts, extents) -> np.ndarray:
+    """Cut one rank-local coarse window out of a coarse-block tensor."""
+    value = np.asarray(asset)
+    selection = [slice(None)] * value.ndim
+    for axis, storage_axis in enumerate(LEGACY_MG_ASSET_COARSE_AXES[name]):
+        selection[storage_axis] = slice(
+            int(starts[axis]), int(starts[axis] + extents[axis]))
+    return np.ascontiguousarray(value[tuple(selection)])
+
+
+def ranked_coarse_geometry(
+        lattice: tuple[int, int, int, int],
+        local_lattice: tuple[int, int, int, int],
+        coordinate: tuple[int, int, int, int],
+        grid: tuple[int, int, int, int],
+        mg_grid: list[int] | tuple[int, ...],
+        dof: list[int] | tuple[int, ...],
+        ) -> dict[str, Any]:
+    """Plan one rank's local coarse slice and its overlap patch.
+
+    The returned geometry is the single source of truth for the multi-rank
+    writer: ``local_coarse``/``coarse_starts`` describe the hyperslab this rank
+    publishes, while ``patch_*`` describes the periodic gauge/lonv window the
+    local stencil build consumes before the slice is cut.
+    """
+    mg = [int(value) for value in mg_grid]
+    if any(value < 1 for value in mg):
+        raise ValueError(f"--mg-grid {tuple(mg)} must be positive")
+    fine_odd = (
+        int(lattice[0]), int(lattice[1]), int(lattice[2]), int(lattice[3]) // 2)
+    local_odd = (
+        int(local_lattice[0]), int(local_lattice[1]), int(local_lattice[2]),
+        int(local_lattice[3]) // 2)
+    for axis in range(4):
+        if local_odd[axis] % mg[axis]:
+            raise ValueError(
+                f"local odd extent {local_odd[axis]} is not divisible by "
+                f"--mg-grid {mg[axis]} on axis {axis}")
+    coarse = tuple(fine_odd[axis] // mg[axis] for axis in range(4))
+    local_coarse = tuple(local_odd[axis] // mg[axis] for axis in range(4))
+    if any(local_coarse[axis] * int(grid[axis]) != coarse[axis]
+           for axis in range(4)):
+        raise ValueError(
+            f"local coarse slab {local_coarse} with process grid "
+            f"{tuple(grid)} does not tile {coarse}")
+    coarse_starts = tuple(
+        int(coordinate[axis]) * local_coarse[axis] for axis in range(4))
+    spec = [
+        _patch_axis(int(lattice[axis]), int(local_lattice[axis]),
+                    int(coordinate[axis]), mg[axis])
+        for axis in range(4)
+    ]
+    patch_starts = tuple(item[0] for item in spec)
+    patch_extent = tuple(item[1] for item in spec)
+    patch_center = tuple(item[2] for item in spec)
+    steps = tuple(_coarse_step(mg, axis) for axis in range(4))
+    for axis in range(4):
+        for value, label in ((patch_starts[axis], "start"),
+                             (patch_extent[axis], "extent"),
+                             (patch_center[axis], "center")):
+            if value % steps[axis]:
+                raise ValueError(
+                    f"overlap patch {label} {value} on axis {axis} is not a "
+                    f"multiple of the coarse step {steps[axis]}")
+    patch_coarse_starts = tuple(
+        patch_starts[axis] // steps[axis] for axis in range(4))
+    patch_coarse_extent = tuple(
+        patch_extent[axis] // steps[axis] for axis in range(4))
+    patch_coarse_center = tuple(
+        patch_center[axis] // steps[axis] for axis in range(4))
+    for axis in range(4):
+        if patch_coarse_center[axis] + local_coarse[axis] > \
+                patch_coarse_extent[axis]:
+            raise ValueError(
+                f"local coarse slab {local_coarse} does not fit the patch "
+                f"{patch_coarse_extent} at {patch_coarse_center}")
+        if coarse_starts[axis] + local_coarse[axis] > coarse[axis]:
+            raise ValueError(
+                f"local coarse slab {coarse_starts}+{local_coarse} exceeds "
+                f"the global coarse box {coarse}")
+    shapes = legacy_mg_cache_shapes(lattice, mg, tuple(int(v) for v in dof))
+    return {
+        "fine_odd": fine_odd,
+        "local_odd": local_odd,
+        "coarse": coarse,
+        "local_coarse": local_coarse,
+        "coarse_starts": coarse_starts,
+        "patch_starts": patch_starts,
+        "patch_extent": patch_extent,
+        "patch_center": patch_center,
+        "patch_coarse_starts": patch_coarse_starts,
+        "patch_coarse_extent": patch_coarse_extent,
+        "patch_coarse_center": patch_coarse_center,
+        "global_shapes": shapes,
+        "local_shapes": legacy_mg_local_shapes(shapes, local_coarse),
+    }
+
+
+def _periodic_indices(start: int, extent: int, size: int) -> np.ndarray:
+    """Index vector of a cyclically wrapped window of one axis."""
+    if extent <= 0 or size <= 0 or extent > size:
+        raise ValueError(
+            f"invalid periodic window start={start} extent={extent} size={size}")
+    return (int(start) + np.arange(int(extent))) % int(size)
+
+
+def _hdf5_gauge_patch(
+        path: Path,
+        starts: tuple[int, int, int, int],
+        extent: tuple[int, int, int, int],
+        dtype: np.dtype) -> np.ndarray:
+    """Read one periodic QCU gauge patch straight from the global HDF5 file.
+
+    Only the patch window is touched: every wrapped axis is read through a
+    sorted-unique selection (a wrapped window is one or two contiguous runs) and
+    re-ordered back to the requested index vector, so the read never gathers the
+    whole global gauge.
+    """
+    import h5py
+
+    def sorted_axis(source: Any, values: np.ndarray, axis: int) -> np.ndarray:
+        ordered = np.unique(values)
+        selection = [slice(None)] * source.ndim
+        selection[axis] = ordered
+        selected = source[tuple(selection)]
+        return np.take(selected, np.searchsorted(ordered, values), axis=axis)
+
+    with h5py.File(path, "r") as handle:
+        dataset = handle["data"]
+        if dataset.ndim != 7:
+            raise ValueError(f"unsupported gauge HDF5 shape {dataset.shape}")
+        if tuple(dataset.shape[:3]) == (3, 3, 4):
+            storage_axes = (3, 4, 5, 6)
+            qdp_layout = False
+            sizes = tuple(int(value) for value in dataset.shape[3:])
+        elif int(dataset.shape[0]) == 4 and tuple(dataset.shape[-2:]) == (3, 3):
+            # QDP ``[dir, t, z, y, x, color, color]``; lattice order is x,y,z,t.
+            storage_axes = (4, 3, 2, 1)
+            qdp_layout = True
+            sizes = tuple(
+                int(value) for value in
+                (dataset.shape[4], dataset.shape[3], dataset.shape[2],
+                 dataset.shape[1]))
+        else:
+            raise ValueError(f"unsupported gauge HDF5 shape {dataset.shape}")
+        value = dataset
+        for axis, window_start, window_extent, size in zip(
+                storage_axes, starts, extent, sizes):
+            indices = _periodic_indices(window_start, window_extent, size)
+            value = sorted_axis(value, indices, axis)
+    if qdp_layout:
+        value = qdp_gauge_to_qcu(value)
+    return np.ascontiguousarray(value, dtype=dtype)
+
+
+def _gathered_gauge_patch(
+        gauge_local: np.ndarray,
+        lattice: tuple[int, int, int, int],
+        grid: tuple[int, int, int, int],
+        starts: tuple[int, int, int, int],
+        extent: tuple[int, int, int, int],
+        dtype: np.dtype,
+        comm) -> np.ndarray:
+    """Assemble the global gauge from the rank slabs, then cut the patch.
+
+    This is the fallback for input that is neither a single global HDF5 file nor
+    already resident (e.g. ``--gauge-slab-dir`` without ``--gauge``).  It costs
+    one global gauge per rank, so the caller is told to pass ``--gauge`` when the
+    box is large.
+    """
+    local = np.ascontiguousarray(gauge_local)
+    if comm is None:
+        global_gauge = local
+    else:
+        pieces = comm.allgather(local)
+        global_gauge = np.empty((local.shape[0], local.shape[1], local.shape[2],
+                                 *lattice), dtype=local.dtype)
+        for source, value in enumerate(pieces):
+            source_coordinate = np.unravel_index(
+                source, tuple(int(item) for item in grid), order="C")
+            selection = [slice(None)] * 3 + [
+                slice(int(source_coordinate[axis]) * int(lattice[axis])
+                      // int(grid[axis]),
+                      (int(source_coordinate[axis]) + 1) * int(lattice[axis])
+                      // int(grid[axis]))
+                for axis in range(4)
+            ]
+            global_gauge[tuple(selection)] = value
+        del pieces
+    return _periodic_window(global_gauge, starts, extent, axes=(3, 4, 5, 6))
+
+
+def read_gauge_patch(
+        path: Path | None,
+        gauge_full: np.ndarray | None,
+        gauge_local: np.ndarray,
+        lattice: tuple[int, int, int, int],
+        grid: tuple[int, int, int, int],
+        starts: tuple[int, int, int, int],
+        extent: tuple[int, int, int, int],
+        dtype: np.dtype,
+        comm) -> np.ndarray:
+    """Return the periodic QCU gauge patch ``[3, 3, 4, *extent]`` of one rank.
+
+    The patch must be cut from the *global* gauge: wrapping a rank-local slab on
+    its own extent would tile the local data instead of continuing into the
+    neighbouring ranks, which is exactly the class of error the overlap-patch
+    builder replaces.  A single global HDF5 file is read in place, an
+    already-loaded global array is windowed in memory, and the slab-directory
+    case falls back to a global gather.
+    """
+    if gauge_full is not None:
+        return _periodic_window(gauge_full, starts, extent, axes=(3, 4, 5, 6))
+    if path is not None and Path(path).suffix.lower() in (".h5", ".hdf5"):
+        return _hdf5_gauge_patch(Path(path), starts, extent, dtype)
+    return _gathered_gauge_patch(
+        gauge_local, lattice, grid, starts, extent, dtype, comm)
+
+
+def read_periodic_coarse_asset(
+        cache_path: Path, name: str, dtype: np.dtype,
+        starts: tuple[int, int, int, int],
+        extents: tuple[int, int, int, int],
+        global_coarse: tuple[int, int, int, int],
+        global_shapes, *,
+        allow_incomplete: bool = True) -> np.ndarray:
+    """Read a periodically wrapped coarse window from a ranked cache.
+
+    Thin wrapper over :func:`pyqcu.tools._legacy_mg_cache.load_legacy_mg_cache_patch`
+    kept for the synthetic ranked-cache regression, which pins the wrapped read
+    independently of the C++ builder.
+    """
+    return load_legacy_mg_cache_patch(
+        cache_path, name, dtype, starts=starts, extents=extents,
+        global_coarse=global_coarse, global_shapes=global_shapes,
+        allow_incomplete=allow_incomplete)
+
+
+def build_local_null_vectors(wrapped, params: np.ndarray, argv: np.ndarray,
+                             set_ptrs: np.ndarray, local_lattice, mg_grid,
+                             dof: list[int], nv_iters: int, seed: int,
+                             dtype: np.dtype) -> tuple[np.ndarray, float]:
+    """Build this rank's null-vector slab with the collective KUPL builder.
+
+    ``params`` must already carry the process grid/rank/size, so the C++
+    inverse iteration performs its halo exchange and global reductions exactly
+    like a serial global build of the same geometry.
+    """
+    from pyqcu.kupl import qcu
+
+    fine_odd = (
+        int(local_lattice[0]), int(local_lattice[1]), int(local_lattice[2]),
+        int(local_lattice[3]) // 2)
+    mg = [int(value) for value in mg_grid]
+    coarse = tuple(fine_odd[axis] // mg[axis] for axis in range(4))
+    E, e = int(dof[1]), 12
+    null_shape = (
+        E, e, coarse[0], mg[0], coarse[1], mg[1], coarse[2], mg[2],
+        coarse[3], mg[3])
+    null_vectors = np.empty(null_shape, dtype=dtype)
+    null_arg = NumpyTensor(null_vectors)
+    params_arg = NumpyTensor(params)
+    argv_arg = NumpyTensor(argv)
+    set_ptrs_arg = NumpyTensor(set_ptrs)
+    started = time.perf_counter()
+    qcu.applyInitQcu(set_ptrs_arg, params_arg, argv_arg)
+    try:
+        params[PARITY] = 1
+        params[SET_PLAN] = PLAN_SOLVER
+        status = qcu.applyMultigridBuildNullVectorsQcu(
+            null_arg, wrapped["gauge"], wrapped["even"], wrapped["odd"],
+            wrapped["even_inv"], wrapped["odd_inv"], set_ptrs_arg, params_arg,
+            E, e, *fine_odd, *coarse, max(1, int(nv_iters)), int(seed), 1.0e-2)
+    finally:
+        qcu.applyEndQcu(set_ptrs_arg, params_arg)
+    seconds = time.perf_counter() - started
+    if int(status) != 0:
+        raise RuntimeError(f"KUPL null-vector setup failed: {status}")
+    return null_vectors, seconds
+
+
+def export_ranked_coarse_cache(
+        cache_path: Path, *, wrapped, params: np.ndarray, argv: np.ndarray,
+        set_ptrs: np.ndarray, gauge_local: np.ndarray, dtype: np.dtype,
+        lattice: tuple[int, int, int, int],
+        local_lattice: tuple[int, int, int, int],
+        coordinate: tuple[int, int, int, int],
+        grid: tuple[int, int, int, int], rank: int, size: int, comm,
+        mg_grid: list[int], dof: list[int], nv_iters: int, seed: int,
+        mass: float, kappa: float, csw: float, identity: dict[str, Any],
+        mg_config: dict[str, Any], metadata: dict[str, Any],
+        batch_size: int, source_digest: str | None = None,
+        verbose: bool = False, gauge_path: Path | None = None,
+        gauge_full: np.ndarray | None = None,
+        reuse_lonv: Path | None = None,
+        patch_galerkin: bool = True
+) -> tuple[tuple[Any, ...], dict[str, Any], dict]:
+    """Build and publish one rank's Legacy-MG coarse slice from a patch.
+
+    This is the CUDA-QCU ``_distributed_mg_cache`` algorithm on the KUPL
+    backend.  Every rank cuts a **periodic overlap patch** -- its own fine
+    extent plus a ``2 * mg_grid`` halo per axis, degenerating to the whole
+    global axis when the halo does not fit -- runs the verified *single-rank*
+    C++ 33-stencil builder on that patch through a serial-local ``1x1x1x1``
+    LatticeSet (grid ``1,1,1,1``, node rank 0, node size 1), keeps only the
+    **center** coarse block of the patch result, and publishes its own
+    hyperslab.  No distributed stencil halo/ownership path is involved: the
+    patch is an independent serial geometry, so the operator it produces is the
+    already validated single-rank operator.
+
+    The patch is cut from the *global* gauge (``gauge_path``/``gauge_full``) and
+    from the published global null vectors; ``reuse_lonv`` reuses an existing
+    cache's null vectors (the CUDA ``--reuse-lonv`` option) so a reference
+    stencil can be reproduced bit for bit.  Rank zero commits the manifest, so a
+    half-written cache is never reported as ``PASS``.
+    """
+    geometry = ranked_coarse_geometry(
+        lattice, local_lattice, coordinate, grid, mg_grid, dof)
+    shapes = geometry["global_shapes"]
+    local_coarse = geometry["local_coarse"]
+    timings: dict[str, float] = {
+        "null_vector_seconds": 0.0,
+        "lonv_publish_seconds": 0.0,
+        "lonv_patch_seconds": 0.0,
+        "gauge_patch_seconds": 0.0,
+        "stencil_seconds": 0.0,
+        "asset_write_seconds": 0.0,
+        "manifest_seconds": 0.0,
+    }
+    started = time.perf_counter()
+    if reuse_lonv is None:
+        null_vectors, timings["null_vector_seconds"] = build_local_null_vectors(
+            wrapped, params, argv, set_ptrs, local_lattice, mg_grid, dof,
+            nv_iters, seed, dtype)
+        lonv_source = "distributed-null-vector"
+    else:
+        null_vectors = np.ascontiguousarray(
+            load_legacy_mg_cache_slab(
+                Path(reuse_lonv), dtype, starts=geometry["coarse_starts"],
+                local_shape=local_coarse, names=("lonv",))["lonv"], dtype=dtype)
+        expected = tuple(
+            int(value) for value in geometry["local_shapes"]["lonv"])
+        if tuple(int(value) for value in null_vectors.shape) != expected:
+            raise ValueError(
+                f"reused lonv slab {tuple(null_vectors.shape)} != {expected}")
+        lonv_source = str(reuse_lonv)
+        if verbose:
+            print(
+                f"PYQCU::CXX::MG_CACHE:\n rank={rank} reuse-lonv={reuse_lonv} "
+                f"slab={list(null_vectors.shape)}", flush=True)
+
+    def rank_record(datasets, mode) -> dict[str, Any]:
+        return write_legacy_mg_rank_slice(
+            cache_path, datasets, rank=rank, coordinate=coordinate,
+            process_grid=grid, starts=geometry["coarse_starts"],
+            local_coarse=local_coarse, global_shapes=shapes,
+            identity=identity, mode=mode)
+
+    stage = time.perf_counter()
+    lonv_record = rank_record({"lonv": null_vectors}, "w")
+    timings["lonv_publish_seconds"] = time.perf_counter() - stage
+    if comm is not None:
+        comm.Barrier()
+
+    # Rank zero publishes the interim manifest so every rank can read the
+    # neighbours' null vectors through the regular ranked-cache reader.
+    stage = time.perf_counter()
+    if comm is not None:
+        stage_records = comm.gather(lonv_record, root=0)
+    else:
+        stage_records = [lonv_record]
+    if rank == 0:
+        interim = build_legacy_mg_ranked_cache_manifest(
+            cache_path, identity, process_grid=grid, ranks=stage_records,
+            global_shapes=shapes, local_shapes=geometry["local_shapes"],
+            global_coarse=geometry["coarse"], local_coarse=local_coarse,
+            setup_method="cxx-null-vector+overlap-local-33-stencil",
+            setup_backend="kupl-qcu-cxx-mpi",
+            mg_config=mg_config, source_metadata=metadata,
+            extra_metadata={
+                "mpi_size": int(size), "grid": list(grid),
+                "local_lattice": list(local_lattice),
+                "stage": "null-vectors",
+            },
+            assets=("lonv",), status="BUILDING")
+        write_legacy_mg_ranked_cache(cache_path, interim)
+    if comm is not None:
+        comm.Barrier()
+    timings["manifest_seconds"] += time.perf_counter() - stage
+
+    stage = time.perf_counter()
+    lonv_patch = read_periodic_coarse_asset(
+        cache_path, "lonv", dtype, geometry["patch_coarse_starts"],
+        geometry["patch_coarse_extent"], geometry["coarse"], shapes,
+        allow_incomplete=True)
+    del null_vectors
+    timings["lonv_patch_seconds"] = time.perf_counter() - stage
+
+    stage = time.perf_counter()
+    gauge_patch = read_gauge_patch(
+        gauge_path, gauge_full, gauge_local, lattice, grid,
+        geometry["patch_starts"], geometry["patch_extent"], dtype, comm)
+    timings["gauge_patch_seconds"] = time.perf_counter() - stage
+
+    stage = time.perf_counter()
+    stencil_stats: dict[str, Any] = {}
+    patch_assets = build_coarse_assets(
+        gauge_patch, geometry["patch_extent"], mass, kappa, csw, dtype, 2,
+        list(dof), list(mg_grid), nv_iters, seed,
+        verbose=verbose, local_stencil=True,
+        local_stencil_batch_size=batch_size, device_name="cpu",
+        setup_stats=stencil_stats, supplied_null_vectors=lonv_patch,
+        validate_galerkin=patch_galerkin)
+    del gauge_patch, lonv_patch
+    timings["stencil_seconds"] = time.perf_counter() - stage
+    patch_galerkin_error = float(stencil_stats.get("galerkin_relative_error", 0.0))
+    local_assets = tuple(
+        _slice_asset(patch_assets[index][0], name,
+                     geometry["patch_coarse_center"], local_coarse)
+        for index, name in enumerate(LEGACY_MG_ASSET_NAMES))
+    del patch_assets
+
+    stage = time.perf_counter()
+    final_record = rank_record(
+        {name: value for name, value in zip(
+            ("hnn", "hdg", "sit"), local_assets[1:])}, "r+")
+    final_record = dict(final_record, patch_galerkin_error=patch_galerkin_error,
+                        patch_extent=list(geometry["patch_extent"]),
+                        lonv_source=lonv_source)
+    timings["asset_write_seconds"] = time.perf_counter() - stage
+    if comm is not None:
+        comm.Barrier()
+
+    stage = time.perf_counter()
+    final_records = (comm.gather(final_record, root=0) if comm is not None
+                     else [final_record])
+    manifest: dict[str, Any] = {}
+    if rank == 0:
+        manifest = build_legacy_mg_ranked_cache_manifest(
+            cache_path, identity, process_grid=grid, ranks=final_records,
+            global_shapes=shapes, local_shapes=geometry["local_shapes"],
+            global_coarse=geometry["coarse"], local_coarse=local_coarse,
+            setup_method="cxx-null-vector+periodic-overlap-patch-serial-stencil",
+            setup_backend="kupl-qcu-cxx-mpi",
+            mg_config=mg_config,
+            setup_validation={
+                "schema": "pyqcu.legacy-mg-ranked.v1",
+                "mpi_size": int(size),
+                "grid": list(grid),
+                "local_lattice": list(local_lattice),
+                "local_starts": list(
+                    int(coordinate[axis]) * int(local_lattice[axis])
+                    for axis in range(4)),
+                "local_coarse": list(local_coarse),
+                "coarse_starts": list(geometry["coarse_starts"]),
+                "patch_starts": list(geometry["patch_starts"]),
+                "patch_extent": list(geometry["patch_extent"]),
+                "patch_coarse_starts": list(geometry["patch_coarse_starts"]),
+                "patch_coarse_extent": list(geometry["patch_coarse_extent"]),
+                "patch_coarse_center": list(geometry["patch_coarse_center"]),
+                "patch_halo": [
+                    int(geometry["patch_center"][axis]) for axis in range(4)],
+                "builder": "kupl-qcu-cxx-local-stencil-patch",
+                "builder_geometry": "serial-local 1x1x1x1 LatticeSet",
+                "patch_galerkin_error": max(
+                    (float(record.get("patch_galerkin_error", 0.0))
+                     for record in (final_records or [])), default=0.0),
+                "lonv_source": lonv_source,
+                "timings": timings,
+            },
+            source_metadata=metadata,
+            extra_metadata={
+                "mpi_size": int(size),
+                "grid": list(grid),
+                "build_device": "cpu",
+                "source": f"ranked-cache-export rank {rank} of {size}",
+                "source_file_sha256": source_digest,
+                "stage": "complete",
+            },
+            setup_seconds=time.perf_counter() - started)
+        write_legacy_mg_ranked_cache(cache_path, manifest)
+    if comm is not None:
+        comm.Barrier()
+    timings["manifest_seconds"] += time.perf_counter() - stage
+    timings["seconds"] = time.perf_counter() - started
+
+    # Fail closed on the artifact we just published: every rank verifies its
+    # own slab digests and rank zero re-checks the manifest tiling.
+    validate_legacy_mg_cache(
+        cache_path, identity, verify_file_sha256=True,
+        verify_dataset_sha256=True, ranks=(rank,))
+    if rank == 0:
+        validate_legacy_mg_cache(
+            cache_path, identity, verify_file_sha256=True,
+            verify_dataset_sha256=False, ranks=())
+    if comm is not None:
+        comm.Barrier()
+    if verbose:
+        print(
+            f"PYQCU::CXX::MG_CACHE:\n rank={rank} local_coarse={local_coarse} "
+            f"patch_coarse={geometry['patch_coarse_extent']} "
+            f"seconds={timings['seconds']:.3f}", flush=True)
+    return (tuple([local_assets[0]]),
+            tuple([local_assets[1]]),
+            tuple([local_assets[2]]),
+            tuple([local_assets[3]])), timings, manifest
 
 
 def build_coarse_assets(gauge: np.ndarray, lattice: tuple[int, int, int, int],
@@ -669,6 +1234,9 @@ def main(argv=None) -> int:
     parser.add_argument("--mass", type=float, default=None)
     parser.add_argument("--csw", type=float, default=None)
     parser.add_argument("--atol", type=float, default=DEFAULT_ATOL)
+    parser.add_argument(
+        "--strict-acceptance", action="store_true",
+        help="gate the reported PASS/FAIL on atol alone (production policy)")
     parser.add_argument("--max-iter", type=int, default=1000)
     parser.add_argument("--dtype", choices=("c64", "c128"), default="c64")
     parser.add_argument("--levels", type=int, default=2)
@@ -683,6 +1251,13 @@ def main(argv=None) -> int:
     parser.add_argument("--coarse-cache", type=Path, default=None,
                         help="load lonv/hnn/hdg/sit instead of rebuilding setup")
     parser.add_argument("--write-coarse-cache", type=Path, default=None)
+    parser.add_argument(
+        "--reuse-lonv", type=Path, default=None,
+        help="multi-rank export reuses the null vectors of this cache instead "
+             "of rebuilding them (reproduces a reference stencil bit for bit)")
+    parser.add_argument(
+        "--skip-export-galerkin", action="store_true",
+        help="skip the in-band Galerkin self-check of each rank's overlap patch")
     parser.add_argument("--build-device", choices=("cpu", "cuda"), default="cpu")
     parser.add_argument("--no-deflate", action="store_true")
     parser.add_argument("--verbose", action="store_true")
@@ -731,11 +1306,25 @@ def main(argv=None) -> int:
             mg_coarse_geometry(local_lattice, args.mg_grid)
         except ValueError as exc:
             parser.error(str(exc))
-    if size > 1 and args.restart != 0 and args.coarse_cache is None:
+    if (size > 1 and args.restart != 0 and args.coarse_cache is None
+            and args.write_coarse_cache is None):
         parser.error(
-            "multi-rank coarse-correction mode requires a global --coarse-cache")
+            "multi-rank coarse-correction mode requires a global --coarse-cache "
+            "or --write-coarse-cache (rank-local export)")
     if size > 1 and args.write_coarse_cache is not None:
-        parser.error("multi-rank coarse-cache export is not implemented")
+        if args.build_device != "cpu":
+            parser.error(
+                "multi-rank coarse-cache export currently requires "
+                "--build-device cpu (the KUPL C++ local 33-stencil builder)")
+        if args.levels < 2 or args.restart == 0:
+            parser.error(
+                "multi-rank coarse-cache export requires --levels 2 and "
+                "--restart != 0")
+    if args.reuse_lonv is not None and not (
+            size > 1 and args.write_coarse_cache is not None):
+        parser.error(
+            "--reuse-lonv applies to the multi-rank coarse-cache export "
+            "(--write-coarse-cache with more than one rank)")
     dtype = np.dtype(np.complex64 if args.dtype == "c64" else np.complex128)
     hdf5_mpio_read = _hdf5_mpio_read_enabled(comm)
     input_prebind_seconds = 0.0
@@ -838,6 +1427,7 @@ def main(argv=None) -> int:
     use_coarse_assets = args.levels > 1 and args.restart != 0
     null_vectors, hop_nn, hop_diag, sitting = ((), (), (), ())
     builder_seconds = 0.0
+    coarse_export = None
     coarse_source = "built" if use_coarse_assets else "unused: restart=0"
     cache_layout = args.legacy_layout
     coarse_starts = tuple(
@@ -882,17 +1472,38 @@ def main(argv=None) -> int:
                 args.coarse_cache, Path(args.coarse_cache).expanduser())
             if not cache_path.is_file():
                 raise FileNotFoundError(cache_path)
+            ranked_cache = is_legacy_mg_ranked_cache(cache_path)
             validation_error = None
-            if rank == 0:
+            if ranked_cache:
+                # Every rank proves its own hyperslab first; rank zero then
+                # re-checks the manifest tiling of the whole cache.
                 try:
                     validate_legacy_mg_cache(
                         cache_path, cache_identity,
                         verify_file_sha256=True,
-                        verify_dataset_sha256=True)
+                        verify_dataset_sha256=True, ranks=(rank,))
+                    if rank == 0:
+                        validate_legacy_mg_cache(
+                            cache_path, cache_identity,
+                            verify_file_sha256=True,
+                            verify_dataset_sha256=False, ranks=())
                 except (OSError, TypeError, ValueError) as exc:
                     validation_error = f"{type(exc).__name__}: {exc}"
-            if comm is not None:
-                validation_error = comm.bcast(validation_error, root=0)
+                if comm is not None:
+                    errors = comm.allgather(validation_error)
+                    validation_error = next(
+                        (item for item in errors if item is not None), None)
+            else:
+                if rank == 0:
+                    try:
+                        validate_legacy_mg_cache(
+                            cache_path, cache_identity,
+                            verify_file_sha256=True,
+                            verify_dataset_sha256=True)
+                    except (OSError, TypeError, ValueError) as exc:
+                        validation_error = f"{type(exc).__name__}: {exc}"
+                if comm is not None:
+                    validation_error = comm.bcast(validation_error, root=0)
             if validation_error is not None:
                 raise ValueError(
                     f"coarse cache identity validation failed: "
@@ -905,7 +1516,72 @@ def main(argv=None) -> int:
                 starts=coarse_starts if size > 1 else None,
                 local_shape=coarse_local if size > 1 else None)
             coarse_source = str(cache_path)
+        elif size > 1:
+            cache_output = resolve_path(
+                args.write_coarse_cache,
+                Path(args.write_coarse_cache).expanduser())
+            if comm is not None:
+                cache_output = Path(comm.bcast(str(cache_output), root=0))
+            source_digest = None
+            if args.source is not None and rank == 0:
+                source_path = Path(args.source).expanduser()
+                if source_path.is_file():
+                    source_digest = file_sha256(source_path)
+            if comm is not None:
+                source_digest = comm.bcast(source_digest, root=0)
+            reuse_lonv_path = None
+            if args.reuse_lonv is not None:
+                reuse_lonv_path = resolve_path(
+                    args.reuse_lonv, Path(args.reuse_lonv).expanduser())
+                if comm is not None:
+                    reuse_lonv_path = Path(
+                        comm.bcast(str(reuse_lonv_path), root=0))
+                reuse_error = None
+                if rank == 0:
+                    try:
+                        validate_legacy_mg_cache(
+                            reuse_lonv_path, cache_identity,
+                            verify_file_sha256=False,
+                            verify_dataset_sha256=False, ranks=())
+                    except (OSError, TypeError, ValueError) as exc:
+                        reuse_error = f"{type(exc).__name__}: {exc}"
+                if comm is not None:
+                    reuse_error = comm.bcast(reuse_error, root=0)
+                if reuse_error is not None:
+                    raise ValueError(
+                        f"--reuse-lonv identity validation failed: {reuse_error}")
+            (null_vectors, hop_nn, hop_diag, sitting), export_timings, _ = \
+                export_ranked_coarse_cache(
+                    cache_output, wrapped=wrapped, params=params, argv=argv,
+                    set_ptrs=set_ptrs, gauge_local=gauge_local, dtype=dtype,
+                    lattice=lattice, local_lattice=local_lattice,
+                    coordinate=coordinate, grid=grid, rank=rank, size=size,
+                    comm=comm, mg_grid=list(args.mg_grid),
+                    dof=list(args.dof), nv_iters=args.nv_iters,
+                    seed=args.seed, mass=mass, kappa=kappa, csw=csw,
+                    identity=cache_identity,
+                    mg_config={
+                        "levels": int(args.levels),
+                        "restart": int(args.restart),
+                        "mg_grid": [int(value) for value in args.mg_grid],
+                        "nv_iters": int(args.nv_iters),
+                        "dof": [int(value) for value in args.dof[:args.levels]],
+                        "coarse_max_iter": int(args.coarse_max_iter),
+                        "coarse_tol_factor": float(args.coarse_tol_factor),
+                        "deflate": not args.no_deflate,
+                    },
+                    metadata=metadata, batch_size=args.local_stencil_batch,
+                    source_digest=source_digest,
+                    verbose=args.verbose or args.verbose_build,
+                    gauge_path=(gauge_path if args.gauge is not None else None),
+                    gauge_full=gauge_full,
+                    reuse_lonv=reuse_lonv_path,
+                    patch_galerkin=not args.skip_export_galerkin)
+            export_seconds = export_timings
+            coarse_source = f"{cache_output} (rank-local export)"
+            coarse_export = export_seconds
         else:
+            coarse_export = None
             null_vectors, hop_nn, hop_diag, sitting = build_coarse_assets(
                 gauge_local, lattice, mass, kappa, csw, dtype, args.levels,
                 list(args.dof), list(args.mg_grid), args.nv_iters,
@@ -925,7 +1601,7 @@ def main(argv=None) -> int:
                      not args.no_deflate, list(null_vectors), list(hop_nn),
                      list(hop_diag), list(sitting))
         builder_seconds = time.perf_counter() - started
-        if args.write_coarse_cache is not None:
+        if args.write_coarse_cache is not None and size == 1:
             cache_output = resolve_path(
                 args.write_coarse_cache,
                 Path(args.write_coarse_cache).expanduser())
@@ -1000,7 +1676,8 @@ def main(argv=None) -> int:
             solution, source, gauge, clover_even, clover_odd, kappa,
             comm, coordinate, grid)
         converged, status, acceptance = convergence_status(
-            residual, args.atol, dtype=dtype)
+            residual, args.atol, dtype=dtype,
+            strict=getattr(args, "strict_acceptance", False))
         residual_source = (
             "independent distributed NumPy full Wilson-Clover reconstruction "
             "with MPI halo exchange")
@@ -1008,7 +1685,8 @@ def main(argv=None) -> int:
         residual = relative_full_residual(
             source, solution, gauge, clover_even, clover_odd, kappa)
         converged, status, acceptance = convergence_status(
-            residual, args.atol, dtype=dtype)
+            residual, args.atol, dtype=dtype,
+            strict=getattr(args, "strict_acceptance", False))
         residual_source = "independent NumPy full Wilson-Clover reconstruction"
     residual_seconds = time.perf_counter() - residual_started
     if comm is not None:
@@ -1052,6 +1730,7 @@ def main(argv=None) -> int:
         "gauge_read_seconds": gauge_read_seconds,
         "source_read_seconds": source_read_seconds,
         "coarse_source": coarse_source,
+        "coarse_export": coarse_export,
         "wall_seconds": wall_seconds, "iterations": iterations,
         "residual_seconds": residual_seconds,
         "verify_status": verify_status,

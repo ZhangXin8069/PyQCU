@@ -669,3 +669,56 @@ not a KUPL code defect.
   `5.3848659457849185e-05`。机制：dslash 中位 `0.067483` 对 `0.093351 s`
   （-27.7%）、solve `0.110958` 对 `0.133611 s`（-17.0%）、wait `0.164` 对
   `0.775 ms`（4.7×）。单节点已默认开启，`KUPL_SHM_HALO=0` 回退 MPI。
+
+## 2026-11-14 L24 Legacy-MG cache 与 32-rank 参数扫描
+
+- **cache（1 rank × 18 线程，并行 stencil 默认开）**：
+  `data/kupl_scaling_20261114/cache_l24_parallel.h5`（+ 同名 `.json`），
+  `file_size_bytes=143,335,424`、`setup_seconds=493.63817879895214`、
+  `status=PASS`、`setup_method=cxx-null-vector+local-33-stencil`、
+  `setup_backend=kupl-qcu-cxx`、`mg_grid=[2,2,2,1]`、`nv_iters=2`、
+  lattice `[24,24,24,64]`。
+- **构建期修复**：删除 per-probe 全量 fill；第一步 dslash 稀疏到 `block+1-hop`
+  （约 48 site）；时间窗口改为 `min(fine, 3*block+3)`（含 t 维）；并行 stencil
+  默认开。修复前 1-rank 串行/并行均 `rc=124`（>600 s 未完成）；修复后 493.6 s
+  完成，仍 >30 s 目标约 16.5×。
+- **32-rank MG 扫描**（`grid 1 1 1 32`、`--coarse-cache` 复用上述 cache、
+  `--mg-grid 2 2 2 1 --nv-iters 2`、`atol=1e-4`、全 1 点源、c64、ACTIVE、
+  t2/PACK6/DEDUP/T_LOCAL/BOUNDARY 全开，单样本）：restart 3/1/6 的 wall 为
+  `0.136258` / `0.135579` / `0.136228 s`，coarse-max-iter 200、tol 1e4，
+  真残差均为 `6.756443214052956e-05`，全部 `PASS`；restart 极差约 0.5%，
+  在噪声内，不据此排序。
+- **对照**：同 gauge/source、`atol=1e-4` 的 BiCGStab 3 样本中位 `0.173362 s`，
+  MG `restart=1` 快约 21.8%，真残差逐位一致；MG 的 `iterations` 为 `None`，
+  不得按迭代数比较。MG 墙钟不含 cache 构建，21.8% 只在长期复用同一 cache 时成立。
+- **边界**：1-rank 构建的全局 cache 可被 32 rank 读取复用（L24 真实 MG 多 rank
+  首次跑通）；L32 cache 仍受 1-rank 构建时间限制（多 rank 构建未完成），L32 MG
+  不可用。第二轮扫描（作业 `2125551`，`cmax=50`、`tol=1e3/1e5`、`--no-deflate`、
+  `atol=1e-6`）写入本条时 **running**，未纳入。
+
+## 2026-11-14 多 rank Legacy-MG patch 构建突破
+
+- **根因**：旧导出路径用 `_periodic_window(gauge_local, …)` 把 rank 局部 slab
+  周期平铺成 patch；4-rank `8³×16` 实测 **75%（6144/8192）站点 gauge 错误**，
+  导致 `hnn=0.493 / hdg=0.787 / sit=0.039`。两次逐位实验闭合：生产窗口复现
+  失败 cache；真实全局窗口复现 1-rank 参考（四项 `max_abs=0.0`）。
+- **修复**：照抄 CUDA-QCU patch 语义。`extent=local+4*mg`、
+  `start=(coord*local-2*mg)%global`、`local+4mg>global && global%mg==0` 时退化
+  整轴；patch 用 serial-local `1×1×1×1` 单 rank builder，截
+  `center=2*mg/step`（t 轴 1）的中心 block；patch gauge 必须来自全局 HDF5/
+  全局数组/slab gather，禁止局部平铺；保持 `patch_galerkin=True`。
+- **4-rank 验收**：`88816_r4_patch` `verify_status=0`、`converged=true`，
+  真残差 `3.407e-07`；对拍 `lonv 2.697e-05 / hnn 1.710e-05 / hdg 3.098e-05 /
+  sit 1.367e-06`（null-vector 噪声，非错位）。
+- **32-rank 构建（全部 verify=0）**：L24 `2×2×2×4` 24.476 s（stencil 14.118 /
+  gauge patch 3.455）；L32 `2×2×2×4` 53.023 s（29.879 / 10.275）；
+  `32³×12` `4×2×2×2` 11.368 s（6.394 / 1.164）。
+- **t-only 禁用**：`grid 1 1 1 32` 时 x/y patch 退化为整轴，每 rank 建全格
+  （≈493 s），32 rank 仍 `rc=124`；纯 BiCGStab 对照也超时，证明非 MG 数值问题。
+- **MG 容差**：`coarse_atol=atol*factor*3^(L−1)`。`atol=1e-4` + 默认 `1e4` →
+  1.0 → 粗层解恒 0 → 修正全拒 → 回退纯 BiCGStab；历史 `0.128289 s` 不是 MG。
+  同网格 1e-6：BiCGStab `0.031577 s` vs MG `0.037935 s`（MG 慢 20%）；
+  L24 32-rank MG 1e-6 `0.519831 s` PASS。
+- **旧分布式路径**：push/pull slot 混叠、pull cell 索引、压缩时间 hop `±1`、
+  3 维 corner 缺失未修；生产禁用 `KUPL_MG_STENCIL_FORCE_DISTRIBUTED=1`。
+- **回归**：本地 `pytest pyqcu/testing/simple -q` → **119 passed**。

@@ -18,8 +18,9 @@ from __future__ import annotations
 import ctypes
 import os
 import json
+from fractions import Fraction
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 import h5py
 import numpy as np
@@ -326,8 +327,16 @@ def estimated_clover_gflops(lattice: tuple[int, int, int, int], iterations: int,
 
 
 def solver_acceptance(
-        atol: float, *, dtype: np.dtype = np.dtype(np.complex64)) -> float:
-    """Return the relative residual acceptance used by the simple examples."""
+        atol: float, *, dtype: np.dtype = np.dtype(np.complex64),
+        strict: bool = False) -> float:
+    """Return the relative residual acceptance used by the simple examples.
+
+    With ``strict=True`` the requested ``atol`` is the gate (production
+    policy: c64 1e-6 / c128 1e-9, relative norm).  The dtype floor remains
+    available for tests that intentionally probe float round-off limits.
+    """
+    if strict:
+        return float(atol)
     real_dtype = np.empty((), dtype=dtype).real.dtype
     multiplier = 2048 if real_dtype.itemsize <= 4 else 128
     return max(float(atol), float(np.finfo(real_dtype).eps) * multiplier)
@@ -335,9 +344,10 @@ def solver_acceptance(
 
 def convergence_status(
         residual: float, atol: float, *, comparison_valid: bool = True,
-        dtype: np.dtype = np.dtype(np.complex64)) -> tuple[bool, str, float]:
+        dtype: np.dtype = np.dtype(np.complex64),
+        strict: bool = False) -> tuple[bool, str, float]:
     """Classify a relative true residual without hard-coded 1e-2 success."""
-    acceptance = solver_acceptance(atol, dtype=dtype)
+    acceptance = solver_acceptance(atol, dtype=dtype, strict=strict)
     converged = bool(np.isfinite(residual) and residual <= acceptance)
     if not converged:
         return False, "FAIL", acceptance
@@ -363,3 +373,91 @@ def write_qdp_gauge(path: str | os.PathLike[str], gauge: np.ndarray,
     if gauge.ndim != 7 or gauge.shape[0] != 4 or gauge.shape[-2:] != (3, 3):
         raise ValueError("QUDA gauge must be [dir,t,z,y,x,3,3]")
     write_array(path, np.ascontiguousarray(gauge), metadata=metadata)
+
+
+def _grid_candidates(extent: int) -> tuple[int, ...]:
+    """Process-grid extents that split ``extent`` into an even local extent."""
+    return tuple(value for value in range(1, int(extent) + 1)
+                 if int(extent) % value == 0 and (int(extent) // value) % 2 == 0)
+
+
+def _product(values: Sequence[int]) -> int:
+    result = 1
+    for value in values:
+        result *= int(value)
+    return result
+
+
+def choose_balanced_grid(
+        lattice: Sequence[int], size: int,
+        *,
+        axis_preference: Sequence[int] = (0, 1, 2, 3),
+) -> tuple[int, int, int, int] | None:
+    """Return the most isotropic even-local 4D process grid for ``size`` ranks.
+
+    Every candidate ``grid`` satisfies all of the following, which are the
+    constraints the KUPL geometry and the coarse-grid guess both need:
+
+    * ``grid[axis]`` divides ``lattice[axis]`` and ``prod(grid) == size``;
+    * every local extent ``lattice[axis] // grid[axis]`` is a positive even
+      number (KUPL checkerboards the time axis and rejects odd local extents);
+    * ``grid[3]`` divides the parity-compressed time extent ``lattice[3] // 2``,
+      so a ``--mg-grid`` block still divides the local time axis.
+
+    Candidates are ranked by the smallest ``max(local) / min(local)`` aspect
+    ratio.  Ties are broken on ``grid`` read in ``axis_preference`` order, so
+    the default keeps x unsplit as long as another axis can carry the ranks.
+    The function is pure and returns ``None`` when no grid satisfies the
+    constraints; the caller must then demand an explicit ``--grid``.
+
+    Note that this is a geometric default, not a performance model: measured
+    production runs pin their grid explicitly (the L24 KUPL optimum uses the
+    pure time split ``1 1 1 32``, which this ranking does *not* select).
+    """
+    values = tuple(int(value) for value in lattice)
+    if len(values) != 4:
+        raise ValueError(f"lattice must contain four extents: {values}")
+    ranks = int(size)
+    if ranks <= 0:
+        raise ValueError(f"size must be positive, got {size}")
+    if any(value <= 0 for value in values):
+        return None
+    order = tuple(int(axis) for axis in axis_preference)
+    if sorted(order) != [0, 1, 2, 3]:
+        raise ValueError(f"axis_preference must be a permutation of 0..3: {order}")
+    if ranks == 1:
+        return (1, 1, 1, 1)
+    if any(value % 2 for value in values):
+        return None
+    compressed_time = values[3] // 2
+    options = [_grid_candidates(values[axis]) for axis in range(3)]
+    options.append(tuple(value for value in _grid_candidates(values[3])
+                         if compressed_time % value == 0))
+    if any(not axis_options for axis_options in options):
+        return None
+
+    best_key: tuple[Any, ...] | None = None
+    best: tuple[int, int, int, int] | None = None
+
+    def visit(axis: int, grid: list[int]) -> None:
+        nonlocal best, best_key
+        if axis == 4:
+            if _product(grid) != ranks:
+                return
+            local = tuple(values[index] // grid[index] for index in range(4))
+            aspect = Fraction(max(local), min(local))
+            key = (aspect, *(grid[index] for index in order))
+            if best_key is None or key < best_key:
+                best_key = key
+                best = tuple(grid)  # type: ignore[assignment]
+            return
+        partial = _product(grid) if axis else 1
+        for extent in options[axis]:
+            if ranks % (partial * extent):
+                continue
+            grid.append(extent)
+            visit(axis + 1, grid)
+            grid.pop()
+
+    visit(0, [])
+    return best

@@ -402,15 +402,29 @@ start[axis] = coordinate[axis] * local[axis]
 
 ### 7.3 自动 grid
 
-未给 `--grid` 时，按 y→z→t→x 顺序寻找因子，优先避免切最慢/打包最贵的 x。
+未给 `--grid` 时，`pyqcu.testing.simple._common.choose_balanced_grid()` 枚举所有
+满足约束的四维分解，并取 `max(local)/min(local)` 最小的那个；比值相同时按
+`x→y→z→t` 比较，优先不切靠前的轴。
 
-`8x8x8x16, ranks=4` 的默认结果：
+约束（缺一即不作为候选）：
+
+- `prod(grid) == ranks`，且每个 `grid[axis]` 整除 `lattice[axis]`；
+- 每个 local extent 为正偶数（KUPL 的 time checkerboard 要求）；
+- `grid_t` 整除奇偶压缩后的时间长度 `T/2`，保证 `--mg-grid` 块仍整除 local 时间轴。
+
+`8x8x8x16, ranks=4` 的默认结果（四个单轴切分在 aspect=2 上并列，tie-break 取 t）：
 
 ```text
-[1,4,1,1]
+[1,1,1,4]
 ```
 
-若无法形成偶数 local extent，启动器报错，要求显式 `--grid`。
+若无法形成偶数 local extent（例如 `T` 为奇数、或 rank 数不能分解），启动器报错，
+要求显式 `--grid`。
+
+> **默认值只保证几何均匀，不是性能选择。** 已发布的测量必须显式写 `--grid`：
+> L24（`24³×64`）KUPL 当前最优 `0.154883 s` 用的是纯时间切分 `--grid 1 1 1 32`
+> （32 rank，local t=2，命中 t2 lane/共享 halo 快路径），均匀分解给的是
+> `2 2 2 4`，两者不可互换，也不可把默认值当成绩效对照。
 
 ## 8. Multigrid 参数与缓存
 

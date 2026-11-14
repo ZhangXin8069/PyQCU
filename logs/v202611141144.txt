@@ -1,0 +1,56 @@
+[日志元数据]
+日志类型: stage
+生成时间: 2026-11-14 11:44:18 +0800
+批次: S2
+主任务: KUPL 点源（全1）L24/L32 重测与 OPAL_PREFIX 修复
+触发原因: 阶段成果
+摘要: OPAL_PREFIX 缺失导致 mpirun 选项失效；全1点源 L24 0.171331 s/11it、L32 0.348549 s/12it 均 PASS；单样本
+Git 根目录: /home/zhangxin/PyQCU
+
+## 关键日志
+
+### S1 — 重测阻塞根因：OPAL_PREFIX 缺失
+- 目标: 按“全 1 点源”重测 L24/L32。
+- 现象: `mpirun: Error: unknown option "-np"/"-n"/"--version"`，HPCKit 25.1.0–26.1 全部版本一致。
+- 定位: 在作业内 `OPAL_PREFIX=<hmpi> LD_LIBRARY_PATH=<hmpi>/lib mpirun --version` 输出 `Open MPI 4.1.6rc4`，`-np 2` 被接受；缺 `OPAL_PREFIX` 时同一二进制把所有选项报成 unknown option。
+- 修复: 驱动第 2 行强制 `OPAL_PREFIX=/work_ssd/software/HPCKit/25.2.1/hmpi/bisheng/release/hmpi` 与 `LD_LIBRARY_PATH=$OPAL_PREFIX/lib:...`；`-np` 是正确写法（`-n` 不被 HMPI 接受）。
+
+### S2 — 点源（全 1）L24/L32 实测
+- 源: 全格所有点实部=1、虚部=0，`(4,3,X,Y,Z,T)` complex64，抽样 `imag_max=0.0`。
+- 配置: 32r×18t、grid `1 1 1 32`、`ppr:2:numa`、共享 halo、`OMP_WAIT_POLICY=ACTIVE`、t2/PACK6/DEDUP/T_LOCAL/BOUNDARY 全开、`levels=1/restart=0`、`atol=1e-4`、`mass=-0.277`、`csw=1.160920226`、cn19699。
+- 结果: L24 `0.171331 s`（11 it，真残差 `6.756443e-05`，PASS）；L32 `0.348549 s`（12 it，`6.831831e-05`，PASS）。均单样本，作业 `2123971`/`2123978`，`RC=0`。
+
+### S3 — 文档与技能同步
+- `docs/kupl_mpi_scaling_20261114.md` §6.3 记录点源结果与源定义、单样本与不可比说明；§5.2 记录 HMPI 选项失败链。
+- `skills/pyqcu-kupl/SKILL.md` L24 段增加 2026-11-14 点源重测行（0.171331/0.348549 s，单样本，源不同不可比）。
+- `skills/pyqcu-kupl/references/kupl-vs-cuda-algorithms.md` §3.3 记录 `refer/kunpeng` 分流调研结论。
+
+## 验证与证据
+- 测试/检查: `report.json` 字段（wall/iterations/converged/residual/status）；`meta.txt` `RC=0`；源文件抽样校验。
+- 结果: L24 0.171331 s / 11 it / PASS；L32 0.348549 s / 12 it / PASS；`imag_max=0.0`。
+- 未验证项: 单样本、无重复统计；L32 仅 BiCGStab（非 MG）；rsync 传输未完成；跨节点回退未验证。
+
+## 变更与产物
+- 文件: `docs/kupl_mpi_scaling_20261114.md`、`skills/pyqcu-kupl/SKILL.md`、`skills/pyqcu-kupl/references/kupl-vs-cuda-algorithms.md`。
+- 产物: 远端 `data/production_L24/source_24x24x24x64_c64_ones.h5`、`data/production_L32_v1/source_32x32x32x64_c64_ones_v2.h5`；`data/kupl_opt_20261113/remote/rem14_{l24,l32}_ones/report.json`。
+- 未改动范围: 生产求解代码与默认开关。
+
+## 风险、限制与下一步
+- 风险: 单样本数字易被误引；点源与旧源不可混比；`OPAL_PREFIX` 未写入通用文档前，其他人复跑会再次踩坑。
+- 阻塞: 无（本轮重测已通）。
+- 下一步: ①补 3 次重复取中位；②按 §5.3 配方补 TH 扫描；③rsync 完成后校验 sha256；④继续 P1 shm halo 零拷贝实现。
+
+## Agent 全文报告
+--- report begin ---
+本轮把重测阻塞定位为 **`OPAL_PREFIX` 缺失**：HMPI 的 `mpirun` 在缺少该环境变量时会把所有选项（`-np`、`-n`、`--version`、`--help`）报成 `unknown option`；设置后同一二进制正常输出 `Open MPI 4.1.6rc4` 并接受 `-np`。驱动的错误写法 `-n` 已改回 `-np`，并在驱动第 2 行强制 `OPAL_PREFIX`/`LD_LIBRARY_PATH`。
+
+按“全格所有点实部=1、虚部=0”的点源重测：
+- L24 `24³×64`：`0.171331 s`，11 it，真残差 `6.756443e-05`，PASS，32r×18t，grid `1 1 1 32`，cn19699。
+- L32 `32³×64`：`0.348549 s`，12 it，真残差 `6.831831e-05`，PASS，同配置。
+
+两结果均为单样本；源与旧点源/随机源不同，不能与 `0.154883 s` 直接比较；L32 是当前代码/配置下首个可引用数字，但仍是 BiCGStab（`levels=1`），不是 MG。
+
+`refer/kunpeng` 调研结论已写入技能：该目录无 MPI/halo/stream 代码；可迁移的是 `mbind`+`MADV_HUGEPAGE`+`move_pages` 逐页校验、自旋起跑线、拓扑/PMU 预检；KUPL 最值得先做的是 shm halo 零拷贝（consume 握手前移 + 直接打包进 shm 槽），并先把 profile 的 halo 段拆细。
+
+rsync 续传仍在进行（远端约 15.2 GB / 19 GB）。
+--- report end ---

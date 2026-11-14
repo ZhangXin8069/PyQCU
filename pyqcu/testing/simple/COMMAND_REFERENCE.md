@@ -91,7 +91,7 @@ KUPL 参数：
 |---|---|---|
 | `--kupl-ranks` | `4` | MPI rank 数 |
 | `--kupl-threads` | `4` | 每 rank OpenMP 线程数 |
-| `--kupl-grid` | 自动 | 4D process grid |
+| `--kupl-grid` | 自动（`choose_balanced_grid`，均匀分解） | 4D process grid |
 | `--kupl-lib` | `default` | `default/lto` 或 `.so` 路径 |
 | `--skip-independent-residual` | 关闭 | 信任后端 fail-closed 真残差检查 |
 
@@ -220,6 +220,13 @@ mpirun [OpenMPI options] -np <ranks> \
 - `grid` 乘积等于 MPI rank 数。
 - 每维 local extent 必须为偶数。
 - `levels>1, restart!=0` 时多 rank 必须提供 `--coarse-cache`。
+
+`kupl_multigrid.py` 的 `--grid` 默认仍是 `(MPI size,1,1,1)`（单轴 x 分解），
+其余入口（`solve_case.py`、`compare_three_way.py`、`mpi/*`、`benchmark_kupl_lime_mpi.py`）
+未给 grid 时调用 `pyqcu.testing.simple._common.choose_balanced_grid()` 做**均匀分解**：
+`prod(grid)=size`、local 偶数、`grid_t | T/2`，并取 `max(local)/min(local)` 最小。
+该默认只保证几何均匀；任何已发布的测量都要显式写 `--grid`（L24 最优是
+`1 1 1 32`，不是均匀分解给出的 `2 2 2 4`）。
 
 固定 `(lattice, grid)` 的多 rank 计时可用连续 slab 缓存，避免所有 rank 同时解析
 一个全局 HDF5 的非连续 hyperslab：
@@ -388,7 +395,7 @@ python pyqcu/testing/simple/compare_three_way.py [options]
 | `--backends` | `cuda,quda,kupl` | 可传 `all` 或逗号子集 |
 | `--kupl-ranks` | `4` | rank 数 |
 | `--kupl-threads` | `4` | OpenMP |
-| `--kupl-grid` | 自动 | process grid |
+| `--kupl-grid` | 自动（`choose_balanced_grid`，均匀分解） | process grid |
 | `--kupl-lib` | `default` | KUPL library |
 | `--out-dir` | `data/benchmark_three_way` | 输出 |
 
@@ -429,7 +436,7 @@ mpirun --bind-to numa --map-by ppr:1:numa -np 4 \
 |---|---|---|
 | `--gauge` | 必填 | LIME/HDF5 |
 | `--lat` | `24 24 24 64` | 全局格点 |
-| `--grid` | `1 1 1 1` | 必须匹配 MPI size |
+| `--grid` | 自动（`choose_balanced_grid`，均匀分解） | 乘积必须匹配 MPI size |
 | `--mass` / `--csw` | 文件 metadata | 参数 |
 | `--dtype` | `c64` | c64/c128 |
 | `--atol` | `1e-6` | 容差 |

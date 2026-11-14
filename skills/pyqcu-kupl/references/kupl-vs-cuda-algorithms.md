@@ -99,3 +99,93 @@ dtype、rank/grid/thread、`half_sites`、`levels/restart`、是否 warm start�
 - Clover even/odd：跨后端约 `4.9e-8`；Legacy `hnn/hdg/sit` < `3e-7`。
 - Strict public wrapper vs raw ctypes ABI：L32 相对差约 `8.3e-8`。
 - 这些只证明数值等价，不证明性能或迭代数可比。
+
+## 3.3 鲲鹏侧“分流/计算掩盖通信”调研（2026-11-14）
+
+范围：`refer/kunpeng/**`（3 份 HPCKit PDF、鲲鹏 920 手册、深圳超算手册、
+`lx2-stream-source/`）。结论：**其中没有 MPI / halo / stream / 双缓冲代码**，
+唯一“真代码”是 STREAM 探针（SVE 手写 copy/scale/add/triad + OpenMP）。
+
+可迁移的实践（有代码证据）：
+
+- `mmap` 2 MiB 对齐 → `mbind(MPOL_BIND, 1<<node)` → `madvise(MADV_HUGEPAGE)`
+  （`stream_probe.c:226-231`）；随后用 `move_pages` **逐页校验**归属，
+  “Never infer placement from mbind success alone”（`:234-247`）。
+- 自旋起跑线把线程启动滞后压到 µs 级（`stream_probe.c:274-278`）。
+- 拓扑/PMU 预检与质量标记（`run_stream.py:64-66,97-112`）。
+- 分流是有代价的：`split_node_18_18` 的 CV 23.91%，报告明确警告分流吞吐
+  不能当完成时间（`report.html:34,39`）。
+
+不可照搬：
+
+- CUDA 的 5 条流在单 rank 是**负收益**（CUDA 自己的注释：
+  `lattice_wilson_dslash.h:344-358`，9 次同步 ~1.6 ms → ~10 µs）。
+- `MPI_THREAD_FUNNELED`（`lattice_cpu.cpp:838`）阻断 OpenMP task /
+  后台 MPI 进度线程；`OMP_WAIT_POLICY=PASSIVE` 还会拉长 part2 唤醒。
+
+对 KUPL 的优化排序（调研结论）：
+
+1. **P1 shm halo 零拷贝**：`post_fermion_halo` 现在“打包到本地缓冲 →
+   串行 memcpy 进 shm 槽”（`lattice_wilson_dslash.cpp:1190-1215`）。改成
+   “consume 握手前移 + 直接打包进本 rank 的 shm 槽”，可省每 dslash
+   ~1.3 MB、约 70–130 µs 的暴露访存。风险：ABA/握手顺序、dedup 失效、
+   `shm_halo_stride_` 越界、非对称调用必须保持同一 seq 序列。
+2. **P5 halo buffer 的 NUMA 放置与校验**：KUPL 目前只有 `MADV_HUGEPAGE`
+   （`lattice_cpu.cpp:826`），没有 `mbind`/`move_pages`；`MPI_Win_allocate_shared`
+   的放置改不动，只能改自分配的 `fermion_send_/recv_`。
+3. **P2 coarse/strict halo 异步化**：`exchange_coarse_halo` 现在 post 后立刻
+   `MPI_Waitall`（`lattice_multigrid.cpp:242-245`）；拆成 post/wait 可重叠，
+   但当前 profile 不覆盖 MG，**必须先加 profile**。
+4. **P3 逐方向等待**：`grid=(1,1,1,N)` 时只有 t 方向 remote，收益≈0；
+   只在 4D 分解有意义，且会改变浮点累加顺序。
+5. **P4 memcpy 并行化**：被 P1 吸收，且 `OMP_NUM_THREADS=1` 时是纯开销。
+
+**先做 P1，并先把 `KUPL_PROFILE_DSLASH` 的 halo 段拆成 pack/publish/copy
+三段**，否则无法证明收益。
+
+### 3.3.1 P1 首次实现与本地 A/B（2026-11-14）
+
+- 已实现 `KUPL_SHM_HALO_ZEROCOPY`（默认关）：consume 握手前移，直接
+  `pack_fermion_face` 进本 rank 的 shm 槽；dedup 时从 minus 槽 memcpy 到
+  plus 槽；MPI 路径不变。
+- `pack_fermion_face` 增加显式 `plus_face` 参数，不再用 `buffer` 指针比较。
+- `KUPL_PROFILE_OPT` 新增 `halo_pack=` / `halo_sync=` / `halo_copy=` 三项。
+- CTest（1/2/4 rank dslash、t2、shm、dedup）：默认与零拷贝均 **11/11 PASS**。
+- 本地 x86 4 rank、`24³×16`、8 线程、20 it 的 A/B：
+
+| 算子 | 默认 (s) | 零拷贝 (s) | 变化 |
+|---|---:|---:|---:|
+| wilson | 3.2608 | 3.4520 | **+5.9%** |
+| clover | 3.7494 | 3.9603 | **+5.6%** |
+| clover_schur | 7.4659 | 7.5320 | +0.9% |
+
+本地 x86 结论：**首版零拷贝没有收益**（+5.9%/+5.6%/+0.9%）。原实现
+“先打包到本地缓冲，再等 consume 后 memcpy”把打包时间藏在等待里；改成
+“先等再打包”虽然省了一次 memcpy，但把打包暴露到关键路径。
+
+**鲲鹏实测（cn19699，32r×18t，L24 点源全 1，`KUPL_PROFILE_OPT=1`）符号相反**：
+
+| 用例 | 墙钟 (s) | 迭代 | 真残差 | pack | sync | copy |
+|---|---:|---:|---:|---:|---:|---:|
+| zc=0 | 0.180983 | 11 | `6.756443e-05` | 未计时 | 0.000985 | 0.044387 |
+| zc=1 | **0.172885** | 11 | `6.756443e-05` | 0.040603 | 0.000203 | 0.006638 |
+
+单次 profiled 配对：零拷贝 **快 4.47%**，迭代与真残差逐位一致。
+但补 3 样本后该优势消失：zc1 `0.172885（profile）/0.171816/0.185719`，
+中位 `0.172885`；zc0 `0.171331/0.173362/0.182659`，中位 `0.173362`；
+两者仅差 **0.28%**，落在同节点 ±4% 抖动内。
+
+结论：**保持默认关闭**。若要改默认，必须做 zc0/zc1 交替配对 ≥5 组，
+确认中位差 >2% 且区间不重叠；单次 A/B 不足以支持改默认。
+
+### 3.3.2 “仅 dedup 面零拷贝”的评估
+
+- 在 L24 的 32 rank、`grid=1,1,1,32` 下，`ht = local[3]/2 = 1`，**所有 shm
+  面都满足 dedup 条件**（`last_half_coordinate(dim)==0`）。因此“仅 dedup 面
+  零拷贝”在这个几何上等价于完整零拷贝，**不能降低“打包暴露”的风险**。
+- 真正风险更低的变体是“**只对 plus 槽零拷贝**”：minus 面仍按原顺序
+  “先打包到本地缓冲 → 等 consume → memcpy 进槽”，plus 面直接
+  `memcpy(minus 槽 → plus 槽)`。这样保留 minus 打包与等待的重叠，只省掉
+  plus 的那一次 memcpy；预期收益约为完整零拷贝的一半，且不新增暴露打包。
+- 决策规则：若完整零拷贝的 3 样本中位稳定领先 ≥3%，优先启用完整零拷贝；
+  若只在部分几何领先或波动大，再退回“仅 plus 槽”变体。

@@ -1,0 +1,101 @@
+[日志元数据]
+日志类型: stage
+生成时间: 2026-11-14 15:51:01 +0800
+批次: S7
+主任务: KUPL L24 MG cache 与参数扫描
+触发原因: 阶段成果
+摘要: L24 cache 493.638s/143,335,424B PASS；32r MG restart1 0.135579s（比 BiCGStab 中位 0.173362s 快21.8%）；restart 1/3/6 差0.5% 单样本；L32 仍阻塞；第二轮 running
+Git 根目录: /home/zhangxin/PyQCU
+
+## 关键日志
+
+### S1 — L24 Legacy-MG cache（1 rank × 18 线程）已 PASS
+- 文件：`data/kupl_scaling_20261114/cache_l24_parallel.h5`（+ 同名 `.json`）。
+- `setup_seconds = 493.63817879895214`、`file_size_bytes = 143,335,424`、`status = PASS`、
+  `setup_method = cxx-null-vector+local-33-stencil`、`setup_backend = kupl-qcu-cxx`、
+  `mg_grid = [2,2,2,1]`、`nv_iters = 2`、lattice `[24,24,24,64]`。
+- 构建期四项修复：删除 per-probe 全量 fill；第一步 dslash 稀疏到 `block+1-hop`
+  （约 48 site）；时间窗口改为 `min(fine, 3*block+3)`（含 t 维）；并行 stencil 默认开。
+- 此前 1-rank 串行/并行均 `rc=124`（>600 s）；修复后可完成，但 493.6 s 仍 >30 s 目标约 16.5×。
+
+### S2 — 32 rank MG 参数扫描（单样本）
+- 配置：`grid 1 1 1 32`、`--coarse-cache` 复用 S1 cache、`--mg-grid 2 2 2 1 --nv-iters 2`、
+  `atol=1e-4`、全 1 点源、c64、`OMP_WAIT_POLICY=ACTIVE`、t2/PACK6/DEDUP/T_LOCAL/BOUNDARY 全开。
+- 结果：r3_m200_t4 `0.136258 s`、r1_m200_t4 `0.135579 s`、r6_m200_t4 `0.136228 s`；
+  三者 coarse-max-iter=200、tol=1e4，真残差均 `6.756443214052956e-05`，全部 `PASS`。
+- restart 1/3/6 极差约 0.5%，单样本、在噪声内，不对 restart 排序。
+
+### S3 — BiCGStab 对照
+- 同 gauge/source、`atol=1e-4`、3 样本中位 `0.173362 s`；MG `restart=1` 快约 21.8%，
+  真残差逐位一致（`6.756443214052956e-05`）。
+- MG `iterations = None`（native MG 不暴露可靠外迭代计数），不得按迭代数比较。
+- MG 墙钟不含 cache 构建（493.6 s），21.8% 只在同一 gauge 长期复用 cache 时成立。
+
+### S4 — 第二轮扫描（作业 2125551）仍 running
+- 参数：`cmax=50`、`tol=1e3/1e5`、`--no-deflate`、`atol=1e-6`。
+- 预期产物：`data/kupl_scaling_20261114/mg_l24/timing.txt` 与同目录各 `*.json`；
+  本地工作区无该目录（远端未同步），故本次未纳入，文档中明确写 `running`。
+
+### S5 — 边界
+- 1-rank 构建的全局 cache 可被 32 rank 读取复用；L24 真实 MG 多 rank 首次跑通。
+- L32 cache 仍受 1-rank 构建时间限制（多 rank 构建未完成），L32 MG 不可用；
+  多 rank 构建（bg-22）与第二步稀疏化（bg-12）在进行中。
+
+## Agent 全文报告
+
+### 任务
+把 KUPL Legacy-MG cache 构建与 L24 参数扫描的已有结果写入 `docs/`、`logs/`、`skills/`，
+不改 C++/Python 生产代码，不动 `cpp/kupl/qcu/src/lattice_multigrid.cpp` 与 `kupl_multigrid.py`。
+
+### 数据（原样记录，未美化）
+1. L24 cache（1 rank、18 线程、并行 stencil 默认开）：
+   - `setup_seconds = 493.63817879895214`
+   - `file_size_bytes = 143,335,424`
+   - `status = PASS`、`setup_method = cxx-null-vector+local-33-stencil`、
+     `setup_backend = kupl-qcu-cxx`
+   - `mg_grid = [2,2,2,1]`、`nv_iters = 2`、lattice `[24,24,24,64]`
+   - 路径 `data/kupl_scaling_20261114/cache_l24_parallel.h5` 与同名 `.json`
+   - 修复：per-probe 全量 fill 删除；第一步 dslash 稀疏到 `block+1-hop`（≈48 site）；
+     时间窗口 `min(fine, 3*block+3)`（含 t 维）；并行 stencil 默认开
+   - 修复前 1-rank 串行/并行 `rc=124`（>600 s），修复后 493.6 s（仍 >30 s）
+2. 32 rank MG 扫描（`grid 1 1 1 32`、`--coarse-cache`、`--mg-grid 2 2 2 1 --nv-iters 2`、
+   `atol=1e-4`、全 1 点源、c64、`OMP_WAIT_POLICY=ACTIVE`、五开关全开）：
+
+   | 用例 | restart | coarse-max-iter | tol | wall (s) | 真残差 | 状态 |
+   |---|---:|---:|---|---:|---:|---|
+   | r3_m200_t4 | 3 | 200 | 1e4 | 0.136258 | 6.756443214052956e-05 | PASS |
+   | r1_m200_t4 | 1 | 200 | 1e4 | 0.135579 | 6.756443214052956e-05 | PASS |
+   | r6_m200_t4 | 6 | 200 | 1e4 | 0.136228 | 6.756443214052956e-05 | PASS |
+
+   对照 BiCGStab 同 gauge/source、`atol=1e-4`、3 样本中位 `0.173362 s`：
+   MG `restart=1` 快约 21.8%，真残差逐位一致。MG `iterations=None`，不得按迭代数比较。
+   单样本；restart 1/3/6 差异 ~0.5%，在噪声内。
+3. 第二轮（作业 `2125551`）：`cmax=50`、`tol=1e3/1e5`、`--no-deflate`、`atol=1e-6`；
+   结果文件 `data/kupl_scaling_20261114/mg_l24/timing.txt` 与各 `*.json`；仍 **running**，
+   本地无该目录，本次未纳入。
+4. 结论：1-rank 全局 cache 可被 32 rank 复用；L24 MG 已可跑；L32 cache 仍受 1-rank
+   构建时间限制；多 rank 构建（bg-22）与第二步稀疏化（bg-12）进行中。
+
+### 写入位置与内容
+- `docs/kupl_mpi_scaling_20261114.md`：新增 `### 6.4 L24 Legacy-MG cache 构建与参数扫描
+  （2026-11-14）`，含 6.4.1 cache 身份、6.4.2 四项修复、6.4.3 32 rank 扫描表与读法、
+  6.4.4 BiCGStab 对照与口径不对称、6.4.5 口径与限制、6.4.6 第二轮 running、6.4.7 结论。
+  原 §6.3 保留不动；新节插在 §6.3 之后、§7.1 之前。
+- `skills/pyqcu-kupl/SKILL.md`：L24 段后新增 `### L24 Legacy-MG cache（2026-11-14）`，
+  含 `setup_seconds`、cache 大小、`restart=1` `0.135579 s` 与 BiCGStab 中位 `0.173362 s`
+  的 21.8% 对照、`iterations=None` 禁区、第二轮 running。同步改掉反模式里
+  “多 rank MG 无法运行”的旧表述（改为“仍需预置 cache，L24 已可复用；L32 与构建时间才是边界”）。
+- `skills/pyqcu-kupl/references/kupl-history-2026.md`：追加同日条目
+  `## 2026-11-14 L24 Legacy-MG cache 与 32-rank 参数扫描`（cache 身份、修复、扫描表、
+  对照、边界与 running）。
+- `docs/AGENTS.md`：`kupl_mpi_scaling_20261114.md` 索引行补 §6.4 摘要。
+- 本日志：`logs/`（脚本生成）+ `logs/AGENTS.md` 索引（脚本追加）。
+
+### 未改动
+- 未改 `cpp/kupl/qcu/src/lattice_multigrid.cpp`、`kupl_multigrid.py`，未改任何 C++/Python 生产代码。
+- 未改任何默认开关；未删除文件；未写入凭据。
+
+### 验证
+- 数值逐项对照任务给定值（`setup_seconds`、`file_size_bytes`、三组 wall/残差、21.8%、0.5%）。
+- `git diff --check` 无空白错误；文档/技能文件 markdown 表格列数与分隔行一致。
+- 未验证项：第二轮扫描（running）、L32 多 rank cache 构建、MG 的 ≥5 样本交替 A/B。

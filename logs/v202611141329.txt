@@ -1,0 +1,51 @@
+[日志元数据]
+日志类型: stage
+生成时间: 2026-11-14 13:29:21 +0800
+批次: S6
+主任务: KUPL 零拷贝3样本、L32 TH、src/dest 协议与两节点阻塞
+触发原因: 阶段成果
+摘要: zc0/zc1 中位 0.173362/0.172885（差0.28%，默认关）；L32 TH9/16/18=0.460573/0.352243/0.348549；dest 已保存；两节点 ssh 阻塞
+Git 根目录: /home/zhangxin/PyQCU
+
+## 关键日志
+
+### S1 — 零拷贝 3 样本：无稳定收益
+- zc0（非 profile）：`0.171331 / 0.173362 / 0.182659 s`，中位 **0.173362**。
+- zc1：`0.172885（profile）/ 0.171816 / 0.185719 s`，中位 **0.172885**。
+- 中位差仅 **0.28%**，落在同节点 ±4% 抖动内；单次 profiled 配对的 -4.47% 不能外推。
+- 判断：**保持默认关闭**；若要改默认，需 zc0/zc1 交替配对 ≥5 组且中位差 >2%。
+
+### S2 — L32 TH 扫描
+- TH9 `0.460573 s`（+32.1% vs TH18）、TH16 `0.352243 s`（+1.06%）、TH18 中位 `0.348549 s`；TH36 失败关闭。
+- 判断：L32 与 L24 一致，TH18 最优；TH16 在抖动内。
+
+### S3 — 求解产物协议（src/dest）
+- 驱动已改为每次 solve 保存 `dest`：`--output "${OUTPUT_OVERRIDE:-$W/solution_${DTYPE}.h5}"`，并在 `meta.txt` 写 `SRC=`/`DEST=`。
+- `src` 来自文件时跳过重复保存；本次为 `source_*_ones*.h5`。
+- 证据：`l32_th16/solution_c64.h5`（201,333,216 B）已生成；`l32_th16/meta.txt` 含 SRC/DEST。
+
+### S4 — 两节点 hostfile 回退
+- `mpirun` 跨节点启动失败：`nsls_yangyb@cn12039: Permission denied (publickey)`；加 `plm_rsh_args` 也无法免密。
+- 判断：**blocked**，需集群侧配置计算节点间免密 SSH 或调度器原生 launcher；单节点 shm 路径不受影响。
+
+## 验证与证据
+- 测试/检查: `report.json` 墙钟/迭代/残差；`meta.txt` 的 SRC/DEST；解文件 `stat`。
+- 结果: 见 S1–S3；所有 solve 均 PASS（11/12 it、真残差 ~6.8e-05）。
+- 未验证项: 零拷贝配对 ≥5 组；两节点回退；Torch 独立校验（子代理运行中）。
+
+## 变更与产物
+- 文件: `docs/kupl_mpi_scaling_20261114.md`、`skills/pyqcu-kupl/SKILL.md`、`skills/pyqcu-kupl/references/kupl-vs-cuda-algorithms.md`；远端驱动 `x_case_l24_v7.sh`。
+- 产物: `data/kupl_opt_20261113/remote/{zc1_l24_2,zc1_l24_3,l32_th9,l32_th16}/`；`l32_th16/solution_c64.h5`。
+
+## 风险、限制与下一步
+- 风险: 单样本 TH 点；零拷贝结论受节点噪声影响；跨节点 ssh 未配置。
+- 阻塞: 两节点回退。
+- 下一步: ①zc0/zc1 交替配对 ≥5 组；②Torch 独立残差校验返回后写入 docs；③请求集群配置跨节点免密 SSH。
+
+## Agent 全文报告
+--- report begin ---
+零拷贝 3 样本中位：zc0 `0.173362 s`、zc1 `0.172885 s`，仅差 0.28%，不构成稳定收益，默认保持关闭；单次 profiled 配对的 -4.47% 不外推。
+L32 TH 扫描：TH9 `0.460573 s`、TH16 `0.352243 s`、TH18 中位 `0.348549 s`，TH18 最优（TH16 在抖动内）。
+求解产物协议已落地：每次 solve 保存 `dest` 并在 `meta.txt` 记录 `SRC`/`DEST`；`src` 来自文件时跳过重复保存。`l32_th16/solution_c64.h5` 已生成（201,333,216 B）。
+两节点 hostfile 回退被跨节点免密 SSH 阻塞（`Permission denied (publickey)`），单节点不受影响。
+--- report end ---

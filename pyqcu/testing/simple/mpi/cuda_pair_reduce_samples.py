@@ -674,12 +674,27 @@ def load_group_reports(root: str | os.PathLike[str]) -> list[dict[str, Any]]:
     return sorted(reports, key=lambda report: int(report.get("slot", -1)))
 
 
+def _resolve_grid(args: argparse.Namespace, size: int) -> None:
+    """Derive the balanced even-local grid when ``--grid`` was not given."""
+    if args.grid is not None:
+        return
+    from pyqcu.testing.simple._common import choose_balanced_grid
+
+    selected = choose_balanced_grid(args.lat, size)
+    if selected is None:
+        raise ValueError(
+            f"--lat {tuple(args.lat)} cannot be split over {size} ranks with "
+            "even local extents; pass --grid explicitly")
+    args.grid = list(selected)
+
+
 def _run_group(args: argparse.Namespace) -> int:
     from mpi4py import MPI
 
     comm = MPI.COMM_WORLD
     rank = int(comm.Get_rank())
     size = int(comm.Get_size())
+    _resolve_grid(args, size)
     if size != int(np.prod(args.grid)):
         raise ValueError(
             f"grid {tuple(args.grid)} requires {int(np.prod(args.grid))} "
@@ -776,7 +791,9 @@ def _add_common_solve_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--coarse-cache")
     parser.add_argument("--coarse-cache-level", action="append", default=[])
     parser.add_argument("--lat", nargs=4, type=int, default=(8, 8, 8, 16))
-    parser.add_argument("--grid", nargs=4, type=int, default=(2, 1, 1, 1))
+    parser.add_argument("--grid", nargs=4, type=int, default=None,
+                        help="balanced even-local process grid derived from "
+                             "--lat and the MPI size when omitted")
     parser.add_argument("--mass", type=float, default=-0.277)
     parser.add_argument("--csw", type=float, default=1.160920226)
     parser.add_argument("--atol", type=float, default=1.0e-6)

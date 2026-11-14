@@ -22,14 +22,16 @@ from mpi4py import MPI
 try:
     from .kupl_bistabcg import prebind_kupl_inputs
     from ._common import (
-        DEFAULT_ATOL, DEFAULT_CSW, DEFAULT_MASS, lime_metadata,
+        DEFAULT_ATOL, DEFAULT_CSW, DEFAULT_MASS, choose_balanced_grid,
+        lime_metadata,
         kupl_fermion_to_qcu, qcu_fermion_to_kupl, qcu_gauge_to_kupl,
         qdp_gauge_to_qcu, read_h5, read_h5_metadata, read_qdp_gauge,
         resolve_path, solver_acceptance, write_json)
 except ImportError:
     from kupl_bistabcg import prebind_kupl_inputs
     from _common import (
-        DEFAULT_ATOL, DEFAULT_CSW, DEFAULT_MASS, lime_metadata,
+        DEFAULT_ATOL, DEFAULT_CSW, DEFAULT_MASS, choose_balanced_grid,
+        lime_metadata,
         kupl_fermion_to_qcu, qcu_fermion_to_kupl, qcu_gauge_to_kupl,
         qdp_gauge_to_qcu, read_h5, read_h5_metadata, read_qdp_gauge,
         resolve_path, solver_acceptance, write_json)
@@ -53,7 +55,9 @@ PLAN_CLOVER, PLAN_SOLVER = 2, 1
 
 TARGET_PARITY = 0
 DEFAULT_LATTICE = (24, 24, 24, 64)
-DEFAULT_GRID = (1, 1, 1, 1)
+# ``None`` means "derive the balanced even-local grid from --lat and MPI size";
+# a fixed tuple would silently assume a single rank.
+DEFAULT_GRID = None
 DEFAULT_SEED = 42
 
 
@@ -598,6 +602,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     comm = MPI.COMM_WORLD
     rank = int(comm.Get_rank())
     size = int(comm.Get_size())
+    if args.grid is None:
+        args.grid = choose_balanced_grid(args.lat, size)
+        if args.grid is None:
+            parser.error(
+                f"--lat {tuple(args.lat)} cannot be split over {size} ranks "
+                "with even local extents; pass --grid explicitly")
     _validate_args(parser, args, size)
 
     lattice = tuple(int(value) for value in args.lat)

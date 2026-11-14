@@ -1428,3 +1428,51 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: 删除 git ls-remote 验证，verify 降至 1.96s 且 4/4 通过
 - 验证: path, size, required sections, conflict markers
 - 批次状态: in-progress
+## S2 - stage - 2026-11-14 11:44:18 +0800
+- 主任务: KUPL 点源（全1）L24/L32 重测与 OPAL_PREFIX 修复
+- 日志文件: logs/v202611141144.txt
+- 文件大小: 4419 bytes
+- 触发原因: 阶段成果
+- 关键内容: OPAL_PREFIX 缺失导致 mpirun 选项失效；全1点源 L24 0.171331 s/11it、L32 0.348549 s/12it 均 PASS；单样本
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## S3 - stage - 2026-11-14 11:53:14 +0800
+- 主任务: KUPL P1 shm halo 零拷贝实现与 A/B
+- 日志文件: logs/v202611141153.txt
+- 文件大小: 4203 bytes
+- 触发原因: 阶段成果
+- 关键内容: 实现 KUPL_SHM_HALO_ZEROCOPY（默认关）+ halo pack/sync/copy 拆分；CTest 11/11 两组；本地 A/B 零拷贝慢 5.9%/5.6%/0.9%，保持默认关闭
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## S4 - stage - 2026-11-14 12:15:15 +0800
+- 主任务: KUPL shm halo 零拷贝鲲鹏 A/B 与分项 profile
+- 日志文件: logs/v202611141215.txt
+- 文件大小: 3122 bytes
+- 触发原因: 阶段成果
+- 关键内容: 鲲鹏 zc=0 0.180983 s vs zc=1 0.172885 s（-4.47%），11 it、真残差逐位一致；分项 pack 40.6ms/copy 6.6ms；默认仍关闭待重复
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## S5 - stage - 2026-11-14 12:41:19 +0800
+- 主任务: KUPL 点源 3 样本中位、TH 扫描与 LIME 校验
+- 日志文件: logs/v202611141241.txt
+- 文件大小: 3330 bytes
+- 触发原因: 阶段成果
+- 关键内容: L24 中位 0.173362 s/L32 0.348549 s（各3样本，PASS）；TH9/16/18=0.215964/0.182221/0.173362 s；LIME 19,327,493,568 B 校验通过
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## S6 - stage - 2026-11-14 13:29:21 +0800
+- 主任务: KUPL 零拷贝3样本、L32 TH、src/dest 协议与两节点阻塞
+- 日志文件: logs/v202611141329.txt
+- 文件大小: 3301 bytes
+- 触发原因: 阶段成果
+- 关键内容: zc0/zc1 中位 0.173362/0.172885（差0.28%，默认关）；L32 TH9/16/18=0.460573/0.352243/0.348549；dest 已保存；两节点 ssh 阻塞
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## S7 - stage - 2026-11-14 15:51:01 +0800
+- 主任务: KUPL L24 MG cache 与参数扫描
+- 日志文件: logs/v202611141551.txt
+- 文件大小: 6603 bytes
+- 触发原因: 阶段成果
+- 关键内容: L24 cache 493.638s/143,335,424B PASS；32r MG restart1 0.135579s（比 BiCGStab 中位 0.173362s 快21.8%）；restart 1/3/6 差0.5% 单样本；L32 仍阻塞；第二轮 running
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress

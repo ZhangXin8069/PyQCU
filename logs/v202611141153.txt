@@ -1,0 +1,56 @@
+[日志元数据]
+日志类型: stage
+生成时间: 2026-11-14 11:53:14 +0800
+批次: S3
+主任务: KUPL P1 shm halo 零拷贝实现与 A/B
+触发原因: 阶段成果
+摘要: 实现 KUPL_SHM_HALO_ZEROCOPY（默认关）+ halo pack/sync/copy 拆分；CTest 11/11 两组；本地 A/B 零拷贝慢 5.9%/5.6%/0.9%，保持默认关闭
+Git 根目录: /home/zhangxin/PyQCU
+
+## 关键日志
+
+### S1 — P1 实现：shm halo 零拷贝（opt-in）
+- 目标: 按 `refer/kunpeng` 调研结论，验证“直接打包进 shm 槽”能否省掉一次 memcpy。
+- 改动:
+  - `cpp/kupl/qcu/include/kupl/lattice_set.h`：`pack_fermion_face` 增加显式 `plus_face` 参数；新增 `prof_opt_halo_{pack,sync,copy}_seconds_`。
+  - `cpp/kupl/qcu/src/lattice_wilson_dslash.cpp`：新增 `KUPL_SHM_HALO_ZEROCOPY`（默认关）；shm 分支 consume 握手前移并直接打包进 `shm_data`；dedup 时从 minus 槽 memcpy 到 plus 槽；MPI 路径保持原样；`wait_fermion_halo` 与 `post_fermion_halo` 加 pack/sync/copy 计时。
+  - `cpp/kupl/qcu/src/lattice_solver.cpp`：`KUPL_PROFILE_OPT` 输出新增 `halo_pack=`/`halo_sync=`/`halo_copy=`。
+- 证据: 本地 `mpicxx -std=c++17 -O2 -fopenmp -c` 两文件均通过；`cmake -S cpp/kupl/qcu -B build-zerocopy -DKUPL_ENABLE_NATIVE=OFF` 构建成功。
+
+### S2 — 正确性回归
+- 命令: `ctest --test-dir build-zerocopy -R "kupl_qcu_(1rank|2rank|t2|shm|4rank)"`，分别默认与 `KUPL_SHM_HALO_ZEROCOPY=1`。
+- 结果: 两组均 **11/11 PASS**（含 2/4 rank、t2、shm、dedup、diagonal），耗时约 22 s/组。
+
+### S3 — 本地 A/B（负结果）
+- 命令: `mpirun -np 4 --oversubscribe --bind-to none ./build-zerocopy/kupl_qcu_bench --lattice 24 24 24 16 --grid 1 1 1 4 --iterations 20`，`KUPL_SHM_HALO_ZEROCOPY=0/1`。
+- 结果（c64，8 线程/rank）:
+  - wilson `3.2608 → 3.4520 s`（+5.9%）
+  - clover `3.7494 → 3.9603 s`（+5.6%）
+  - clover_schur `7.4659 → 7.5320 s`（+0.9%）
+- 判断: 零拷贝省掉一次 memcpy，但把打包从“等待期间”挪到“等待之后”，暴露了打包时间，净亏约 6%。**保持默认关闭**。
+
+## 验证与证据
+- 测试/检查: 本地编译、cmake 构建、11 项 CTest × 2 组、4 rank bench A/B。
+- 结果: 编译/构建成功；CTest 11/11 两组；A/B 见 S3。
+- 未验证项: 鲲鹏上的 A/B（本地为 x86，带宽/缓存不同）；新 `halo_pack/sync/copy` 三项尚未在鲲鹏采集。
+
+## 变更与产物
+- 文件: `lattice_set.h`、`lattice_wilson_dslash.cpp`、`lattice_solver.cpp`；`skills/pyqcu-kupl/references/kupl-vs-cuda-algorithms.md` §3.3/§3.3.1。
+- 产物: 本地 `cpp/kupl/qcu/build-zerocopy/`（未提交构建树）。
+- 未改动范围: 默认开关、ABI、生产求解路径。
+
+## 风险、限制与下一步
+- 风险: 零拷贝的 dedup 分支依赖 minus 槽的 seq 索引；若非对称调用会触发 30 s 自旋超时（与原有协议一致）。
+- 阻塞: 无。
+- 下一步: ①在鲲鹏上用新 profile 三项确认 pack/sync/copy 量级；②若 pack 占比高，尝试“双缓冲 + 延迟打包”或“仅 dedup 面零拷贝”；③保持默认关闭直到有正收益证据。
+
+## Agent 全文报告
+--- report begin ---
+本轮完成 P1 的首版实现与验证：
+
+- 新增 `KUPL_SHM_HALO_ZEROCOPY`（默认关）：consume 握手前移，`pack_fermion_face` 直接写入本 rank 的 shm 槽；dedup 时从 minus 槽 memcpy 到 plus 槽；MPI 路径不变。`pack_fermion_face` 改为显式 `plus_face` 参数。
+- `KUPL_PROFILE_OPT` 新增 `halo_pack=`/`halo_sync=`/`halo_copy=` 三项，便于拆分原 `halo=` 段。
+- 正确性：本地 cmake 构建成功；`ctest -R "kupl_qcu_(1rank|2rank|t2|shm|4rank)"` 在默认与零拷贝下均 11/11 PASS。
+- 性能：本地 x86 4 rank `24³×16`、8 线程 A/B，零拷贝反而慢：wilson +5.9%、clover +5.6%、schur +0.9%。原因是原顺序把打包藏在 consume 等待里；零拷贝把打包暴露到关键路径，省下的 memcpy 不足以抵消。
+- 结论：保持默认关闭；下一步在鲲鹏上用新拆分的三项 profile 确认 pack/sync/copy 量级，再决定是否尝试“双缓冲 + 延迟打包”或“仅 dedup 面零拷贝”。
+--- report end ---

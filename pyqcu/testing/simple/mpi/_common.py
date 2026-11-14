@@ -14,6 +14,7 @@ from pyqcu.testing.simple._common import (
     DEFAULT_CSW,
     DEFAULT_LIME,
     DEFAULT_MASS,
+    choose_balanced_grid,
     lime_metadata,
     qcu_gauge_to_kupl,
     qdp_gauge_to_qcu,
@@ -45,33 +46,22 @@ def validate_lattice(values: Sequence[int]) -> tuple[int, int, int, int]:
 
 
 def default_grid(lattice: Sequence[int], ranks: int) -> tuple[int, int, int, int]:
-    """Choose a 4D grid with even local extents, preferring y/z/t splits."""
+    """Choose the most isotropic 4D grid with even local extents.
+
+    The ranking lives in
+    :func:`pyqcu.testing.simple._common.choose_balanced_grid`; this wrapper
+    keeps the MPI helpers' contract of raising instead of returning ``None``.
+    """
     lattice = validate_lattice(lattice)
     ranks = int(ranks)
     if ranks <= 0:
         raise ValueError(f"ranks must be positive, got {ranks}")
-    remaining = ranks
-    grid = [1, 1, 1, 1]
-    # KUPL packs x most expensively, so split y, z, t before x.
-    for axis in (1, 2, 3, 0):
-        chosen = 1
-        for factor in range(remaining, 1, -1):
-            if remaining % factor:
-                continue
-            candidate_local = lattice[axis] // (grid[axis] * factor)
-            if lattice[axis] % (grid[axis] * factor):
-                continue
-            if candidate_local <= 0 or candidate_local % 2:
-                continue
-            chosen = factor
-            break
-        grid[axis] *= chosen
-        remaining //= chosen
-    if remaining != 1:
+    selected = choose_balanced_grid(lattice, ranks)
+    if selected is None:
         raise ValueError(
             f"{ranks} ranks cannot be mapped to {lattice} with even local "
             "extents; pass --grid explicitly")
-    return tuple(grid)  # type: ignore[return-value]
+    return selected
 
 
 def resolve_grid(lattice: Sequence[int], ranks: int,

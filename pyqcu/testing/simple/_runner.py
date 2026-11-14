@@ -10,6 +10,11 @@ from pathlib import Path
 
 import numpy as np
 
+try:
+    from ._common import choose_balanced_grid
+except ImportError:  # direct script execution from this directory
+    from _common import choose_balanced_grid
+
 
 REPO = Path(__file__).resolve().parents[3]
 
@@ -197,31 +202,16 @@ def gpu_clock_warmup(seconds: float, device: str) -> None:
 def default_kupl_grid(lat, ranks: int) -> tuple[int, int, int, int] | None:
     """Choose a 4D KUPL grid with even local extents.
 
-    KUPL's CHROMA layout needs every local dimension to be even.  Fill the
-    spatial y, z, t axes first and leave x unsplit (x is the slowest-varying
-    site axis in the compressed layout, so splitting it costs the most in
-    packing).  For the reference ``24³×64`` this gives ``1×4×1×1`` for 4
-    ranks, ``1×4×2×1`` for 8, and ``1×4×4×1`` for 16; ``--kupl-grid`` still
-    overrides the choice for measurements.
+    KUPL's CHROMA layout needs every local dimension to be even and its coarse
+    blocks need ``grid_t`` to divide the compressed time axis.  The choice is
+    delegated to :func:`pyqcu.testing.simple._common.choose_balanced_grid`,
+    which returns the most isotropic valid grid and keeps x unsplit on ties.
+    For the reference ``24³×64`` that is ``2×2×2×4`` for 32 ranks and
+    ``2×2×2×8`` for 64; measurements that quote the pure time split
+    ``1 1 1 32`` must pass ``--kupl-grid`` explicitly, because a balanced
+    default is a geometric choice, not a performance one.
     """
-    if ranks == 1:
-        return (1, 1, 1, 1)
-    if any(dim % 2 for dim in lat):
-        return None
-    remaining = ranks
-    grid = [1, 1, 1, 1]
-    for axis in (1, 2, 3, 0):
-        chosen = 1
-        for factor in range(remaining, 1, -1):
-            if remaining % factor:
-                continue
-            if lat[axis] % factor or (lat[axis] // factor) % 2:
-                continue
-            chosen = factor
-            break
-        grid[axis] = chosen
-        remaining //= chosen
-    return tuple(grid) if remaining == 1 else None
+    return choose_balanced_grid(lat, ranks)
 
 
 def kupl_command(args, grid, lattice, mass: float, csw: float,

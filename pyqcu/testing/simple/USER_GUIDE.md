@@ -374,8 +374,16 @@ python pyqcu/testing/simple/solve_case.py \
   --out-dir data/production_L24
 ```
 
-`--kupl-grid` 不指定时，`default_kupl_grid()` 按 y→z→t→x 的优先级寻找偶数 local
-extent 的分解。若 rank 数无法分解，生产入口会报错；三方 benchmark 会回退到 1 rank。
+`--kupl-grid` 不指定时，`default_kupl_grid()` 调用共用纯函数
+`pyqcu.testing.simple._common.choose_balanced_grid()`：在所有满足「整除、local
+偶数、`grid_t | T/2`」的分解里取 `max(local)/min(local)` 最小者，比值相同时
+按 x→y→z→t 优先保留靠前的轴不切。`24³×64` 上 32 rank 得到 `2 2 2 4`、64 rank
+得到 `2 2 2 8`。若 rank 数无法分解，生产入口会报错；三方 benchmark 会回退到
+1 rank。
+
+该默认值只是几何均匀，不是性能选择：L24 当前的 `0.154883 s` 是显式
+`--kupl-grid 1 1 1 32`（纯时间切分，命中 t2 lane/共享 halo 快路径）的结果，
+做性能对照时必须显式给出 grid。
 
 `--kupl-lib`：
 
