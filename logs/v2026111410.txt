@@ -1,0 +1,67 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-11-14 10:00:49 +0800
+批次: wsl-dns-fix
+主任务: 修复 WSL2 mirrored+VPN 环境下 DNS 解析失效并交付家目录修复与验证脚本
+触发原因: 任务完成
+摘要: 定位 10.255.255.254 DNS 隧道失效根因，交付 /home/zhangxin/fix-wsl-dns.sh 并逐分支验证
+Git 根目录: /home/zhangxin/PyQCU
+
+## 关键日志
+### S1 — 故障复现与根因定位
+- 目标: 定位 gpush.sh 失败原因（ssh: Could not resolve hostname gitlab.itp.ac.cn）
+- 命令/操作: 读取 /mnt/c/Users/zhang/.wslconfig、/etc/resolv.conf、/etc/wsl.conf、resolvectl status；UDP 53 直探 10.255.255.254 / 10.41.120.25 / 10.1.16.1 / 223.5.5.5 / 114.114.114.114；宿主 PowerShell Resolve-DnsName；TCP 22/443 连接；SSH 公钥认证
+- 关键输出: networkingMode=mirrored、dnsTunneling=true；resolv.conf 符号链接 -> /mnt/wsl/resolv.conf，唯一 nameserver 10.255.255.254；10.255.255.254 连续 10 次探测成功率 5/10、每次 5152-6024ms；getent hosts 每次约 20025ms 后失败；10.41.120.25 返回 No route to host；223.5.5.5 / 114.114.114.114 解析 gitlab.itp.ac.cn -> 159.226.161.71（与宿主 VPN DNS 结果一致）；159.226.161.71:22 与 :443 TCP 可达；SSH 返回 Welcome to GitLab, @ZhangXin8069
+- 退出码: getent exit=2；ssh -T exit=2（远端 /bin/sh Bad substitution，认证已成功）
+- 证据与判断: 故障为纯 DNS 层：WSL DNS 隧道 10.255.255.254 高丢包/高延迟，VPN 内网 DNS 路由未镜像进 WSL；IP 层与 SSH 认证均正常
+
+### S2 — 脚本实现
+- 目标: 在家目录交付完整的修复与验证脚本
+- 命令/操作: 编写 /home/zhangxin/fix-wsl-dns.sh，子命令 status / apply / verify / rollback / all；环境变量 DNS1、DNS2、GITLAB_HOST、GITLAB_IP、REPO、BACKUP_ROOT、RESOLV、WSLCONF 可覆盖
+- 关键输出: 327 行，sha256 33dcf0e8b134dee6070cfad8e6e834bb9563a0cf36b96456c0b0b9bdd8793c01
+- 证据与判断: bash -n 语法通过；shellcheck 未安装，改以逐分支实测替代
+
+### S3 — 验证与缺陷修正
+- 命令/操作: 真实环境跑 status 与 verify；用 unshare -r 用户命名空间 + 副本路径跑 apply、rollback、三分支与幂等
+- 关键输出: status 正确识别根因与候选 DNS 可达性；verify 修复前报 2 PASS / 3 FAIL（解析 0/5）；apply 正确备份、追加 [network]、替换符号链接；rollback 后 wsl.conf 字节级恢复、resolv.conf 恢复为 /mnt/wsl/resolv.conf 符号链接；已有 generateResolvConf=true 改为 false、已有 [network] 段插入、重复 apply 保持单条
+- 证据与判断: 过程中发现并修正三处缺陷：verify 继承 GIT_SSH_COMMAND 造成假阳性（改为 env -u 并加掩盖项提示）、解析判据未识别偶发成功（改为连续 5 次 + 耗时阈值）、all 子命令未走提权路径（并入 apply|rollback|all 分支）
+
+## 验证与证据
+- 测试/检查: bash -n；status 实测；verify 修复前实测；unshare -r 下 apply / rollback / 三分支 / 幂等 / all 短路实测
+- 结果: 全部通过；未对真实 /etc 与 .wslconfig 做任何修改
+- 未验证项: 真实环境下的 apply（需交互式 sudo 密码）；Windows 侧 dnsTunneling=false 根治路径（需 wsl --shutdown，会中断当前会话）
+
+## 变更与产物
+- 文件: /home/zhangxin/fix-wsl-dns.sh（新建，可执行，327 行）
+- 产物: 无其他文件
+- 未改动范围: /etc/resolv.conf、/etc/wsl.conf、.wslconfig、~/.ssh/config 均未修改
+
+## 风险、限制与下一步
+- 风险: 静态化 resolv.conf 后 WSL 仅用公网 DNS，仅内网可见域名无法解析
+- 阻塞: apply 需交互式 sudo 密码，需用户在本机终端执行
+- 下一步: 执行 sudo bash /home/zhangxin/fix-wsl-dns.sh all，确认解析 5/5 且耗时低于 2s，再重跑 gpush.sh
+
+## 用户输入指令
+1) 当前宿主机存在必要的 VPN 设置，导致 WSL 出现 ssh: Could not resolve hostname gitlab.itp.ac.cn: Temporary failure in name resolution（gpush.sh 分支推送失败），给出修复办法。
+2) 在家目录给出完整的修复与验证脚本。
+
+## Agent 全文报告
+--- report begin ---
+已交付 /home/zhangxin/fix-wsl-dns.sh（327 行，sha256 33dcf0e8…），包含 status / apply / verify / rollback / all 五个动作。
+
+根因：.wslconfig 的 networkingMode=mirrored + dnsTunneling=true 让 WSL 只把 10.255.255.254 写入 /etc/resolv.conf，而该隧道实测成功率 5/10、每次 5-6 秒，getent 每次 20 秒后失败；VPN 内网 DNS 10.41.120.25 在 WSL 内 No route to host。IP 层与 SSH 认证正常（159.226.161.71 的 22/443 可达，Welcome to GitLab 返回成功），公网 DNS 223.5.5.5 / 114.114.114.114 对 gitlab.itp.ac.cn 的解析结果与 VPN 一致。
+
+用法：
+  bash /home/zhangxin/fix-wsl-dns.sh status     # 只读诊断
+  sudo bash /home/zhangxin/fix-wsl-dns.sh all   # 修复 + 验证（自动 sudo 重执行）
+  bash /home/zhangxin/fix-wsl-dns.sh verify     # 单独验证
+  sudo bash /home/zhangxin/fix-wsl-dns.sh rollback [备份目录]
+
+修复动作：备份到 /var/backups/wsl-dns/<时间戳>；在 /etc/wsl.conf 写入 generateResolvConf = false；断开 /etc/resolv.conf 符号链接并写入 nameserver 223.5.5.5 / 114.114.114.114 与 options timeout:2 attempts:2 rotate；重启 systemd-resolved。
+
+验证判据：连续 5 次解析必须 5/5 成功且单次最大耗时 ≤ 2000ms（偶发成功不算修复）；TCP 22/443；清理 GIT_SSH_COMMAND 后的 git ls-remote 需 ≤ 15000ms；SSH 需返回 Welcome to GitLab。
+
+实测：修复前 verify 报 2 PASS / 3 FAIL（解析 0/5，每次 8015-8018ms）；apply/rollback 及三个 wsl.conf 分支、重复 apply 幂等均在 unshare -r 用户命名空间的副本路径上跑通，未触碰真实 /etc 与 .wslconfig。
+
+限制：静态化后仅能解析公网可见域名；apply 需要交互式 sudo 密码，需在本机终端执行。
+--- report end ---

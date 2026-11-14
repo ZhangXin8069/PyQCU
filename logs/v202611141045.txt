@@ -1,0 +1,54 @@
+[日志元数据]
+日志类型: stage
+生成时间: 2026-11-14 10:45:37 +0800
+批次: wsl-dns-fix
+主任务: 移除 fix-wsl-dns.sh verify 中导致阻塞的 Git 验证段
+触发原因: 阶段成果
+摘要: 删除 git ls-remote 验证，verify 降至 1.96s 且 4/4 通过
+Git 根目录: /home/zhangxin/PyQCU
+
+## 关键日志
+### S1 — 问题现象与根因
+- 目标: 解释并消除 verify 第 3 步挂起
+- 关键输出: 用户执行 sudo bash fix-wsl-dns.sh all，apply 成功（解析 5/5，106-224ms）；verify 进入 "3. Git 远端" 后无输出，最终 Ctrl+C 与 Ctrl+Z 挂起
+- 证据与判断: 修复前 DNS 不通，git ls-remote 从未真正建立连接；修复后首次以 gitlab.itp.ac.cn 主机名连接，而该调用未设置 StrictHostKeyChecking，非交互环境下 ssh 等待主机指纹确认，导致阻塞
+
+### S2 — 修改
+- 操作: 删除 verify 中的 "3. Git 远端" 整段（含 git ls-remote 与耗时判据）；SSH 公钥认证段编号改为 3，并追加 -o ConnectionAttempts=1；usage 文本改为 "验证解析 / TCP / SSH"
+- 证据与判断: Git 传输验证不属于 DNS 修复的必要判据，且联网调用引入不可控阻塞；SSH 认证已足以证明主机名解析与密钥链路
+
+### S3 — 复测
+- 命令/操作: bash -n；bash /home/zhangxin/fix-wsl-dns.sh verify；bash /home/zhangxin/fix-wsl-dns.sh status
+- 关键输出: verify 耗时 1.96s，4 PASS / 0 FAIL，exit=0；解析 5/5，最大 208ms；TCP 22/443 PASS；SSH 返回 Welcome to GitLab, @ZhangXin8069；status 结论为解析正常 gitlab.itp.ac.cn -> 159.226.161.71
+- 退出码: verify exit=0
+
+## 验证与证据
+- 测试/检查: bash -n 语法检查；verify 与 status 真实环境实测；grep 确认无 ls-remote 残留
+- 结果: 全部通过；脚本 327 行减至 308 行
+- 未验证项: 无（本次为删除逻辑，不引入新分支）
+
+## 变更与产物
+- 文件: /home/zhangxin/fix-wsl-dns.sh（修改，308 行，sha256 516b1f676f0ad82fc208a856b1d1057eedbab01230e4b7129446a96016cc4b7e）
+- 产物: 无其他
+- 未改动范围: /etc/wsl.conf、/etc/resolv.conf 保持用户已应用的修复结果
+
+## 风险、限制与下一步
+- 风险: verify 不再检查 Git 端到端，推送成败需由 gpush.sh 自行反映
+- 阻塞: 用户终端存在 Ctrl+Z 挂起的 sudo 进程（job 1），需 kill %1 清理
+- 下一步: 直接运行 bash /home/zhangxin/configure/bin/gpush.sh 完成待推分支
+
+## Agent 全文报告
+--- report begin ---
+已按要求删除 verify 中的 Git 验证段，脚本从 327 行减到 308 行（sha256 516b1f67…）。
+
+挂起根因：DNS 修复后 git ls-remote 首次以 gitlab.itp.ac.cn 主机名连接，该调用没有设置 StrictHostKeyChecking，非交互环境下 ssh 会等待主机指纹确认，因此阻塞。修复前 DNS 不通，这一步从未真正建立连接，所以问题被掩盖。
+
+改动：
+1. 删除 "3. Git 远端" 整段，verify 不再调用任何联网 git 命令
+2. SSH 公钥认证段编号改为 3，并追加 -o ConnectionAttempts=1 避免重试拖延
+3. usage 文本改为 "验证解析 / TCP / SSH"
+
+实测（修复生效状态下）：verify 1.96 秒完成，4 PASS / 0 FAIL，exit=0；解析 5/5、最大 208ms；TCP 22/443 通过；SSH 返回 Welcome to GitLab, @ZhangXin8069。
+
+注意：你终端里 Job 1 仍是 suspended 的 sudo 进程，执行 kill %1 清理即可；apply 已经成功落盘，清理进程不影响已生效的配置。
+--- report end ---

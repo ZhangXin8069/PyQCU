@@ -1,0 +1,129 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-11-14 09:58:24 +0800
+批次: S1
+主任务: kupl-qcu 接手：算法差异、扩展性巡查、节点核验与 SU(3) 经验
+触发原因: 任务完成
+摘要: 交付 3 份 docs 与技能经验；18 节点均 1.55/2.0 GHz；强扩展 32 rank 相对 4 rank 2.63x；SU(3) 重构慢 1.56-2.05x
+Git 根目录: /home/zhangxin/PyQCU
+
+## 关键日志
+
+### S1 — 接手基线与远端环境
+- 目标: 按 dev142 状态接手 kupl-qcu，确认远端新登录方式与运行树。
+- 命令/操作: `git tag`/`git log`；`ssh 10.44.9.4 -l nsls_yangyb`；核对 `~/PyQCU` 与 `build-native-lto`。
+- 关键输出: HEAD `bb285d8a`（用户提交，含本轮 7 个文件）；远端 `~/PyQCU -> PyQCU-main`；`libqcu.so -> build/libqcu.so`。
+- 证据与判断: 登录可用；HMPI 需 `source /work_ssd/software/HPCKit/25.2.1/setvars.sh`；conda python 在 `/work_ssd/software/soft/tool/anaconda3/2023.3/bin/python3`。
+
+### S2 — 算法差异文档
+- 目标: 完整描述 KUPL 与 CUDA 的算法差异并落到文档与技能。
+- 命令/操作: 两个探索子代理逐文件盘点 `cpp/kupl/qcu/src` 与 `cpp/cuda/qcu/src`；本人抽查关键实现。
+- 关键输出: `docs/kupl_vs_cuda_algorithms_20261114.md`（12 节）；`skills/pyqcu-kupl/references/kupl-vs-cuda-algorithms.md`；SKILL.md 新增“硬件取向与 CUDA 差异”。
+- 证据与判断: 数学等价、工程分解不同；差异由“高带宽/低算力/高同步延迟”驱动。
+
+### S3 — 18 节点核验
+- 目标: 快速记录各计算节点参数，区分 1.55/2.0 GHz。
+- 命令/操作: 逐节点 1 task、1 CPU、1 GB、`-T 600` 的 `node_survey.sh`。
+- 关键输出: 18/18 节点 592 CPU、16 CPU NUMA + 16 内存 NUMA、565 GiB、当前 1.55 GHz、上限 2.0 GHz、governor `userspace`、BogoMIPS 200。
+- 证据与判断: 未发现 2.0 GHz 运行态节点；1.55/2.0 是策略状态而非型号差异。
+
+### S4 — 扩展性巡查（算子级）
+- 目标: 量化多 rank/多线程断崖。
+- 命令/操作: `kupl_qcu_bench`，全局 L24 固定，c64 Wilson，50 it；ranks 4/8/16/32；线程 1/4/9/18/36。
+- 关键输出: 0.626/0.445/0.283/0.239 s；32 相对 4 为 2.63×；16→32 边际 1.19×；TH=1/4/9/18 为 1.5435/0.4994/0.3119/0.2386 s；TH=36 报 `KUPL_OMP_THREADS exceeds the NUMA-local CPU set`。
+- 证据与判断: 断崖=带宽 roofline + 路径门限 + 固定同步；TH=36 是失败关闭，不是静默超订阅。
+
+### S5 — SU(3) 重构（计算换带宽）
+- 目标: 测试 6 分量+叉积是否优于 9 分量读取。
+- 命令/操作: `~/sh/su3_probe.c`，1M site×8 dir、c64、单线程同条件。
+- 关键输出: 9 分量+matvec 0.1935 s（3.12 GB/s）；6+叉积 0.3013 s（1.34 GB/s）；只读 0.0847 对 0.1740 s。
+- 证据与判断: 慢 1.56×/2.05×；鲲鹏上算力代价压过带宽收益，9 分量布局是有意选择。
+
+### S6 — L24/L32 最佳配置（子代理汇总）
+- 目标: 给出两尺寸当前最佳配置与耗时。
+- 关键输出: L24 中位 0.154883 s（n=8），32r×18t、grid 1 1 1 32、shm halo、BiCGStab；L32 无当前最佳，唯一实测为 2026-10-23 首测（MG 36.2029/36.8231 s，BiCG 17.7376 s）。
+- 证据与判断: L32 记录缺 grid/threads/restart/样本，且早于 2026-11 全部优化；不得外推。
+
+### S7 — 归档与索引
+- 命令/操作: `docs/AGENTS.md`、`skills/pyqcu-docs/references/project-docs-map.md` 更新；`git diff --check`。
+- 关键输出: 文档数 45→48；三份新文档与技能引用已入索引；diff 检查通过。
+- 证据与判断: 7 个文件已被 `bb285d8a` 提交；之后的 3 个修改未提交、未推送。
+
+## 验证与证据
+- 测试/检查: 18 节点逐节点采样；`kupl_qcu_bench` 强扩展与线程扫描；`su3_probe` 微基准；`git diff --check`。
+- 结果: 全部命令 `RC=0`（除 TH=36 的预期失败关闭）；关键数字见 S3–S6。
+- 未验证项: Python solve 在 576-CPU 作业上未产出；跨节点 shm→MPI 回退仍无运行时证据；L32 当前配置无实测；SU(3) 重构未做内核级 A/B；节点运行中频率未采样。
+
+## 变更与产物
+- 文件: `docs/kupl_vs_cuda_algorithms_20261114.md`、`docs/kupl_mpi_scaling_20261114.md`、`docs/kupl_kunpeng_node_survey_20261114.md`、`skills/pyqcu-kupl/SKILL.md`、`skills/pyqcu-kupl/references/kupl-vs-cuda-algorithms.md`、`docs/AGENTS.md`、`skills/pyqcu-docs/references/project-docs-map.md`。
+- 产物: 远端 `data/kupl_scaling_20261114/bench_strong.log`、`su3_probe*.log`、`data/node_survey_20261114/*.txt`。
+- 未改动范围: 生产求解代码、默认开关、ABI、测试套件。
+
+## 风险、限制与下一步
+- 风险: 文档内仍有三处 L24 旧“最优”表述（0.186230/0.188526/0.4346），可能被误引；SSH host key 变化需管理员核实。
+- 阻塞: Python solve 流水线与跨节点 hostfile；L32 当前配置无实测。
+- 下一步: ①用 §5.3 历史配方重跑 solve 基线；②补 hostfile 做两节点回退；③若做 SU(3) 重构，先在 lane 内核做 kernel 级 A/B；④清理旧值冲突。
+
+## 用户输入指令
+1. “参考近期的docs和logs和skills和tags,继续接手kupl-qcu相关工作,远程环境改为使用[ssh 10.44.9.4 -l nsls_yangyb,LINGSHENG_PASSWORD]登入”
+2. “并完整描述kupl-qcu与cuda-qcu算法上的区别,同时输出到日志”
+3. “并完整描述kupl-qcu与cuda-qcu算法上的区别,同时输出到文档目录”
+4. “同时巡查kupl-qcu的mp线程扩展性(存在较多mp线程时性能断崖)”
+5. “注意:所有密码与密钥不能暴露到公网”
+6. “注意kupl-qcu由于当前kunpeng环境较高带宽和较低算力的特性,一些实现会与cuda-qcu不同,经验实时写入skills,比如测试guage的su3特性(本质是计算换带宽)的使用与否对性能的影响”
+7. “注意:将kunpeng的计算节点进行快速核查[提交核验脚本,将各个不同的计算节点相关参数记录...至少能够排查出1.55GHz低效节点与2.0GHz正常节点...结果保存到文档目录]”
+8. “不要被阻塞”
+9. “简报进度”
+10. “同时派发子代理汇报当前求解kupl-qcu求解L24与L32的分别最佳配置下的耗时”
+11. “同时派发子代理在远程~/data下载{...LIME URL...}”（令牌已脱敏）
+
+## Agent 全文报告
+--- report begin ---
+**接手基线与远端**
+- 基线：dev142，KUPL L24 最优中位 0.154883 s（n=8），单节点共享 halo 默认，CTest 42/42；跨节点回退仅代码审查。
+- 远端 `ssh 10.44.9.4 -l nsls_yangyb` 可用（落到 login03）；凭据只经环境变量传入，未落盘、未回显。
+- 安全提示：`10.44.9.4` 的 ED25519 host key 与本地 known_hosts 旧记录不一致（新指纹 `SHA256:uz4s0MHoKxwByo7kK+KaY6VXwIG7WqYEphR7AgqiG7I`）。我使用独立临时 known_hosts，未修改 `~/.ssh`；建议向集群管理员核实。
+- 远端：`~/PyQCU -> PyQCU-main`；HMPI 需 `source /work_ssd/software/HPCKit/25.2.1/setvars.sh`；conda python 在 `/work_ssd/software/soft/tool/anaconda3/2023.3/bin/python3`。
+
+**算法差异（docs/kupl_vs_cuda_algorithms_20261114.md）**
+- 12 节覆盖布局、gamma、dslash、halo、Clover、求解器、Legacy/Strict MG、Laplacian/Gauss、精度、硬件取向。
+- CPU：component-major、site-lane（16/8 site）、gamma 预投影 18 MAC、9 分量 gauge、shm halo、双容差+真残差、冷启动置零。
+- GPU：thread-per-site、手写 gamma、6 分量+叉积、5 流、每 2 迭代递推残差、冷启动随机、全套 Krylov 菜单。
+- 结论：数学等价，工程分解不同；根源是“高带宽/低单核算力/高同步延迟”。
+
+**节点核验（docs/kupl_kunpeng_node_survey_20261114.md）**
+- 18 节点：592 CPU、16 CPU NUMA（每 38 CPU）+16 内存 NUMA、565 GiB、BogoMIPS 200、内核 5.10.0-285.6、governor userspace。
+- 18/18 当前 1.55 GHz、上限 2.0 GHz；未采样到 2.0 GHz 运行态。方法为每节点 1 CPU/1 GB/≤600 s。
+
+**扩展性巡查（docs/kupl_mpi_scaling_20261114.md）**
+- 强扩展（全局 L24 固定，c64，50 it，NP×18t）：4/8/16/32 = 0.626/0.445/0.283/0.239 s；32 相对 4 仅 2.63×（线程 8×）；16→32 边际 1.19×；每线程 1.13→0.37 Gflop/s。
+- 线程扫描（NP=32）：TH=1/4/9/18 = 1.5435/0.4994/0.3119/0.2386 s；18× 线程 6.47×；TH=36 失败关闭。
+- 三机制：带宽 roofline（dslash 已近 600 GB/s 量级）、路径门限（block 65536、t2 需 local[3]=2、>32 rank 需切空间维）、固定同步（每迭代 2 次 Allreduce，0.45 ms×51）。
+- 生产路径 vs 基准默认：NP=32 dslash 1.30 ms vs 4.77 ms（3.68×），不能把基准曲线当生产曲线。
+
+**SU(3) 重构（计算换带宽，已写入 skills §3.2）**
+- 微基准：9 分量+matvec 0.1935 s（3.12 GB/s） vs 6+叉积 0.3013 s（1.34 GB/s）→ 慢 1.56×；只读 0.0847 vs 0.1740 s → 慢 2.05×。
+- 结论：鲲鹏上叉积代价 > 带宽收益，9 分量是有意选择；不要直接移植 CUDA 的 6 分量方案。
+
+**L24/L32 最佳配置（子代理汇总）**
+- L24：0.154883 s（n=8，范围 0.150240–0.157304），32r×18t、grid 1 1 1 32、shm halo、ACTIVE、t2/PACK6/DEDUP/T_LOCAL/BOUNDARY 全开、levels=1/restart=0（BiCGStab，非 MG）、12 it、真残差 5.384866e-05、cn19699。引用需带限定。
+- L32：无当前最佳。唯一实测为 2026-10-23 首测：Legacy-MG 1/2 rank 36.2029/36.8231 s、BiCGStab 2 rank 19 it/17.7376 s，真残差 ~3.42e-7 PASS；缺 grid/threads/restart/样本/内存记录，且早于全部优化；2026-11-06 鲲鹏复跑均超 10 min 门禁 BLOCKED。
+- 易误引：A100 L32 0.214–0.219 s 是 CUDA；8.3e-8 是数值等价。文档内旧值 0.186230/0.188526/0.4346 待清理。
+
+**下载任务**
+- 已派发子代理下载 LIME 到远端 `~/data`；截止报告时仍在运行，未见最终报告；令牌仅经 stdin 传递，未落盘。
+
+**变更与 Git**
+- 7 个文件已被 `bb285d8a`（09:33）提交；之后我修改的 3 个文件（两份 docs + 技能参考）未提交、未推送。
+- `git diff --check` 通过。
+
+**验证与未验证**
+- 已验证：18 节点参数；算子强扩展与线程扫描；TH=36 失败关闭；SU(3) 微基准；L24/L32 证据链。
+- 未验证：Python solve 流水线；跨节点回退；L32 当前配置；SU(3) 内核级 A/B；运行中频率。
+
+**下一步**
+1. 用 §5.3 历史配方重跑 solve 基线，再补 TH 扫描。
+2. 补 hostfile 做两节点回退。
+3. SU(3) 重构先做 lane 内核 A/B。
+4. 清理 L24 旧值冲突与索引。
+--- report end ---

@@ -1404,3 +1404,27 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: 两节点回退作业因 mpirun 缺 hostfile 失败（RC=255），回退仅代码审查；技能 L24 表更新为 0.154883 s
 - 验证: path, size, required sections, conflict markers
 - 批次状态: in-progress
+## S1 - final - 2026-11-14 09:58:24 +0800
+- 主任务: kupl-qcu 接手：算法差异、扩展性巡查、节点核验与 SU(3) 经验
+- 日志文件: logs/v2026111409.txt
+- 文件大小: 10575 bytes
+- 触发原因: 任务完成
+- 关键内容: 交付 3 份 docs 与技能经验；18 节点均 1.55/2.0 GHz；强扩展 32 rank 相对 4 rank 2.63x；SU(3) 重构慢 1.56-2.05x
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+## wsl-dns-fix - final - 2026-11-14 10:00:49 +0800
+- 主任务: 修复 WSL2 mirrored+VPN 环境下 DNS 解析失效并交付家目录修复与验证脚本
+- 日志文件: logs/v2026111410.txt
+- 文件大小: 5932 bytes
+- 触发原因: 任务完成
+- 关键内容: 定位 10.255.255.254 DNS 隧道失效根因，交付 /home/zhangxin/fix-wsl-dns.sh 并逐分支验证
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+## wsl-dns-fix - stage - 2026-11-14 10:45:37 +0800
+- 主任务: 移除 fix-wsl-dns.sh verify 中导致阻塞的 Git 验证段
+- 日志文件: logs/v202611141045.txt
+- 文件大小: 3462 bytes
+- 触发原因: 阶段成果
+- 关键内容: 删除 git ls-remote 验证，verify 降至 1.96s 且 4/4 通过
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
