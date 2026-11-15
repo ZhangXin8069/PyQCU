@@ -1,0 +1,322 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-11-15 16:34 +0800
+批次: kunpeng-all-20261115
+主任务: KUPL-QCU 鲲鹏全矩阵实测（pyqcu/testing/kupl/test_kunpeng_all.py + submit_kunpeng_all.sh）运行记录与经验
+触发原因: 任务收口（含阻塞项与 1 个在飞作业）
+摘要: 42 行台账（37 solve = 31 PASS + 6 FAIL，5 prepare = 2 PASS + 2 REUSE + 1 SKIP）；L24 c64 t-finest 0.2405 s / balanced 0.3497 s / c128 0.4756 s；L32 solve 0 PASS（4/4 FAIL，全是 source 坏 HDF5）；6 FAIL = 5 个 source 损坏 + 1 个 shared-halo 握手超时；loop 原型在计算节点上摊销成立但未进脚本
+Git 根目录: /home/zhangxin/PyQCU
+日志文件: logs/v20261115-2.txt（logs/v20261115.txt 已被另一任务的输入记录占用，按 logs/AGENTS.md / pyqcu-form 的“同名冲突追加 -2”规则新建本文件；旧文件保持原样）
+快照边界: data/kunpeng_all_20261115 最新写入 2026-11-15 16:06（kupl_kunpeng_all.csv），rows/ 42 个、reports/ 31 个；此后无新解析
+
+## 0. 口径（先读，避免误读后面所有数字）
+
+- 行 = `data/kunpeng_all_20261115/rows/*.json` 一个文件；`reports/*.json` 只有 31 个（= 全部 PASS 的 solve 行）。
+- `status`（PASS/FAIL/REUSE/SKIP）是台账列；`verify_status` 是求解器内部残差门（0 = 通过）。
+  `status=PASS` 的必要条件是 `reports/<run_id>.json` 存在（**只对 solve 行**；prepare 行看 cache/manifest）；
+  无报告即 `FAIL`（`test_kunpeng_all.py` 现状，
+  见 data/kunpeng_all_20261115_audit/report.md §P3-4：rc≠0 但有报告时不会改判）。
+- **31 PASS 是 solve 行口径**：37 条 solve = 31 PASS + 6 FAIL。另有 5 条 prepare（cache）行
+  2 PASS + 2 REUSE + 1 SKIP，故 42 行里 `status=PASS` 实际是 33 条。两种数都对，别混用。
+- `wall_seconds` 只包住一次 `applyCloverMultigridQcu(...)`；`builder_seconds`（cache 载入 4.4–6.1 s）
+  与 `build_mg_cache_seconds`（一次性建 cache，L24 493.638 s）都**不含在 wall 内**。
+  MG 行与 BiCGStab 行的 wall 因此不可横比（审计 §P1-2）。
+- 残差门：`--strict-acceptance` 在驱动里硬编码（当前脚本 `test_kunpeng_all.py:1196`、`1318`；
+  审计快照 3127528d 时是 1089 行），所以 `residual_acceptance == atol`：c64 1e-6、c128 1e-9。
+  与之对照，11-14 的旧参考（rem14/rem15）是 `atol=1e-4` 但非 strict，实际门槛被
+  `max(atol, eps(float32)×2048)=2.441e-4` 抬高。**新旧批次的有效门槛差 244.1×，不可直接算回退**
+  （审计 §3、§P1-4）。
+- 单样本：本批每个单元只跑 1 次（`n=1`），没有任何 min/median 统计；`861ac912ac3c7c42` 11.44 s
+  这类离群值未被标注（审计 §4.6）。
+- 节点不共线但仍混杂（实测交叉表）：16 秩 20 行（cn19650 17 / cn19699 3）、
+  32 秩 17 行（cn19699 15 / cn19650 2）。任何“16 秩 vs 32 秩加速比”都被节点因子污染
+  （审计估 ≈1.45×，单样本）。
+- 证据标记：`[产物]` = 工作区可复核（rows/reports/CSV/file_hashes.json/logs）；
+  `[脚本]` = 代码可复核；`[会话]` = 本次会话观测或指令给定，工作区无落盘证据。
+
+## 1. 测试战役时间线
+
+### 1.1 脚本与提交入口
+
+| 对象 | 路径 | 规模/指纹 | 说明 |
+|---|---|---|---|
+| 测试驱动 | `pyqcu/testing/kupl/test_kunpeng_all.py` | 85,625 B，mtime 11-15 16:28，md5 `7a000ca97b758d45b5e0edfd3494ab8b` | `[脚本]` 全参数 CLI（`--lat/--mass/--csw/--dtype/--solver/--mg-*/--grid*/--ranks/--threads/--shm/--source/--gauge/--seed/--expand/--shard-*`），`--mode list\|prepare\|prewarm\|solve\|merge\|validate` |
+| 提交脚本 | `pyqcu/testing/kupl/submit_kunpeng_all.sh` | 6,114 B，16:27，md5 `a8415daa7289f19deec4f7254180980e` | `[脚本]` 生成 `#DSUB` 头 + `dsub -s` 提交；`--task-model mpi\|single`、`--shared`、`--walltime`（默认 900） |
+| 审计快照指纹 | 上述两个脚本 | md5 `3127528d…`（审计记录） | 审计报告覆盖的是**更早的脚本版本**；台账跨 ≥3 个脚本版本（审计 §P1-1） |
+
+- 脚本上限：`ranks*threads <= 608` 直接拒绝（`[脚本] submit_kunpeng_all.sh:94-97`、
+  `test_kunpeng_all.py:93`），所以 32×36=1152 按设计不可测。
+- 超时分层：review 300 s / hard 600 s 为默认（`[脚本] test_kunpeng_all.py:1903-1906`），
+  build 路径用 120 s 审查、180 s 硬超时（`1763-1764`、`1808-1809`）。
+
+### 1.2 作业与调度记录
+
+- 本会话调度作业号：**2132674 / 2132675 / 2132877** 等 `[会话]`。
+  产物侧**没有 job_id 列**（`kupl_kunpeng_all.csv` 94 列无该字段），`data/**` 也无法复核这三个号；
+  可复核的是 `data/kunpeng_all_20261115/jobs/` 下 **40 个作业脚本**与 `logs/*.out|*.err`（77 个 .err / 74 个 .out）。
+- 最后一笔在飞作业：`jobs/kall_l24_c128_mg32.sh`（16:05 生成）+ `logs/53c6d3a198de4f94.{out,err}`（均 0 B），
+  **快照时无 row、无 report** → 未完成，不计入任何 PASS/FAIL。
+
+### 1.3 时间线（产物 mtime）
+
+| 时间 | 事件 | 证据 |
+|---|---|---|
+| 12:57 | 小尺寸自测 `validate/`（8x8x8x16，2 rank×2 线程）落盘 | `[产物]` validate/validate.csv |
+| 12:57 | 小尺寸自测**未通过**：solve 行 `FAIL`（notes=`gauge missing`）；cache 构建行 `FAIL`（`.log` 写 `{"status":"SKIP","reason":"libomp.so: cannot open shared object file"}`） | `[产物]` validate/rows/*.json、validate/logs/cache_global_validate_small_global.log |
+| 13:09 | 首批作业脚本 `kall_l24_c64.sh`（该批 5 个脚本用 HPCKit **2026.1.RC1**，其余 35 个用 25.2.1） | `[产物]` jobs/kall_l24_c64.sh；审计 §P3-3 |
+| 13:51 | 首行落盘（`kupl_kunpeng_single1.csv` 13:51） | `[产物]` |
+| 13:58 | L24 c64 balanced 32×18 shm=0 主行 `5c6cdbe4` = 0.349715 s | `[产物]` rows/5c6cdbe48901c409.json |
+| 14:10 | `kall_l24_c64_full.err` 末尾 `KeyboardInterrupt`，此后作业都带 `--resume --skip-failed` | `[产物]/[会话]` 审计 §P3-3 |
+| 15:11:40–15:15:46 | loop 原型计算节点作业：`host=cn12090 NPROC=16 GRID 2 2 2 2`，270 s 分配用 246 s 结束 | `[产物]` data/kupl_loop_proto_20261115/node/logs/{phases.log,kloop16b.dsub.out} |
+| 16:03 | `rows/` 到 42、`cache_index.json`/`file_hashes.json` 更新；4 行 L32 已全 FAIL | `[产物]` |
+| 16:05 | `kall_l24_c128_mg32.sh` 提交，0 B 日志 → **在飞** | `[产物]` |
+| 16:04–16:06 | 跨节点 cn12237 c128 行 + `kupl_kunpeng_all.csv` 汇总落盘 | `[产物]` |
+
+> 口径提醒：任务书里的“脚本编写完成并小尺寸验证通过后进入并行分组”与产物不符——
+> `validate/` 两行都是 FAIL/SKIP（`gauge missing`、`libomp.so` 缺失），正式分组是在**小尺寸门未过**的情况下
+> 直接上计算节点跑出来的。这条必须留档：本地 fail-fast 未完成，后续批次应先把 validate 门做绿。
+
+### 1.4 结果总账（42 行）
+
+| 切面 | 计数 |
+|---|---|
+| rows 总数 | 42（solve 37 + prepare 5） |
+| solve status | PASS 31 / FAIL 6 |
+| prepare status | PASS 2（`cache-2139960e` c64、`cache-3b6e1e37` c128）/ REUSE 2 / SKIP 1（`cache-042c63a8` ranked） |
+| dtype | c64 31 / c128 6（c128 = L24 4 全 PASS + L32 2 全 FAIL） |
+| lattice | L24 33 行（c64 29 = 27 PASS + 2 FAIL，c128 4 全 PASS）；**L32 4 行 0 PASS（4 FAIL）** |
+| solver | bistabcg 25 / mg2 12 / **mg1 0** |
+| mg_restart | 0（非 MG）25 / 5 → 8 / 20 → 4；**10、50 为 0** |
+| ranks×threads | 16×18 16、16×36 3、16×9 1、32×18 15、32×9 2、32×36 0（=1152，超 608 上限，按设计不测） |
+| shm | 1 → 19 / 0 → 18 |
+| grid_mode | t-finest 28 / balanced 9 |
+| source | ones 33 / random 2 / point 1 / real1 1 |
+| gauge | real 36 / random 1 |
+| seed | 42 → 35 / 24 → 2 |
+| 节点 | cn19650 19 / cn19699 18（外挂 cn12237 跨节点 1 行，单独 CSV） |
+
+### 1.5 主结果（L24，32×18，atol=1e-6 / c128 1e-9，单样本）
+
+| run_id | dtype | solver | grid | shm | wall (s) | it | 真残差 | 状态 |
+|---|---|---|---:|---:|---:|---:|---:|---|
+| `232d6b859b93d000` | c64 | bistabcg | 1x1x1x32 t-finest | 1 | **0.240473** | 18 | 7.125e-07 | PASS |
+| `a466a8207fe379e1` | c64 | bistabcg | 1x1x1x32 t-finest | 0 | 0.247571 | 18 | 7.125e-07 | PASS |
+| `5c6cdbe48901c409` | c64 | bistabcg | 2x2x2x4 balanced | 0 | **0.349715** | 18 | 7.122e-07 | PASS |
+| `72e04aa67eb8241c` | c64 | bistabcg | 2x2x2x4 balanced | 1 | 0.313275 | 18 | 7.122e-07 | PASS |
+| `d2ce9be32b406b0f` | c128 | bistabcg | 1x1x1x32 t-finest | 1 | **0.475555** | — | 5.326e-11 | PASS |
+| `f19ba1fef0ccff32` | c128 | bistabcg | 1x1x1x32 t-finest | 0 | 0.567444 | — | 5.326e-11 | PASS |
+| `4d187eadc00a7feb` | c64 | mg2 | 1x1x1x32 t-finest | 0 | 0.252589 | N/A | 6.633e-07 | PASS（builder 4.400 s 另计） |
+| `cb136a9593aa2021` | c64 | mg2 | 2x2x2x4 balanced | 0 | 0.300639 | N/A | 6.629e-07 | PASS（restart 20） |
+
+- 口径：`0.2405 vs 0.3497` **不是纯 grid 效应**——两行 shm 不同（1 vs 0）。同 shm 的 2×2 受控矩阵
+  （审计 §3.2，4 格都在 cn19699、同 18 it）：t-finest 0.247571/0.240473、balanced 0.349715/0.313275，
+  grid 比 1.4126×（shm=0）/ 1.3027×（shm=1）。
+- 0.3497 s 与 11-14 的 0.171–0.173 s **不可直接比**：atol（1e-6 vs 1e-4，有效门槛 244.1×）、
+  迭代（18 vs 11）、grid、shm、代码树四项同时不同（审计 §3.1/§3.3 给出闭合到 4e-16 的乘性分解）。
+- 跨节点对照 `[产物]`：cn12237 L24 c128 balanced 32×18 shm=0 = 0.510834 s，真残差 5.3257e-11，PASS
+  （`crossnode_cn12237/`，单行、独立 CSV）。
+
+## 2. 启动与 loop 原型测量
+
+### 2.1 计算节点 cn12090（A/B/C/D 分段）
+
+`[产物]` `data/kupl_loop_proto_20261115/node/timings.txt`、`node/logs/{phases.log,kloop16b.dsub.out}`：
+
+| 阶段 | 内容 | wall | 剩余预算 |
+|---|---|---:|---:|
+| A `A_mpi_boot` | 仅 MPI 启动（16 rank 各报 `ready_seconds` 32.2–33.5） | **38.993 s** | 230 s |
+| B `B_import_only` | 仅 Python 侧 import | **91.716 s** | 139 s |
+| C `C_loop_3cases` | 同进程内 3 个 case | **113.939 s** | 24 s |
+| D | **跳过**：只剩 24 s | — | — |
+
+- 记账：A+B = **130.709 s** 是单次启动成本；C 含 3 例只要 113.939 s。
+  若逐例起进程，3 例启动成本 ≈ 3×130.709 = 392.1 s，loop 只付一次 → 本批可摊销量级 ≈ **261.4 s**。
+- **口径不一致必须标注**：`phases.log` 写的是 `NPROC=16`，而任务书/会话把它记作 “32r A 38.993”。
+  落盘证据只支持 16 rank；32 rank 的 A/B/C/D 无独立产物。
+
+### 2.2 登录节点 login06（mpi_size 2、OMP 18）
+
+`[产物]` `data/kupl_loop_proto_20261115/login06/{timings.txt,timings_warm.txt,timings_syserr.txt}` 与同名 JSON：
+
+| 组 | 进程数 | wall（外层） | process_seconds | session_seconds | 备注 |
+|---|---|---:|---:|---:|---|
+| `baseline_b3` | 单进程 1 例 | 22.024 s | — | — | 单例含 boot+wall 5.4–6.1 s+residual 7.6–11.1 s |
+| `baseline_b4` | 单进程 1 例 | 28.015 s | — | — | 同上 |
+| `loop_fault` | 单进程 3 例（中途注入故障） | **66.888 s** | 66.176 | 64.028 | 故障后仍 rc=0 |
+| `loop_same3` | 单进程 3 例 | **74.772 s** | 74.221 | 72.920 | 3 例全 PASS，每例 wall 4.47/4.82/4.61 s，builder 2.27–2.54 s，gauge_read 0.51–0.66 s，residual 10.5/21.9/11.4 s |
+| `loop_syserr` | 单进程 3 例（系统错误注入） | 67.802 s | 66.021 | 64.476 | — |
+| `loop_mixed` | 单进程混合 | — | 176.120 | 142.092 | `import_total` 34.014 s，其中 numpy 32.876 s（离群） |
+
+- 结论（按落盘样本复算）：**摊销在计算节点成立、在登录节点不可见**。
+  计算节点 import 91.7 s + MPI boot 39.0 s 占绝对主导，loop 只付一次 → 摊销量级 261 s/3 例；
+  登录节点 import 只有 1.0–1.3 s，单例主导项是 residual 校验 7.6–21.9 s 与 builder 2.3–2.5 s，
+  这些每例都要付，所以 24.9 s/例（74.772/3）与单例 22.0–28.0 s/例 的差异在噪声内。
+- **未进脚本**：`grep -c loop pyqcu/testing/kupl/test_kunpeng_all.py` = **0** `[脚本]`；
+  loop 只存在于原型 `data/kupl_loop_proto_20261115/loop_proto.py`（7,816 B）与 `run_login06.sh`/`run_node.sh`。
+
+## 3. 失败与修复证据（6 个 FAIL 全部定位到文件/行）
+
+### 3.1 `bad object header version number` 是 **source**，不是 gauge
+
+`[产物]` 5 个 `.err` 的 traceback（`logs/{327f9aa5,23daf98e,35548a2b,c9bfd6bf,c3bd73d2}.err`）：
+
+```
+File ".../pyqcu/testing/simple/kupl_multigrid.py", line 1366, in main
+    source_local = _read_local_slab(
+File ".../pyqcu/testing/simple/kupl_multigrid.py", line 1210, in _read_local_slab
+    with h5py.File(path, "r", **open_kwargs) as handle:
+OSError: Unable to open file (bad object header version number)
+```
+
+- 行号语义（`[脚本]` `pyqcu/testing/simple/kupl_multigrid.py`）：1366 行是 **source** 读取调用；
+  gauge 读取在它之前（同一 `main` 内 `gauge_local = _read_local_slab(args.gauge, …)` 先执行，之后
+  `gauge_read_seconds` 才计时）。traceback 停在 1366 而**没有**停在 gauge 那行，等于反证 gauge 已成功打开。
+- 文件内部哪个结构损坏未定位：`h5py` 报的是 object header 版本号，不是 truncation 提示；根因研判为
+  **写中断 / 非原子写**（生成进程被 kill 或写到一半），**具体触发者（哪个生成步骤、哪个作业）仍未确认**。
+- 6 个 FAIL 的分布：5 个 source 损坏（4 个 L32 + 1 个 L24 point）+ 1 个 shared-halo 超时（见 §3.4）。
+
+### 3.2 输入文件账本（尺寸 + mtime，全部来自 `file_hashes.json` 的 `path:size:mtime_ns` 键）
+
+| 文件 | 大小 (B) | mtime | 判定 |
+|---|---:|---|---|
+| `data/production_L32_v1/source_32x32x32x64_c64_ones.h5` | **201,375,008** | **2026-11-14 11:20:03** | **坏**（4 个 L32 FAIL 都用它） |
+| `.../source_32x32x32x64_c64_ones_v2.h5` | 会话记录未落 hash | **11:20:29**（比坏文件晚 26 s） | **好**（可开；`[会话]`，工作区无该文件） |
+| `data/production_L32_v1/gauge_32x32x32x64_c64.h5` | **1,207,965,696（1.2 GB）** | 2026-11-06 09:41:52 | **好**：c128 行读同一个 c64 gauge 未报错 |
+| `data/production_L32_c64/`（c64 gauge） | ~604 MB | 会话观测 | `[会话]` 可开；gauge 大小不是失败原因 |
+| `data/production_L24/source_24x24x24x64_c64_point.h5` | **84,959,592** | **11:07:12** | **坏**（`c3bd73d2` FAIL） |
+| `data/production_L24/source_24x24x24x64_c64_ones.h5` | 84,959,592 | **11:10:09** | **好**（31 个 PASS solve 行用它） |
+| `data/production_L24/gauge_24x24x24x64_c64.h5` | 509,614,080 | 2026-10-30 06:53:37 | 好（全批共用，无一次失败） |
+| `data/kupl_scaling_20261114/cache_l24_parallel.h5` | 143,335,424 | 11-14 | 好（MG 行复用） |
+
+读法：L24 point 与 L24 ones **同尺寸**（84,959,592 B）、mtime 差 2 分 57 秒，坏的恰好是较早那份；
+L32 ones（201,375,008 B）与 26 s 后重写的 `_v2` 也是同尺寸。**同尺寸但坏** 说明不是截断成短文件，
+更像 header/object 被中间写入覆盖 → 与“写中断/非原子”一致，但未拿到写进程证据。
+`[会话]` 的 `604 MB`、`_v2` 文件本身未同步到本地，只有 11-14 日志 `logs/v202611141144.txt:35`
+登记过 `..._ones_v2.h5` 这个文件名。
+
+### 3.3 6 个 FAIL 全表
+
+| run_id | 配置 | rc | 失败签名 | 根因归属 |
+|---|---|---:|---|---|
+| `c3bd73d2999000f0` | L24 c64 bistabcg t-finest 16×18 shm1 src=**point** | 1 | bad object header（source） | L24 point 文件坏（§3.2） |
+| `327f9aa531167d55` | L32 c64 bistabcg t-finest 32×18 shm0 | 1 | bad object header（source） | L32 ones 坏 |
+| `23daf98e9c477bdd` | L32 c128 bistabcg t-finest 32×18 shm0 | 1 | bad object header（source） | 同上 |
+| `35548a2b06ff0989` | L32 c128 bistabcg t-finest 32×18 shm1 | 1 | bad object header（source） | 同上 |
+| `c9bfd6bfb733b052` | L32 c64 bistabcg balanced 32×18 shm0 | 1 | bad object header（source） | 同上 |
+| `b3267714a641ea60` | L24 c64 **mg2** balanced 32×18 **shm1** | 2 | `KUPL shared halo handshake timeout: publish`×10 + `MPI_ABORT … rank 30 … errorcode 2` | MG + shm 非对称（与输入文件无关） |
+
+- 口径：`b3267714a641ea60` 的 notes 只写 `ranked cache unavailable; using global cache` / `no report.json`，
+  **没写**真实原因（当前脚本本会补 `shared halo handshake timeout (MG+shm asymmetric)`，该行由旧版本写出，审计 §P1-3）。
+- L32 侧另有 2 条 prepare 行：`cache-2139960e885a0627`（c64，build 100.576 s）与
+  `cache-3b6e1e37b3af0b9c`（c128，build 130.371 s），`status=PASS` 但 notes 是
+  `global build rc=124 elapsed=602.2s / 602.1s` —— **600 s 硬超时后 cache 仍落盘并判 PASS**，
+  这是“PASS 但 rc=124”的口径裂缝，不能当成 L32 可跑（L32 solve 依旧 0 PASS）。
+
+### 3.4 节点侧“假失败”风险（必须和真失败分开记）
+
+`[产物]` 同一形状（L24 c64 bistabcg t-finest 16×18 shm1，cn19650）、不同输入的 dslash 带宽：
+
+| run_id | 输入 | wall | it | dslash GB/s·rank | 读法 |
+|---|---|---:|---:|---:|---|
+| `b2493fd05d6fc276` | ones/real/seed42 | 0.326 | 18 | **13.15** | 正常 |
+| `9cc71c5d52dbbf22` | random/real/seed24 | 0.341 | 19 | 12.76 | 正常 |
+| `4c5cd8a65e492c1e` | ones/**gauge random** | 6.359 | 7 | 0.44 | 崩塌 |
+| `e1574f172b525c02` | random/real | 10.928 | 18 | 0.44 | 崩塌 |
+| `0041182f2d8e1c50` | real1/real/seed24 | 20.860 | 18 | **0.19** | 崩塌 |
+| `861ac912ac3c7c42` | 32×9 shm1 ones | 11.438 | 18 | 0.22 | 崩塌（同配置 shm0 是 0.360 s / 6.19 GB/s） |
+
+- 同一二进制、同一节点的正常值 6–13 GB/s，异常值 0.19–0.44 GB/s（30–60× 掉带宽），wall 随之 6.4–20.9 s。
+  这是**节点/亲和性病理**，不是 grid/输入语义差异；把它当噪声会污染所有单样本结论。
+- 另有 `baf92e2b99937b2b`（cn19650）0.3598 s vs `a466a8207fe379e1`（cn19699）0.2476 s，同配置 → 节点因子 ≈1.45×（单样本，仅指示）。
+
+## 4. 调度/环境坑
+
+| # | 坑 | 事实与规避 | 证据 |
+|---|---|---|---|
+| 1 | `dsub` 不读 `#DSUB` 头 | 必须 `bash -lc "dsub -s '<job>.sh'"`（`-s/--script` 才会解析资源块，且需要 login shell 的 batch CLI/license 变量） | `[脚本]` submit_kunpeng_all.sh:167-169 |
+| 2 | `#DSUB -T` 不能写 10 | `-T` 是秒；写 10 会被拒（`[会话]`）。脚本固定默认 `WALLTIME=900`，本批全部作业用 900 | `[脚本]` submit_kunpeng_all.sh:30,140 |
+| 3 | 单任务模型 | 一个 dsub 作业 = 1 个 task 独占整节点；驱动自己在节点内起 mpirun（`#DSUB --mpi hmpi -N RANKS -rpn RANKS -R cpu=THREADS;mem=8G`）。`--task-model single` 用 `-N 1 -rpn 1 -R cpu=RANKS*THREADS;mem=400G` | `[脚本]` :121-136 |
+| 4 | `-x job` 独占 → PENDING | 默认加 `#DSUB -x job`（独占整节点）；节点上有残活就排队 PENDING，`--shared` 才是“允许半占节点” | `[脚本]` :34,53,137 |
+| 5 | HPCKit 版本混用 | 40 个作业脚本里 **5 个用 2026.1.RC1**（`kall_l24_c64.sh` 13:09、`kall_l24_c64b/c.sh`、`kall_test1/2.sh`），其余 **35 个用 25.2.1**；`kall_l24_c64.sh` 没有 `.out/.err`（`kall_l24_c64b.*` 为 0 B）→ 首行来源不可回溯 | `[产物]` jobs/*.sh；审计 §P3-3 |
+| 6 | h5py 3.7 / HDF5 1.10.6 | `[会话]` 环境实测版本；工作区 CSV/row/report **没有版本字段**，无法用产物复核 | — |
+| 7 | h5py 无 MPI | 所有行 note `h5py lacks MPI; HDF5 parallel read disabled`，`hdf5_mpio_read=false`。`KUPL_HDF5_MPIO_READ=1` 是 **opt-in 且只在 `h5py_has_mpi()` 为真时设置**，否则主动 `pop` | `[脚本]` test_kunpeng_all.py:718-721 |
+| 8 | gauge 读不是瓶颈 | `gauge_read_seconds` 31 个样本：2.377–5.210 s（26 个），离群 13.495 / 29.945 / 30.737 / 35.565 s；而 `elapsed_seconds` 95.4–271.4 s（中位 178.1）。启动成本 = MPI boot（39 s）+ import（91.7 s）+ builder（4.4–6.1 s）级别，**gauge 4–5 s 只占几个百分点** | `[产物]` kupl_kunpeng_all.csv |
+| 9 | `cache_global_*` 建 cache 超时仍 PASS | `rc=124`（600 s 硬超时）+ `elapsed 602 s` 但 `status=PASS`：cache 与 manifest 已落盘 | `[产物]` rows/cache-2139960e*, cache-3b6e1e37* |
+| 10 | ranked cache 不可用 | `cache-042c63a815c8d0b3` = SKIP，notes `h5py 无 MPI，ranked cache 无法构建`；所有 MG 行退化为 global cache | `[产物]` 审计 §1.2 |
+| 11 | CSV 表头 93 vs 94 列 | 3 个旧 CSV（`l24_c64`、`prepare`、`single1`）缺 `hdf5_mpio_read`；新 CSV 94 列自洽。`append_csv` 不校验已有表头 → 追加时会整体错列 | `[产物]` 审计 §P2-1 |
+| 12 | `--resume --skip-failed` | 14:10 中断后所有作业带这两个开关 → 已 FAIL 的单元被永久跳过，MG shm=1 的三个格从未重跑 | `[产物]/[会话]` 审计 §P3-3 |
+
+## 5. 数据路径与本地摘要
+
+### 5.1 产物根（远端 `/home/share/nsls_yangyb/PyQCU-main/`，本地 `data/` 只同步小文件）
+
+`data/kunpeng_all_20261115/`：
+
+| 子路径 | 内容 | 本地是否同步 |
+|---|---|---|
+| `rows/` | 42 个 `<run_id>.json`（逐行台账） | 是 |
+| `reports/` | 31 个 `<run_id>.json`（求解器报告） | 是 |
+| `caches/` | 3 个 `cache_global_*.json`（16 KB） | 是（**只有 json**） |
+| `logs/` | 77 个 `.err` + 74 个 `.out`（traceback/OPT_PROFILE 全在这里） | 是 |
+| `jobs/` | 40 个作业脚本（含 `#DSUB` 头） | 是 |
+| `validate/` | 小尺寸自测：2 行 + 日志 | 是 |
+| `crossnode_cn12237/` | 跨节点 c128 单行（0.510834 s PASS） | 是 |
+| `*.csv` | `kupl_kunpeng_all.csv`（42 行 × 94 列）+ 另 21 个分批/单组 CSV（共 23 个，含跨节点 1 个） | 是 |
+| `cache_index.json` / `file_hashes.json` | cache 身份与“路径:大小:mtime_ns → sha256”账本 | 是 |
+| `solutions/`、`sources/`、`gauges/`、`caches/*.h5` | 大 `.h5`（solution 84.9 MB / c128 169.9 MB、cache 143 MB 级） | **否，留在远端** |
+
+`data/kupl_loop_proto_20261115/`：`loop_proto.py`、`make_plan.py`、`make_job.sh`、`run_login06.sh`、`run_node.sh`、
+`kupl_env.sh`，以及 `login06/`（plan/loop JSON + logs + reports）与 `node/`（jobs/logs/reports + timings）。
+
+`data/kunpeng_all_20261115_audit/`：`ledger.csv`（16 行 × 46 列）、`ledger.md`、`report.md`（381 行，含 P1–P4 缺陷清单）、
+`scripts/`（10 个文件：`check_headers/check_align/check_csv/check_consistency/check_hashes`、`analyze_diff.py`、
+`survey.py`、`make_report.py`、`render.py`、`snapshot_md5.txt`）。
+
+### 5.2 本地摘要
+
+- 本文件即本地摘要：`logs/v20261115-2.txt`。
+- 未复制任何大 `.h5`（solution/cache/gauge/source 全在远端）。实测本地体量：
+  `data/kunpeng_all_20261115` 1.8 MB、`data/kupl_loop_proto_20261115` 340 KB、
+  `data/kunpeng_all_20261115_audit` 144 KB；三个目录内 `*.h5` 计数均为 **0**。
+- 旧日志未删除、未改名：`logs/v20261115.txt`（另一任务的输入记录）保持原样，本文件按冲突规则 `-2`。
+
+## 6. 未完成项与下一步（按阻塞性质分组）
+
+| 项 | 状态 | 依据 | 下一步 |
+|---|---|---|---|
+| L32 修复 | **blocked** | 4 个 L32 solve 全 FAIL（source）；L32 0 PASS；L32 cache 两行 rc=124 | 重生成 `source_32x32x32x64_c64_ones.h5`（或改用已好的 `_v2`），先单 rank 校验 `h5py.File` 可开，再上 32 rank；写盘加临时名 + rename 原子化 |
+| point 重生成 | **blocked** | `c3bd73d2` FAIL，L24 point 11:07:12 版坏 | 重新生成 point 源并加 sha256 与 mtime 记录 |
+| MG1（solver=mg1） | 未开始 | 台账 mg1 = 0 行 | 补 mg1 × {L24,L32} × {t-finest,balanced} |
+| r10 / r50 | 未开始 | mg_restart 只有 5（8 行）与 20（4 行） | 补 10/50；先固定 node 与 shm 再扫 |
+| thread 9/36 | 部分 | 9 → 3 行、36 → 3 行；32×36=1152 > 608 按设计不测 | 补 16×36 的 mg2/balanced、32×9 重复样本 |
+| seed24 | 部分 | 2 行（`0041182f` real1、`9cc71c5d` random） | 补齐 seed24 × 各 solver；当前 2 行都在带宽崩塌窗口，不可用 |
+| random gauge | 部分 | 1 行（`4c5cd8a6`，且 dslash 0.44 GB/s 崩塌） | 重跑 random gauge，锁节点、≥3 样本 |
+| c128 覆盖 | 部分 | 6 行 = L24 4 PASS + L32 2 FAIL；c128 MG 仅 1 行（16×18 t-finest 1.4457 s）；c128 balanced 0 行 | 补 c128 × {MG, balanced, L32} |
+| L32 MG / L32 balanced | **blocked** | 随 L32 一起 FAIL | 依赖 L32 修复 |
+| ranked cache | **blocked** | SKIP：h5py 无 MPI | 装 MPI-enabled h5py 或改用 slab 目录协议 |
+| MPI h5py（`KUPL_HDF5_MPIO_READ`） | 未开始 | 全批 `hdf5_mpio_read=false` | 有 MPI h5py 后再打开并对照 gauge_read/source_read |
+| loop 模式进脚本 | 未开始 | `test_kunpeng_all.py` 里 loop 计数 = 0 | 把 `loop_proto.py` 的“一次启动多 case”并入 `--mode solve`，按计算节点 130.7 s 启动成本设计批大小 |
+| 在飞作业 `53c6d3a198de4f94` | 未完成 | 16:05 生成，0 B 日志、无 row | 收结果或按 `--resume` 重提 |
+| 小尺寸 validate 门 | **FAIL** | `gauge missing` + `libomp.so` 缺失 | 先修 validate 环境，再把 validate 设为批次前置门 |
+
+## 验证
+
+- 数字逐一回到产物：`rows/*.json`（42）、`reports/*.json`（31）、`kupl_kunpeng_all.csv`（42×94）、
+  `file_hashes.json`（尺寸 + mtime_ns）、`logs/*.err`（traceback 行号 + `bad object header` + `handshake timeout`）、
+  `data/kupl_loop_proto_20261115/**/timings*.txt` 与 `phases.log`、`cache_index.json`。
+- 交叉核对：5 个 `bad object header` 的 `.err` 正好对应 5 个 source 损坏 FAIL，第 6 个 FAIL
+  （`b3267714a641ea60`）的签名是 shared-halo 超时 + MPI_ABORT，二者不混淆。
+- 口径核对：31 PASS = solve 行口径（另有 2 条 prepare PASS）；L32 = 0 PASS；`elapsed` 与 `wall` 分开；
+  `gauge_read` 与启动成本分开；节点与 shm 差异在引用 0.2405/0.3497 时显式标注。
+- 未验证项：作业号 2132674/2132675/2132877（产物无 job_id 列）、h5py 3.7/HDF5 1.10.6（无版本字段）、
+  `604 MB` 的 `production_L32_c64`、`_v2` 文件本身（未同步）；`bad object header` 的具体写入触发者未确认。
+
+## 未改动
+
+- 只新增本文件 `logs/v20261115-2.txt`。`docs/**`、`skills/**`、`pyqcu/**`（含 `test_kunpeng_all.py`、
+  `submit_kunpeng_all.sh`、`kupl_multigrid.py`）、`data/**`、`logs/AGENTS.md` 均未修改。
+- 未删除、未改名任何旧日志（含 `logs/v20261115.txt`）。
+- 未 commit、未 push、未打 tag；未提交任何计算作业。HEAD 仍为 `e757e1e8`。
+- 工作树里 `docs/kupl_perf_dev143_vs_stab64_20261115.md` 的 `M` 状态、`logs/v20261115.txt` 与
+  `pyqcu/testing/kupl/{test_kunpeng_all.py,submit_kunpeng_all.sh}` 的未跟踪状态均为**本任务之前既有**，
+  本次未触碰。

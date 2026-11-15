@@ -1476,3 +1476,19 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: L24 cache 493.638s/143,335,424B PASS；32r MG restart1 0.135579s（比 BiCGStab 中位 0.173362s 快21.8%）；restart 1/3/6 差0.5% 单样本；L32 仍阻塞；第二轮 running
 - 验证: path, size, required sections, conflict markers
 - 批次状态: in-progress
+## kunpeng-matrix-scope-20261115 - final - 2026-11-15 17:08:00 +0800
+- 主任务: KUPL 鲲鹏矩阵本轮范围裁定落档（MPI h5py 接口检查、放弃项、L32 source/cache、队列状态）
+- 日志文件: logs/v20261115-3.txt
+- 文件大小: 11716 bytes
+- 触发原因: 任务收口（只写 docs/skills/数据侧登记，不改代码、不 commit/push）
+- 关键内容: 新增 docs/kupl_matrix_scope_20261115.md；matrix/rootcause 追加裁定并纠正 L32 gauge 文件身份；新增 known_skips.json、刷新 quarantine.json；5 个技能 + docs/AGENTS.md + 2 份 docs 映射同步
+- 验证: audit-docs-skills PASS(52/36)、git diff --check 干净、form-audit 仅 1 个既有 TAG_NAME_IN_PATH 警告
+- 批次状态: complete
+## kunpeng-matrix-log-completion-20261115 - final - 2026-11-15 17:31:00 +0800
+- 主任务: 在 bg-36 的 logs/v20261115.txt 基础上补全/纠错时间线、失败根因、放弃项、调度/环境、输入不可变与未完成项
+- 日志文件: logs/v20261115-4.txt
+- 文件大小: 28713 bytes
+- 触发原因: 任务收口（只写 logs，不改 docs/skills/代码/数据，不 commit/push）
+- 关键内容: 42 行快照未变（37 solve = 31 PASS + 6 FAIL、L32 0 PASS、L24 0.2405/0.3497、c128 0.4756）；补 16:28 输入修复、16:32/16:33 两条快照后 PASS、job 2133396 17:01:36 dkill FAIL、thread9 k9_16x9_c64 +7 行、16×36 3 行+2 pending、kall_l32_bi/mg RUNNING、bg-29/bg-39；8 处口径纠错 + 11 条未完成项
+- 验证: rows=42/reports=31、输入与 cache 哈希逐条对账、脚本行号核对、体量 1.8M/340K/144K 且 0 个 .h5、行尾空白/制表符/冲突标记均为 0
+- 批次状态: complete

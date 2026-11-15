@@ -72,8 +72,8 @@ frontmatter：name 与目录名一致 + description 写触发场景（何时使�
 | `pyqcu-smear` | pyqcu.torch.smear：stout 与 Wuppertal smearing，顶层 pyqcu.smear 仅兼容。 |
 | `pyqcu-cann` | pyqcu.cann：Ascend NPU 的 torch 兼容层，将复数算子分解为实/虚部；含 force_use_npu 全局标志与 einsum 组合分解算法。 |
 | `pyqcu-cuda` | pyqcu.cuda：Cython/libqcu.so 桥接、Strict MultiGrid、params[58]/argv[8]/set_ptrs[100] 与显存生命周期。 |
-| `pyqcu-kupl` | cpp/kupl/qcu 与 pyqcu.kupl：鲲鹏/NUMA CPU 版 MPI+OpenMP dslash、Clover BiStabCG、canonical ABI、绑定与性能基准。 |
-| `pyqcu-tools` | pyqcu.tools 公共 MPI/布局/I/O/env/budget 与 pyqcu.torch.tools 专用数值工具。 |
+| `pyqcu-kupl` | cpp/kupl/qcu 与 pyqcu.kupl：鲲鹏/NUMA CPU 版 MPI+OpenMP dslash、Clover BiStabCG、canonical ABI、绑定、性能基准、鲲鹏全配置矩阵（`test_kunpeng_all.py`、94 列 CSV 台账、runbook 只保存在本技能 `references/`，不另设独立矩阵技能）与矩阵范围裁定（MPI h5py 接口检查、放弃轴、cache 重签、重测判定）。 |
+| `pyqcu-tools` | pyqcu.tools 公共 MPI/布局/I/O/env/budget 与 pyqcu.torch.tools 专用数值工具；含 HDF5 写入路径表（就地写 vs 临时名+替换）、原子写契约与多线程/MPI 边界。 |
 
 ### C++ 后端（cpp/）
 
@@ -98,8 +98,8 @@ frontmatter：name 与目录名一致 + description 写触发场景（何时使�
 | `pyqcu-testing-dcu` | pyqcu/testing/dcu：AMD DCU / ROCm (HIP) 测试。 |
 | `pyqcu-testing-profiler` | pyqcu/testing/profiler：torch.profiler 性能剖析，导出 Chrome trace 供 Perfetto 可视化。 |
 | `pyqcu-testing-tilelang` | TileLang JIT 集成与历史性能锚点；旧 `pyqcu/testing/tilelang/` 目录已删除，当前使用真实 pytest node 或 `pyqcu.testing.test_matmul()`。 |
-| `pyqcu-testing-data` | pyqcu/testing/data：测试验证参考 HDF5 文件（with_data=True 时使用）。 |
-| `pyqcu-testing-qcu` | pyqcu/testing/qcu：经 Cython 桥测 C++ CUDA 后端；含按职责分类的多重网格性能基准套件与 Strict 对照。 |
+| `pyqcu-testing-data` | pyqcu/testing/data：测试验证参考 HDF5 文件（with_data=True 时使用），含生产 gauge/source HDF5 原子写契约与输入只读、`bad object header` 损坏排查、ones/random/point 源语义、文件字节≠dataset 字节、cache identity（file vs canonical）重签。 |
+| `pyqcu-testing-qcu` | pyqcu/testing/qcu：经 Cython 桥测 C++ CUDA 后端；含按职责分类的多重网格性能基准套件、Strict 对照与集群作业模型/节点身份规则（`dsub -s`、`#DSUB -T` 秒、`testusers_rebuild` 上限、`dkill` 与 CLI 取消边界）。 |
 | `pyqcu-qcu-single-tests` | pyqcu/testing/qcu 与 pyqcu/testing/quda 的 QCU/QUDA 单功能测试、PyTorch 参考校验和布局转换约定。 |
 | `pyqcu-testing-pyquda` | pyqcu/testing/pyquda：PyQCU 与 PyQuda 双进程隔离对比套件——Wilson/Clover dslash、BiCGStab/CG 的结果与性能对比，含维度排布转换与归一化锚定。 |
 
@@ -107,9 +107,9 @@ frontmatter：name 与目录名一致 + description 写触发场景（何时使�
 
 | 技能 | 用途 |
 |---|---|
-| `pyqcu-benchmark` | PyQCU 性能基准与 dev87 Strict MultiGrid/QUDA 公平计时、显存证据协议。 |
-| `pyqcu-logs-debug` | logs/debug：逐轮调试/修复日志（fix-log*.md），完成后升级为 logs/fix-report-*.md。 |
-| `pyqcu-logs-results` | logs/results：最终/剩余修复报告（权威记录）。 |
+| `pyqcu-benchmark` | PyQCU 性能基准与 dev87 Strict MultiGrid/QUDA 公平计时、显存证据协议；含 profiler/解析/STREAM/solve 四级带宽口径、启动摊销、`hdf5_mpio_read=false` 与"不重测/超时只留 partial 输出"判据。 |
+| `pyqcu-logs-debug` | logs/debug：逐轮调试/修复日志（fix-log*.md），完成后升级为 logs/fix-report-*.md；含失败定位法（traceback 分类 source/gauge、逐位对照实验、资产身份与备份核对、台账审计脚本组）。 |
+| `pyqcu-logs-results` | logs/results：最终/剩余修复报告（权威记录）；含结论作废口径（机制+替代口径）、本次矩阵作废项与引用禁令、严重度清单交付规范。 |
 
 ### 交付与治理
 

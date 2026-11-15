@@ -5,7 +5,7 @@ PyQCU 参考文档。
 > 2026-09-27 迁移：顶层 `examples/` 已迁入 `pyqcu/testing/`。本目录旧报告中若
 > 出现 `examples/...`，应映射为 `pyqcu/testing/...`；现行文档已统一使用新路径。
 
-当前 `docs/` 顶层共有 **48 份 Markdown 文档（含本索引）**。下表只维护文件职责；
+当前 `docs/` 顶层共有 **53 份 Markdown 文档（含本索引）**。下表只维护文件职责；
 权威级别、唯一主责技能和提取边界见
 [`skills/pyqcu-docs/references/project-docs-map.md`](../skills/pyqcu-docs/references/project-docs-map.md)。
 
@@ -18,7 +18,7 @@ PyQCU 参考文档。
 约定：站点根不设 `.readthedocs.yaml`，两份配置分别位于 `docs/en/` 与 `docs/zh/`，
 在 RTD 网页按语言指定；项目 slug 固定为 `pyqcu`。站点视角是已安装的
 `pip install pyqcu` 包，不引用仓库内 `pyqcu/testing` 路径；确需源码仓库的段落必须
-显式标注。`docs/` 根目录的 48 份研究报告与 `.tex` 不在站点源文内。
+显式标注。`docs/` 根目录的 50 份研究报告与 `.tex` 不在站点源文内。
 
 ## 核心操作规范
 
@@ -35,6 +35,11 @@ PyQCU 参考文档。
 | `kupl_kunpeng_progress_20261110.md` | 2026-11-05 至 11-10 鲲鹏真实环境进展：计算节点/登录节点硬件实测、HBM 早期失败与后期成功、计算节点与登录节点性能数据、dev108 以来代码改动、已否决路线与阻塞项（C 级时点证据，未打 tag） |
 | `kupl_kunpeng_hpc_config_20261112.md` | 2026-11-12 鲲鹏 HBM 高性能配置实测：拓扑与绑定变量、MPI 映射、调度器用法、超时协议、cn19699/cn19698 实测表与待补项（C 级时点证据，未打 tag） |
 | `kupl_opt_handover_20261112.md` | KUPL QCU 极致优化接手文档：远端/本地环境、已应用补丁与 md5、门控变量、审计结论、基准现状、已知坑与复现命令、待办（C 级工作文档，未打 tag） |
+| `kupl_kunpeng_matrix_20261115.md` | 2026-11-15 KUPL 鲲鹏全矩阵驱动（`pyqcu/testing/kupl/test_kunpeng_all.py` + `submit_kunpeng_all.sh`）：7,680 行展开与 5,760 个去重输入组合的口径、`list/prepare/prewarm/solve/merge/run/validate` 七模、`--resume/--skip-failed/--shared/--task-model single`、94 列 CSV 字段与判读（含 `gauge_file_dtype` 按文件名误标的量化）、`dsub -s`/`-T`/单任务内层 `mpirun`/`-x job`/`testusers_rebuild` 账号 cap 边界、42 行快照（37 solve，31 PASS/6 FAIL；L24 c64 32×18 t-finest+shm `0.2405 s`、balanced `0.3497 s`、c128 `0.4756 s`、快照内 L32 0 PASS 与快照后 `82ba09ec` 的单条旁证）与失败清单、旧 `0.17 s`（`1e-4`/11 it、有效容差差 244.1×）的可比性红线；§12 输入不可变/超时语义/写原子性（只读审计结论与 R1–R7 规则、复核命令）、§13 启动成本与 loop 原型（A 39.0 s + B 91.7 s、C 113.9 s）。末节合并原可选 runbook（环境/构建/提交/常见错误）。C 级时点证据，未打 tag |
+| `kupl_hdf5_source_gauge_rootcause_20261115.md` | 2026-11-15 生产 HDF5 输入不可读根因：L32 `source_..._ones.h5`（201,375,008 B/11:20:03）与 L24 `source_..._point.h5`（84,959,592 B/11:07:12）在 `h5py` open 阶段报 `bad object header version number`、26 s 后的 `ones_v2` 与 2 分 57 秒后的 L24 `ones` 可读；尺寸按 `[4,3,x,y,z,t]` 复算证明"全尺寸≠写完"；复用只按存在性放大损害；写侧 `temp+fsync+rename`+shape/dtype 回读与读侧 `h5_readable` 闸门的修复与四道验收门（门 3 现为"部分达成"：快照后 `82ba09ec` 满足 32×18 一半）；L24/L32 两份 `real` gauge 磁盘上都是 `complex128`（509,614,080 B / 1,207,965,696 B）；脚本内无 `.corrupt-*`、8 文件 `os.fsync` 计数为 0、`real` gauge 会静默降级为 identity gauge 的审计补强。C 级时点证据 |
+| `kupl_matrix_scope_20261115.md` | 2026-11-15 KUPL 鲲鹏矩阵本轮范围裁定：MPI h5py 只做接口检查（`h5py 3.7.0`/`HDF5 1.10.6`、`get_config().mpi=False`、无 `mpio`、无一行 `hdf5_mpio_read=true`、ranked cache 不列入计划、不重编译/安装）、6 个放弃轴（thread 9/seed24/random gauge/random 源/point 源/r50）与保留项（16×36 三行、MG1/r10、L32/c128、MG+shm）、L32 source 语义（`source_..._c64.h5` 是 random seed42；`ones`/`ones_v2` 同为 `9cdcfc82…f55a` 全 `1+0i`；`source_..._c64_point.h5` 是 `dc427e47…` 的 point 源）、6 条 L32 FAIL 属"首次有效运行"（快照后 `82ba09ec` 的 point+c128+mg2 PASS 不能抵）、全输入身份表、cache identity 全字段（`cache_sha256`/`cache_identity_sha256`/L24 c128 `48.191 s`）与重签（L32 c64→`70bbe621…`、L24 c64→`8a482d6a…`）、31 条 PASS 不重跑判据、`bg-26/27/28/32` kill 与 pending 未能 CLI 取消的队列状态。C 级时点证据，未打 tag |
+| `kupl_l24_c64_mg2_shm1_boundary_20261115.md` | 2026-11-15 L24 c64 `mg2` + `shm=1` 的 balanced/t-finest 边界测量：8 格矩阵 7 PASS / 1 FAIL（`32×18 balanced 2 2 2 4 r5 shm1` 的 `KUPL shared halo handshake timeout: publish` → `MPI_ABORT` rank 30、`elapsed=271.437 s`、无 report）；同 config 在独立 outdir 复测 **2/2 PASS**、同 restart 下 shm1 与 shm0 真残差逐位相同 → **1 FAIL / 2 PASS 属不稳定失败**，`known_skips.json` 不写、只留 `known_skips.candidate.json`（默认 disabled）；不得整体禁 `balanced`/`shm1`、不得静默回退 `shm=0`；`--resume` 判重读 `outdir/rows/<run_id>.json` 而非 `--csv`，重测必须换新 outdir。B 级时点证据，未打 tag |
+| `kupl_performance_20261115.md` | 2026-11-15 KUPL 性能对照汇总（stab64 `2c07cf94` 对 dev143 `4f60e348`，相距 47 个提交）：字段口径与可比性红线（`atol=1e-4` 非 strict 的有效门槛 `2.44140625e-4` 与矩阵批次 `1e-6` 相差 244.1×，旧 `0.17 s`/11 it 不可与 `0.2405`/`0.3497` 直接相除）、L24/L32 的 BiCGStab 与真实 MG、cache 构建、带宽对照、c128 缺口（历史 x86 值不能相除；2026-11-15 矩阵批次仅补 L24 c128 `0.4756 s`/31 it/n=1 一个点，L32 c128 只有快照后 1 条 PASS）与"不得做的比较"清单、审计状态更新（现 `PASS docs=53 skills=36`）；数值为已提交文档与 `logs/**` 的只读转抄，B/C 混合证据，未打 tag |
 | `kupl_l24_perf_20261113.md` | 2026-11-13 KUPL L24（`24³×64`、c64）单节点实测：cn19699/cn19650 的 8 条用例（最优中位 `0.154883 s`，8 样本，32r×18t + 共享 halo）、`OMP_WAIT_POLICY` 同节点 A/B 的 1.28×、dslash/clover/reduce 分项与 7.96 GB/s·rank、STREAM triad 18.3–20.1 GB/s·rank 峰值口径、节点差异与 MG cache 阻塞（C 级时点证据，dev141） |
 | `kupl_vs_cuda_algorithms_20261114.md` | KUPL-QCU 与 CUDA-QCU 的算法级差异：布局（component-major vs 半 T 压缩）、gamma 预投影 18 MAC vs 手写展开、site-lane vs thread-per-site、shm halo vs MPI、双容差真残差 vs 递推停机、Legacy/Strict MG 菜单、Gauss gauge 正态 vs 均匀，以及“高带宽/低算力”如何决定这些选择（B 级源码核对） |
 | `kupl_mpi_scaling_20261114.md` | KUPL 多 rank/多线程扩展性与断崖巡查：L24 的 halo/计算比、带宽 roofline（dslash 已近 600 GB/s 量级）、每迭代 2 次 Allreduce 的固定成本、`TH_max` 公式与静默超订阅、t 方向 32 rank 几何上限与路径门限；§6.4 记录 2026-11-14 L24 Legacy-MG cache（1 rank 构建 `493.63817879895214 s`、`143,335,424 B`）与 32 rank 复用扫描（`restart=1` `0.135579 s`，单样本） |

@@ -128,6 +128,82 @@ Legacy/Strict CUDA MG 的运行时峰值必须用同时覆盖 C++ 原生分配�
 `4,722,786,304` bytes 的三点峰值，它们是独立 setup 阶段，不能与 Strict 全程峰值
 拼成同一阶段比较。
 
+## 带宽与启动四项口径（2026-11-15）
+
+同一次运行里会同时出现四种"带宽"，它们的分母与字节模型都不同，**任意两者相除都
+得不到加速比或效率**：
+
+| 口径 | 定义 | 典型值（L24 c64，32r×18t） |
+|---|---|---|
+| profiler 字节 | `KUPL_PROFILE_OPT=1` 自报 `dslash_bytes`、`dslash_seconds` | `1210.3 MB / 0.1171 s ≈ 10.3 GB/s·rank`（aggregate `330.9`） |
+| 解析流量 | 每 site 固定 `768 B`（c64：gauge `576` + src `96` + dst `96`）× 本地 site × 调用数 | `1.10 GB / 0.0675 s ≈ 16.3 GB/s·rank`（`522 GB/s` 聚合） |
+| STREAM triad | 同节点内存探针（8M double × 3 数组、5 次取最优） | `18.3–20.1 GB/s·rank`，32 rank `585–643 GB/s` |
+| solve 级有效带宽 | 模型总流量 ÷ 整个 solve 墙钟 | 旧口径 `149.5 GB/s`（y76，模型 `64.97 GB`） |
+
+- profiler 模型会**低估**字节（`828 MB` vs 解析 `1.10 GB`），也会随 dtype 非线性
+  变化（c128 报 `4013 MB` 而 c64 报 `1210 MB`，不是 2×）；不要按 dtype 倍率推算。
+- 只有 dslash 级才能与 STREAM 分母比（`16.3/18.3–20.1 ≈ 87%` 视为带宽受限）；
+  clover 的 `40 GB/s·rank` **高于**探针峰值，是 cache 复用命中，不是超过硬件。
+- 判断"是否带宽受限"必须先配对时间：同一 76 次 dslash，balanced 4D 的字节更少
+  （`857.3 MB` 对 `1210.3 MB`）但每 rank 只有 `4.06 GB/s`、t-only 有 `8.32 GB/s`——
+  **字节下降、时间上升**，4D 邻居打散局部性。字节数不能单独用来排序路径。
+
+### 冷读与源混杂（必须先排除）
+
+- 读模式：`*_read_mode` = `cold`（本次生成并首次读）/`warm`（本次显式 `prewarm`）/
+  `pre-generated`（复用旧文件、页缓存状态未知）。判读顺序是
+  `status/returncode` → `*_read_mode` 与 `*_read_seconds` → `atol` → `node/grid/shm`
+  → 才看 `wall_seconds`。
+- 实测：warm 行 `gauge_read_seconds = 2.4–5.2 s`；cold 行 `29.9–35.6 s`，对应
+  `wall_seconds` 被抬高 `33–60×`（`11.44/10.93/20.86 s` 对 `0.24–0.35 s`），
+  `dslash_gbps_rank` 掉到 `0.19–0.44`。**这些行不是性能数据**，必须剔除或复测。
+- 源语义不可混：点源 `seed 42`（12 it，真残差 `5.385e-05`）、全 1 源（11–12 it，
+  `6.756e-05`/`6.832e-05`）、`real1`（全 1 的别名）、随机源（18–19 it）迭代数与
+  残差都不同；同一表里出现两种源就不许互算倍率。
+- 组态语义也不可混：`gauge=random`（NumPy QR 生成）与真实组态不是同一物理问题，
+  只能作正确性/鲁棒性证据。
+
+### c128/c64 倍率
+
+同节点、同 rank×thread、同源、同 grid（L24、32r×18t、ones、cn19699）：
+c64 18 it `0.247571 s`（shm0）/`0.240473 s`（shm1），c128 31 it
+`0.567444 s`/`0.475555 s` → 墙钟 `2.29×`/`1.98×`，其中**迭代数占 `1.72×`**、
+单次迭代 `1.15–1.33×`。报倍率时必须同时给迭代数与 `atol`（c64 `1e-6`、
+c128 `1e-9`），否则读者会把迭代差当成算子代价。
+
+### 启动摊销
+
+计算节点上每个 `mpirun` 的固定成本约 `120 s`（import `80.8 s`：numpy `7.8` +
+mpi4py `34.9` + 驱动 `38.1`；MPI 起跑约 `39 s`）。所以一行 CSV 的
+`elapsed_seconds` 是 `95–211 s`（16 秩≈`100 s`、32 秩 `183–211 s`），而
+`wall_seconds` 只有 `0.21–0.57 s`（`builder_seconds` 另计 `4.4–6.1 s`）。
+- 作业成本按 `elapsed_seconds` 估，不按 `wall_seconds`；矩阵吞吐由启动主导。
+- 进程内 loop 原型（同一 `mpirun` 内重复调用驱动）3 例只需 `107.4 s`，但它会保留
+  内存（RSS 589 MB→925 MB）并放大 wall 抖动，且不允许共享 `_SET_PLAN_` 残留；
+  正式基准仍一例一进程，loop 只用于快速筛配置。
+
+### 矩阵范围裁定与"不重测"判据（2026-11-15）
+
+完整裁定见 [`docs/kupl_matrix_scope_20261115.md`](../../docs/kupl_matrix_scope_20261115.md)。
+
+- **放弃轴**：thread 9（16×9、32×9、32×9 shm1 复核）、seed24、random gauge、random 源、
+  point 源、mg-restart 50。标注固定为"耗时代价过大，已有部分数据保留，不重测/不新增"；
+  这些轴的现有单样本（如 `861ac912ac3c7c42` 的 `11.437897 s`）不得进入任何性能表。
+- **保留轴**：16×36（已有 3 行）、MG1、r10、L32/c128、MG+shm。
+- **不重测判据**（全部同口径才成立）：source 语义与 hash、gauge dtype 与
+  `gauge_canonical_sha256`、cache identity、`atol`、`grid`/`ranks`/`threads`/`shm`/
+  `solver`/`mg_restart`。任一不同必须重跑，并以新 `run_id` 落账。
+- **31 条 PASS 不重跑**（L24 c64 gauge 的 c128 副本 cast 后等价；L32 c128 cache 不重建；
+  MG cache 不含 source 哈希）。**L32 的 6 条 FAIL 是"首次有效运行"，不是"重测"**。
+- **MPI h5py 只做接口检查**：不做重新编译/安装，ranked cache 不列入后续计划；不要写
+  "建议编译/安装 MPI h5py"这类下一步。全批 `hdf5_mpio_read=false`（0 行 `true`），
+  读是每 rank 全量 open + 本地 slab，所以 I/O 预算按"文件字节 × rank 数"估
+  （32 rank 读 1.2 GB gauge ≈ 38.6 GB 聚合流量），`prewarm` 是唯一低成本重复读。
+- **超时只留 partial 输出**：600 s 硬超时的 prepare/cache 行可能已落盘并被判 `PASS`，
+  solve 行没有 `reports/<run_id>.json` 一律 `FAIL`。这些行只证明"部分产物可用"，
+  不得进入性能表，也不得写成"该格点可跑"；`--resume --skip-failed` 还会让它们永久
+  跳过。
+
 ## Files
 
 | File | Purpose |

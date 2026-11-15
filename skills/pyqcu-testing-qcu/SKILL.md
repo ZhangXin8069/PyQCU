@@ -47,6 +47,46 @@ See
 完整矩阵、rank/设备约束和真残差证据见
 [`pyqcu-benchmark/references/qcu-multigrid-20261023.md`](../pyqcu-benchmark/references/qcu-multigrid-20261023.md)。
 
+## 集群作业模型与节点身份（2026-11-15）
+
+矩阵/基准在 LX2 上的作业模型与判读规则（鲲鹏侧脚本与 CSV 列见
+[`pyqcu-kupl/references/kupl-kunpeng-matrix-20261115.md`](../pyqcu-kupl/references/kupl-kunpeng-matrix-20261115.md)）：
+
+- **一个作业 = 一次分配 = 一个驱动进程**。驱动自己 `mpirun -np R`，所以 `dsub`
+  只能给**一个任务**独占整节点：`-N 1 -rpn 1 -R "cpu=ranks*threads;mem=400G"`。
+  用 `-N R -rpn R` 会让每个 task 各起一个 `mpirun`（R×R 个 rank），行里的
+  `input_prebind_seconds` 会从 `2.8–3.7 s` 涨到 `13.2 s`，属于受扰样本。
+- **exclusive 与 PENDING**：`-x job` 要求整节点空闲，节点被部分占用时作业保持
+  `PENDING`；多节点作业还可能因放置失败长期 `PENDING`。因此大矩阵拆成
+  **一作业一节点** + `--shard-index/--shard-count` 分片，而不是一个跨节点大作业。
+  `#DSUB` 资源块只在 `dsub -s <job>`（或 `--script`）时被解析，且要用
+  `bash -lc "dsub -s '<job>'"`——batch CLI 与 license 变量只在 login shell 里；
+  提交后用 `djob -ll <id>` 核对 `execNodes`，不要只看提交返回。
+- **`#DSUB -T` 单位是秒**（默认 `900`），写 `10` 会被调度器拒绝；`-nn 1` 与
+  `--mpi hmpi` 固定，task 数由 `-N/-rpn` 决定。
+- **账号上限 `testusers_rebuild`**：64 task 的作业会被它拒绝，`dsub` 只回
+  `job was refused by hook`，真因在 `djob -ll` 的 `mainStateReasonMsg`
+  （`The limit <testusers_rebuild> has been exceeded`）。先减 task 数或拆作业，
+  不要按脚本语法错误排查。
+- **取消能力有限**：`dkill <job-id>` 是历史上使用的终止入口（作业 2112385、
+  `v7_r16t38/36` 都是被 `dkill` 停掉）；但当前 LX2 客户端的 `djob -c` 与
+  `dsub -c` 都报 `invalid option`，**没有可用的 CLI 取消子命令**；被 kill 的后台
+  任务所提交的作业可能仍留在队列里 `PENDING`，只能由用户经调度器 UI 取消。已 kill
+  的批次（`bg-26/27/28/32` 对应 thread9 / seed24+random / point / r50）就属于这种
+  状态；保留批次（`kall_l32_*`、`kall_l24_c1*`、`kall_mg_shm*`、`kall_mg1_r5*`、
+  `kall_mgr10*`、`k9_16x36*`）不得 kill。裁定见
+  [`docs/kupl_matrix_scope_20261115.md`](../../docs/kupl_matrix_scope_20261115.md) §4。
+- **节点身份必录**：每行写 `node`、`freq_khz`（`scaling_cur_freq`）、
+  `freq_max_khz`（`cpuinfo_max_freq`）、`governor`。当前集群运行态 1.55 GHz、
+  上限 2.0 GHz、`userspace`；CPU 受限路径的跨节点预期差上界 `2.0/1.55 = 1.29×`，
+  实测同配置单样本可达 `1.45×`。不同节点/不同频率的数字不能并列成 scaling 曲线。
+- **超时门禁**：`--timeout` 是复核阈值（超过即 `review=true`），`--hard-timeout`
+  是硬杀（rc 124/137 → `timeout=true`）。10 分钟仍无输出的作业必须留一次运行中
+  审计记录，不能把"还在 RUNNING"当健康证明。
+- 同一套列语义（`wall_seconds` 只含求解、`builder_seconds` 是 cache 载入、
+  `elapsed_seconds` 是整行、`*_read_mode`/`*_read_seconds`、`hdf5_mpio_read`）
+  跨 QCU/QUDA 复用；跨后端只在这套列意义上比较，不跨口径相除。
+
 ## Usage
 
 ```bash

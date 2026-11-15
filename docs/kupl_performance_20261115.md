@@ -9,8 +9,9 @@
 > （2026-11-14 20:53）。两者相距 47 个提交。
 >
 > 范围：**KUPL CPU 后端**；主格点 L24（`24³×64`，c64）；L32（`32³×64`）与
-> `32³×12` 只有 dev143 数据。本文不比较 CUDA/QUDA/DCU，也不把 CPU 与 GPU
-> 合并成单一加速比。
+> `32³×12` 只有 dev143 数据。c128 见 §11：鲲鹏侧没有 c128 性能数据，只有
+> 历史 x86 值与 dev143 正确性门。本文不比较 CUDA/QUDA/DCU，也不把 CPU 与
+> GPU 合并成单一加速比。
 
 ## 0. 结论摘要
 
@@ -75,6 +76,14 @@
    源坐标与 gauge 身份（`AGENTS.md` 约定）。
 6. **MG 与 BiCGStab 不得按迭代数比较**：MG 的 `iterations=None`，且
    `atol=1e-4` 的默认参数会回退到 fine BiCGStab。
+7. **`atol=1e-4` 与 `atol=1e-6` 不是同一判据**：本文第 3–4 节的 dev143 数据全部是
+   `atol=1e-4` **非 strict**，实际门槛被 `max(atol, eps(float32)×2048) = 2.44140625e-4`
+   抬高；2026-11-15 矩阵批次的 37 条 solve 全部带 `--strict-acceptance`，门槛就是
+   `1e-6`（c64）/`1e-9`（c128），**有效容差差 244.1×**。因此矩阵批次的
+   `0.2405 s`（L24 c64 t-finest 32×18 shm1，18 it）与 `0.3497 s`（balanced 同条件 shm0）
+   **不能**与本文件的 `0.171331–0.182659 s`（中位 `0.173362`，11 it）直接相除：
+   迭代 18/11、容差 244.1×、grid、shm 四项同时不同。矩阵侧的分解与红线见
+   [`kupl_kunpeng_matrix_20261115.md`](kupl_kunpeng_matrix_20261115.md) §1.8、§10.3。
 
 ### 1.3 证据等级
 
@@ -752,20 +761,127 @@ verify_status=0，单样本；cache 构建 24.476 s（含 coarse export），
 （0.037935 对 0.031577 s），不得宣称 MG 普遍更快。
 ```
 
-## 11. 交付边界与审计状态
+## 11. complex128（c128）数据与缺口
 
-- 本文是**新增**的 `docs/kupl_perf_dev143_vs_stab64_20261115.md`；按任务约束，
+### 11.1 结论
+
+- **dev143 与 stab64 的鲲鹏 L24 生产性能台账没有 c128 solve 墙钟。**
+  dev143 的 c128 只出现在正确性/容差门（共享 halo、Legacy-MG levels 1/2、
+  deflate、`restart=3`、ABI 差分、UBSAN/ASAN），没有可引用的 c128 时间。
+- **2026-11-15 矩阵批次补了一个鲲鹏 c128 点，但只有 n=1、且口径不同**：
+  L24 `24³×64`、c128、32×18、t-finest `1 1 1 32`、shm1、`atol=1e-9`（`--strict-acceptance`）、
+  31 it、真残差 `5.3257e-11`、`wall=0.475555 s`（`d2ce9be32b406b0f`，cn19699，单样本）；
+  同格 c64 是 `0.240473 s`/18 it。比值 `1.978×` 里迭代数已占 `31/18=1.72×`，
+  **不能**当作 c128 单次算子成本，也不能与本文的 c64 dev143 数据合并成一条曲线。
+  出处与同批 3 条 c128（`f19ba1fe`、`f212adf8`、`749b3b02`）见
+  [`kupl_kunpeng_matrix_20261115.md`](kupl_kunpeng_matrix_20261115.md) §6.4。
+- 可引用的 c128 L24 墙钟除此以外全部来自 **dev99–dev101 的 x86 主机**
+  （`ENV-X86-18C` 或“硬件未完整记录”），不是鲲鹏、也不是 dev143/stab64
+  同窗数据；**不能**与 c64 的 `0.154883 s` 相除。
+- 历史 c128 数字全部是 **parity-Schur BiCGStab 类路径**（D99-027 明确
+  `restart=0`；D99-028 为 `applyCloverBistabCgQcu`），不是 c128 coarse
+  V-cycle；`10.282 s / 21 it` 也是全格点 BiCGStab 路径。
+
+### 11.2 历史 x86 c128 L24 数据（dev99–dev101）
+
+`24³×64`、c128、mass `-0.277`、csw `1.160920226`、5 次稳态中位
+（除注明外）；r1/r2 的线程数按同批记录为 24 thread/rank，硬件未完整记录。
+
+| 配置 | ranks × thr | wall (s) | 迭代 | 独立真残差 | 备注 |
+|---|---|---:|---:|---:|---|
+| r1 baseline | 1 × 24 | 20.196165 | 23 | `6.962408e-8` | 未优化 Clover onsite |
+| r1 spin6 | 1 × 24 | 16.116355 | 23 | `6.962408e-8` | 6×6 块 |
+| r1 spin6 + inv6 | 1 × 24 | 15.592787 | 23 | `6.962408e-8` | 优化后 1-rank |
+| r2 baseline | 2 × 24 | 14.449964 | 23 | `6.962408e-8` | 2-rank |
+| r2 spin6 | 2 × 24 | 13.106006 | 23 | `6.962408e-8` | 6×6 块 |
+| r2 spin6 + inv6 | 2 × 24 | 11.472949 | 23 | `6.962408e-8` | 优化后 2-rank |
+| D99-027：`restart=0` parity-Schur | 4 × 4 | 10.282 | 21 | `6.079e-8` | `ENV-X86-18C`，dev101；非 V-cycle |
+| D99-028：`applyCloverBistabCgQcu` | 4 × 4 | 11.311 | 23 | `6.96241e-8` | 同 LIME；独立残差 |
+
+c128 相对 c64（同窗口、同 `inv6` 变体）：
+
+| 精度 | 1 rank (s) | 2 ranks (s) | 迭代 |
+|---|---:|---:|---:|
+| c64 `inv6` | 7.769662 | 6.351769 | 20 |
+| c128 `inv6` | 15.592787 | 11.472949 | 23 |
+| c128 / c64 | **2.01×** | **1.81×** | — |
+
+读法：
+
+- 倍率同时包含迭代数差（20 对 23）与每迭代成本差，不能全部归因于 c128 的
+  单次算子成本。
+- 这些数字是 **x86 主机**、1/2/4 rank 的低并行配置，不是鲲鹏 32 rank；
+  与 dev143 的 `0.154883 s` 之间隔着硬件、rank、精度、算法四层差异。
+- `10.282 s` 与 `11.311 s` 都是 `restart=0` 的全格点 BiCGStab；不要写成
+  “c128 MG 10.282 s”。
+
+### 11.3 dev143 的 c128 正确性覆盖（无墙钟）
+
+| 门 | 配置 | c128 结果 | 有墙钟？ |
+|---|---|---|---|
+| 共享 halo ABI 差分 | `test_new_abi.py`，`2 2 2 4`、`--grid 2 1 1 1`、2 线程 | PASS | 否 |
+| block dslash/Schur/solve | `test_dslash_block_mpi.py --lattice 4 4 8 8 --grid 2 1 1 1 --threads 2 --solve` | dslash `1.65e-16`、schur `1.68e-16`、solve `8.67e-14` | 否 |
+| Legacy-MG 共享 halo | levels 1/2、deflate、`restart=3` | PASS、`verify=0` | 否 |
+| t-only MG 合成资产 | 2/8/32 rank、`local_t=2`、coarse `[4,4,4,1]` | PASS、`verify=0`；deflate 误差约 `1.98e-12`（c64 为 `9.811e-09`） | 否 |
+| UBSAN/ASAN | 2/4 rank 与 `24 24 24 2` | 0 报告、PASS | 否 |
+
+对照 c64 同门：dslash `8.78e-08`、schur `9.21e-08`、solve `1.15e-06`。
+这些是数值一致性证据，不是性能数据。
+
+### 11.4 为什么 dev143 没有 c128 性能
+
+1. dev143 的 L24/L32 性能战役（32r×18t、共享 halo、MG cache/回读）全部用 c64；
+   1-rank cache、32-rank patch cache、`atol=1e-6` MG 也全部是 c64。
+2. c128 的场与 scratch 约为 c64 的 2 倍；历史同配置墙钟约 `1.8–2.0×`。
+   32 rank 下的 c128 内存与 cache 体积未做过容量验证。
+3. 生产容差不同：c64 是 `1e-6`、c128 是 `1e-9`（相对 norm）；把 c64 的
+   `1e-6` 结果直接当 c128 基线会低估迭代与墙钟。
+4. 因此本文第 3–6 节的所有 c64 对照**不包含** c128；c128 不能从这些数字外推。
+
+### 11.5 需要补的 c128 数据
+
+1. L24 `24³×64`、32r×18t、共享 halo、`levels=1/restart=0`、`atol=1e-9`、
+   3–5 样本，记录迭代、真残差、RSS/峰值内存。
+   **现状**：2026-11-15 矩阵批次只有 1 个样本（`0.475555 s`/31 it，见 §11.1），
+   离"3–5 样本"还差；balanced + c128 在 L24 上仍是 0 行。
+2. c128 MG cache：1-rank 构建时间/文件大小 + 32-rank patch 构建
+   （`2×2×2×4`、`4×2×2×2`），并做 `atol=1e-9` 回读。
+   **现状**：矩阵批次的 `cache-3b6e1e37b3af0b9c` 是本轮唯一 L32 c128 cache
+   （`build_mg_cache_seconds=130.371`、`verify_status=0`、notes 为 `rc=124` 非干净构建）；
+   L24 c128 cache 是 `cache-9b7a383e23a633be`（`48.191 s`）。两者都是 global，非 patch 对照。
+3. L32 c128 的容量与 cache 可行性；当前没有任何 c128 L32 **solve** 数据（快照内 2 条全 FAIL）。
+   快照后 `82ba09ec3a8e0d2d` 是 L32 c128 `mg2` 的单条 PASS（残差 `4.03e-10`），
+   但 n=1 且用 point 源，只能证明"可算"，不能当性能数据。
+4. 若要在报告中给出 c128 相对 c64 的倍率，必须在**同节点、同 rank×thread、
+   同源、同 gauge、同停止点**下重测；不能用本文的历史 x86 数字，也不能用
+   `0.475555/0.240473=1.978×`（迭代数已占 `1.72×`）。
+
+### 11.6 不能做的比较
+
+- 不能把 c128 `15.592787 s`（x86、1 rank×24 thread）与 c64 `0.154883 s`
+  （鲲鹏、32×18、共享 halo）相除。
+- 不能把 `10.282 s / 21 it` 写成“c128 MG”；它是 `restart=0` 的
+  parity-Schur BiCGStab。
+- 不能把 c64 的 `1e-6` 与 c128 的 `1e-9` 当作同一收敛精度。
+- 不能把 dev143 c128 的 PASS 结果当成性能通过；它们只证明数值一致性。
+
+## 12. 交付边界与审计状态
+
+- 本文是**新增**的 `docs/kupl_performance_20261115.md`；创建时按任务约束，
   **未修改**任何既有文档、代码、技能或索引，也未运行新算例。
-- 因新增文档未登记，`python -B skills/pyqcu-docs/scripts/audit-docs-skills.py`
-  当前报告 `docs=49`、计数 48≠49、`DOCS-INDEX`/`DOCS-MAP`/`DOCS-GUIDANCE`
-  未登记。该审计**未通过**；不能让本文的交付被误读为“审计已过”。
-- 审计中另有 dev143 既有的 3 份文档未进入 `extracted-guidance`
-  （`kupl_kunpeng_node_survey_20261114.md`、`kupl_mpi_scaling_20261114.md`、
-  `kupl_vs_cuda_algorithms_20261114.md`），以及 `skills/pyqcu-docs/SKILL.md`
-  的计数 45≠48；这些在本次新增之前就存在，不应归因于本文。
-- 若要把本文纳入正式文档体系，需在**单独一次**文档登记改动中完成：
-  1. `docs/AGENTS.md` 增加本文职责行并把计数 48 改为 49；
-  2. `skills/pyqcu-docs/references/project-docs-map.md` 登记本文并更新计数；
-  3. `skills/pyqcu-docs/references/extracted-guidance.md` 登记本文（并补齐上述
-     3 份既有文档的结论覆盖行）；
-  4. 重跑 `audit-docs-skills.py`，清零 `DOCS-*` 后再提交。
+- **状态更新（2026-11-15 收口后）**：本文已在同批文档登记中进入
+  `docs/AGENTS.md`、`skills/pyqcu-docs/references/project-docs-map.md` 与
+  `extracted-guidance.md`；`docs` 计数现为 **53**（同批新增
+  `kupl_l24_c64_mg2_shm1_boundary_20261115.md`）。登记完成后的
+  `python -B skills/pyqcu-docs/scripts/audit-docs-skills.py` 为 `PASS docs=53 skills=36`。
+  因此下面"未登记/审计未通过"的段落是**创建时**的历史记录，不再是现状。
+- 创建时的记录（保留作为过程证据）：审计曾报 `docs=49`、计数 48≠49、
+  `DOCS-INDEX`/`DOCS-MAP`/`DOCS-GUIDANCE` 未登记；另有 dev143 既有的 3 份文档
+  未进入 `extracted-guidance`（`kupl_kunpeng_node_survey_20261114.md`、
+  `kupl_mpi_scaling_20261114.md`、`kupl_vs_cuda_algorithms_20261114.md`），以及
+  `skills/pyqcu-docs/SKILL.md` 的计数 45≠48。
+- 登记动作（已完成）：`docs/AGENTS.md` 增加本文职责行并更新计数；
+  `project-docs-map.md` 登记本文并更新计数；`extracted-guidance.md` 登记本文
+  并补齐上述 3 份既有文档的结论覆盖行；重跑 `audit-docs-skills.py` 清零 `DOCS-*`。
+- 2026-11-15 的 docs 补全批次对本文追加了 §1.2 第 7 条（`atol` 口径与 244.1×）、
+  §11.1/§11.5 的鲲鹏 c128 现状，以及本节状态更新；**没有**改任何数值。

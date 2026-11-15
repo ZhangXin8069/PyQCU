@@ -39,6 +39,8 @@ metadata:
 | `pyqcu/testing/kupl/test_kunpeng_mpi_binding.py` | 双 rank 实际 cpuset 非空/不重叠门；硬件不足返回 skip 77 |
 | `pyqcu/testing/kupl/test_kunpeng_profile_contract.py` | 非鲲鹏主机拒绝鲲鹏 profile，rank 间 profile 不一致快速失败 |
 | `pyqcu/testing/kupl/benchmark_runtime.py` | 分离 init、首次 Clover 与 RSS 的库级初始化 A/B |
+| `pyqcu/testing/kupl/test_kunpeng_all.py` | 鲲鹏全配置矩阵驱动：`list/prepare/prewarm/solve/merge/run/validate` 与 94 列 CSV 台账 |
+| `pyqcu/testing/kupl/submit_kunpeng_all.sh` | 按节点分组的 `#DSUB` 提交器：单任务独占整节点、`--shard-index/count`、`--dry-run` |
 | `cpp/kupl/qcu/tests/test_failure_modes.py` | 非收敛与 fail-closed 入口的显式失败门 |
 | `cpp/kupl/qcu/tests/benchmark_kupl.cpp` | Wilson/Clover Dslash 吞吐与 rank affinity 证据 |
 | `pyqcu/testing/kupl/check_abi.py` | KUPL/CUDA C 声明与动态库 40 项导出符号一致性门 |
@@ -268,118 +270,123 @@ KUPL_BENCH_SHOW_AFFINITY=1 KUPL_OMP_THREADS=8 KUPL_NUMA_BIND=1 \
 benchmark 的 `estimated_gflops` 分别使用 Wilson `4*12*12*8` 和
 Clover 再加 onsite `12*12*8` flop/site/application 模型，不是硬件计数器。
 
+### 鲲鹏全配置矩阵（2026-11-15）
+
+入口 `pyqcu/testing/kupl/test_kunpeng_all.py` + `submit_kunpeng_all.sh`。矩阵为
+`dtype{c64,c128} × solver{bistabcg,mg1,mg2} × lat{L24,L32} × grid{balanced,t-finest}
+× ranks{16,32} × threads{9,18,36}(≤608 总线程) × shm{0,1} ×
+source{ones,real1,point,random} × gauge{real,random} × seed{42,24} ×
+mg-restart{5,10,20,50}`；每行写 94 列 CSV（物理参数、rank×thread、grid、cache
+identity、三层残差、`*_read_mode` 与读时间、`dslash/clover GB/s`、节点频率、
+`wall/builder/build_mg_cache/elapsed`）。单条用例走
+`--mode run --lat 24 24 24 64 --mass -0.277 --csw 1.160920226 --dtype c64`，便于按
+节点分组独立提交。列定义、结果表与 runbook 见
+[`references/kupl-kunpeng-matrix-20261115.md`](references/kupl-kunpeng-matrix-20261115.md)。
+
+- 模式 `list/prepare/prewarm/solve/merge/run/validate`；`solve --expand` 配
+  `--shard-index/--shard-count` 分片。`--resume --skip-failed` 会**永久跳过**已有
+  `status=FAIL` 的单元，且判重只看 `outdir/rows/*.json`（不看 `--csv`）：重跑必须
+  删行、换 `--run-label` 或换 `--outdir`。
+- CSV 94 列由 `CSV_COLUMNS` 决定；`append_csv` 只在空文件写表头，旧 93 列 CSV 再
+  追加会整体错列（`--mode merge` 重写可修）。`rows/*.json` 走 `atomic_write_json`。
+- 驱动自启 `mpirun`，故一个 `dsub` 作业必须是**一个任务独占整节点**（`-N 1 -rpn 1
+  -R "cpu=ranks*threads;mem=400G" -x job`）。`-x job` 在节点被部分占用时保持
+  `PENDING`，因此一作业一节点；`#DSUB -T` 单位是秒（默认 900），资源块只在
+  `dsub -s` 时解析。调度细节见 `pyqcu-testing-qcu`。
+- 口径：L24 c64（ones、18 it、真残差 `7.12e-07`）32r×18t t-only `0.247571 s`
+  （shm1 `0.240473`）、balanced `0.349715`；L24 c128（31 it、`5.33e-11`）同配置
+  `0.567444/0.475555 s` = c64 的 `1.98–2.29×`（迭代数占 `1.72×`）；L32 6 行全
+  FAIL（缺一次有效运行）。16 秩主要落 `cn19650`（17/20 行）、32 秩主要落 `cn19699`
+  （15/17 行），节点与 grid 共线，**不能当 scaling 曲线**（16×18 的 8 行见矩阵参考 §5）。
+- L32 是**源文件**故障而非算法：32 rank 都在 `_read_local_slab` 的 `h5py.File` 抛
+  `bad object header version number`。16:28 已用 `ones`/`ones_v2`（同 `9cdcfc82…f55a`、
+  全 `1+0i`）换掉坏 ones；`source_..._c64.h5` 是 **random seed42**，不可当 ones 用。
+- MG + `shm=1` 边界：8 格 7 PASS / 1 FAIL，唯一 FAIL 是 32 秩 balanced `2 2 2 4`
+  + `restart=5` 的 `shared halo handshake timeout: publish`；同 config 独立 outdir 复测
+  2/2 PASS → **1 FAIL / 2 PASS，属不稳定而非稳定失败**：不写 `known_skips.json`（只留
+  `known_skips.candidate.json`，default disabled），不得整体禁 `balanced` 或 `shm1`、
+  不得静默回退 `shm=0`。签名只在 `logs/*.err`，见
+  [`docs/kupl_l24_c64_mg2_shm1_boundary_20261115.md`](../../docs/kupl_l24_c64_mg2_shm1_boundary_20261115.md)。
+- 启动摊销：计算节点单次启动 = `MPI boot 38.993 s + import 91.716 s ≈ 130.7 s`
+  （16 rank、`cn12090`；矩阵行内 import 记账 `80.8 s`）；登录节点 import 仅
+  `1.0–1.3 s`。一例一进程时 `elapsed_seconds` 16 秩 ≈`100 s`、32 秩 `183–211 s`，
+  而 `wall` 仅 `0.21–0.57 s`。loop 原型在同一 `mpirun` 内重复调用驱动：计算节点
+  3 例同进程 `C=113.9 s`（对逐例 `3×130.7 s` 摊销 ~261 s），登录节点 3 例 `107.4 s`
+  但 import 只有 1 s、摊销不可见；故障注入/`SystemExit` 不污染后续用例，RSS
+  589→925 MB、wall 抖动，正式批次仍一例一进程。
+- `KUPL_HDF5_MPIO_READ=1` 是集体 opt-in（rank 间不一致或 h5py 无 MPI 立即抛错）。
+  本轮只做**接口检查**：conda h5py `3.7.0`/HDF5 `1.10.6`、`get_config().mpi=False`、
+  无 `mpio` → per-rank 读、全批 `hdf5_mpio_read=false`（0 行 `true`）、ranked cache
+  `SKIP`；**不重编译/不重装 MPI h5py，ranked cache 不列入后续计划**。cache 策略与
+  identity 字段见
+  [`references/kupl-kunpeng-matrix-20261115.md`](references/kupl-kunpeng-matrix-20261115.md) §8。
+
+### 矩阵范围裁定与重测判定（2026-11-15）
+
+- **不重测判据**：source 语义与 hash、gauge dtype 与 `gauge_canonical_sha256`、cache
+  identity、`atol`、`grid/ranks/threads/shm/solver/mg_restart` 全部同口径才不重测；
+  任一不同必须重跑并落新 `run_id`。据此 **31 条 PASS / L24 数据保留、不重跑**；
+  L32 的 6 条 FAIL 是**首次有效运行**，不是重测。
+- **放弃轴**（耗时代价过大，已有部分数据保留，**不重测/不新增**）：thread 9、seed24、
+  random gauge、random 源、point 源、`mg-restart 50`；其单样本（如
+  `861ac912ac3c7c42` 的 `11.437897 s`）不得进入任何性能表。保留 16×36、MG1、r10、
+  L32/c128、MG+shm。
+- **cache**：`--mode prepare` 只处理 `mg2`；命中看 `cache_index.json` + manifest
+  identity。identity 不含 source 哈希（source 修复不失效）与 `atol/restart/deflate`；
+  L32 c64 与 L24 c64 的 `gauge_file_sha256` 指到 c128 大文件，只需重签（canonical
+  不变、不重跑数值），L32 c128 不重建。
+- **超时只留 partial 输出**：600 s 硬超时（rc 124/137）的 cache 行可能已落盘并判
+  `PASS`（`elapsed=602.2 s`），不得当作"L32 可跑"证据；solve 行无 `reports/*.json`
+  一律 FAIL。输入资产按**只读**处理：不回写、不修补损坏文件，只能换名重生成并保留
+  `*.corrupt-*` 备份。
+
 ### L24 单节点最优点与带宽口径（2026-11-13）
 
-固定用例：L24 `24^3x64`、c64、点源 `seed 42`、`mass=-0.277`、
-`csw=1.160920226`、`atol=1e-4`、`levels=1`、`restart=0`（parity-Schur
-BiCGStab，不是 multigrid）、grid `1 1 1 32`、每 rank 线程数由作业申请的
-`-R cpu=TH` 决定（32r×12t 的 report `memory.omp_threads` 为 `12`）、
-`KUPL_NUMA_BIND=1`、`KUPL_MEMORY_POLICY=preferred`、
-`KUPL_REQUIRE_MEMORY_BIND=0`、
-`mpirun --bind-to none --map-by ppr:2:numa`；全部另加 `KUPL_HALO_PACK6=1`、
-`KUPL_HALO_DEDUP_PACK=1`、`KUPL_T_LOCAL_IN_PART1=1`、
-`KUPL_ENABLE_BOUNDARY_LANES=1`、`KUPL_SKIP_FINAL_RESIDUAL=1`（求解器内残差
-复查被跳过，外层独立分布式 FULL Wilson-Clover 真残差门仍在跑）、
-`OMP_WAIT_POLICY=ACTIVE`。表中 `t18+shm` 与 `KUPL_SHM_HALO=0` 两行为
-**8 样本中位**（同时给出范围），其余用例为单样本 `wall_seconds`。
+固定用例（除注明外）：L24 `24^3x64`、c64、单点源 `seed 42`、`mass=-0.277`、
+`csw=1.160920226`、`atol=1e-4`、`levels=1`、`restart=0`（parity-Schur BiCGStab，
+不是 multigrid）、grid `1 1 1 32`、`-R cpu=TH` 决定每 rank 线程数、
+`KUPL_NUMA_BIND=1`、`preferred`、`mpirun --bind-to none --map-by ppr:2:numa`，另加
+PACK6/DEDUP_PACK/`T_LOCAL_IN_PART1`/BOUNDARY_LANES/`KUPL_SKIP_FINAL_RESIDUAL`/
+`OMP_WAIT_POLICY=ACTIVE`。
 
-2026-11-14 另按“全格所有点实部=1、虚部=0”的点源重测（各 3 样本，配置同上）：
-L24 中位 `0.173362 s`（0.171331/0.173362/0.182659，11 it，真残差 `6.756e-05`）、
-L32 中位 `0.348549 s`（0.348549/0.369371/0.340658，12 it，`6.832e-05`），均 PASS；
-源不同，不得与 `0.154883 s` 直接比较。TH 扫描（L24）：TH9 `0.215964 s`、
-TH16 `0.182221 s`、TH18 中位 `0.173362 s`；L32：TH9 `0.460573 s`、
-TH16 `0.352243 s`、TH18 中位 `0.348549 s`；两尺寸均 TH18 最优，TH36 失败关闭。
+- 8+8 样本：`t18` + 共享 halo（单节点默认）中位 `0.154883 s` 对 `KUPL_SHM_HALO=0`
+  `0.181733 s`，改善 `14.77%`、区间不重叠；机制是 wait `0.775 → 0.164 ms/次`、
+  dslash 中位 `0.067483` 对 `0.093351 s`。两组均 12 it、真残差 `5.384866e-05`。
+  跨节点共享窗口自动回退 MPI；最优中位距 `0.1 s` 目标约 `1.55×`。
+- 全格实部 1 源 3 样本：L24 中位 `0.173362 s`（11 it、`6.756e-05`）、L32 中位
+  `0.348549 s`（12 it、`6.832e-05`）；TH9/16/18 扫描两尺寸均 TH18 最优、TH36 失败
+  关闭。**源不同，不得与 `0.154883 s` 算比值**。
+- `KUPL_PROFILE_OPT=1`（默认关、仅计时）：rank 17 的 dslash `0.104099 s/52`、
+  `828.113 MB`、`7.96 GB/s·rank`（聚合 `254.56`）；clover `0.013720 s/52`、
+  `552.075 MB`、`40.24 GB/s·rank`；reduce `0.023190 s/51`；phases
+  `prepare/solve/reconstruct = 0.003573/0.156956/0.002327 s`。
+- 同节点 STREAM triad 探针 `18.3–20.1 GB/s·rank`（32 rank `585–643 GB/s`）：
+  dslash ≈ 峰值 `40%`（计算/latency 受限），clover 更高来自 cache 复用。profiler
+  字节、解析流量、STREAM、solve 级四种带宽口径不可互除（见 `pyqcu-benchmark`）。
 
-| 用例 | 节点 | 规模 | 关键配置 | wall (s) | 迭代 | 状态 |
-|---|---|---|---:|---:|---:|---|
-| t18+shm | cn19699 | 32r×18t（`-R cpu=18`） | ACTIVE + t2 lane + 共享 halo（单节点默认） | **中位 0.154883**（8 次：0.150240–0.157304） | 12 | PASS（真残差 5.384866e-05） |
-| t18 | cn19699 | 32r×18t（`-R cpu=18`） | ACTIVE + t2 lane，`KUPL_SHM_HALO=0` | 中位 0.181733（8 次：0.180094–0.187894） | 12 | PASS（真残差 5.384866e-05） |
-| t16 | cn19699 | 32r×16t（`-R cpu=16`） | ACTIVE + t2 lane | 0.188526 | 12 | PASS |
-| prof4 | cn19699 | 32r×12t | ACTIVE + t2 lane | 0.207077 | 12 | PASS |
-| base | cn19699 | 32r×12t | PASSIVE，无 t2 | 0.281166 | 12 | PASS |
-| c50_act | cn19650 | 32r×12t | ACTIVE + t2 lane | 0.249223 | 12 | PASS |
-| c50_base | cn19650 | 32r×12t | PASSIVE + t2 lane | 0.319600 | 12 | PASS |
-
-`t18` 的独立 FULL 真残差为 `5.384866e-05`、`t16` 为 `5.384853e-05`，其余为
-`5.38e-05` 量级。当前最优为 `t18` 叠加共享内存 halo（单节点默认开启）：
-8 样本中位 `0.154883 s`、均值 `0.154132 s`、sd `0.002503 s`、范围
-`0.150240–0.157304`。同 lane 对照 `KUPL_SHM_HALO=0` 为 8 样本中位
-`0.181733 s`（范围 `0.180094–0.187894`），中位改善 `14.77%` 且区间不重叠。
-机制是 wait 从 `0.775` 降到 `0.164 ms/次`；dslash 中位 `0.067483` 对
-`0.093351 s`，solve `0.110958` 对 `0.133611 s`。两组均为 12 it、
-`converged=true`、真残差一致。跨节点时共享窗口自动回退 MPI。当前最优中位
-距 `0.1 s` 目标约 `1.55×`；t16/t18 与 `prof4` 同时改变了 `-R cpu=TH` 资源
-申请，不是纯线程数单变量实验。
-
-t2 z-block 相对 split 路径的同 lane A/B（cn19699、32r×18t、ACTIVE + t2 lane、
-`preferred`）中位差 `0.47%`，属噪声级，z-block 保持 opt-in。
-
-`KUPL_PROFILE_OPT=1` 是逐 rank 诊断变量（默认关闭，仅计时，不改变算法与停机）。
-每个 rank 输出 `dslash`/`clover`/`reduce` 的秒数与调用次数、`dslash`/`clover`
-的字节数与 `GB/s`（rank 与全 rank 聚合），以及 `prepare`/`solve`/`reconstruct`
-三阶段。ACTIVE、cn19699、rank 17 实测：
-
-| 项 | 次数 | 时间 (s) | 字节 (MB) | 每 rank | 聚合 |
-|---|---:|---:|---:|---:|---:|
-| dslash | 52 | 0.104099 | 828.113 | 7.96 GB/s | 254.56 GB/s |
-| clover | 52 | 0.013720 | 552.075 | 40.24 GB/s | 1287.63 GB/s |
-| reduce | 51 | 0.023190 | — | 0.45 ms/次 | — |
-
-phases：`prepare=0.003573`、`solve=0.156956`、`reconstruct=0.002327`；solve 外的
-setup 约 `44 ms`（scratch/gauge halo）。
-
-诊断作业 `2114373`/`2114720`（cn19699、32r×18t、ACTIVE + t2 lane、L24 c64）
-的 `KUPL_PROFILE_OPT=1`（与 dslash 路径无关）给出 rank 0 的生产 dslash 约
-`1.83–1.95 ms/次`（`0.094981`/52 与 `0.101344`/52，各 `828.113 MB`）；
-逐 rank `8.2–9.2 GB/s·rank` 为运行时派生值。
-
-带宽口径：同节点 STREAM triad 探针（8M double × 3 数组、5 次取最优、
-12 线程/rank、`--bind-to numa --map-by ppr:2:numa`）为 `18.3–20.1 GB/s·rank`，
-32 rank 聚合约 `600 GB/s`。据此 dslash 的 `7.96 GB/s·rank` 约为探针峰值的
-`40%`，属计算/latency 受限；clover 的 `40.24 GB/s·rank` 高于探针值，来自
-clover cache 的复用命中，不是超过硬件峰值。
-
-数据来源为远端 `data/kupl_opt_20261113/remote/<tag>/report.json` 与
-`meta.txt`（C 级时点证据、未提交）；逐用例残差、派生比值口径与复现命令见
-[`references/kupl-history-2026.md#2026-11-13-l24-单节点性能与带宽剖析`](references/kupl-history-2026.md#2026-11-13-l24-单节点性能与带宽剖析)。
+逐用例（`t18+shm`/`t18`/`t16`/`prof4`/`base`/`c50_act`/`c50_base`）、点源重测与
+TH 扫描、数据来源（远端 `data/kupl_opt_20261113/remote/<tag>/`，C 级时点证据、
+未提交）见 [`references/kupl-history-2026.md`](references/kupl-history-2026.md)。
 
 ### L24 Legacy-MG cache（2026-11-14）
 
-1-rank 构建、32 rank 复用的路径已打通（此前“多 rank MG 无法运行”的旧结论作废，
-但仅限**已有预置 cache** 的场景）：
+1-rank 构建、32 rank 复用已打通（仅限**已有预置 cache** 的场景）。cache
+`data/kupl_scaling_20261114/cache_l24_parallel.h5`（+ 同名 `.json`）：
+`setup_seconds=493.63817879895214`（1 rank × 18 线程、并行 stencil 默认开）、
+`file_size_bytes=143,335,424`（约 `136.7 MiB`）、`status=PASS`、
+`mg_grid=[2,2,2,1]`、`nv_iters=2`、lattice `[24,24,24,64]`。构建期修复（删
+per-probe 全量 fill、第一步 dslash 稀疏到 `block+1-hop`、时间窗口
+`min(fine,3*block+3)`）把 1-rank 的 `rc=124`（>600 s）降到 493.6 s，仍比 `30 s`
+目标慢约 `16.5×`。
 
-| 项 | 值 |
-|---|---|
-| cache 文件 | `data/kupl_scaling_20261114/cache_l24_parallel.h5`（+ 同名 `.json`） |
-| `setup_seconds` | `493.63817879895214`（1 rank × 18 线程，并行 stencil 默认开） |
-| `file_size_bytes` | `143,335,424`（约 `136.7 MiB`） |
-| `status` / `setup_method` / `setup_backend` | `PASS` / `cxx-null-vector+local-33-stencil` / `kupl-qcu-cxx` |
-| `mg_grid` / `nv_iters` / lattice | `[2,2,2,1]` / `2` / `[24,24,24,64]` |
-
-构建期修复：删除 per-probe 全量 fill；第一步 dslash 稀疏到 `block+1-hop`（约 48
-site）；时间窗口改为 `min(fine, 3*block+3)`（含 t 维）；并行 stencil 默认开。
-修复前 1-rank 串行/并行均 `rc=124`（>600 s 未完成）；修复后 493.6 s 完成，仍比
-`30 s` 目标慢约 `16.5×`。
-
-32 rank 参数扫描（`grid 1 1 1 32`、`--coarse-cache` 复用上表、`--mg-grid 2 2 2 1
---nv-iters 2`、`atol=1e-4`、全 1 点源、c64、`OMP_WAIT_POLICY=ACTIVE`、
-t2/PACK6/DEDUP/T_LOCAL/BOUNDARY 全开，**单样本**）：
-
-| 用例 | restart | coarse-max-iter | tol | wall (s) | 真残差 | 状态 |
-|---|---:|---:|---|---:|---:|---|
-| r3_m200_t4 | 3 | 200 | 1e4 | 0.136258 | 6.756443214052956e-05 | PASS |
-| r1_m200_t4 | 1 | 200 | 1e4 | **0.135579** | 6.756443214052956e-05 | PASS |
-| r6_m200_t4 | 6 | 200 | 1e4 | 0.136228 | 6.756443214052956e-05 | PASS |
-
-- `restart=1` 的 `0.135579 s` 对照同 gauge/source、`atol=1e-4` 的 BiCGStab
-  3 样本中位 `0.173362 s`，快约 **21.8%**；真残差逐位一致
-  （`6.756443214052956e-05`）。
-- restart 1/3/6 极差约 `0.5%`，单样本、在噪声内，不得据此对 restart 排序。
-- MG 的 `iterations` 为 `None`（native MG 不暴露可靠外迭代计数），**不得按
-  迭代数比较 MG 与 BiCGStab**。
-- MG 墙钟不含 cache 构建（`493.6 s`）；只有同一 gauge 长期复用才使 21.8% 成立。
-- 第二轮扫描（作业 `2125551`，`cmax=50`、`tol=1e3/1e5`、`--no-deflate`、
-  `atol=1e-6`）写入时 **running**，本文件不预判。
+**容差语义**：`coarse_atol = atol × coarse_tol_factor × 3^(levels−1)`；`atol=1e-4`
+× 默认 `1e4` = `1.0` → 粗层首行即“收敛”、修正全拒、`fallback_to_fine=true`。
+因此 `atol=1e-4` 的 `0.135579–0.136258 s` 与历史“MG 快 21.8%/26%”**一律作废**
+（实为 fine BiCGStab）。真实 MG 必须 `atol=1e-6`：32 秩 t-only `0.252589` 对
+BiCGStab `0.247571 s`（±2%），`restart=5→20` 省 `1.8–2.4×`；`builder_seconds`
+（cache 载入 `4.4–6.1 s`）不在 `wall_seconds` 内，MG 的 `iterations` 为 `None`，
+不得按迭代数比较 MG 与 BiCGStab。第二批 `atol=1e-6` 扫描与全矩阵见
+[`references/kupl-kunpeng-matrix-20261115.md`](references/kupl-kunpeng-matrix-20261115.md)。
 
 ### 多 rank Legacy-MG patch 构建（2026-11-14）
 
@@ -425,9 +432,8 @@ BiCGStab `0.0316 s` vs MG `0.0379 s`（MG 慢 20%，非 2.93×）。
 L24 独占 HBM 节点实测配方：所有 rank 报告 `memory_bound=true`，`memory_node`
 落在 16–31；逐用例超时用 400–600 s（16 秩端到端约 108–117 s，32 秩约 233 s，
 `RC=124` 不等于死锁）。本地实测数据、DSLASH 分解与跨节点注意事项见
-[`references/kupl-history-2026.md#2026-11-12-l24-hbm-node-scan-recovery-and-high-performance-configuration`](references/kupl-history-2026.md#2026-11-12-l24-hbm-node-scan-recovery-and-high-performance-configuration)；
-逐项数值与来源对照见
-[`references/kupl-hbm-scan-20261112-evidence.md`](references/kupl-hbm-scan-20261112-evidence.md)。
+[`references/kupl-history-2026.md`](references/kupl-history-2026.md)，逐项数值与来源
+对照见 [`references/kupl-hbm-scan-20261112-evidence.md`](references/kupl-hbm-scan-20261112-evidence.md)。
 
 | 配置项 | 推荐值/说明 |
 |---|---|
@@ -435,11 +441,11 @@ L24 独占 HBM 节点实测配方：所有 rank 报告 `memory_bound=true`，`me
 | `KUPL_MEMORY_POLICY=bind` | 严格 HBM 策略；`preferred` 会回退 DDR |
 | `KUPL_MEMORY_NODE=local+16` | 仅当 sysfs 片上内存节点对每个 CPU 节点唯一映射时使用 |
 | `KUPL_REQUIRE_MEMORY_BIND=1` | `set_mempolicy` 失败即 fatal，避免静默回退 |
-| `KUPL_HUGEPAGE=1` | 对大型内部 scratch 发 `MADV_HUGEPAGE` advice |
-| `KUPL_TOPOLOGY_REPORT=1` | 输出每 rank cpuset/node/thread 证据 |
+| `KUPL_HUGEPAGE=1` / `KUPL_TOPOLOGY_REPORT=1` | 前者对大型内部 scratch 发 `MADV_HUGEPAGE`，后者输出每 rank cpuset/node/thread 证据 |
 
-MPI 使用 `--map-by ppr:P:numa` 与 `--bind-to none`；`dsub` 调度参数必须写在
-命令行（`#DSUB` 头可能被忽略），提交后用 `djob -ll <id>` 核对 `execNodes`。
+MPI 使用 `--map-by ppr:P:numa` 与 `--bind-to none`；`dsub` 资源参数写在命令行，或
+用 `dsub -s <job>` 让 `#DSUB` 资源块生效（直接以位置参数提交时 `#DSUB` 头可能被
+忽略），提交后用 `djob -ll <id>` 核对 `execNodes`。
 
 ## 当前边界
 
@@ -462,36 +468,31 @@ c128 coarse V-cycle 性能；同规模 c128 coarse 性能仍未验证。
 - 不要用进程当前 cpuset 覆盖显式 `KUPL_OMP_THREADS`；OpenMP runtime 可能已把
   master thread 临时绑定到单核。
 - 不要让 MPI 集合调用依赖 rank 的提前返回。
-- 不要把 clover 的 `40.24 GB/s·rank` 与 STREAM triad 探针峰值直接比较；clover
-  有 cache 复用，探针不命中缓存，两者口径不同。
-- 不要把旧 `KUPL_PROFILE_DSLASH` 的 halo/wait/boundary 分解当作生产
-  split-boundary 路径的分解；旧实现用 `!profile` 跳过该路径。现已在
-  split-boundary 与 t2 z-block 路径就地计时：作业 `2114720` 的 rank 0 为
-  halo `0.007918`、interior `0.018824`、wait `0.022757`、
+- 不要把 clover 的 `40.24 GB/s·rank` 与 STREAM triad 探针峰值直接比较：clover 有
+  cache 复用、探针不命中缓存；也不要跨层相除（见 `pyqcu-benchmark` 带宽四级口径）。
+- 不要把旧 `KUPL_PROFILE_DSLASH` 的 halo/wait/boundary 分解当作生产 split-boundary
+  路径的分解（旧实现用 `!profile` 跳过该路径）。生产路径就地计时：作业 `2114720`
+  rank 0 为 halo `0.007918`、interior `0.018824`、wait `0.022757`、
   boundary `0.008081 s`（28 次），wait 仍占约 40%。
-- 不要用单一节点的绝对值跨节点外推。同为 PASSIVE 基线，`cn19650`
-  `0.319600 s` 对 `cn19699` `0.266416 s`，约 `20%` 差异，硬件/负载/cpuset
-  身份未逐项对齐，只能作上界。
+- 不要用单一节点的绝对值跨节点外推：同为 PASSIVE 基线，`cn19650` `0.319600 s` 对
+  `cn19699` `0.266416 s`（约 `20%`），硬件/负载/cpuset 未逐项对齐，只能作上界。
 - 不要据单次样本宣称 `-ffast-math` 或 block-dslash 加速：cn19699 同 lane 上
   `0.204288 s` 对 `0.207077 s`（约 1.4%）、cn19650 `0.244864 s` 对
   `0.249223 s`（约 1.8%）均在噪声级。
 - 不要用 `wrapped_site = site` 处理多 block 的 +z 周期；z-block 累加必须给
   内点/上界 wrap 传目标 lane 偏移；时间 backward gauge 在 backward 远端时
   取 halo。
-- 真实 MG（`levels=2`）多 rank 仍必须预置全局 `--coarse-cache`；
-  `kupl_multigrid.py` 的多 rank 导出仍以
-  `multi-rank coarse-cache export is not implemented` 拒绝。2026-11-14 起
-  1-rank 构建的 L24 cache 已被 32 rank 读取复用（见“L24 Legacy-MG cache”：
-  `setup_seconds=493.63817879895214`、`143,335,424 B`），所以“多 rank MG 无法
-  运行”已不成立；当前真实边界是 cache 构建 `493.6 s`（>30 s 目标）与 L32
-  无可复用 cache。早前作业 2112385 的 25 分钟超时 `dkill` 属旧构建器的失败，
-  不是算法结论。
+- 真实 MG（`levels=2`）多 rank 仍必须预置全局 `--coarse-cache`；`kupl_multigrid.py`
+  的多 rank 导出仍以 `multi-rank coarse-cache export is not implemented` 拒绝。
+  1-rank 构建的 L24 cache 已被 32 rank 复用（`setup_seconds=493.63817879895214`、
+  `143,335,424 B`），但 cache 构建仍 `493.6 s`（>30 s 目标）且 L32 因源文件不可读
+  没有可复用 cache。早前作业 2112385 的 25 分钟 `dkill` 属旧构建器失败，不是算法
+  结论。
 
 ## 历史性能与运行时证据
 
 2026-10 至 2026-11 的 cache builder、Clover 6×6、rank scaling、鲲鹏运行时、HMPI 记录见
-[`references/kupl-history-2026.md`](references/kupl-history-2026.md)。
-
-与 CUDA 的算法取向对照与“不可照搬”清单见
-[`references/kupl-vs-cuda-algorithms.md`](references/kupl-vs-cuda-algorithms.md)；
-节点频率/拓扑核验记录见 [`docs/kupl_kunpeng_node_survey_20261114.md`](../../docs/kupl_kunpeng_node_survey_20261114.md)。
+[`references/kupl-history-2026.md`](references/kupl-history-2026.md)；与 CUDA 的算法取向
+对照与“不可照搬”清单见
+[`references/kupl-vs-cuda-algorithms.md`](references/kupl-vs-cuda-algorithms.md)；节点
+频率/拓扑核验记录见 [`docs/kupl_kunpeng_node_survey_20261114.md`](../../docs/kupl_kunpeng_node_survey_20261114.md)。

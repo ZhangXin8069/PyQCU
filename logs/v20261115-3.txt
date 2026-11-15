@@ -1,0 +1,150 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-11-15 17:08 +0800
+批次: kunpeng-all-20261115
+主任务: KUPL 鲲鹏矩阵本轮范围裁定落档（MPI h5py 接口检查、放弃项、L32 source/cache 判定、队列状态）
+触发原因: 任务收口（只写文档/技能/数据侧登记，不改代码、不改驱动、不 commit/push）
+摘要: 新增 docs/kupl_matrix_scope_20261115.md 承载四条已确认结论；matrix 与 rootcause 两份文档追加裁定并纠正 gauge 文件身份（production_L32_v1/gauge_..._c64.h5 实为 1.2 GB complex128，604 MB c64 副本在 production_L32_c64/）；数据侧新增 known_skips.json、刷新 quarantine.json（补 07c80fc8/44faded2 两条快照后 L32 FAIL、cache 重签、队列状态）；skills 五个技能与 docs/AGENTS.md 登记同步；audit-docs-skills 由 20 errors 清零，git diff --check 干净，form-audit 仅剩 1 个本任务之前既有的 TAG_NAME_IN_PATH 警告
+Git 根目录: /home/zhangxin/PyQCU
+日志文件: logs/v20261115-3.txt（v20261115.txt 与 v20261115-2.txt 均被既有任务占用，按 logs/AGENTS.md / pyqcu-form 的“同名冲突追加 -N”规则新建 -3）
+
+## 0. 口径
+
+- 本文只记录**裁定**，不产生新性能数字；所有数值仍是 42 行快照（16:06）及其引用文档的转抄。
+- 行/报告/CSV 未改、未删、未重排；坏 `*.corrupt-20261115` 未删除。
+- 本轮没有改任何代码：`pyqcu/testing/kupl/test_kunpeng_all.py`、`submit_kunpeng_all.sh`、
+  `pyqcu/testing/simple/kupl_multigrid.py` 全部未触碰。
+- 证据标记：`[产物]` 工作区可复核；`[脚本]` 代码行可复核；`[会话]` 本轮会话观测、工作区无落盘证据。
+
+## 1. 四条已确认结论
+
+### 1.1 MPI h5py：只做接口检查，不重新编译/安装
+
+- 计算节点 conda `2023.3` 实测 h5py `3.7.0` / HDF5 `1.10.6`、`get_config().mpi=False`、
+  `mpio` driver 不存在 → `h5py_has_mpi()` 为 `False`。`[会话]` + `[脚本]`
+  `test_kunpeng_all.py:1090-1096`。
+- 包装器自动 `KUPL_HDF5_MPIO_READ=1` 的分支不会触发（`test_kunpeng_all.py:718-721` 走
+  `env.pop`），底层 `_hdf5_mpio_read_enabled()`（`kupl_multigrid.py:95-112`）请求值为 0，
+  集体校验不进。`[脚本]`
+- 没有任何一行记录 `hdf5_mpio_read=true`：42 行里 28 行显式 `false` + note
+  `h5py lacks MPI; HDF5 parallel read disabled`（`test_kunpeng_all.py:1442-1443`），
+  14 行（5 条 prepare + 9 条 solve，旧脚本版本）缺该键；走每 rank 全量读回退
+  （`kupl_multigrid.py:1210`）。`[产物]` `rows/*.json`。
+- ranked cache 因 MPI h5py 不可用而 blocked（`test_kunpeng_all.py:1123-1131`），
+  **不列入后续计划**；`bg-3` 离线构建与 `bg-23` ranked cache 尝试均不作为本轮交付，
+  其产物未验证、不得引用。
+- 保留：每批接口检查（版本/`mpi`/`mpio`）+ capability-aware fallback；不写“建议编译/
+  安装 MPI h5py”。
+
+### 1.2 放弃项（耗时代价过大）
+
+| 轴 | 现有行 | 处置 |
+|---|---|---|
+| thread 9（16×9、32×9、32×9 shm1 复核） | 3（`b614ad93`/`baf92e2b`/`861ac912`） | 不扩展、不重测；`861ac912` 11.437897 s 不复核 |
+| seed24 | 2（`0041182f`/`9cc71c5d`） | 不扩展 |
+| random gauge | 1（`4c5cd8a6`） | 不重跑 |
+| random 源 | 2（`9cc71c5d`/`e1574f17`） | 不新增 |
+| point 源 | 1（`c3bd73d2`，FAIL） | 已修复但 point 性能不跑 |
+| mg-restart 50 | **0** | 不新增 |
+
+保留：16×36（thread 36）已有 3 行、MG1、r10、L32/c128、MG+shm。`[产物]`
+`rows/*.json` 统计：threads 9→3/36→3/18→31；seed 24→2、42→35；gauge random→1；
+source random→2、point→1、real1→1；`mg_restart` 0→25、5→8、20→4、10/50→0。
+
+### 1.3 L32 source / cache / 重测判定（bg-31）
+
+- `source_32x32x32x64_c64.h5` 是 **random seed42**，不是 ones → 不能替换坏 ones。
+- `ones.h5` 与 `ones_v2.h5` 的 `file_sha256` 同为
+  `9cdcfc821437816f342f74859ce7c5a44eae8f02b4fe6df7eba2c34a9b2ef55a`（`9cdcfc82…f55a`）、
+  dataset 全 `1+0i`、**逐字节相同 → 无需重新生成**。`[会话]` + `[产物]`
+  `quarantine.json.input_remediation`。
+- L32 `ones` 与 L24 `point` 均在 16:28 修复；坏字节保留 `*.corrupt-20261115`
+  （L32 `a9c2acd8…`、L24 `945782f3…`）。
+- 6 条 L32 FAIL（`07c80fc8`、`23daf98e`、`327f9aa5`、`35548a2b`、`44faded2`、`c9bfd6bf`）
+  都用坏 ones `a9c2acd8…` → **没有有效性能数据**，需要**一次有效运行**（不是重测）。
+  其中 `07c80fc8`/`44faded2` 在 42 行快照之后，本地无 row。
+- L24 point `c3bd73d2` **已放弃**。
+- 31 条 PASS / L24 数据**不重跑**：L24 c64 gauge 的 c128 文件 cast 后与 c64 值等价；
+  L32 c64 cache 数值等价但 identity 的 `gauge_file_sha256` 指到 1.2 GB c128 →
+  用 `production_L32_c64/gauge_32x32x32x64_c64.h5`（604 MB，file `70bbe621…`，
+  canonical `9ac7c15c…`）**重签/重建**；L32 c128 cache（679 MB，
+  `b2a57594…`/`52f3c07a…`）**不重建**；MG cache 不含 source 哈希，source 修复不使其失效；
+  L24 c64 cache 同类 identity 问题（正确 c64 文件 `production_L24/gauge_global_c64.h5`，
+  `8a482d6a…`）建议重签。
+- 判定规则：source 语义/hash、gauge dtype/canonical、cache identity、
+  atol/grid/rank/thread/shm/solver/mg_restart 全部同口径 → 不重测；任一不同 → 重跑。
+  L32 的 6 条 FAIL 不属于“重测”；L32 c64/c128 与 L24 的同口径对比在修复后有效。
+
+### 1.4 状态 / 队列
+
+- `bg-26`（thread9）、`bg-27`（seed24/random）、`bg-28`（point）、`bg-32`（r50）**已 kill**。
+- 对应 pending 作业未能在 CLI 取消：`djob -c` 与 `dsub -c` **均报 invalid option**，
+  队列中仍可能 `PENDING`，用户可经调度器 UI 取消。`[会话]`
+- 保留 `kall_l32_*`、`kall_l24_c1*`、`kall_mg_shm*`、`kall_mg1_r5*`、`kall_mgr10*`、
+  `k9_16x36*`；不 kill 保留作业、不删数据。
+
+## 2. 修改文件
+
+| 文件 | 动作 | 内容 |
+|---|---|---|
+| `docs/kupl_matrix_scope_20261115.md` | 新增 | 四条裁定的权威文档：MPI h5py / 放弃项 / L32 source+cache+重测 / 队列 + 红线 + 证据表 |
+| `docs/kupl_kunpeng_matrix_20261115.md` | 改 | §0 分工加指针；§1.6 改为 6 条 L32；§6.6 纠正 gauge 文件身份；§7 表 1/2/3/4/5/6 行改判；§9.4 三条错误行；§10.2/§10.3 范围；新增 §11 范围裁定摘要 |
+| `docs/kupl_hdf5_source_gauge_rootcause_20261115.md` | 改 | §2.1 纠正 L32 gauge 两行（1.2 GB c128 / 604 MB c64）；§3.5 待确认→已闭合项（ones≡ones_v2、`source_..._c64.h5` 是 random、L32 c64=c128 gauge 的解释）；§4.4 重写 gauge/cache 选择与重签；§5 门 3/4 状态；§7 新增源语义教训；新增 §8 本轮裁定 |
+| `docs/AGENTS.md` | 改 | 计数 51→52、研究报告 48→49；新增 `kupl_matrix_scope_20261115.md` 行 |
+| `skills/pyqcu-kupl/SKILL.md` | 改 | MPI h5py 改接口检查口径（499 行，未破 500 行上限）；L32 bullet 换 source 语义；`shm=1+restart=5` 记 known skip |
+| `skills/pyqcu-kupl/AGENTS.md` | 改 | 加范围裁定指针（12 行，未破上限） |
+| `skills/pyqcu-kupl/references/kupl-kunpeng-matrix-20261115.md` | 改 | §2 轴表标放弃/保留；§5 L32 改 6 行 + 修复判定；§8 重写 h5py MPI/cache 策略；新增 §10 范围裁定、cache 重签、队列 |
+| `skills/pyqcu-testing-data/SKILL.md` | 改 | 文件名语义表重写（`source_..._c64.h5`=random seed42、ones≡ones_v2、gauge 实为 complex128）；cache identity 增 file-vs-canonical 与两个重签项 |
+| `skills/pyqcu-tools/SKILL.md` | 改 | HDF5 MPI 探测条目写实测版本 + “只做接口检查、不重编译/安装”裁定 |
+| `skills/pyqcu-benchmark/SKILL.md` | 改 | 新增“矩阵范围裁定与‘不重测’判据”小节 |
+| `skills/pyqcu-testing-qcu/SKILL.md` | 改 | 集群作业模型新增“取消能力有限”（`djob -c`/`dsub -c` invalid option）与保留作业族 |
+| `skills/AGENTS.md` | 改 | `pyqcu-kupl` / `pyqcu-testing-data` 两行用途补充（计数仍 36/36） |
+| `skills/pyqcu-docs/SKILL.md` | 改 | 文档计数 45→52 |
+| `skills/pyqcu-docs/references/project-docs-map.md` | 改 | 计数 48→52；补登记 3 份既有缺登记文档 + 新增范围裁定文档 |
+| `skills/pyqcu-docs/references/extracted-guidance.md` | 改 | 补登记 6 份既有缺登记文档 + 新增范围裁定文档 |
+| `data/kunpeng_all_20261115/known_skips.json` | 新增 | 放弃轴、保留项、两条 known skip（MG2 shm1 r5 / ranked cache）、pending 首次有效运行、不重测判据、cache 重签、队列、MPI h5py |
+| `data/kunpeng_all_20261115/quarantine.json` | 改 | 新增 `scope_decisions` 与 `post_snapshot_quarantine`（`07c80fc8`/`44faded2`）；4 条 L32 行加 `scope_decision_bg31` 与 ones 身份；L24 point 标 abandoned；`b3267714` 标 known skip；`valid_row_counts.note` 更新 |
+| `logs/v20261115-3.txt` | 新增 | 本文件 |
+| `logs/AGENTS.md` | 改 | 追加本日志索引条目 |
+
+## 3. 证据与复核入口
+
+- `docs/kupl_matrix_scope_20261115.md` §6 有逐条证据表（代码行、`rows/*.json`、
+  `cache_index.json`、`quarantine.json`）。
+- `data/kunpeng_all_20261115/known_skips.json`：机器可读；`abandoned_axes` 6 项、
+  `known_skips` 2 项、`pending_first_valid_run` 1 项、`cache_identity_resign` 4 条。
+- `data/kunpeng_all_20261115/quarantine.json`：仍为 6 条隔离行，新增 2 条快照后隔离行与
+  范围裁定块；原有 `quarantined` 6 条未删、未改状态字段。
+- `cache_index.json` 可复核 4 条 global cache 的 `identity.gauge_file_sha256` /
+  `gauge_canonical_sha256`：L32 c64 `b2a57594…`/`9ac7c15c…`、L32 c128
+  `b2a57594…`/`52f3c07a…`、L24 c64 `4777e795…`/`1748b007…`、L24 c128
+  `4777e795…`/`b2e00420…`。
+
+## 4. 未做与边界
+
+- 未改代码/驱动；未 commit/push/打 tag；未提交任何作业；未 kill 任何作业；未删除任何数据。
+- 未复查 `bad object header` 的写入触发者（仍待确认）；未在本机复核 604 MB / 679 MB
+  文件实体（本机没有 `data/production_*`），只复核 JSON/rows 侧哈希。
+- `07c80fc8`、`44faded2` 只有 8 位前缀（本地无 row），未扩写完整 run_id。
+
+## 验证
+
+- `python -B skills/pyqcu-docs/scripts/audit-docs-skills.py` → `PASS docs=52 skills=36`（rc=0）。
+  改动前基线为 `FAIL docs=51 skills=36 errors=20`（4 份既有文档未登记 + 2 处计数），
+  本轮把新增文档与 6 份既有缺登记文档一并登记、计数改为 52，故清零。
+- `git diff --check` → rc=0（无空白错误）。
+- 新文件/被改文件逐个检查：行尾空白 0、tab 0；`docs/` 三份文档代码围栏成对
+  （0/14/6，均为偶数）。
+- `bash skills/pyqcu-form/form-audit.sh` → 仅 1 个 finding：
+  `WARNING TAG_NAME_IN_PATH docs/kupl_perf_dev143_vs_stab64_20261115.md`。
+  该文件在本任务开始前即为 `M` 状态、路径含真实 tag 名 `dev143`/`stab64`，
+  属**既有** finding，非本轮引入；本轮未改该文件名、也未新增含 tag 名的路径。
+
+## 未改动
+
+- `pyqcu/**`（含 `test_kunpeng_all.py`、`submit_kunpeng_all.sh`、`kupl_multigrid.py`）未改。
+- `data/kunpeng_all_20261115/rows/**`、`reports/**`、`logs/**`、`caches/**`、`*.csv` 未改未删。
+- `logs/v20261115.txt`、`logs/v20261115-2.txt` 保持原样；`skills/pyqcu-logs-debug`、
+  `skills/pyqcu-logs-results`、`skills/pyqcu-kupl/references/kupl-history-2026.md`、
+  `docs/kupl_perf_dev143_vs_stab64_20261115.md` 的本任务前 `M` 状态未触碰。
+- 未 commit、未 push、未打 tag；HEAD 仍为 `e757e1e8`。

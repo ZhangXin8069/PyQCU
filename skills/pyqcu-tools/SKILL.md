@@ -31,7 +31,7 @@ in [`pyqcu-docs/references/extracted-guidance.md`](../pyqcu-docs/references/extr
 | File | Purpose |
 |------|---------|
 | `_define.py` | MPI grid size factorization, rank neighbors, parity splitting (`oooxyzt2poooxyzt`/`poooxyzt2oooxyzt`), dimension reordering (ccdxyzt↔ccdptzyx, scxyzt↔psctzyx), dtype conversion tables, device setup, slice helpers, prime factorization |
-| `_io.py` | HDF5 I/O with MPI parallel I/O (`driver='mpio'`, `h5py`) and serial gather/scatter fallback (`comm.gather` + `comm.scatter`)；另含 tensor/dict 级本地持久化（`save_tensor_h5`/`load_tensor_h5`、`save_dict_h5`/`load_dict_h5`，单句柄原子替换） |
+| `_io.py` | HDF5 I/O with MPI parallel I/O (`driver='mpio'`, `h5py`) and serial gather/scatter fallback (`comm.gather` + `comm.scatter`)；另含 tensor/dict 级本地持久化（`save_tensor_h5`/`load_tensor_h5` 就地写、`save_dict_h5`/`load_dict_h5` 走 `tmp + os.replace`），两者都不含 `fsync`，见下节 |
 | `_env.py` | 环境与资源快照：`git_snapshot`/`gpu_snapshot`/`gpu_used_mb`/`rss_kb`/`nullvec_cache_dir`/`cache_disk_mb`/`dump_env_h5` |
 | `_budget.py` | 显存/RSS/磁盘预算模型：`vram_model`(cold)/`vram_model_warm`/`rss_model`/`disk_cache_bytes`/`fit_from_bench`/`budget_table`；常量 CONST_PER_V=24192 B/V、α=2.6 KB/V、β=512 MB |
 | `../torch/tools/_hierarchical.py` | 分层显存管理（Torch）：`HierarchicalTensor`、`HierarchicalCache` 与 RAM/DISK offload |
@@ -138,6 +138,53 @@ Kernels use `warp_size = 128` from `_define`.
 
 - **`np2torch_dtype`**, **`torch2np_dtype`** — bidirectional NumPy ↔ PyTorch dtype maps
 - **`torch2tl_dtype`** — PyTorch → TileLang dtype map (float16/32/64 only)
+
+## HDF5 原子写与并发（2026-11-15）
+
+仓库有多套写入路径，契约不同，混用会产生"文件存在但读不了"的资产：
+
+| API | 原子性 | 适用 |
+|---|---|---|
+| `_io.py::save_tensor_h5(tensor, path)` | **无**：就地 `h5py.File(path,'w')` 截断重写，无 tmp、无 `os.replace`、无 `fsync` | 本进程私有、读不到也无所谓的中间产物 |
+| `_io.py::save_dict_h5(path, d)` | `tmp + os.replace` 改名原子，但**无 `fsync`**（数据仍在页缓存） | 单机结果字典、可重算的 report |
+| `_io.py::gridoooxyzt2hdf5oooxyzt(...)` | `driver='mpio'` 集体写，每 rank 写自己的 owned slab | 多 rank 分布式张量 |
+| `pyqcu/testing/simple/_common.py::write_h5`（:191） | **无**：直接 `h5py.File(path,'w')`，无 tmp/`fsync` | 驱动落 solution/gauge/source；**写生产输入即缺陷来源** |
+| `pyqcu/testing/simple/_common.py::write_json`（:262） | **无**：`Path.write_text(...)` 先截断再写，进程被杀留空/半截 JSON | `report.json`、manifest、`last_solve_*.json` |
+| `pyqcu/testing/simple/mpi/cuda_pair_reduce_samples.py::atomic_write_json`（:122） | `.partial` + `os.replace`，失败时删 partial；**无 `fsync`** | 结果 JSON 的推荐写法 |
+| `pyqcu/tools/_legacy_mg_cache.py::write_legacy_mg_ranked_cache` | `.partial` + `os.replace`，先写容器再写 sidecar；**无 `fsync`** | Legacy-MG cache 根与 manifest |
+| `pyqcu/testing/kupl/test_kunpeng_all.py::write_{point,wall}_source` | `.{name}.{pid}.tmp` + `os.replace`；**无 `flush()`/`fsync()`** | 测试源生成 |
+
+- **输入只读**：`data/production_*/**` 与任何 `--gauge/--source` 入参都只读；驱动不得
+  原地修补坏文件（`bad object header` 只能换名重生成 + `.corrupt-*` 备份）。
+- **solution / report / cache manifest 是原地写风险点**：`write_h5` 写
+  `--output` solution、`write_json` 写 `--report`，两者都是就地截断；同一路径被复跑
+  或被杀时先毁旧文件再写新文件。需要"旧结果一直可读"时必须改成
+  `atomic_write_json` 式 `.partial`+`os.replace`，或在文件名里带 `run_id`。
+- **原子写建议**：同目录唯一临时名 → 写完 `flush()` → `os.fsync(fileobj.fileno())`
+  → `os.replace` → 父目录 `fsync`。只做 `os.replace` 挡得住"读到半个文件"，挡不住
+  掉电/杀进程后的半写数据；`.tmp`/`.partial` 永远不是资产（不要当输入、不要统计）。
+  就地 `File(path,'w')` 连"读到半个文件"都挡不住（2026-11-15 的
+  `bad object header version number` 见 `pyqcu-testing-data`）。
+- **MPI**：`save_tensor_h5`/`save_dict_h5` 不收 communicator，也不做 rank 过滤 →
+  只能在单个 rank 调用，或每 rank 用不同路径。所有 rank 写同一路径是"最后写者胜"
+  + 交错覆盖，不是并行 I/O。分布式写一律走 `gridoooxyzt2hdf5oooxyzt`（mpio）。
+- **多线程**：每次调用新建独立 `h5py.File` 句柄、不持有全局句柄，因此不同线程写
+  *不同文件* 是安全的；同一文件并发写不安全。HDF5 的线程安全还取决于库构建
+  （threadsafe 与否），不要据此假设可以在线程池里并行写同一文件。
+- `HAS_MPI_SUPPORT = check_mpi_support()` 在 `pyqcu.tools` 导入时确定：为真时
+  `gridoooxyzt2hdf5oooxyzt` 用 mpio，为假时退回 `comm.gather` 到 root 再单点写
+  （root 汇总多 GiB 张量会 OOM，见 `pyqcu-testing-qcu` 的 L48 记录）。鲲鹏 conda
+  环境实测 h5py `3.7.0` / HDF5 `1.10.6`、`get_config().mpi=False`、`mpio` driver 不存在
+  → `KUPL_HDF5_MPIO_READ` 被驱动主动关闭（`h5py_has_mpi()` 为假时连自动分支都不进），
+  读取退回 per-rank 独立 open + hyperslab，ranked cache 只能 `SKIP`。
+- **MPI h5py 只做接口检查，不重新编译/安装**（2026-11-15 裁定）：每批开跑前记录
+  `h5py.__version__`、`hdf5_version`、`get_config().mpi` 与 `mpio` 是否存在即可；
+  后续只做 capability-aware fallback（无 mpio → 不设该变量、不排 ranked cache、I/O 预算
+  按"文件字节 × rank 数"估、`prewarm` 当唯一低成本重复读）。不要把"编译/安装 MPI h5py"
+  写成下一步，也不引用未验证的离线构建或 ranked cache 尝试产物。
+- 校验只做两件事：`h5py.File(p,"r")` 能否打开 + `data` 数据集 `.size` 是否合理
+  （矩阵驱动的 `h5_readable()`）。它证明"此刻可读"，不证明写完整；并发写窗口内
+  也会通过。
 
 ## Logging Convention
 
