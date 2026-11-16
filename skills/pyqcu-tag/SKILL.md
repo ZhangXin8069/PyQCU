@@ -65,6 +65,12 @@ bash "$CHECKER" --repair --apply --remote origin --confirm-remote-rewrite
 不猜测排序、不移动标签目标。默认 `--check` 覆盖全部历史标签；`--root TAG` 可在历史缺少
 `init` 或存在多个 `init` 时显式指定根。
 
+> **本仓库已知既有状态**：`tag-chain.sh --check` 当前对 `bug45` 报 `[BLOCK]`
+> （peeled commit 不是 `dev106` 的祖先，且没有可验证的共同 follow 祖先），
+> `--repair --dry-run` 的安全候选为 0。该缺口自 2026-10-31 起就存在，不是新改动引入；
+> 在用户明确授权前**不重写、不移动** `bug45`/`dev106`，也不得把“0 个可修正候选”
+> 解释成“已修复”或“tag gate 通过”。
+
 ## 默认执行流程（~diff → 历史自检 → ~init → ~tag）
 
 每次 tag 会话**默认**按编排流程执行，首轮直接采用，无需用户逐项确认：
