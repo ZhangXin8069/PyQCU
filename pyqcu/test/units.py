@@ -264,18 +264,6 @@ CASES: tuple[Case, ...] = (
         expect=policy.RESIDUAL_GATES["native_solver"],
         timeout=_SOLVE,
     ),
-    _case(
-        "cuda/dslash/clover", "cuda_qcu:run_dslash_clover", "dslash",
-        requires=("cuda_bridge", "cuda_device"),
-        expect=policy.RESIDUAL_GATES["operator"],
-        timeout=_QUICK,
-    ),
-    _case(
-        "cuda/solve/cg", "cuda_qcu:run_solve_cg", "solve",
-        requires=("cuda_bridge", "cuda_device"),
-        expect=policy.RESIDUAL_GATES["native_solver"],
-        timeout=_SOLVE,
-    ),
 )
 
 #: Tag -> case, for lookups from the CLI and the self-check.

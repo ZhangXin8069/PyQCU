@@ -48,7 +48,7 @@ LaTeX `.aux/.log/.out/.toc/.nav/.snm/.vrb`、`.report-build-*`、逐页
 
 | 端口 | 规范位置 | 交付属性 | 内容边界 |
 |---|---|---|---|
-| 正式快速端口 | `pyqcu/test/**` | 随 sdist/wheel 发行；安装态 `python -m pyqcu.test` 可运行 | stdlib-only 导入的 `Case`/`policy`/后端 runner、`selfcheck.py`；21 个 tier 0 跨后端正确性门（默认格点 `[8,8,8,16]`、c64、单 rank、无数据文件），可用 `--lattice-size`/`--lattice-grid`/`--mg-grid`/`--mass`/`--kappa`/`--csw`/`--solver`/`--dslash`/`--device`/`--backend cpu/dcu/npu` 等选项改参数 |
+| 正式快速端口 | `pyqcu/test/**` | 随 sdist/wheel 发行；安装态 `python -m pyqcu.test` 可运行 | stdlib-only 导入的 `Case`/`policy`/后端 runner、`selfcheck.py`；19 个 tier 0 跨后端正确性门（默认格点 `[8,8,8,16]`、c64、单 rank、无数据文件），可用 `--lattice-size`/`--lattice-grid`/`--mg-grid`/`--mass`/`--kappa`/`--csw`/`--solver`/`--dslash`/`--device`/`--backend cpu/dcu/npu` 等选项改参数；`--mode list/prepare/prewarm/solve/merge/run/validate` 是 full-mode 工作台账（rows/reports/solutions/caches，`--resume`/`--skip-failed`/`--run-label`），`--threads` 只在 torch runner 应用、KUPL/CUDA runner 仅记录 |
 | 非正式套件 | `pyqcu/testing/**` | **仅源码 checkout**：`MANIFEST.in` 的 `prune pyqcu/testing` 与 `setup.py` 的 `find_packages(exclude=["pyqcu.testing", "pyqcu.testing.*"])` 双重排除 | 集成/回归/性能/QUDA/PyQUDA/HPCKit 矩阵、参考 HDF5、历史资产；模块级依赖 `torch`、`mpi4py`、`pytest` |
 
 - `pip install pyqcu` 的用户**没有** `pyqcu.testing`；安装态验证只能用 `pyqcu.test`
@@ -59,8 +59,9 @@ LaTeX `.aux/.log/.out/.toc/.nav/.snm/.vrb`、`.report-build-*`、逐页
 - 正式端口的展开选项（`--lattice-size`/`--lattice-grid`/`--mg-grid`、`--gauge`/
   `--gauge-sigma`/`--source`、`--mass`/`--kappa`/`--csw`、`--solver`/`--dslash`、
   `--device`/`--device-id`/`--threads`、`--backend cpu/dcu/npu`）只改运行参数与用例
-  筛选，不改变发行边界与包布局；用例矩阵与生效配置以 `python -m pyqcu.test --list`
-  （或 `--list --json`）为准。
+  筛选，不改变发行边界与包布局；`--mode` 只把同一矩阵编排成 `rows/reports/solutions/
+  caches` 台账，`--gauge-file`/`--source-file` 只读取调用者显式给出的 HDF5 输入。
+  用例矩阵与生效配置以 `python -m pyqcu.test --list`（或 `--list --json`）为准。
 - `pyqcu/test/**` 内不得出现 `test_*.py`（form 审计只在 `<repo>/testing/**` 内免除
   `TEST_LOCATION`），也不得 import `pytest`；`pyqcu/test/README.md` 与
   `pyqcu/test/AGENTS.md` 只是仓库元数据，不进 sdist。

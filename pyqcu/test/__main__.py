@@ -98,6 +98,7 @@ examples:
   python -m pyqcu.test --quick                    # tier 0, 8 8 8 16, c64, seed 42
   python -m pyqcu.test --quick --json -           # machine-readable report
   python -m pyqcu.test --profile cpu --only torch/lattice
+  python -m pyqcu.test --only torch/lattice,torch/gauge/random --list
   python -m pyqcu.test --sweep "dtype=c64,c128" --only torch/dslash --list
   python -m pyqcu.test --backend torch,kupl --repeat 5
   python -m pyqcu.test --backend cpu --device gpu --dtype complex128
@@ -253,7 +254,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--only", nargs="+", action="extend", default=None, metavar="TAG",
         help="run only these tags: a full tag (torch/dslash/wilson), a "
              "backend, a kind segment (dslash) or a tag prefix "
-             "(torch/dslash); repeatable")
+             "(torch/dslash); repeatable, and the values may be comma- or "
+             "space-separated (--only a,b == --only a b == --only a --only b)")
     parser.add_argument(
         "--sweep", "--matrix", dest="sweep", action="append", default=None,
         metavar="SPEC",
@@ -470,6 +472,33 @@ def _parse_backends(value: Any) -> tuple[str, ...]:
         return policy.expand_backends(value)
     except ValueError as error:
         raise UsageError(str(error)) from error
+
+
+def _parse_only(values: Any) -> tuple[str, ...]:
+    """Normalize ``--only`` into a comma-and-space aware tag tuple.
+
+    ``--only`` is declared as ``nargs="+"`` with ``action="extend"``, so the
+    repeatable form (``--only a --only b``) and the space-separated form
+    (``--only a b``) both arrive as several argv words, while the documented
+    comma-separated form (``--only a,b``) arrives as a single word.  Splitting
+    every word on commas *before* :meth:`pyqcu.test.common.Test.select` sees the
+    patterns makes the three spellings select exactly the same cases; without
+    it the comma form is passed through as one literal tag and is rejected as
+    an unknown tag.
+
+    Empty words are dropped (``--only ""`` keeps the default selection) and the
+    order of first appearance is preserved, so ``--list`` reports the same
+    filter the run uses.
+    """
+    if values is None:
+        return ()
+    tags: list[str] = []
+    for value in values:
+        for part in str(value).split(","):
+            tag = part.strip()
+            if tag and tag not in tags:
+                tags.append(tag)
+    return tuple(tags)
 
 
 def _parse_shape(value: Any, flag: str, validate: Any) -> Any:
@@ -705,7 +734,7 @@ def _resolve_config(args: argparse.Namespace) -> _Config:
         raise UsageError(f"--timeout must be > 0, got {args.timeout}")
     if args.atol is not None and float(args.atol) <= 0.0:
         raise UsageError(f"--atol must be > 0, got {args.atol}")
-    tags = tuple(str(item) for item in (args.only or ()))
+    tags = _parse_only(args.only)
 
     lattice_grid = _parse_shape(values["lattice_grid"], "--lattice-grid",
                                 policy.validate_lattice_grid)

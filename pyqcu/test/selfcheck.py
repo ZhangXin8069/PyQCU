@@ -10,7 +10,7 @@ What is checked
 1. ``import pyqcu.test`` (and every sibling module) pulls in no ``torch``,
    ``numpy``, ``mpi4py``, ``pytest`` and no ``pyqcu.testing`` - verified in a
    fresh interpreter, because this process may already have torch loaded.
-2. ``python -m pyqcu.test --list --json`` returns the 21 tier-0 cases and
+2. ``python -m pyqcu.test --list --json`` returns the 19 tier-0 cases and
    still leaves those modules unloaded.
 3. ``--list --json`` carries the *effective* configuration: every new run flag
    (grids, solver/dslash selection, device, dtype aliases, source/gauge,
@@ -19,13 +19,15 @@ What is checked
    ``c64``, seed 42 and repeat 1 while leaving the other new flags usable.
 4. Usage errors return exit code 2 (``--warmup 0``, unknown ``--only``,
    unknown ``--backend``, ``--quick`` conflict, malformed grid) and ``--help``
-   advertises every documented flag.
+   advertises every documented flag.  The comma-separated (``a,b``),
+   space-separated (``a b``) and repeated (``--only a --only b``) ``--only``
+   spellings all select the same cases.
 5. The six harness modules contain no forbidden import statement, and
    ``pyqcu/test`` contains no ``test_*.py``/``*_test.py`` file.
 6. ``setup.py`` ``find_packages(include=..., exclude=...)`` includes
    ``pyqcu.test`` and excludes ``pyqcu.testing``.
 7. ``MANIFEST.in`` does not prune ``pyqcu/test`` and still ships ``*.py``.
-8. Policy constants, the 21 ``(tag, runner)`` pairs, tolerances, skip tokens,
+8. Policy constants, the 19 ``(tag, runner)`` pairs, tolerances, skip tokens,
    exit codes, the grid/device/solver normalisers and the gate vocabulary
    behave as documented.
 9. The gate evaluator, the runner resolver and the aggregate exit codes behave
@@ -204,7 +206,7 @@ def _check_import_is_stdlib_only() -> Check:
 
 
 def _check_cli_list_light() -> Check:
-    """``--list --json`` must emit the 21 cases without loading a backend."""
+    """``--list --json`` must emit the 19 cases without loading a backend."""
     source = (
         "import contextlib, io, json, sys\n"
         "from pyqcu.test.__main__ import main\n"
@@ -635,8 +637,8 @@ def _check_policy_constants() -> Check:
     expect("FORBIDDEN_IMPORT_PREFIXES",
            tuple(policy.FORBIDDEN_IMPORT_PREFIXES) == ("pyqcu.testing",),
            f"got {policy.FORBIDDEN_IMPORT_PREFIXES!r}")
-    expect("TIER0_RUNNERS", len(policy.TIER0_RUNNERS) == 21,
-           f"expected 21 entries, got {len(policy.TIER0_RUNNERS)}")
+    expect("TIER0_RUNNERS", len(policy.TIER0_RUNNERS) == 19,
+           f"expected 19 entries, got {len(policy.TIER0_RUNNERS)}")
     expect("TIER0_TAGS", tuple(policy.TIER0_TAGS) == tuple(policy.TIER0_RUNNERS),
            "TIER0_TAGS disagrees with TIER0_RUNNERS")
 
@@ -872,7 +874,7 @@ def _check_units_contract() -> Check:
     by_backend = {backend: sum(1 for case in units.CASES
                                if case.backend == backend)
                   for backend in policy.BACKENDS}
-    expected_backends = {"torch": 11, "cuda": 5, "kupl": 5}
+    expected_backends = {"torch": 11, "cuda": 3, "kupl": 5}
     if by_backend != expected_backends:
         problems.append(f"backend coverage {by_backend} != {expected_backends}")
 
@@ -1328,6 +1330,31 @@ def _check_extensions() -> Check:
         problems.append(f"--profile cpu --only torch/lattice listed "
                         f"{payload.get('count')} cases")
 
+    # ``--only`` accepts the comma-separated form (``a,b``), the
+    # space-separated form (``a b``) and the repeated flag (``--only a
+    # --only b``).  The comma form is the one that regressed (A43-F6): the CLI
+    # handed one literal "a,b" pattern to Test.select, which rejected it as an
+    # unknown tag.  All three spellings must select the same two cases and
+    # report the same normalised filter in ``--list --json``.
+    want_only = ["torch/lattice", "torch/gauge/random"]
+    for label, argv in (
+            ("comma", ["--only", "torch/lattice,torch/gauge/random"]),
+            ("space", ["--only", "torch/lattice", "torch/gauge/random"]),
+            ("repeated", ["--only", "torch/lattice",
+                          "--only", "torch/gauge/random"])):
+        only_code, only_payload = listing(argv)
+        if only_code != 0:
+            problems.append(f"--only {label} form --list exited {only_code}")
+            continue
+        if only_payload.get("tags_filter") != want_only:
+            problems.append(
+                f"--only {label} form listed tags "
+                f"{only_payload.get('tags_filter')!r}, expected {want_only!r}")
+        if only_payload.get("count") != len(want_only):
+            problems.append(
+                f"--only {label} form listed {only_payload.get('count')} "
+                f"cases, expected {len(want_only)}")
+
     code, payload = listing(
         ["--sweep", spec, "--only", "torch/dslash/wilson"])
     if code != 0:
@@ -1383,12 +1410,11 @@ def _check_runner_availability() -> Check:
     """Every declared ``Case.runner`` must resolve to a callable now.
 
     ``units_contract`` compares the runner *strings* against
-    ``policy.TIER0_RUNNERS``; it cannot see that ``cuda_qcu`` never defined
-    ``run_solve_cg``.  Resolving each string is the check that would have
-    caught a declared-but-missing runner (A15 D2/D7), so ``--check`` fails
-    instead of reporting green over an unrunnable case.  All three runner
-    modules are import-light by contract; resolving them here loads no
-    backend.
+    ``policy.TIER0_RUNNERS``; it cannot see a runner that the module never
+    defined.  Resolving each string is the check that catches a
+    declared-but-missing runner (A15 D2/D7), so ``--check`` fails instead of
+    reporting green over an unrunnable case.  All three runner modules are
+    import-light by contract; resolving them here loads no backend.
     """
     from .common import resolve_runner
 

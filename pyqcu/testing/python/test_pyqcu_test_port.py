@@ -29,8 +29,8 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[3]
 
-# Tier-0 contract from the formal port: exactly these 21 tags at 8x8x8x16.
-# The first 14 are the original matrix, the last 7 the gauge/Wuppertal/CG/clover
+# Tier-0 contract from the formal port: exactly these 19 tags at 8x8x8x16.
+# The first 14 are the original matrix, the last 5 the gauge/Wuppertal/CG/clover
 # additions (`pyqcu/test/units.py`).
 EXPECTED_TAGS = (
     "torch/lattice",
@@ -52,15 +52,12 @@ EXPECTED_TAGS = (
     "torch/solve/cg",
     "kupl/dslash/clover",
     "kupl/solve/cg",
-    "cuda/dslash/clover",
-    "cuda/solve/cg",
 )
 
 QUICK_LATTICE = (8, 8, 8, 16)
 
 #: The CUDA cases of the tier-0 matrix, derived from the matrix itself so the
-#: count cannot go stale: the original smoke/dslash/solve trio plus the
-#: ``cuda/dslash/clover`` and ``cuda/solve/cg`` additions (5 cases).
+#: count cannot go stale: the smoke/dslash/solve trio (3 cases).
 CUDA_TAGS = tuple(tag for tag in EXPECTED_TAGS if tag.startswith("cuda/"))
 
 CLI_TIMEOUT_SECONDS = 1800
@@ -198,10 +195,10 @@ def listed_tags() -> list[str]:
     return _case_tags(payload)
 
 
-def test_quick_report_lists_the_twenty_one_tier0_tags(quick_report: dict) -> None:
+def test_quick_report_lists_the_nineteen_tier0_tags(quick_report: dict) -> None:
     cases = _cases(quick_report)
     tags = [str(case.get("tag", "")) for case in cases]
-    assert len(cases) == 21, f"expected 21 tier-0 cases, got {len(cases)}: {tags}"
+    assert len(cases) == 19, f"expected 19 tier-0 cases, got {len(cases)}: {tags}"
     assert len(set(tags)) == len(tags), f"duplicate tags in report: {tags}"
     missing = sorted(set(EXPECTED_TAGS) - set(tags))
     extra = sorted(set(tags) - set(EXPECTED_TAGS))
@@ -271,7 +268,7 @@ def test_cuda_cases_carry_a_reason_when_skipped(quick_report: dict) -> None:
 
 def test_list_json_agrees_with_the_quick_report(
         quick_report: dict, listed_tags: list[str]) -> None:
-    assert len(listed_tags) == 21, f"--list reported {len(listed_tags)} tags: {listed_tags}"
+    assert len(listed_tags) == 19, f"--list reported {len(listed_tags)} tags: {listed_tags}"
     quick_tags = [str(case.get("tag", "")) for case in _cases(quick_report)]
     assert sorted(listed_tags) == sorted(quick_tags), (
         f"--list tags {sorted(listed_tags)} != quick tags {sorted(quick_tags)}"
@@ -387,6 +384,33 @@ def test_solver_and_dslash_filter_only_their_own_kinds() -> None:
     tags = set(_case_tags(payload))
     # Non-solver, non-dslash cases are never filtered out.
     assert {"torch/lattice", "kupl/abi/symbols", "torch/gauge/random"} <= tags
+
+
+def test_only_accepts_the_documented_comma_space_and_repeated_forms() -> None:
+    """``--only a,b`` must select the same cases as ``--only a b``.
+
+    The README documents a comma-separated ``--only`` list; the CLI used to
+    hand the whole ``a,b`` word to ``Test.select`` as one literal tag and exit
+    2.  All three spellings are part of the shipped contract, so all three run
+    here through the real subprocess CLI.
+    """
+    forms = {
+        "comma": ("--only", "torch/lattice,torch/gauge/random"),
+        "space": ("--only", "torch/lattice", "torch/gauge/random"),
+        "repeated": ("--only", "torch/lattice", "--only",
+                     "torch/gauge/random"),
+    }
+    expected = ["torch/gauge/random", "torch/lattice"]
+    for name, argv in forms.items():
+        rc, payload, stderr = _list_json(*argv)
+        assert rc == 0, f"--only {name} form exited {rc}: {stderr[-1000:]}"
+        listed = sorted(_case_tags(payload))
+        assert listed == expected, (
+            f"--only {name} form listed {listed}, expected {expected}")
+        assert payload.get("tags_filter") == ["torch/lattice",
+                                              "torch/gauge/random"], (
+            f"--only {name} form did not report the normalised filter: "
+            f"{payload.get('tags_filter')!r}")
 
 
 def _single_case(*arguments: str) -> dict:

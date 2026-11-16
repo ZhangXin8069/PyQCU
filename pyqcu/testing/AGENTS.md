@@ -8,7 +8,9 @@
 随发行包交付的正式快速端口是 `pyqcu.test`（`python -m pyqcu.test --quick`，21 个 tier 0
 跨后端正确性门，默认格点 `[8,8,8,16]`、c64、单 rank、无数据文件；可用 `--lattice-size`/
 `--lattice-grid`/`--mg-grid`、`--gauge`/`--source`、`--mass`/`--kappa`/`--csw`、
-`--solver`/`--dslash`、`--device`/`--backend cpu/dcu/npu` 等选项改参数与筛选）。**本目录
+`--solver`/`--dslash`、`--device`/`--backend cpu/dcu/npu` 等选项改参数与筛选；
+`--mode list/prepare/prewarm/solve/merge/run/validate` 是随包的 full-mode 工作台账，
+`--threads` 只在 torch runner 应用、KUPL/CUDA runner 仅记录）。**本目录
 不再新增“正式”用例**：发布门要跑的东西写进 `pyqcu/test/units.py`，这里只保留探索性、
 研究性、性能性和历史回归资产；两个方向都不得互相 import（本目录也不得 import `pyqcu.test`）。
 

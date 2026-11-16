@@ -28,7 +28,9 @@ Wilson/Clover Dirac 算子、BiStabCG 与多重网格求解器、stout smearing�
 - 测试：正式快速端口 `python -m pyqcu.test --quick`（随包发行，安装态可跑；`--list` 列出
   21 个 tier 0 用例与生效配置，`--lattice-size`/`--lattice-grid`/`--mg-grid`、
   `--gauge`/`--source`、`--mass`/`--kappa`/`--csw`、`--solver`/`--dslash`、`--device`、
-  `--backend` 的 `cpu`/`dcu`/`npu` 别名等选项只改参数与筛选）；非正式
+  `--backend` 的 `cpu`/`dcu`/`npu` 别名等选项只改参数与筛选；`--mode list/prepare/prewarm/
+  solve/merge/run/validate` 是 full-mode 工作台账，`--threads` 只在 torch runner 应用、
+  KUPL/CUDA runner 仅记录）；非正式
   集成/性能套件只在 checkout：`cd pyqcu/testing && pytest .`；MPI 单文件：`mpirun -np 4 python pyqcu/testing/python/conftest.py`
 - Git 标签：`stab<N>`/`dev<N>`/`bug<N>` 独立编号 + 子版本（如 `stab15_1`），见 tag 技能
 - Python ≥ 3.9，依赖 PyTorch、Cython、mpi4py、h5py、numpy、CUDA toolkit；TileLang 可选
@@ -62,7 +64,9 @@ Wilson/Clover Dirac 算子、BiStabCG 与多重网格求解器、stout smearing�
 - **测试**：正式用例只在 `pyqcu.test`（`python -m pyqcu.test --quick`，21 个 tier 0 跨后端
   快速门，随 sdist/wheel 发行）；展开选项（格点/MPI 网格/MG 网格、规范场与源、
   `mass`/`kappa`/`csw`、`solver`/`dslash`、`device`/`threads`、`backend` 的
-  `cpu`/`dcu`/`npu` 别名）只改参数与用例筛选，矩阵以 `--list` 为准；非正式集成/性能/
+  `cpu`/`dcu`/`npu` 别名）只改参数与用例筛选，矩阵以 `--list` 为准；`--mode
+  list/prepare/prewarm/solve/merge/run/validate` 提供 full-mode 工作台账（row/CSV 可续跑），
+  `--threads` 只在 torch runner 应用、KUPL/CUDA runner 仅记录；非正式集成/性能/
   研究测试在 `pyqcu.testing`（仅 checkout，安装用户没有该包）；**不得在 `pyqcu/testing`
   新增正式用例**。非正式套件的函数在 `pyqcu/testing/__init__.py`，
   `pyqcu/testing/*/conftest.py` 手动取消注释要运行的测试。
@@ -81,7 +85,7 @@ Wilson/Clover Dirac 算子、BiStabCG 与多重网格求解器、stout smearing�
 | `cpp/cuda/qcu/` | C++ CUDA 后端：`src/`（32 个 .cu 内核）、`include/`（24 个模板头）、`python/pyqcu.h`（C API 40 个入口，须与 `qcu_api.pxd` 同步） |
 | `cpp/kupl/qcu/` | 独立 C++17 MPI+OpenMP CPU 后端：4D rank halo、NUMA/OpenMP 绑定、canonical c64/c128 Wilson/Clover dslash、Wilson/Clover 求解器、3D Laplacian、正确性与吞吐测试 |
 | `cpp/{cann,dtk,maca}/qcu/` | 占位 PASS，无实现 |
-| `pyqcu/test/` | 正式快速测试端口：`python -m pyqcu.test`（`--list`/`--quick`/`--json`，以及格点/MPI 网格/MG 网格、`--gauge`/`--source`、`--mass`/`--kappa`/`--csw`、`--solver`/`--dslash`、`--device`/`--threads`、`--backend cpu/dcu/npu` 等选项），stdlib-only 导入，随 sdist/wheel 发行；21 个 tier 0 跨后端正确性门（`[8,8,8,16]`、c64、单 rank、无数据文件），不承载性能结论 |
+| `pyqcu/test/` | 正式快速测试端口：`python -m pyqcu.test`（`--list`/`--quick`/`--json`，以及格点/MPI 网格/MG 网格、`--gauge`/`--source`、`--mass`/`--kappa`/`--csw`、`--solver`/`--dslash`、`--device`/`--threads`、`--backend cpu/dcu/npu` 等选项），stdlib-only 导入，随 sdist/wheel 发行；21 个 tier 0 跨后端正确性门（`[8,8,8,16]`、c64、单 rank、无数据文件），不承载性能结论；`--mode list/prepare/prewarm/solve/merge/run/validate` 是 full-mode 工作台账（rows/reports/solutions/caches，`--resume`/`--skip-failed`/`--run-label`），`--threads` 只在 torch runner 应用、KUPL/CUDA runner 仅记录 |
 | `pyqcu/testing/` | 非正式测试入口（仅 checkout，`MANIFEST.in` prune、`setup.py` 排除，安装用户没有该包）：`python/`（纯 Python 主套件）、`qcu/`（C++ CUDA 后端）、`kupl/`（CPU 后端 Python ABI/参考差分）、`quda/`、`pyquda/`、`cpu/npu/dcu/gpu/profiler/benchmark/`、`regression/session-2026-08-24/`、`data/`（参考 HDF5）；TileLang 无独立测试目录，按需调用 `pyqcu.testing.test_matmul()` |
 | `skills/` | 项目技能库（36 个技能目录：SKILL.md + 简短 AGENTS.md，目录级领域知识文档；目录名一律 `pyqcu-` 前缀；索引与技能表见 `skills/AGENTS.md`） |
 | `docs/` | 正式独立文档与指南（`.pdf`/`.tex`/`.md`）：`dims.md`、`env.md`、`install.md`、`examples.md`、`profiler.md`、`ORGANIZATION.md`；从 `data/**` 提升的文档位于 `docs/data/` |

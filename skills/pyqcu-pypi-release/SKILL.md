@@ -164,6 +164,8 @@ site-packages/pyqcu/cuda/qcu.cpython-312-x86_64-linux-gnu.so   # Cython 桥
    `cpp/kupl/qcu/CMakeLists.txt` 的 soname 版本。
 2. 提交（只暂存本次文件，禁 `git add -A`/`git add .`），按
    [`pyqcu-tag`](../pyqcu-tag/SKILL.md) 打 tag；发布内容必须能由该 tag 复现。
+   打 tag 前先跑 `bash skills/pyqcu-tag/tag-chain.sh --check`：既有 `[BLOCK] bug45`
+   会让它退出 1（见「已知的 tag-chain 既有阻塞」），不得为变绿重写标签。
 3. `rm -rf dist && python -m build --sdist`。
 4. 发布门：`python -m pyqcu.testing.release_check --offline`，要求 13/13。
 5. `python -m twine check dist/pyqcu-<ver>.tar.gz`，要求 `PASSED`。
@@ -342,6 +344,21 @@ testing、sdist ships pyqcu.test、sdist no binaries、sdist native sources、sd
 no home paths、sdist Chinese README、twine check、bilingual blocks、docs
 examples、sphinx en、sphinx zh。`--online` 追加 PyPI JSON、PyPI project links、
 PyPI repositories section、PyPI simple index、RTD en/zh-cn。
+
+### 已知的 tag-chain 既有阻塞（`bug45`）
+
+打 tag 前的历史自检是 `bash skills/pyqcu-tag/tag-chain.sh --check`。当前仓库该命令
+退出 1，只有一条 `[BLOCK] bug45`：`bug45` 的 peeled commit 不是 `dev106` 的祖先，且没有
+可验证的共同 follow 祖先；`--repair --dry-run` 的可安全修正候选为 0。
+
+- 这是**既有历史状态**（2026-10-31 的记录已登记），不是 `pyqcu.test`/0.1.16 改动引入的，
+  本技能与 port 任务都**不重写**它。
+- 不得为了让门变绿而 force-push、移动/改写 `bug45`/`dev106` 或删除标签；
+  `tag-chain.sh --repair` 只允许用于它自己能证明安全的 follow 前缀修正。
+- 发布前把该条作为**显式未决项**交给发布负责人：要么由负责人确认接受该历史缺口，
+  要么另开任务修正标签链。`--check` 仍退出 1 时不得宣称“tag gate 通过”。
+- 该条不影响其余 managed tags 与最新 tag，也不阻止本地提交；它只阻止“tag-chain
+  全绿”的发布声明。
 
 ## 坑与判据
 

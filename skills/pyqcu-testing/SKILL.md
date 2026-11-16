@@ -93,7 +93,7 @@ mpirun -np 4 python pyqcu/testing/python/conftest.py       # single file with MP
 
 | 端口 | 路径 | 发行 | 依赖与范围 |
 |---|---|---|---|
-| 正式 | `pyqcu/test/**` | 随 sdist/wheel（`recursive-include pyqcu *.py`） | stdlib-only 导入，安装态可跑；21 个 tier 0 跨后端正确性门，默认格点 `[8,8,8,16]`、c64、单 rank、无数据文件 |
+| 正式 | `pyqcu/test/**` | 随 sdist/wheel（`recursive-include pyqcu *.py`） | stdlib-only 导入，安装态可跑；19 个 tier 0 跨后端正确性门，默认格点 `[8,8,8,16]`、c64、单 rank、无数据文件；full-mode 工作台账 `--mode list/prepare/prewarm/solve/merge/run/validate` |
 | 非正式（本技能） | `pyqcu/testing/**` | 不进 sdist（`prune pyqcu/testing` + `find_packages(exclude=["pyqcu.testing", "pyqcu.testing.*"])`） | 模块级 import `torch`/`mpi4py`/`pytest`；集成、回归、性能、QUDA/HPCKit 矩阵与历史资产 |
 
 ```bash
@@ -102,16 +102,38 @@ python -m pyqcu.test --quick                     # tier 0 + 8 8 8 16 + c64 + see
 python -m pyqcu.test --quick --json -            # JSON 报告写 stdout
 python -m pyqcu.test --only torch/mg/legacy --repeat 1 --warmup 1
 python -m pyqcu.test --backend cpu --dtype complex128 --solver cg --list
+python -m pyqcu.test --mode list --json -        # full-mode 台账行，不执行
 ```
 
 正式端口的展开选项（默认值与判据见 README）：`--lattice-size`/`--lattice`、
-`--lattice-grid`（MPI 网格）、`--mg-grid`、`--gauge random|unit|ones`、
-`--gauge-sigma`/`--guage-sigma`、`--source point|ones|random`、`--mass`/`--kappa`
-（`kappa = 1/(2m+8)`）、`--csw`、`--max-iter`、`--restart`、`--mg-levels`、
-`--mg-nu-pre`/`--mg-nu-post`、`--device auto|cpu|gpu|dcu|npu`、`--device-id`、`--threads`、
-`--solver all|bicgstab|cg|multigrid|mg`（只筛 solve/mg）、`--dslash all|wilson|clover|both`
-（只筛 dslash）、`--backend` 别名 `cpu`=torch+kupl、`dcu`=cuda、`npu`=torch、
-`--dtype complex64|complex128`、`--atol`；`--quick` 只锁 tier/格点/dtype/seed/repeat。
+`--lattice-grid`（MPI 网格）、`--mg-grid`、`--lattice-preset L24|L32`、
+`--gauge random|unit|ones`、`--gauge-sigma`/`--guage-sigma`、`--source point|ones|random`、
+`--mass`/`--kappa`（`kappa = 1/(2m+8)`）、`--csw`、`--max-iter`、`--restart`、
+`--mg-levels`、`--mg-nu-pre`/`--mg-nu-post`、`--device auto|cpu|gpu|dcu|npu`、
+`--device-id`、`--threads`、`--solver all|bicgstab|cg|multigrid|mg`（只筛 solve/mg）、
+`--dslash all|wilson|clover|both`（只筛 dslash）、`--backend` 别名
+`cpu`=torch+kupl、`dcu`=cuda、`npu`=torch、`--dtype complex64|complex128`、`--atol`、
+`--profile quick|cpu|gpu|c128|clover|mg|full`、`--sweep`、`--junit/--csv/--markdown`；
+`--quick` 只锁 tier/格点/dtype/seed/repeat。
+
+- `--threads` **只在 torch runner 真正应用**（`torch.set_num_threads`，metrics 里
+  `threads_applied`/`torch_threads`）；tier-0 的 `kupl_qcu.py`/`cuda_qcu.py` 不读取它，
+  只把它记录进 `rows`/`options`。不要把 `--threads` 写成 KUPL/OpenMP 的已转发参数；
+  `native.py` 的 `apply_environment` 是未接线的原生扩展点（需要 `driver:run_row`）。
+- full mode（`--mode`）是编排层，不是第二套 runner：row 仍走同一 `Test.run`/`Case.expect`。
+  `rows/<run_id>.json` 是事实源，`reports/rows.csv`/`merged.json` 是派生视图；
+  `--resume` 复用 `PASS`/`SKIP`，`--skip-failed` 额外复用 `FAIL`（不再重试），
+  `ERROR`/`TIMEOUT` 永远重试；`--run-label` 是 `run_id` 后缀。默认工作根
+  `pyqcu-test-runs/`（可用 `--outdir`/`--rows`/`--reports`/`--solutions`/`--cache-dir` 覆盖）。
+  `--mode list` 不写台账；`prepare` 只校验输入/探测 cache（不重建 cache）；`prewarm`
+  只读并哈希输入；`merge`/`validate` 对空台账返回 1。`--csv` 在 full mode 是台账 CSV，
+  不是报告导出。
+- HDF5 输入（full mode `--gauge-file`/`--source-file`）：dataset `data`，仅
+  `complex64`/`complex128`，canonical `xyzt` 布局（gauge `[3,3,4,x,y,z,t]`，source
+  `[4,3,x,y,z,t]`；parity-compressed 加前导 `2` 且 `t/2`，必须带 `layout` 属性）。
+  `prepare` 校验、`prewarm` 读取并哈希；内置 tier-0 runner 不会用文件替换
+  `--gauge`/`--source`，除非同时记录 `gauge_origin`/`source_origin`。文件缺失/形状不符是
+  输入 `FAIL`（退出 1），不是用法错误；未请求的输入是 `SKIP`。
 
 - 退出码：`0` 无 FAIL/ERROR/TIMEOUT；`1` 任一失败**或全部 SKIP**（除非
   `--allow-all-skipped`）；`2` 用法/环境错误。`pyqcu --selftest` 的 FAIL 退 2，两者不可混读。

@@ -13,6 +13,10 @@
 - [ ] README 未引入版本字面量（`README.md`、`README.zh-CN.md`）
 - [ ] `MANIFEST.in` 含 `README.zh-CN.md`，未把 `.so/.o` 或 `pyqcu/testing` 带进 sdist
 - [ ] 工作树干净：`git status --porcelain` 为空，`git describe --tags` 指向本次提交
+- [ ] 标签链自检：`bash skills/pyqcu-tag/tag-chain.sh --check`。当前仓库会因既有
+      `[BLOCK] bug45` 退出 1；该条是 2026-10-31 起的历史缺口，**不重写、不移动**
+      `bug45`/`dev106`，作为显式未决项交给发布负责人（见 `SKILL.md`
+      「已知的 tag-chain 既有阻塞」），不得宣称 tag gate 全绿
 - [ ] `dist/` 已清空（旧版本产物会让 release_check 读到错文件）
 - [ ] 发布门 13/13、`twine check` PASSED
 - [ ] 台账 `logs/v<YYYYMMDD>.txt` 已写（产物大小、sha256、门禁输出、数值、外部阻塞）

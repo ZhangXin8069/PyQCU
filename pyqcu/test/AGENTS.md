@@ -31,6 +31,20 @@
   CLI、`Options`、`Test` 和报告不得各自发明第二套解析。
 - `--gauge-sigma` 与历史拼写 `--guage-sigma` 是同一选项（argparse alias），不能只保留
   一个；报告只出现 `gauge_sigma`。
+- `--only` 的值在 CLI 层统一按逗号/空格拆分（`--only a,b` == `--only a b` ==
+  `--only a --only b`）；拆分必须发生在 `Test.select` 之前，不能把 `a,b` 当成一个
+  字面 tag。
+- `--mode {list,prepare,prewarm,solve,merge,run,validate}` 是已发布的 full-mode 入口：
+  模式名、`rows/reports/solutions/cache` 布局、`reports/rows.csv` 列和 `run_id` 身份
+  都属于契约；改名或改布局按破坏性变更处理。
+- `--csv` 在普通运行是 per-case 报告导出，在 full mode 是台账 CSV；两种语义不能合并。
+  `--junit`/`--markdown` 始终是报告导出，`--list`/`--mode list` 下拒绝。
+- `--resume` 只复用 `PASS`/`SKIP`；`--skip-failed` 额外复用 `FAIL`（此后不再重试）；
+  `ERROR`/`TIMEOUT` 永远重试。`--run-label` 只能作为 `run_id` 后缀，不得含路径分隔符。
+- `--gauge-file`/`--source-file` 是 full-mode 的显式 HDF5 输入（dataset `data`，
+  canonical `xyzt` 布局，见 README「HDF5 输入」）；校验/预热可以读文件，但内置
+  tier-0 runner 不得用文件替换 `--gauge`/`--source`，除非同时把
+  `gauge_origin`/`source_origin` 写进 options/rows。
 - `--mass` 与 `--kappa` 是同一物理量（`kappa = 1/(2*mass + 8)`）。两者都**没有** CLI
   默认值：未给出就不出现在 `Options.as_kwargs()` 里，由 runner 自己的默认决定；不要
   在 CLI 里补一个“统一默认”去覆盖 runner（tier 0 torch 默认 `kappa = 0.125`）。
@@ -47,10 +61,9 @@
 ## 用例与报告
 
 - 用例 tag 固定 `<backend>/<area>/<variant>` 三段式，且必须以 `"<backend>/"` 开头
-  （`Case.__post_init__` 校验）；当前 21 个 tier-0 用例（含 `torch/gauge/random`、
-  `torch/smear/wuppertal`、`torch/solve/cg`、`kupl/dslash/clover`、`kupl/solve/cg`、
-  `cuda/dslash/clover`、`cuda/solve/cg`）。`--only`/`--solver`/`--dslash`/`--list` 都按
-  它匹配，改名等于破坏已发布的 CLI。
+  （`Case.__post_init__` 校验）；当前 19 个 tier-0 用例（含 `torch/gauge/random`、
+   `torch/smear/wuppertal`、`torch/solve/cg`、`kupl/dslash/clover`、`kupl/solve/cg`）。
+   `--only`/`--solver`/`--dslash`/`--list` 都按它匹配，改名等于破坏已发布的 CLI。
 - runner 字符串是 `<module>:<function>`（如 `torch_qcu:run_lattice`）；模块名不含点时
   按 `policy.RUNNER_PREFIX`（`pyqcu.test`）解析。`policy.TIER0_RUNNERS` 与 `units.CASES`
   是同两份声明，`selfcheck` 要求它们逐项一致——改 runner 名必须两处同改。
@@ -60,13 +73,33 @@
   数字或把阈值写进 runner。`expect` 只能引用 `policy.RESIDUAL_GATES` 的具名门
   （`compare`/`solve`/`native_solve`/`gamma`），不得在 `units.py` 里写裸阈值。
 - 每个 SKIP 必须带非空 `reason` 和词表 token（`kupl_library`、`cuda_bridge`、
-  `cuda_device`、`mpi_single_rank`、`h5py_mpi`、`mpi_grid`、`device_unavailable`）；
-  空 reason 按缺陷处理。`mpi_grid`/`device_unavailable` 是**条件** token，不写进
-  `Case.requires`。
+  `cuda_device`、`mpi_single_rank`、`h5py_mpi`、`mpi_grid`、`shm_unavailable`、
+  `device_unavailable`）；空 reason 按缺陷处理。`mpi_grid`/`shm_unavailable`/
+  `device_unavailable` 是**条件** token，不写进 `Case.requires`。
 - 报告 `options` 记录本次生效的全部配置（含 `runner_device`、`mass`/`kappa` 的 `null`
   与 `argv`），`--list --json` 与 `--json` 必须能复现同一次运行；不要在别处另存一份。
+- **`--threads` 只在 torch runner 真正应用**（`torch.set_num_threads`）。tier-0 的
+  `kupl_qcu.py`/`cuda_qcu.py` 不读取它；`native.py` 的 `apply_environment` 是未接线的
+  原生扩展点（需要 `driver:run_row`）。文档/报告只能说“记录”，不得声称转发到 KUPL/OpenMP。
 - 输出约定：stdout 每用例一行、列宽稳定可解析；metrics 与失败 gate 只在 `--verbose`
   下写 stderr。runner 的调试打印不得混进 stdout 的报告行（`--json` 复用同一份报告对象）。
+
+## Full mode（工作台账）
+
+- `--mode` 是编排层，不是第二套 runner：`solve` 的每一行必须走与单用例运行相同的
+  `Test.run`/`Case.expect` 判据；不要为 full mode 复制阈值或另写 PASS/FAIL 判定。
+- `rows/<run_id>.json` 是唯一事实源；`reports/rows.csv`/`merged.json` 是派生视图，
+  必须能从 rows 重建（`merge`）。`validate` 必须同时核对 rows、每行报告与 CSV。
+- `--mode list` 不写台账（行 `status` 保持 `null`）；`--mode prepare` 只创建布局、校验
+  `--gauge-file`/`--source-file`、探测已有 cache，**不重建 cache**；`prewarm` 只读输入
+  并哈希，不跑数值。
+- `--ranks`、`--threads`、`--shm`/`--no-shm`、`--shared`、`--gauge-file`/`--source-file`
+  记录进 rows/`--list --json`；只有确实被 runner 消费的字段才能描述为“已应用”
+  （`--threads` 只在 torch 行应用；KUPL/CUDA 行只记录）。
+- full mode 未显式给 `--tier` 时默认 tier 1；`--quick` 仍锁 tier 0。`--validate`
+  单独出现等价于 `--mode validate`，与 `solve`/`run` 同时出现是后置校验。
+- 默认工作根 `pyqcu-test-runs/`（相对当前目录）；新增/改名路径必须同步 README、
+  `--list --json` 与 `docs/ORGANIZATION.md` 的发行边界。
 
 ## 数值与证据
 
@@ -87,5 +120,8 @@
   `python -m pyqcu.test --quick`、`python -m pyqcu.test --quick --json <scratch 路径>`，
   并确认 `--list` 不拉起重型 import；改了选择/映射逻辑再加跑
   `--backend cpu --list`、`--solver cg --list`、`--dslash clover --list` 与一条拒绝路径。
+  改了 full mode 再加跑（用 scratch 目录，不要写仓库）：
+  `--mode list --json <scratch>`、`--quick --only torch/lattice --mode prepare|solve|merge|validate
+  --outdir <scratch>`，以及 `--resume --skip-failed --run-label cold` 的第二次 solve。
 - 文档/策略改动另跑 `bash skills/pyqcu-form/form-audit.sh`、
   `python -B skills/pyqcu-docs/scripts/audit-docs-skills.py`、`git diff --check`。

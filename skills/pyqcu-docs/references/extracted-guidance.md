@@ -61,6 +61,7 @@ prune、`setup.py` 排除，安装用户没有该包）。旧顶层 `examples/` 
 source ./env.sh
 python -m pyqcu.test --list                               # 正式：21 个 tier 0 用例，不 import 后端
 python -m pyqcu.test --quick                              # 正式：tier 0，8 8 8 16，c64
+python -m pyqcu.test --mode list --json -                 # 正式：full-mode 台账行，不执行
 python -m pyqcu.test --backend cpu --dtype complex128 --solver cg
 (cd pyqcu/testing && pytest .)                            # 非正式全树
 mpirun -np 4 python pyqcu/testing/python/conftest.py
@@ -68,12 +69,16 @@ python pyqcu/testing/qcu/single_qcu_api.py
 pytest pyqcu/testing/quda
 ```
 
-正式端口不 import `pytest`、不含 `test_*.py`，SKIP 必须带非空 reason（7 个 token：
+正式端口不 import `pytest`、不含 `test_*.py`，SKIP 必须带非空 reason（8 个 token：
 `kupl_library`/`cuda_bridge`/`cuda_device`/`mpi_single_rank`/`h5py_mpi`/`mpi_grid`/
-`device_unavailable`；CUDA 桥缺失时 `SKIP(cuda_bridge)` 是预期结果）；`--quick` 不得用于
-性能结论。展开选项（`--lattice-size`/`--lattice-grid`/`--mg-grid`、`--gauge`/`--gauge-sigma`/
+`shm_unavailable`/`device_unavailable`；CUDA 桥缺失时 `SKIP(cuda_bridge)` 是预期结果）；
+`--quick` 不得用于性能结论。展开选项（`--lattice-size`/`--lattice-grid`/`--mg-grid`、`--gauge`/`--gauge-sigma`/
 `--source`、`--mass`/`--kappa`/`--csw`、`--solver`/`--dslash`、`--device`/`--backend` 的
 `cpu`/`dcu`/`npu` 别名）只改运行参数与用例筛选，权威清单是 `python -m pyqcu.test --list`。
+`--mode list/prepare/prewarm/solve/merge/run/validate` 是 full-mode 工作台账
+（`rows/reports/solutions/caches`、`--resume`/`--skip-failed`/`--run-label`、
+`--gauge-file`/`--source-file`）；`--threads` 只在 torch runner 应用，KUPL/CUDA runner
+仅记录。
 `pyqcu/testing` 各子目录 `conftest.py` 是手动选择性入口；运行前检查被取消注释的测试集合，
 避免把“pytest 启动成功”误认为目标测试已执行。
 

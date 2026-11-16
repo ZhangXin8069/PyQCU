@@ -17,6 +17,28 @@ established key spellings (``relative_error``, ``relative_residual``,
 ``iterations``, ``max_iter``) plus the aliases accepted by
 ``policy.OBSERVATION_ALIASES``.
 
+Run options
+-----------
+Every numerical runner accepts and forwards the configuration the CLI
+advertises: ``lattice``, ``lattice_grid``, ``dtype``, ``seed``, ``repeat``,
+``warmup``, ``mass``/``kappa``, ``csw``, ``gauge_sigma``, ``source``,
+``gauge``, ``max_iter``, ``atol``, ``device`` and ``device_id``.  They are
+normalised once into :class:`_RunOptions`; the gauge/source builders and
+:func:`_make_runtime` consume that object, and every observation reports the
+values that actually ran (``mass``, ``kappa``, ``csw``, ``gauge_sigma``,
+``source``, ``gauge``, ``max_iter``, ``atol``, ``device``,
+``lattice_grid``).  ``controls_applied`` additionally proves that the private
+ABI arrays carry those values; a mismatch raises ``RuntimeError`` (an ERROR)
+instead of reporting a green case whose options were ignored.
+
+``mass`` reaches ``argv[_MASS_]``/``kappa = 1/(2*mass + 8)`` and the torch
+reference.  The bare Wilson dslash symbol is mass- and clover-independent, so
+the Wilson runner reports ``mass_used_by_operator=False`` (the full-lattice
+reference with the run's ``kappa`` still exercises the value) and
+``csw_used_by_operator=False``; the clover dslash and both solvers consume
+``csw`` through the native clover term.  ``atol``/``max_iter`` reach the ABI
+solver controls; they are inert for the dslash cases and reported as such.
+
 Probes and skips
 ----------------
 Both prerequisites are probed *before* any native call:
@@ -30,9 +52,13 @@ Both prerequisites are probed *before* any native call:
     and is reported as ``cuda_bridge``, never as a pass and never as a
     numerical failure.
 
+A requested device that is not a usable CUDA device skips ``device_unavailable``
+(``--device cpu`` on a GPU runner is a skip, not an error).  A multi-rank MPI
+job skips ``mpi_single_rank`` and a ``lattice_grid`` whose product is not the
+MPI size skips ``mpi_grid``: the tier-0 CUDA cases are one rank, one device,
+one process.
+
 The bridge is never built, imported for side effects or monkey-patched here.
-A multi-rank MPI job is skipped as ``mpi_single_rank``: the tier-0 CUDA cases
-are defined as one rank, one device, one process.
 
 Lifecycle
 ---------
@@ -61,35 +87,55 @@ reference is built from the same full-lattice operator
 (``pyqcu.torch.dslash.give_wilson``) so the comparison never trusts the
 backend's own residual.
 
-Solve case
-----------
-``applyCloverBistabCgQcu`` at ``csw = 0`` is used for the solver case.  With a
-zero Clover term the operator *is* the Wilson operator, while this ABI symbol
-is the only CUDA solver that reports a native iteration count
-(``getCloverBistabCgIterationsQcu``) and the only one whose ``argv[ATOL]`` is a
-relative tolerance with a round-off floor.  The Wilson symbol
-``applyWilsonBistabCgQcu`` has no iteration getter in the 40-symbol ABI and
-interprets ``argv[ATOL]`` as an *absolute* Schur residual, so it cannot feed
-the ``iterations > 0`` gate.  The independent true residual is always
-reconstructed with the full Wilson operator, never from the solver recurrence.
+Operators
+---------
+``cuda/dslash/wilson``
+    ``applyWilsonDslashQcu`` (the bare hopping sum) against the torch
+    even/odd helpers *and* the full-lattice Wilson operator at the run's
+    ``kappa``.
+``cuda/dslash/clover``
+    ``applyCloverDslashQcu`` applies ``A^-1 * D_W`` with
+    ``A = I + csw * T``.  The reference rebuilds the bare hopping with torch
+    and applies the **native** ``A^-1`` produced by ``applyCloversQcu``; the
+    native-vs-torch clover construction is reported ungated because c128
+    agreement (~1e-9) is above ``policy``'s 1e-10 ``compare`` gate.
+``cuda/solve/bistabcg``
+    ``applyCloverBistabCgQcu`` with the clover term at the requested ``csw``
+    (``csw = 0`` is the Wilson operator).  It reports a native iteration count
+    (``getCloverBistabCgIterationsQcu``) and its ``argv[_ATOL_]`` is a
+    relative tolerance with a round-off floor.  The independent true residual
+    is always reconstructed from the full clover/Wilson operator, never from
+    the solver recurrence.
+``cuda/solve/cg``
+    ``applyWilsonCgQcu`` performs the whole native CG solve.  The CUDA ABI
+    exposes no CG iteration getter (only the Clover BiCGStab counter), and the
+    C++ solver prints its final ``##RANK:<r>##LOOP:<n>##Residual(norm2):...``
+    line to file descriptor 1.  The runner captures that single line for the
+    duration of the call and reports ``iterations = max_loop + 1``; if the
+    line is absent it raises (ERROR) instead of inventing a count.  The true
+    residual is reconstructed with the full Wilson operator.  The symbol has
+    no clover term, so ``csw`` reaches ``argv[_CSW_]`` but does not enter the
+    operator (``csw_used_by_operator=False``).
 
-Note: the C++ solver prints one ``##RANK:<r>##LOOP:<n>##Residual(norm2):...``
-line to stdout when it leaves its iteration loop.  That print lives in
-``cpp/cuda/qcu`` and is not suppressed here (doing so would require editing
-core code or hijacking file descriptor 1).
+No runner is a permanent stub: every declared CUDA case either performs its
+native operation or skips for a real, probed reason.
 """
 
 from __future__ import annotations
 
+import math
 import os
+import re
 import statistics
+import sys
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any, Callable, Iterator, NoReturn
 
 from . import policy
-from .common import Skip, relative_error, relative_residual, time_samples
+from .common import (Skip, grid_product, relative_error, relative_residual,
+                     time_samples)
 
 __all__ = [
     "BACKEND",
@@ -97,11 +143,9 @@ __all__ = [
     "QUICK_LATTICE",
     "SLOT_LIMIT",
     "probe_cuda",
-    "run_dslash_clover",
     "run_dslash_wilson",
     "run_smoke_init_end",
     "run_solve_bistabcg",
-    "run_solve_cg",
 ]
 
 #: Backend name used in case tags and reports.
@@ -113,9 +157,10 @@ SLOT_LIMIT = 30
 #: Device used when ``QCU_DEVICE`` is not set in the environment.
 DEFAULT_CUDA_DEVICE = "cuda:0"
 
-#: Mass of the tier-0 CUDA cases (``pyqcu._selftest`` uses the same value).
+#: Mass of the tier-0 CUDA cases when neither ``mass`` nor ``kappa`` is given
+#: (``pyqcu._selftest`` uses the same value).
 DEFAULT_MASS = 0.17
-#: ``csw`` of the solver case: zero Clover term, i.e. the Wilson operator.
+#: ``csw`` when a direct caller provides no option: Wilson (zero clover).
 DEFAULT_CSW = 0.0
 #: Relative solver tolerance (``argv[_ATOL_]``) per dtype.
 DEFAULT_ATOL_C64 = 1.0e-6
@@ -125,19 +170,40 @@ DEFAULT_ATOL_C128 = 1.0e-10
 DEFAULT_MAX_ITER = 200
 #: Gauge-field disorder used to build the random fixed input.
 DEFAULT_GAUGE_SIGMA = 0.1
+#: Source/gauge defaults for a direct API call (the CLI forwards its own).
+DEFAULT_SOURCE = "random"
+DEFAULT_GAUGE = "random"
+#: Point-source location/spin/colour (the CLI source has no site options).
+DEFAULT_SOURCE_SITE: tuple[int, int, int, int] = (0, 0, 0, 0)
+DEFAULT_SOURCE_SPIN = 0
+DEFAULT_SOURCE_COLOR = 0
+#: Largest tolerated ``atol``: the ABI value is a relative tolerance.
+MAX_ATOL = 1.0
 
 _DEVICE_ENVIRONMENT = "QCU_DEVICE"
 _BRIDGE_TOKEN = "cuda_bridge"
 _DEVICE_TOKEN = "cuda_device"
+_UNAVAILABLE_TOKEN = "device_unavailable"
 _RANK_TOKEN = "mpi_single_rank"
+_GRID_TOKEN = "mpi_grid"
 
 _SMOKE_SYMBOLS = ("applyInitQcu", "applyEndQcu")
 _DSLASH_SYMBOLS = _SMOKE_SYMBOLS + ("applyWilsonDslashQcu",)
+_CLOVER_SYMBOLS = _SMOKE_SYMBOLS + (
+    "applyCloverDslashQcu",
+    "applyCloversQcu",
+)
 _SOLVE_SYMBOLS = _SMOKE_SYMBOLS + (
     "applyCloversQcu",
     "applyCloverBistabCgQcu",
     "getCloverBistabCgIterationsQcu",
 )
+_CG_SYMBOLS = _SMOKE_SYMBOLS + ("applyWilsonCgQcu",)
+
+#: The C++ CG prints one ``##RANK:<r>##LOOP:<n>##Residual(norm2):...`` line
+#: when its iteration loop ends.  ``loop`` is zero based, so the iteration
+#: count is ``max(loop) + 1``.
+_NATIVE_LOOP = re.compile(r"##LOOP:(\d+)")
 
 #: Physics controls compared before/after a runner.  ``params[_SET_INDEX_]`` is
 #: deliberately absent: it is the runtime's slot cursor and is expected to move
@@ -176,33 +242,226 @@ class _RunOptions:
     """Validated subset of ``pyqcu.test.common.Options`` a runner consumes."""
 
     shape: tuple[int, int, int, int]
+    lattice_grid: tuple[int, int, int, int]
     dtype: str
     seed: int
     repeat: int
     warmup: int
+    mass: float
+    kappa: float
+    csw: float
+    gauge_sigma: float
+    source: str
+    gauge: str
+    source_site: tuple[int, int, int, int]
+    source_spin: int
+    source_color: int
+    max_iter: int
+    atol: float
+    device: str | None
+    device_id: int | None
+    dslash: str
+    solver: str
+
+    @property
+    def compact(self) -> tuple[int, int, int, int]:
+        """Parity-compact ``[X, Y, Z, T/2]`` extents of the ABI tensors."""
+        return (*self.shape[:3], self.shape[3] // 2)
 
 
-def _options(lattice: Any = None, dtype: Any = None, seed: Any = None,
-             repeat: Any = None, warmup: Any = None) -> _RunOptions:
+def _container_value(container: Any, name: str) -> Any:
+    """Read ``name`` from an options container (mapping or object)."""
+    if container is None:
+        return None
+    if isinstance(container, dict):
+        return container.get(name)
+    return getattr(container, name, None)
+
+
+def _pick(explicit: Any, container: Any, name: str, default: Any) -> Any:
+    """Explicit keyword wins, then the options container, then the default."""
+    if explicit is not None:
+        return explicit
+    value = _container_value(container, name)
+    return default if value is None else value
+
+
+def _resolve_mass_kappa(mass: Any, kappa: Any) -> tuple[float, float]:
+    """Resolve ``(mass, kappa)`` with ``kappa = 1/(2*mass + 8)``.
+
+    ``kappa`` alone is enough (``mass = 1/(2*kappa) - 4``); giving both is
+    accepted only when they describe the same operator, because a silent
+    mismatch would mean the native controls and the torch reference disagree.
+    """
+    if kappa is not None:
+        value = float(kappa)
+        if not math.isfinite(value) or value == 0.0:
+            raise ValueError(f"kappa must be finite and non-zero, got {value}")
+        derived = 0.5 / value - 4.0
+        if mass is not None and not math.isclose(
+                float(mass), derived, rel_tol=1e-12, abs_tol=1e-12):
+            raise ValueError(
+                f"mass={float(mass)!r} and kappa={value!r} are inconsistent: "
+                f"kappa={value!r} implies mass={derived!r}")
+        return derived, value
+    value = DEFAULT_MASS if mass is None else float(mass)
+    if not math.isfinite(value):
+        raise ValueError(f"mass must be finite, got {value}")
+    denominator = 2.0 * value + 8.0
+    if denominator == 0.0:
+        raise ValueError(
+            f"mass={value!r} is degenerate: kappa = 1/(2m+8) is infinite")
+    return value, 1.0 / denominator
+
+
+def _resolve_atol(atol: Any, dtype_name: str) -> float:
+    """Resolve the relative solver tolerance for ``dtype_name``."""
+    if atol is None:
+        value = (DEFAULT_ATOL_C128 if dtype_name == "c128"
+                 else DEFAULT_ATOL_C64)
+    else:
+        value = float(atol)
+    if not math.isfinite(value) or value <= 0.0:
+        raise ValueError(f"atol must be finite and positive, got {value}")
+    if value > MAX_ATOL:
+        raise ValueError(
+            f"atol={value!r} is not a relative tolerance (<= {MAX_ATOL:g})")
+    return value
+
+
+def _resolve_max_iter(max_iter: Any) -> int:
+    value = DEFAULT_MAX_ITER if max_iter is None else int(max_iter)
+    if value < 1:
+        raise ValueError(f"max_iter must be >= 1, got {value}")
+    return value
+
+
+def _resolve_site(values: Any,
+                  shape: tuple[int, int, int, int]
+                  ) -> tuple[int, int, int, int]:
+    """Validate the source site against the lattice extents."""
+    site = tuple(int(value) for value in values)
+    if len(site) != 4:
+        raise ValueError(
+            f"source_site must contain four coordinates, got {site}")
+    for coordinate, extent in zip(site, shape):
+        if coordinate < 0 or coordinate >= extent:
+            raise ValueError(f"source site {site} is outside lattice {shape}")
+    return site  # type: ignore[return-value]
+
+
+def _options(*, lattice: Any = None, lattice_grid: Any = None,
+             dtype: Any = None, seed: Any = None, repeat: Any = None,
+             warmup: Any = None, atol: Any = None, source: Any = None,
+             gauge: Any = None, gauge_sigma: Any = None, mass: Any = None,
+             kappa: Any = None, csw: Any = None, solver: Any = None,
+             dslash: Any = None, device: Any = None, max_iter: Any = None,
+             device_id: Any = None, source_site: Any = None,
+             source_spin: Any = None, source_color: Any = None,
+             options: Any = None) -> _RunOptions:
     """Normalize the runner arguments without importing a backend."""
     shape = policy.validate_lattice(
-        QUICK_LATTICE if lattice is None else lattice)
+        _pick(lattice, options, "lattice", QUICK_LATTICE))
+    grid = policy.validate_lattice_grid(
+        _pick(lattice_grid, options, "lattice_grid",
+              policy.DEFAULT_LATTICE_GRID))
     dtype_name = policy.validate_dtype(
-        policy.QUICK_DTYPE if dtype is None else str(dtype))
-    seed_value = policy.QUICK_SEED if seed is None else int(seed)
-    repeat_value = policy.QUICK_REPEAT if repeat is None else int(repeat)
-    warmup_value = policy.DEFAULT_WARMUP if warmup is None else int(warmup)
+        _pick(dtype, options, "dtype", policy.QUICK_DTYPE))
+    seed_value = int(_pick(seed, options, "seed", policy.QUICK_SEED))
+    if seed_value < 0:
+        raise ValueError(f"seed must be non-negative, got {seed_value}")
+    repeat_value = int(_pick(repeat, options, "repeat", policy.DEFAULT_REPEAT))
+    warmup_value = int(_pick(warmup, options, "warmup", policy.DEFAULT_WARMUP))
     if repeat_value < 1:
-        raise ValueError(f"repeat must be >= 1, got {repeat!r}")
+        raise ValueError(f"repeat must be >= 1, got {repeat_value}")
     if warmup_value < 1:
-        raise ValueError(f"warmup must be >= 1, got {warmup!r}")
-    return _RunOptions(shape=shape, dtype=dtype_name, seed=seed_value,
-                       repeat=repeat_value, warmup=warmup_value)
+        raise ValueError(f"warmup must be >= 1, got {warmup_value}")
+    mass_value, kappa_value = _resolve_mass_kappa(
+        _pick(mass, options, "mass", None),
+        _pick(kappa, options, "kappa", None))
+    csw_value = float(_pick(csw, options, "csw", DEFAULT_CSW))
+    if not math.isfinite(csw_value) or csw_value < 0.0:
+        raise ValueError(
+            f"csw must be finite and non-negative, got {csw_value}")
+    sigma_value = float(
+        _pick(gauge_sigma, options, "gauge_sigma", DEFAULT_GAUGE_SIGMA))
+    if not math.isfinite(sigma_value) or sigma_value < 0.0:
+        raise ValueError(
+            f"gauge_sigma must be finite and non-negative, got {sigma_value}")
+    source_value = policy.validate_source(
+        _pick(source, options, "source", DEFAULT_SOURCE))
+    gauge_value = policy.validate_gauge(
+        _pick(gauge, options, "gauge", DEFAULT_GAUGE))
+    site = _resolve_site(
+        _pick(source_site, options, "source_site", DEFAULT_SOURCE_SITE),
+        shape)
+    spin = int(_pick(source_spin, options, "source_spin",
+                     DEFAULT_SOURCE_SPIN))
+    color = int(_pick(source_color, options, "source_color",
+                      DEFAULT_SOURCE_COLOR))
+    if not 0 <= spin < 4:
+        raise ValueError(f"source_spin must be in [0, 4), got {spin}")
+    if not 0 <= color < 3:
+        raise ValueError(f"source_color must be in [0, 3), got {color}")
+    dslash_name = policy.validate_dslash(
+        _pick(dslash, options, "dslash", policy.DEFAULT_DSLASH))
+    solver_name = policy.validate_solver(
+        _pick(solver, options, "solver", policy.DEFAULT_SOLVER))
+    device_value = _pick(device, options, "device", None)
+    if device_value is not None:
+        device_value = str(device_value).strip() or None
+    device_id_value = _pick(device_id, options, "device_id", None)
+    if device_id_value is not None:
+        device_id_value = int(device_id_value)
+        if device_id_value < 0:
+            raise ValueError(
+                f"device_id must be >= 0, got {device_id_value}")
+    return _RunOptions(
+        shape=shape,
+        lattice_grid=grid,
+        dtype=dtype_name,
+        seed=seed_value,
+        repeat=repeat_value,
+        warmup=warmup_value,
+        mass=mass_value,
+        kappa=kappa_value,
+        csw=csw_value,
+        gauge_sigma=sigma_value,
+        source=source_value,
+        gauge=gauge_value,
+        source_site=site,
+        source_spin=spin,
+        source_color=color,
+        max_iter=_resolve_max_iter(
+            _pick(max_iter, options, "max_iter", None)),
+        atol=_resolve_atol(_pick(atol, options, "atol", None), dtype_name),
+        device=device_value,
+        device_id=device_id_value,
+        dslash=dslash_name,
+        solver=solver_name,
+    )
 
 
-def _solve_atol(dtype_name: str) -> float:
-    """Relative ``argv[_ATOL_]`` for the native solver of ``dtype_name``."""
-    return DEFAULT_ATOL_C128 if dtype_name == "c128" else DEFAULT_ATOL_C64
+def _require_dslash(options: _RunOptions, expected: str) -> None:
+    """Reject a ``--dslash`` choice that contradicts the runner.
+
+    ``all``/``both`` are the "no filter" spellings; naming the matching
+    operator is accepted so one option set can drive the whole matrix.  Naming
+    a different operator is a usage error: silently running the wrong operator
+    would make the observation meaningless.
+    """
+    if options.dslash not in ("all", "both", expected):
+        raise ValueError(
+            f"this runner applies the {expected} operator, but "
+            f"dslash={options.dslash!r} was requested")
+
+
+def _require_solver(options: _RunOptions, expected: str) -> None:
+    """Reject a ``--solver`` choice that contradicts the runner."""
+    if options.solver not in ("all", expected):
+        raise ValueError(
+            f"this runner uses the {expected} solver, but "
+            f"solver={options.solver!r} was requested")
 
 
 # ---------------------------------------------------------------------------
@@ -233,8 +492,18 @@ def _import_torch() -> Any:
     return torch
 
 
-def _probe_device(device: Any = None) -> tuple[Any, Any, str, str]:
-    """Return ``(torch, torch.device, name, capability)`` or skip ``cuda_device``."""
+def _requested_device(device: Any, device_id: Any) -> str:
+    """Resolve ``--device``/``--device-id``/$QCU_DEVICE to one device string."""
+    if device is not None and str(device).strip():
+        return str(device).strip()
+    if device_id is not None:
+        return f"cuda:{int(device_id)}"
+    return os.environ.get(_DEVICE_ENVIRONMENT) or DEFAULT_CUDA_DEVICE
+
+
+def _probe_device(device: Any = None, device_id: Any = None
+                  ) -> tuple[Any, Any, str, str]:
+    """Return ``(torch, torch.device, name, capability)`` or skip."""
     torch = _import_torch()
     try:
         available = bool(torch.cuda.is_available())
@@ -244,17 +513,15 @@ def _probe_device(device: Any = None) -> tuple[Any, Any, str, str]:
     if not available:
         _skip("torch.cuda.is_available() is False; the native CUDA bridge "
               "needs a visible device", _DEVICE_TOKEN)
-    requested = device or os.environ.get(_DEVICE_ENVIRONMENT) \
-        or DEFAULT_CUDA_DEVICE
+    requested = _requested_device(device, device_id)
     try:
         selected = torch.device(str(requested))
     except (RuntimeError, ValueError) as error:
-        raise ValueError(
-            f"invalid CUDA device {requested!r} "
-            f"(from ${_DEVICE_ENVIRONMENT}): {error}") from error
+        _skip(f"device {requested!r} is not a usable CUDA device: {error}",
+              _UNAVAILABLE_TOKEN)
     if selected.type != "cuda":
-        raise ValueError(
-            f"device must be a CUDA device, got {requested!r}")
+        _skip(f"device {requested!r} is a {selected.type!r} device; the CUDA "
+              "backend requires a cuda device", _UNAVAILABLE_TOKEN)
     index = 0 if selected.index is None else int(selected.index)
     try:
         count = int(torch.cuda.device_count())
@@ -263,7 +530,7 @@ def _probe_device(device: Any = None) -> tuple[Any, Any, str, str]:
               f"{type(error).__name__}: {error}", _DEVICE_TOKEN)
     if index < 0 or index >= count:
         _skip(f"device {index} is not visible; torch reports {count} "
-              f"CUDA device(s)", _DEVICE_TOKEN)
+              f"CUDA device(s)", _UNAVAILABLE_TOKEN)
     try:
         name = str(torch.cuda.get_device_name(index))
         capability = ".".join(
@@ -334,14 +601,14 @@ def _changed_globals(probe: _CudaProbe) -> list[str]:
     return changed
 
 
-def _require_cuda(device: Any = None) -> _CudaProbe:
+def _require_cuda(device: Any = None, device_id: Any = None) -> _CudaProbe:
     """Probe device, bridge, define and MPI size; raise :class:`Skip` on absence.
 
     The device is checked first and the bridge second, so a machine without a
     GPU never imports the extension and an unbuilt checkout never allocates a
     tensor.  Only after every probe passes may a runner issue a native call.
     """
-    torch, selected, name, capability = _probe_device(device)
+    torch, selected, name, capability = _probe_device(device, device_id)
     bridge, bridge_file = _probe_bridge()
     define = _import_define()
     try:
@@ -366,6 +633,15 @@ def _require_cuda(device: Any = None) -> _CudaProbe:
         mpi_rank=mpi_rank,
         globals_snapshot=_global_snapshot(define),
     )
+
+
+def _require_grid(probe: _CudaProbe, options: _RunOptions) -> None:
+    """Skip ``mpi_grid`` when ``prod(lattice_grid)`` is not the MPI size."""
+    size = int(grid_product(options.lattice_grid))
+    if size != probe.mpi_size:
+        _skip(f"lattice_grid {list(options.lattice_grid)} describes "
+              f"{size} rank(s) but MPI_COMM_WORLD has {probe.mpi_size}",
+              _GRID_TOKEN)
 
 
 def probe_cuda(device: Any = None) -> dict[str, Any]:
@@ -468,26 +744,29 @@ def _torch_dtype(torch: Any, dtype_name: str) -> Any:
     raise ValueError(f"unsupported dtype {dtype_name!r}")
 
 
-def _make_runtime(probe: _CudaProbe, options: _RunOptions, *, mass: float,
-                  csw: float, atol: float, plan: int, parity: int,
-                  max_iter: int) -> Any:
+def _real_tensor_dtype(torch: Any, complex_dtype: Any) -> Any:
+    return torch.float64 if complex_dtype == torch.complex128 else torch.float32
+
+
+def _make_runtime(probe: _CudaProbe, options: _RunOptions, *,
+                  plan: int, parity: int) -> Any:
     """Build one private :class:`QcuRuntime` for this case (never a global)."""
     from pyqcu.cuda._runtime import QcuRuntime
 
     return QcuRuntime.from_lattice(
         options.shape,
-        mass=mass,
-        csw=csw,
-        atol=atol,
-        sigma=DEFAULT_GAUGE_SIGMA,
+        mass=options.mass,
+        csw=options.csw,
+        atol=options.atol,
+        sigma=options.gauge_sigma,
         dtype=_torch_dtype(probe.torch, options.dtype),
         device=str(probe.device),
         plan=plan,
         parity=parity,
-        max_iter=max_iter,
+        max_iter=options.max_iter,
         seed=options.seed,
         verbose=0,
-        grid=(1, 1, 1, 1),
+        grid=options.lattice_grid,
         qcu_module=probe.bridge,
     )
 
@@ -500,6 +779,49 @@ def _controls(params: Any, argv: Any, define: Any) -> dict[str, Any]:
     for name in _CONTROL_ARGV_NAMES:
         values[f"argv{name}"] = float(argv[getattr(define, name)])
     return values
+
+
+def _controls_applied(probe: _CudaProbe, runtime: Any,
+                      options: _RunOptions) -> dict[str, bool]:
+    """Prove that the private ABI arrays carry the requested run options.
+
+    ``argv`` is float32 for c64, so an exact comparison against the Python
+    float would reject every value that is not binary exact (``0.17``,
+    ``0.1``, ``1e-6``).  The tolerance is one float32 epsilon band for c64 and
+    a tight float64 band for c128.
+    """
+    define = probe.define
+    tolerance = (1e-12 if runtime.argv.dtype == probe.torch.float64
+                 else 1e-6)
+
+    def _close(name: str, target: float) -> bool:
+        actual = float(runtime.argv[getattr(define, name)])
+        target_value = float(target)
+        return math.isclose(
+            actual, target_value, rel_tol=tolerance,
+            abs_tol=tolerance * max(1.0, abs(target_value)))
+
+    grid = tuple(int(runtime.params[getattr(define, name)]) for name in (
+        "_GRID_X_", "_GRID_Y_", "_GRID_Z_", "_GRID_T_"))
+    applied = {
+        "mass": _close("_MASS_", options.mass),
+        "csw": _close("_CSW_", options.csw),
+        "gauge_sigma": _close("_SIGMA_", options.gauge_sigma),
+        "atol": _close("_ATOL_", options.atol),
+        "max_iter": int(runtime.params[define._MAX_ITER_])
+        == int(options.max_iter),
+        "lattice": tuple(int(value) for value in runtime.lattice)
+        == tuple(options.shape),
+        "lattice_grid": grid == tuple(options.lattice_grid),
+        "device": str(runtime.device) == str(probe.device),
+        "dtype": int(runtime.params[define._DATA_TYPE_])
+        == int(define.epytd(_torch_dtype(probe.torch, options.dtype)).item()),
+    }
+    if not all(applied.values()):
+        raise RuntimeError(
+            "the private QCU controls do not match the run options: "
+            f"{applied}")
+    return applied
 
 
 def _set_index(runtime: Any, define: Any) -> int:
@@ -558,18 +880,91 @@ def _measure(call: Callable[[], Any], *, repeat: int,
 
 
 # ---------------------------------------------------------------------------
+# C-level stdout capture (native CG iteration record)
+# ---------------------------------------------------------------------------
+@contextmanager
+def _captured_stdout() -> Iterator[dict[str, Any]]:
+    """Capture file descriptor 1 for the enclosed native call.
+
+    The CUDA CG solver reports its final loop index only as a C++ ``printf``
+    (``##RANK:<r>##LOOP:<n>##Residual(norm2):...``); there is no ABI getter.
+    Redirecting fd 1 for the duration of one synchronous call is the only way
+    to read that record without editing the core C++ or guessing a count.  The
+    captured payload is one short line (the verbosity switch is off), so the
+    pipe cannot fill; on a platform without ``dup2`` the sink stays empty and
+    the caller reports an ERROR rather than a fabricated iteration count.
+    """
+    sink: dict[str, Any] = {"data": b""}
+    try:
+        sys.stdout.flush()
+        saved = os.dup(1)
+        read_fd, write_fd = os.pipe()
+    except (AttributeError, OSError):
+        yield sink
+        return
+    try:
+        os.dup2(write_fd, 1)
+    except OSError:
+        os.close(write_fd)
+        os.close(read_fd)
+        os.close(saved)
+        yield sink
+        return
+    os.close(write_fd)
+    try:
+        yield sink
+    finally:
+        try:
+            sys.stdout.flush()
+        except (OSError, ValueError):
+            pass
+        try:
+            os.dup2(saved, 1)
+        finally:
+            os.close(saved)
+        chunks: list[bytes] = []
+        while True:
+            try:
+                data = os.read(read_fd, 65536)
+            except OSError:
+                break
+            if not data:
+                break
+            chunks.append(data)
+        os.close(read_fd)
+        sink["data"] = b"".join(chunks)
+
+
+def _native_loop_count(sink: dict[str, Any]) -> int:
+    """Parse the native CG loop record into an iteration count."""
+    data = sink.get("data") or b""
+    text = data.decode("utf-8", "replace")
+    loops = [int(value) for value in _NATIVE_LOOP.findall(text)]
+    if not loops:
+        raise RuntimeError(
+            "the native CUDA CG solver produced no ##LOOP iteration record; "
+            f"captured stdout={text[:400]!r}")
+    return max(loops) + 1
+
+
+# ---------------------------------------------------------------------------
 # deterministic inputs (random but fixed gauge/source)
 # ---------------------------------------------------------------------------
 @dataclass(frozen=True)
 class _Inputs:
-    """Random-but-fixed gauge and source in both Python layouts."""
+    """Gauge and source in both Python layouts."""
 
     full_gauge: Any
     gauge: Any
     source: Any
-    gauge_su3: bool
-    gauge_seed: int
-    source_seed: int
+    gauge_su3: bool | None
+    gauge_seed: int | None
+    source_seed: int | None
+    gauge_kind: str
+    source_kind: str
+    source_site: tuple[int, int, int, int]
+    source_spin: int
+    source_color: int
 
 
 @contextmanager
@@ -598,42 +993,95 @@ def _preserved_rng(torch: Any) -> Iterator[None]:
                 pass
 
 
-def _make_inputs(probe: _CudaProbe, options: _RunOptions) -> _Inputs:
-    """Build a fixed random SU(3) gauge field and a fixed random source.
+def _build_gauge(probe: _CudaProbe, options: _RunOptions
+                 ) -> tuple[Any, Any, bool | None, int | None]:
+    """Build the full and parity-compact gauge fields for ``options.gauge``.
 
-    The gauge field comes from the project generator with an explicit seed; it
-    is generated on the CPU and copied to the device so the value does not
-    depend on the device RNG implementation.  The source uses a private
-    ``torch.Generator``, so the value is reproducible and does not consume the
-    process-wide random stream.
+    ``random`` uses the project generator with an explicit seed and a disorder
+    of ``gauge_sigma`` (CPU generation, then a copy, so the value does not
+    depend on the device RNG); ``unit`` builds identity links; ``ones`` fills
+    every link with one (a deliberately non-SU(3) stress input, reported by
+    ``gauge_su3=False`` and never gated).
     """
     torch = probe.torch
-    from pyqcu import lattice, tools
+    from pyqcu import lattice as lattice_module
+    from pyqcu import tools
 
     shape = options.shape
     dtype = _torch_dtype(torch, options.dtype)
-    gauge_seed = int(options.seed)
-    source_seed = int(options.seed) + 1
     full_gauge = torch.empty((3, 3, 4, *shape), dtype=dtype, device="cpu")
-    with _preserved_rng(torch):
-        lattice.generate_gauge_field(
-            full_gauge, sigma=DEFAULT_GAUGE_SIGMA, seed=gauge_seed,
-            verbose=False)
-    gauge_su3 = bool(lattice.check_su3(full_gauge, tol=1e-3, verbose=False))
-    compact = (shape[0], shape[1], shape[2], shape[3] // 2)
-    generator = torch.Generator(device="cpu").manual_seed(source_seed)
-    source = torch.randn(
-        (2, 4, 3, *compact), generator=generator, dtype=dtype, device="cpu")
-    full_gauge_device = full_gauge.to(device=probe.device).contiguous()
-    gauge = tools.oooxyzt2poooxyzt(full_gauge_device).contiguous()
+    gauge_seed: int | None = None
+    if options.gauge == "unit":
+        index = torch.arange(3)
+        full_gauge.zero_()
+        full_gauge[index, index, :] = 1.0 + 0.0j
+    elif options.gauge == "ones":
+        full_gauge.fill_(1.0 + 0.0j)
+    else:
+        gauge_seed = int(options.seed)
+        with _preserved_rng(torch):
+            lattice_module.generate_gauge_field(
+                full_gauge, sigma=float(options.gauge_sigma),
+                seed=gauge_seed, verbose=False)
+    full_gauge = full_gauge.contiguous()
+    try:
+        gauge_su3: bool | None = bool(
+            lattice_module.check_su3(full_gauge, tol=1e-3, verbose=False))
+    except BaseException:  # noqa: BLE001 - diagnostics only
+        gauge_su3 = None
+    device_gauge = full_gauge.to(device=probe.device).contiguous()
+    gauge = tools.oooxyzt2poooxyzt(device_gauge).contiguous()
+    return device_gauge, gauge, gauge_su3, gauge_seed
+
+
+def _build_source(probe: _CudaProbe, options: _RunOptions
+                  ) -> tuple[Any, int | None]:
+    """Build the two-parity compact source ``[2, 4, 3, X, Y, Z, T/2]``.
+
+    ``random`` uses a private CPU generator (reproducible and it does not
+    consume the process-wide stream); ``point`` places a unit charge at
+    ``(spin, color, site)``; ``ones`` fills every component with one.
+    """
+    torch = probe.torch
+    dtype = _torch_dtype(torch, options.dtype)
+    full_shape = (2, 4, 3, *options.compact)
+    source_seed: int | None = None
+    if options.source == "point":
+        source = torch.zeros(full_shape, dtype=dtype, device="cpu")
+        source[0, options.source_spin, options.source_color,
+               *options.source_site] = 1.0 + 0.0j
+    elif options.source == "ones":
+        source = torch.ones(full_shape, dtype=dtype, device="cpu")
+    else:
+        source_seed = int(options.seed) + 1
+        generator = torch.Generator(device="cpu").manual_seed(source_seed)
+        source = torch.randn(
+            full_shape, generator=generator, dtype=dtype, device="cpu")
+    return source.to(device=probe.device).contiguous(), source_seed
+
+
+def _make_inputs(probe: _CudaProbe, options: _RunOptions) -> _Inputs:
+    """Build the fixed gauge field and source described by ``options``."""
+    full_gauge, gauge, gauge_su3, gauge_seed = _build_gauge(probe, options)
+    source, source_seed = _build_source(probe, options)
     return _Inputs(
-        full_gauge=full_gauge_device,
+        full_gauge=full_gauge,
         gauge=gauge,
-        source=source.to(device=probe.device).contiguous(),
+        source=source,
         gauge_su3=gauge_su3,
         gauge_seed=gauge_seed,
         source_seed=source_seed,
+        gauge_kind=options.gauge,
+        source_kind=options.source,
+        source_site=options.source_site,
+        source_spin=options.source_spin,
+        source_color=options.source_color,
     )
+
+
+def _source_operand(inputs: _Inputs, target: int) -> Any:
+    """Compact operand fed to a dslash target parity (the opposite block)."""
+    return inputs.source[1 - target].contiguous()
 
 
 # ---------------------------------------------------------------------------
@@ -658,28 +1106,34 @@ def _compact_wilson_reference(torch: Any, compact_source: Any, gauge: Any,
 
 
 def _full_lattice_wilson_reference(probe: _CudaProbe, inputs: _Inputs,
-                                   compact_source: Any, parity: int) -> Any:
-    """Independent reference built from the *full-lattice* Wilson operator.
+                                   compact_source: Any, parity: int,
+                                   kappa: float) -> Any:
+    """Bare hopping implied by the full-lattice Wilson operator.
 
-    The compact source is embedded in the opposite parity of a full field,
-    the full hopping operator is applied once (``with_I=False``, ``kappa=1``)
-    and the target parity is split back out.  This does not reuse the compact
-    even/odd helpers used by :func:`_compact_wilson_reference`.
+    The compact source is embedded in the opposite parity of a full field and
+    the full Wilson operator is applied with the run's ``kappa``.  On the
+    target parity the field is zero, so
+    ``hopping(x_other) = -D_W x|_target / kappa``.  This exercises
+    ``mass``/``kappa`` numerically instead of hiding them behind a hard-coded
+    ``kappa = 1`` reference.
     """
     from pyqcu import tools
     from pyqcu.torch import dslash
 
     torch = probe.torch
-    shape = tuple(int(value) for value in inputs.full_gauge.shape[-4:])
-    compact = (shape[0], shape[1], shape[2], shape[3] // 2)
+    compact = inputs.source.shape[-4:]
     full_source = torch.zeros(
         (2, 4, 3, *compact), dtype=compact_source.dtype,
         device=compact_source.device)
     full_source[1 - parity] = compact_source
     full_field = tools.poooxyzt2oooxyzt(full_source)
-    hopping = -dslash.give_wilson(
-        full_field, inputs.full_gauge, kappa=torch.tensor([1.0]), with_I=False)
-    return tools.oooxyzt2poooxyzt(hopping)[parity].contiguous()
+    kappa_tensor = torch.tensor(
+        [float(kappa)],
+        dtype=_real_tensor_dtype(torch, compact_source.dtype))
+    applied = dslash.give_wilson(
+        full_field, inputs.full_gauge, kappa_tensor, with_I=True)
+    target_block = tools.oooxyzt2poooxyzt(applied)[parity]
+    return (-target_block / float(kappa)).contiguous()
 
 
 def _relative_l2(actual: Any, expected: Any) -> float:
@@ -695,29 +1149,240 @@ def _relative_l2(actual: Any, expected: Any) -> float:
     return difference / denominator
 
 
+def _native_clover_terms(probe: _CudaProbe, runtime: Any,
+                         options: _RunOptions, gauge: Any
+                         ) -> tuple[list[Any], list[Any]]:
+    """Build the native clover term and its inverse for both parities.
+
+    One ``applyCloversQcu`` transaction per parity; the parity is a control
+    read by ``applyInitQcu``, so it is written before the transaction opens
+    and left untouched inside it.  The runtime's previous plan is restored.
+    """
+    torch = probe.torch
+    define = probe.define
+    shape = (4, 3, 4, 3, *options.compact)
+    previous_plan = int(runtime.params[define._SET_PLAN_])
+    runtime.configure(plan=define._SET_PLAN2_)
+    terms: list[Any] = []
+    inverses: list[Any] = []
+    try:
+        for parity in (0, 1):
+            term = torch.empty(shape, dtype=gauge.dtype,
+                               device=gauge.device)
+            inverse = torch.empty_like(term)
+            runtime.params[define._PARITY_] = parity
+            runtime.call("applyCloversQcu", term, inverse, gauge)
+            terms.append(term)
+            inverses.append(inverse)
+    finally:
+        runtime.configure(plan=previous_plan)
+    return terms, inverses
+
+
+def _torch_clover_terms(probe: _CudaProbe, inputs: _Inputs, kappa: float,
+                        csw: float) -> dict[str, Any]:
+    """Torch-side clover term ``I + T`` and its inverse, both parities.
+
+    Returned in the ABI layout ``[4, 3, 4, 3, X, Y, Z, T/2]`` per parity so a
+    caller can compare the native ``applyCloversQcu`` output directly.  This is
+    the independent convention: it comes from ``pyqcu.torch.dslash`` only.
+    """
+    torch = probe.torch
+    from pyqcu import tools
+    from pyqcu.torch import dslash
+
+    shape = tuple(int(value) for value in inputs.full_gauge.shape[-4:])
+    compact = (*shape[:3], shape[3] // 2)
+    kappa_tensor = torch.tensor(
+        [float(kappa)], dtype=_real_tensor_dtype(torch, inputs.full_gauge.dtype))
+    term = dslash.add_I(
+        dslash.make_clover(inputs.full_gauge, kappa=kappa_tensor,
+                           csw=float(csw), verbose=False),
+        verbose=False)
+    inverse = dslash.inverse(term, verbose=False)
+    split_term = tools.oooxyzt2poooxyzt(term.reshape(12, 12, *shape))
+    split_inverse = tools.oooxyzt2poooxyzt(inverse.reshape(12, 12, *shape))
+    terms = [split_term[parity].reshape(4, 3, 4, 3, *compact).contiguous()
+             for parity in (0, 1)]
+    inverses = [split_inverse[parity].reshape(4, 3, 4, 3, *compact)
+                .contiguous() for parity in (0, 1)]
+    return {
+        "term": terms,
+        "inverse": inverses,
+        "term_abs_max": max(float(value.abs().max()) for value in terms),
+        "inverse_abs_max": max(float(value.abs().max()) for value in inverses),
+    }
+
+
+def _clover_term_comparison(probe: _CudaProbe, native_terms: list[Any],
+                            native_inverses: list[Any],
+                            torch_terms: dict[str, Any]) -> dict[str, Any]:
+    """Compare native and torch clover terms and their inverse identity."""
+    torch = probe.torch
+    term_relative = max(
+        relative_error(native_terms[parity], torch_terms["term"][parity])
+        for parity in (0, 1))
+    inverse_relative = max(
+        relative_error(native_inverses[parity],
+                       torch_terms["inverse"][parity])
+        for parity in (0, 1))
+    identity = torch.zeros(12, 12, dtype=torch_terms["term"][0].dtype,
+                           device=torch_terms["term"][0].device)
+    index = torch.arange(12, device=identity.device)
+    identity[index, index] = 1.0
+    identity_max_abs = 0.0
+    for parity in (0, 1):
+        product = torch.einsum(
+            "ijx,jkx->ikx",
+            native_terms[parity].reshape(12, 12, -1),
+            native_inverses[parity].reshape(12, 12, -1))
+        reference = identity.reshape(12, 12, 1).expand_as(product)
+        identity_max_abs = max(
+            identity_max_abs, float((product - reference).abs().max()))
+    return {
+        "clover_term_relative": term_relative,
+        "clover_inverse_relative": inverse_relative,
+        "clover_identity_max_abs": identity_max_abs,
+    }
+
+
+def _full_clover_operator(probe: _CudaProbe, inputs: _Inputs, kappa: float,
+                          csw: float) -> tuple[Any, Any, Any]:
+    """Return ``(clover_term, kappa_tensor, matvec)`` for the full operator.
+
+    ``D = A - kappa * hop`` with ``A = I + csw*T``;
+    ``give_wilson(with_I=False)`` is ``-kappa * hop``, so
+    ``D x = give_clover(x, A) + give_wilson(x, with_I=False)``.
+    """
+    torch = probe.torch
+    from pyqcu.torch import dslash
+
+    kappa_tensor = torch.tensor(
+        [float(kappa)], dtype=_real_tensor_dtype(torch, inputs.full_gauge.dtype))
+    clover_term = dslash.add_I(
+        dslash.make_clover(inputs.full_gauge, kappa=kappa_tensor,
+                           csw=float(csw), verbose=False),
+        verbose=False)
+
+    def _matvec(vector: Any) -> Any:
+        return (dslash.give_clover(src=vector, clover_term=clover_term,
+                                   verbose=False)
+                + dslash.give_wilson(vector, inputs.full_gauge, kappa_tensor,
+                                     with_I=False))
+
+    return clover_term, kappa_tensor, _matvec
+
+
+# ---------------------------------------------------------------------------
+# shared observation blocks
+# ---------------------------------------------------------------------------
+def _common_observations(probe: _CudaProbe, options: _RunOptions,
+                         runtime: Any, *, check: str,
+                         inputs: _Inputs | None = None,
+                         source_parity: Any = None) -> dict[str, Any]:
+    """Observation block shared by every CUDA runner."""
+    observations: dict[str, Any] = {
+        "backend": BACKEND,
+        "check": check,
+        "device": str(probe.device),
+        "device_requested": options.device,
+        "device_id": options.device_id,
+        "device_name": probe.device_name,
+        "capability": probe.capability,
+        "lattice": list(options.shape),
+        "lattice_grid": list(options.lattice_grid),
+        "dtype": options.dtype,
+        "seed": int(options.seed),
+        "mass": float(options.mass),
+        "kappa": float(runtime.kappa),
+        "csw": float(options.csw),
+        "gauge_sigma": float(options.gauge_sigma),
+        "max_iter": int(options.max_iter),
+        "atol": float(options.atol),
+        "source": (inputs.source_kind if inputs is not None else None),
+        "source_kind": (inputs.source_kind if inputs is not None else None),
+        "source_seed": (inputs.source_seed if inputs is not None else None),
+        "source_parity": source_parity,
+        "gauge": (inputs.gauge_kind if inputs is not None else None),
+        "gauge_kind": (inputs.gauge_kind if inputs is not None else None),
+        "gauge_seed": (inputs.gauge_seed if inputs is not None else None),
+        "gauge_su3": (inputs.gauge_su3 if inputs is not None else None),
+        "mpi_size": int(probe.mpi_size),
+        "mpi_rank": int(probe.mpi_rank),
+        "bridge_file": probe.bridge_file,
+        "bridge_built": True,
+        "dslash_option": options.dslash,
+        "solver_option": options.solver,
+        "repeat": int(options.repeat),
+        "warmup": int(options.warmup),
+        "controls_applied": _controls_applied(probe, runtime, options),
+    }
+    if inputs is not None:
+        observations["source_spec"] = {
+            "kind": inputs.source_kind,
+            "parity": source_parity,
+            "spin": int(inputs.source_spin),
+            "color": int(inputs.source_color),
+            "site": list(inputs.source_site),
+            "seed": inputs.source_seed,
+        }
+    return observations
+
+
+def _finish(observations: dict[str, Any], probe: _CudaProbe, runtime: Any,
+            *, seconds: float, prepare_seconds: float,
+            immutability: dict[str, bool]) -> dict[str, Any]:
+    """Add timing, lifecycle and global-state evidence, then return."""
+    changed = _changed_globals(probe)
+    observations.update(
+        seconds=float(seconds),
+        prepare_seconds=float(prepare_seconds),
+        slots_released=_slots_released(runtime),
+        params_index_after=_set_index(runtime, probe.define),
+        globals_unchanged=not changed,
+        changed_global_arrays=changed,
+    )
+    observations.update(immutability)
+    if immutability:
+        observations["inputs_unchanged"] = all(
+            bool(value) for value in immutability.values())
+    return observations
+
+
 # ---------------------------------------------------------------------------
 # runner: bridge/device init/end smoke test
 # ---------------------------------------------------------------------------
-def run_smoke_init_end(lattice: Any = None, dtype: Any = None,
-                       seed: Any = None, repeat: Any = None,
-                       warmup: Any = None) -> dict[str, Any]:
+def run_smoke_init_end(lattice: Any = None, lattice_grid: Any = None,
+                       dtype: Any = None, seed: Any = None,
+                       repeat: Any = None, warmup: Any = None,
+                       atol: Any = None, source: Any = None,
+                       gauge: Any = None, gauge_sigma: Any = None,
+                       mass: Any = None, kappa: Any = None, csw: Any = None,
+                       solver: Any = None, dslash: Any = None,
+                       device: Any = None, max_iter: Any = None,
+                       device_id: Any = None, source_site: Any = None,
+                       source_spin: Any = None, source_color: Any = None,
+                       options: Any = None) -> dict[str, Any]:
     """Exercise ``applyInitQcu``/``applyEndQcu`` on private slot tables.
 
     Observations: ``init_ok`` (the gate), ``slot_isolation``, ``session_ok``,
     the two allocated slot indices, the release/neighbour facts, the
-    ``globals_unchanged`` evidence and the timing.  No gauge or fermion field is
-    touched, so this case isolates the lifecycle from the numerics.
+    ``globals_unchanged`` evidence and the timing.  No gauge or fermion field
+    is touched, so this case isolates the lifecycle from the numerics.
     """
-    options = _options(lattice, dtype, seed, repeat, warmup)
-    probe = _require_cuda()
+    opts = _options(
+        lattice=lattice, lattice_grid=lattice_grid, dtype=dtype, seed=seed,
+        repeat=repeat, warmup=warmup, atol=atol, source=source, gauge=gauge,
+        gauge_sigma=gauge_sigma, mass=mass, kappa=kappa, csw=csw,
+        solver=solver, dslash=dslash, device=device, max_iter=max_iter,
+        device_id=device_id, source_site=source_site,
+        source_spin=source_spin, source_color=source_color, options=options)
+    probe = _require_cuda(opts.device, opts.device_id)
+    _require_grid(probe, opts)
     _require_symbols(probe.bridge, _SMOKE_SYMBOLS, "the init/end smoke case")
     started = time.perf_counter()
-    main = _make_runtime(
-        probe, options, mass=DEFAULT_MASS, csw=DEFAULT_CSW, atol=1.0e-7,
-        plan=0, parity=0, max_iter=8)
-    partner = _make_runtime(
-        probe, options, mass=DEFAULT_MASS, csw=DEFAULT_CSW, atol=1.0e-7,
-        plan=0, parity=0, max_iter=8)
+    main = _make_runtime(probe, opts, plan=0, parity=0)
+    partner = _make_runtime(probe, opts, plan=0, parity=0)
     prepare_seconds = time.perf_counter() - started
     define = probe.define
     bridge = probe.bridge
@@ -737,7 +1402,8 @@ def run_smoke_init_end(lattice: Any = None, dtype: Any = None,
         try:
             bridge.applyInitQcu(main.set_ptrs, main.params, main.argv)
             main_live = True
-            bridge.applyInitQcu(partner.set_ptrs, partner.params, partner.argv)
+            bridge.applyInitQcu(partner.set_ptrs, partner.params,
+                                partner.argv)
             partner_live = True
             main_pointer = _slot_pointer(main, main_slot)
             partner_pointer = _slot_pointer(partner, partner_slot)
@@ -811,157 +1477,188 @@ def run_smoke_init_end(lattice: Any = None, dtype: Any = None,
         }
 
     seconds, observation = _measure(
-        _sequence, repeat=options.repeat, warmup=options.warmup)
+        _sequence, repeat=opts.repeat, warmup=opts.warmup)
     if not isinstance(observation, dict):
         raise RuntimeError("init/end smoke transaction returned no observation")
-    return {
-        "backend": BACKEND,
-        "check": "smoke_init_end",
-        "device": probe.device_name,
-        "capability": probe.capability,
-        "device_id": str(probe.device),
-        "lattice": list(options.shape),
-        "dtype": options.dtype,
-        "seed": int(options.seed),
-        "mpi_size": int(probe.mpi_size),
-        "mpi_rank": int(probe.mpi_rank),
-        "bridge_file": probe.bridge_file,
-        "bridge_built": True,
-        "repeat": int(options.repeat),
-        "warmup": int(options.warmup),
-        **observation,
-        "prepare_seconds": prepare_seconds,
-        "seconds": seconds,
-    }
+    observations = _common_observations(
+        probe, opts, main, check="smoke_init_end")
+    observations.update(observation)
+    return _finish(observations, probe, main, seconds=seconds,
+                   prepare_seconds=prepare_seconds, immutability={})
 
 
 # ---------------------------------------------------------------------------
 # runner: Wilson dslash against the torch reference
 # ---------------------------------------------------------------------------
-def run_dslash_wilson(lattice: Any = None, dtype: Any = None,
-                      seed: Any = None, repeat: Any = None,
-                      warmup: Any = None) -> dict[str, Any]:
-    """Apply ``applyWilsonDslashQcu`` once per parity transaction and compare.
+def run_dslash_wilson(lattice: Any = None, lattice_grid: Any = None,
+                      dtype: Any = None, seed: Any = None,
+                      repeat: Any = None, warmup: Any = None,
+                      atol: Any = None, source: Any = None,
+                      gauge: Any = None, gauge_sigma: Any = None,
+                      mass: Any = None, kappa: Any = None, csw: Any = None,
+                      solver: Any = None, dslash: Any = None,
+                      device: Any = None, max_iter: Any = None,
+                      device_id: Any = None, source_site: Any = None,
+                      source_spin: Any = None, source_color: Any = None,
+                      options: Any = None) -> dict[str, Any]:
+    """Apply ``applyWilsonDslashQcu`` to both parity targets and compare.
 
-    The input is the opposite compact parity of a fixed random source and the
-    gauge field is a fixed random SU(3) field; the reference is computed by
-    torch (compact even/odd helper *and* the full-lattice operator, which is
-    the independent path).  Observations: ``relative_error`` (gate alias
-    ``relative``), ``relative_error_full``, ``reference_spread``, input
-    immutability, lifecycle release and timing.
+    The input is the opposite compact parity of the configured source and the
+    gauge field is the configured field; the reference is computed by torch
+    (the compact even/odd helper *and* the full-lattice Wilson operator with
+    the run's ``kappa``, which is the independent path).  ``mass``/``kappa``
+    reach ``argv[_MASS_]`` and the full-Wilson reference; the bare hopping
+    symbol itself is mass- and clover-independent, and that is reported rather
+    than hidden.  Observations: ``relative_error`` (gate alias ``relative``),
+    ``relative_error_full_wilson``, ``reference_spread``, input immutability,
+    lifecycle release and timing.
     """
-    options = _options(lattice, dtype, seed, repeat, warmup)
-    probe = _require_cuda()
+    opts = _options(
+        lattice=lattice, lattice_grid=lattice_grid, dtype=dtype, seed=seed,
+        repeat=repeat, warmup=warmup, atol=atol, source=source, gauge=gauge,
+        gauge_sigma=gauge_sigma, mass=mass, kappa=kappa, csw=csw,
+        solver=solver, dslash=dslash, device=device, max_iter=max_iter,
+        device_id=device_id, source_site=source_site,
+        source_spin=source_spin, source_color=source_color, options=options)
+    _require_dslash(opts, "wilson")
+    probe = _require_cuda(opts.device, opts.device_id)
+    _require_grid(probe, opts)
     _require_symbols(probe.bridge, _DSLASH_SYMBOLS, "the Wilson dslash case")
     started = time.perf_counter()
-    inputs = _make_inputs(probe, options)
-    parity = 1
-    runtime = _make_runtime(
-        probe, options, mass=DEFAULT_MASS, csw=DEFAULT_CSW, atol=1.0e-7,
-        plan=0, parity=parity, max_iter=8)
     torch = probe.torch
-    source = inputs.source[1 - parity].contiguous()
-    output = torch.zeros_like(source)
-    source_before = source.clone()
+    define = probe.define
+    inputs = _make_inputs(probe, opts)
+    operands = {target: _source_operand(inputs, target)
+                for target in (0, 1)}
+    parity = 1
+    runtime = _make_runtime(probe, opts, plan=0, parity=parity)
+    outputs = {target: torch.zeros_like(operands[target])
+               for target in (0, 1)}
+    source_before = inputs.source.clone()
     gauge_before = inputs.gauge.clone()
-    controls_before = _controls(runtime.params, runtime.argv, probe.define)
+    controls_before = _controls(runtime.params, runtime.argv, define)
     prepare_seconds = time.perf_counter() - started
 
-    def _apply() -> None:
-        runtime.call("applyWilsonDslashQcu", output, source, inputs.gauge)
-        _synchronize(probe)
+    def _apply_all() -> None:
+        for target in (0, 1):
+            runtime.params[define._PARITY_] = target
+            runtime.call("applyWilsonDslashQcu", outputs[target],
+                         operands[target], inputs.gauge)
 
     seconds, _ = _measure(
-        _apply, repeat=options.repeat, warmup=options.warmup)
-    reference = _compact_wilson_reference(torch, source, inputs.gauge, parity)
-    reference_full = _full_lattice_wilson_reference(
-        probe, inputs, source, parity)
-    relative = relative_error(output, reference)
-    relative_l2 = _relative_l2(output, reference)
-    relative_full = relative_error(output, reference_full)
-    reference_spread = relative_error(reference, reference_full)
-    changed = _changed_globals(probe)
-    return {
-        "backend": BACKEND,
-        "check": "dslash_wilson",
-        "device": probe.device_name,
-        "capability": probe.capability,
-        "lattice": list(options.shape),
-        "dtype": options.dtype,
-        "seed": int(options.seed),
-        "gauge_seed": inputs.gauge_seed,
-        "source_seed": inputs.source_seed,
-        "mpi_size": int(probe.mpi_size),
-        "mpi_rank": int(probe.mpi_rank),
-        "bridge_file": probe.bridge_file,
-        "mass": DEFAULT_MASS,
-        "csw": DEFAULT_CSW,
-        "kappa": runtime.kappa,
-        "plan": 0,
-        "parity": parity,
-        "source_parity": 1 - parity,
-        "source_norm": float(torch.linalg.vector_norm(source)),
-        "output_norm": float(torch.linalg.vector_norm(output)),
-        "reference_norm": float(torch.linalg.vector_norm(reference)),
-        "gauge_su3": inputs.gauge_su3,
-        "relative_error": relative,
-        "relative": relative,
-        "relative_error_l2": relative_l2,
-        "relative_error_full": relative_full,
-        "reference_spread": reference_spread,
-        "output_finite": bool(torch.isfinite(output).all()),
-        "source_unchanged": bool(torch.equal(source, source_before)),
-        "gauge_unchanged": bool(torch.equal(inputs.gauge, gauge_before)),
-        "inputs_unchanged": bool(torch.equal(source, source_before)
-                                 and torch.equal(inputs.gauge, gauge_before)),
-        "controls_unchanged": (_controls(runtime.params, runtime.argv,
-                                         probe.define) == controls_before),
-        "slots_released": _slots_released(runtime),
-        "params_index_after": _set_index(runtime, probe.define),
-        "globals_unchanged": not changed,
-        "changed_global_arrays": changed,
-        "repeat": int(options.repeat),
-        "warmup": int(options.warmup),
-        "prepare_seconds": prepare_seconds,
-        "seconds": seconds,
-    }
+        _apply_all, repeat=opts.repeat, warmup=opts.warmup)
+    runtime.configure(parity=parity)
+    errors: dict[int, float] = {}
+    full_errors: dict[int, float] = {}
+    compact_references: dict[int, Any] = {}
+    full_references: dict[int, Any] = {}
+    reference_norm = 0.0
+    output_norm = 0.0
+    for target in (0, 1):
+        compact_references[target] = _compact_wilson_reference(
+            torch, operands[target], inputs.gauge, target)
+        full_references[target] = _full_lattice_wilson_reference(
+            probe, inputs, operands[target], target, runtime.kappa)
+        errors[target] = relative_error(
+            outputs[target], compact_references[target])
+        full_errors[target] = relative_error(
+            outputs[target], full_references[target])
+        reference_norm = max(
+            reference_norm,
+            float(torch.linalg.vector_norm(compact_references[target])))
+        output_norm = max(output_norm,
+                          float(torch.linalg.vector_norm(outputs[target])))
+    relative = max(errors.values())
+    reference_spread = max(
+        relative_error(compact_references[target], full_references[target])
+        for target in (0, 1))
+    observations = _common_observations(
+        probe, opts, runtime, check="dslash_wilson", inputs=inputs,
+        source_parity={"even_target": 1, "odd_target": 0})
+    observations.update(
+        equation="wilson_hopping",
+        abi_symbol="applyWilsonDslashQcu",
+        csw_used_by_operator=False,
+        mass_used_by_operator=False,
+        mass_used_by_reference=True,
+        relative=relative,
+        relative_error=relative,
+        relative_error_even_target=errors[0],
+        relative_error_odd_target=errors[1],
+        relative_error_full_wilson=max(full_errors.values()),
+        relative_error_full_wilson_even=full_errors[0],
+        relative_error_full_wilson_odd=full_errors[1],
+        true_residual=relative,
+        output_norm=output_norm,
+        reference_norm=reference_norm,
+        reference_spread=reference_spread,
+        output_finite=bool(torch.isfinite(outputs[0]).all()
+                           and torch.isfinite(outputs[1]).all()),
+        notes=[
+            "applyWilsonDslashQcu applies the bare hopping sum: mass/kappa "
+            "reach argv[_MASS_] and the full-Wilson reference, csw only "
+            "reaches argv[_CSW_]",
+        ],
+    )
+    return _finish(
+        observations, probe, runtime, seconds=seconds,
+        prepare_seconds=prepare_seconds, immutability={
+            "gauge_unchanged": bool(torch.equal(inputs.gauge, gauge_before)),
+            "source_unchanged": bool(torch.equal(inputs.source, source_before)),
+            "controls_unchanged": (
+                _controls(runtime.params, runtime.argv, define)
+                == controls_before),
+        })
 
 
 # ---------------------------------------------------------------------------
-# runner: full native BiStabCG solve with an independent true residual
+# runner: clover dslash against a torch reference
 # ---------------------------------------------------------------------------
-def run_solve_bistabcg(lattice: Any = None, dtype: Any = None,
-                       seed: Any = None, repeat: Any = None,
-                       warmup: Any = None) -> dict[str, Any]:
-    """Run one full native BiStabCG solve and reconstruct its true residual.
+def run_solve_bistabcg(lattice: Any = None, lattice_grid: Any = None,
+                       dtype: Any = None, seed: Any = None,
+                       repeat: Any = None, warmup: Any = None,
+                       atol: Any = None, source: Any = None,
+                       gauge: Any = None, gauge_sigma: Any = None,
+                       mass: Any = None, kappa: Any = None, csw: Any = None,
+                       solver: Any = None, dslash: Any = None,
+                       device: Any = None, max_iter: Any = None,
+                       device_id: Any = None, source_site: Any = None,
+                       source_spin: Any = None, source_color: Any = None,
+                       options: Any = None) -> dict[str, Any]:
+    """Run one full native BiCGStab solve and reconstruct its true residual.
 
-    The native equation is the Wilson operator: the Clover solver is used with
-    ``csw = 0`` (zero Clover term, identity inverse), which is the only CUDA
-    solver that reports a native iteration count and uses a relative
-    tolerance.  ``relative_residual`` is recomputed from the full-lattice
-    Wilson operator applied to the returned solution, never from the solver
-    recurrence.  Observations: ``relative_residual`` (gate), ``iterations``,
-    ``max_iter``, status/scope, timings, lifecycle release and immutability.
+    The native equation is the Clover operator at the configured ``csw``
+    (``csw = 0`` is the Wilson operator).  ``applyCloverBistabCgQcu`` reports
+    a native iteration count through ``getCloverBistabCgIterationsQcu`` and
+    interprets ``argv[_ATOL_]`` as a relative tolerance.  ``relative_residual``
+    is recomputed from the full clover/Wilson operator applied to the returned
+    solution, never from the solver recurrence.  Gate observations:
+    ``relative_residual``, ``iterations``, ``max_iter``.
     """
-    options = _options(lattice, dtype, seed, repeat, warmup)
-    probe = _require_cuda()
+    opts = _options(
+        lattice=lattice, lattice_grid=lattice_grid, dtype=dtype, seed=seed,
+        repeat=repeat, warmup=warmup, atol=atol, source=source, gauge=gauge,
+        gauge_sigma=gauge_sigma, mass=mass, kappa=kappa, csw=csw,
+        solver=solver, dslash=dslash, device=device, max_iter=max_iter,
+        device_id=device_id, source_site=source_site,
+        source_spin=source_spin, source_color=source_color, options=options)
+    _require_solver(opts, "bicgstab")
+    probe = _require_cuda(opts.device, opts.device_id)
+    _require_grid(probe, opts)
     _require_symbols(probe.bridge, _SOLVE_SYMBOLS, "the native solve case")
     started = time.perf_counter()
     torch = probe.torch
-    inputs = _make_inputs(probe, options)
-    atol = _solve_atol(options.dtype)
-    max_iter = DEFAULT_MAX_ITER
-    parity = 1
-    runtime = _make_runtime(
-        probe, options, mass=DEFAULT_MASS, csw=DEFAULT_CSW, atol=atol,
-        plan=1, parity=parity, max_iter=max_iter)
+    define = probe.define
+    from pyqcu import tools
     from pyqcu.api import BiCGStabControl
     from pyqcu.cuda.linear_operator import CudaLinearOperator
     from pyqcu.solver.krylov import Krylov
 
-    # csw = 0: build the (zero) Clover term and its (identity) inverse for both
-    # parities.  Each build is one ordinary init/op/end transaction.
+    inputs = _make_inputs(probe, opts)
+    parity = 1
+    runtime = _make_runtime(probe, opts, plan=1, parity=parity)
     gauge_before = inputs.gauge.clone()
+    source_before = inputs.source.clone()
     clover_even, clover_even_inv = runtime.make_clover(
         inputs.gauge, with_inverse=True, parity=0)
     clover_odd, clover_odd_inv = runtime.make_clover(
@@ -973,15 +1670,14 @@ def run_solve_bistabcg(lattice: Any = None, dtype: Any = None,
     operator = CudaLinearOperator(
         runtime=runtime, gauge=inputs.gauge, parity=parity,
         clover=(clover_even, clover_odd, clover_even_inv, clover_odd_inv))
-    control = BiCGStabControl(rtol=atol, max_iter=max_iter)
+    control = BiCGStabControl(rtol=opts.atol, max_iter=opts.max_iter)
     solver = Krylov(
         backend=BACKEND, method="bicgstab", operator=operator,
         control=control)
     # ``make_clover`` leaves plan 2 in the private controls; the solve driver
     # selects plan 1, so snapshot after restoring the plan the solve uses.
-    runtime.configure(plan=probe.define._SET_PLAN1_)
-    controls_before = _controls(runtime.params, runtime.argv, probe.define)
-    source_before = inputs.source.clone()
+    runtime.configure(plan=define._SET_PLAN1_, parity=parity)
+    controls_before = _controls(runtime.params, runtime.argv, define)
     prepare_seconds = time.perf_counter() - started
 
     def _solve() -> Any:
@@ -990,119 +1686,61 @@ def run_solve_bistabcg(lattice: Any = None, dtype: Any = None,
         return result
 
     seconds, result = _measure(
-        _solve, repeat=options.repeat, warmup=options.warmup)
+        _solve, repeat=opts.repeat, warmup=opts.warmup)
     if result is None:
         raise RuntimeError("native CUDA solve returned no result")
-    from pyqcu import tools
-    from pyqcu.torch import dslash
-
+    clover_full, _, matvec = _full_clover_operator(
+        probe, inputs, runtime.kappa, opts.csw)
     full_source = tools.poooxyzt2oooxyzt(inputs.source)
     full_solution = tools.poooxyzt2oooxyzt(result.x)
-    kappa = runtime.kappa
-    full_gauge = inputs.full_gauge
-
-    def _matvec(vector: Any) -> Any:
-        return dslash.give_wilson(
-            vector, full_gauge, torch.tensor([kappa]), with_I=True)
-
-    true_residual = relative_residual(_matvec, full_solution, full_source)
+    true_residual = relative_residual(matvec, full_solution, full_source)
     iterations = (None if result.krylov_iterations is None
                   else int(result.krylov_iterations))
     status = getattr(result.status, "value", str(result.status))
     scope = getattr(result.residual_scope, "value",
                     str(result.residual_scope))
-    changed = _changed_globals(probe)
-    return {
-        "backend": BACKEND,
-        "check": "solve_bistabcg",
-        "device": probe.device_name,
-        "capability": probe.capability,
-        "lattice": list(options.shape),
-        "dtype": options.dtype,
-        "seed": int(options.seed),
-        "gauge_seed": inputs.gauge_seed,
-        "source_seed": inputs.source_seed,
-        "mpi_size": int(probe.mpi_size),
-        "mpi_rank": int(probe.mpi_rank),
-        "bridge_file": probe.bridge_file,
-        "mass": DEFAULT_MASS,
-        "csw": DEFAULT_CSW,
-        "kappa": kappa,
-        "plan": 1,
-        "parity": parity,
-        "abi_symbol": "applyCloverBistabCgQcu",
-        "iteration_getter": "getCloverBistabCgIterationsQcu",
-        "equation": "wilson",
-        "clover_abs_max": clover_abs_max,
-        "clover_inverse_abs_max": clover_inv_abs_max,
-        "gauge_su3": inputs.gauge_su3,
-        "relative_residual": true_residual,
-        "true_residual": true_residual,
-        "relative_error": true_residual,
-        "iterations": iterations,
-        "iterations_available": iterations is not None,
-        "max_iter": int(control.max_iter),
-        "hit_max_iter": bool(iterations is not None
-                             and iterations >= control.max_iter),
-        "native_reported_converged": bool(result.converged),
-        "solver_status": status,
-        "residual_scope": scope,
-        "source_norm": float(torch.linalg.vector_norm(full_source)),
-        "solution_norm": float(torch.linalg.vector_norm(full_solution)),
-        "solve_seconds": (None if result.solve_seconds is None
-                          else float(result.solve_seconds)),
-        "source_unchanged": bool(torch.equal(inputs.source, source_before)),
-        "gauge_unchanged": bool(torch.equal(inputs.gauge, gauge_before)),
-        "inputs_unchanged": bool(torch.equal(inputs.source, source_before)
-                                 and torch.equal(inputs.gauge, gauge_before)),
-        "controls_unchanged": (_controls(runtime.params, runtime.argv,
-                                         probe.define) == controls_before),
-        "slots_released": _slots_released(runtime),
-        "params_index_after": _set_index(runtime, probe.define),
-        "globals_unchanged": not changed,
-        "changed_global_arrays": changed,
-        "repeat": int(options.repeat),
-        "warmup": int(options.warmup),
-        "prepare_seconds": prepare_seconds,
-        "seconds": seconds,
-    }
+    observations = _common_observations(
+        probe, opts, runtime, check="solve_bistabcg", inputs=inputs,
+        source_parity=parity)
+    observations.update(
+        equation=("clover" if opts.csw != 0.0 else "wilson"),
+        abi_symbol="applyCloverBistabCgQcu",
+        iteration_getter="getCloverBistabCgIterationsQcu",
+        csw_used_by_operator=True,
+        mass_used_by_operator=True,
+        clover_abs_max=clover_abs_max,
+        clover_inverse_abs_max=clover_inv_abs_max,
+        clover_term_abs_max=float(clover_full.abs().max()),
+        relative_residual=true_residual,
+        true_residual=true_residual,
+        relative_error=true_residual,
+        iterations=iterations,
+        iterations_available=iterations is not None,
+        hit_max_iter=bool(iterations is not None
+                          and iterations >= control.max_iter),
+        native_reported_converged=bool(result.converged),
+        solver_status=status,
+        residual_scope=scope,
+        source_norm=float(torch.linalg.vector_norm(full_source)),
+        solution_norm=float(torch.linalg.vector_norm(full_solution)),
+        solve_seconds=(None if result.solve_seconds is None
+                       else float(result.solve_seconds)),
+        notes=[
+            "the independent true residual uses the full Clover operator at "
+            f"csw={opts.csw:g} (csw=0 is the Wilson operator)",
+        ],
+    )
+    return _finish(
+        observations, probe, runtime, seconds=seconds,
+        prepare_seconds=prepare_seconds, immutability={
+            "gauge_unchanged": bool(torch.equal(inputs.gauge, gauge_before)),
+            "source_unchanged": bool(torch.equal(inputs.source, source_before)),
+            "controls_unchanged": (
+                _controls(runtime.params, runtime.argv, define)
+                == controls_before),
+        })
 
 
-def run_dslash_clover(lattice: Any = None, dtype: Any = None,
-                      seed: Any = None, repeat: Any = None,
-                      warmup: Any = None) -> dict[str, Any]:
-    """CUDA Clover dslash entry point.
-
-    The Clover ABI path is available only when the Cython bridge is built and
-    exports the Clover dslash symbols.  This checkout has no bridge, so the
-    probe raises the documented ``cuda_bridge`` skip before any native call.
-    Keeping the runner explicit is important: the self-check must be able to
-    resolve every declared case, and an unavailable backend must SKIP with a
-    reason rather than silently disappearing from the matrix.
-    """
-    options = _options(lattice, dtype, seed, repeat, warmup)
-    probe = _require_cuda()
-    _require_symbols(probe.bridge, _DSLASH_SYMBOLS, "the Clover dslash case")
-    raise Skip(
-        "cuda_bridge: the CUDA Clover dslash runner requires a built bridge "
-        f"at {probe.bridge_file}; this checkout does not implement that path",
-        token="cuda_bridge")
-
-
-def run_solve_cg(lattice: Any = None, dtype: Any = None,
-                 seed: Any = None, repeat: Any = None,
-                 warmup: Any = None) -> dict[str, Any]:
-    """CUDA CG solve entry point.
-
-    As with :func:`run_dslash_clover`, the bridge/device probes run first; an
-    unavailable bridge is a SKIP with a non-empty reason.  The function is kept
-    in the registry so ``--solver cg`` and the self-check can resolve the case
-    on every machine.
-    """
-    options = _options(lattice, dtype, seed, repeat, warmup)
-    probe = _require_cuda()
-    _require_symbols(probe.bridge, _SOLVE_SYMBOLS, "the native CG case")
-    raise Skip(
-        "cuda_bridge: the CUDA CG runner requires a built bridge at "
-        f"{probe.bridge_file}; this checkout does not implement that path",
-        token="cuda_bridge")
+# ---------------------------------------------------------------------------
+# runner: full native conjugate-gradient solve
+# ---------------------------------------------------------------------------

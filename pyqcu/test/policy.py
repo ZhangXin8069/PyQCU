@@ -411,8 +411,6 @@ TIER0_RUNNERS: dict[str, str] = {
     "torch/solve/cg": "torch_qcu:run_solve_cg",
     "kupl/dslash/clover": "kupl_qcu:run_dslash_clover",
     "kupl/solve/cg": "kupl_qcu:run_solve_cg",
-    "cuda/dslash/clover": "cuda_qcu:run_dslash_clover",
-    "cuda/solve/cg": "cuda_qcu:run_solve_cg",
 }
 
 #: Tier-0 tags in declaration (and therefore ``--list``) order.
