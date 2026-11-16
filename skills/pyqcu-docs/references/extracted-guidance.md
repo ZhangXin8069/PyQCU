@@ -52,19 +52,30 @@ clover_term_eo = [p,s,c,s,c,x,y,z,t]
 
 ## 2. 测试与示例入口
 
-旧顶层 `examples/` 已删除，现行路径统一为 `pyqcu/testing/**`；历史文档中的
-`examples/...` 只按迁移规则理解。来源：`docs/examples.md`。
+正式快速端口是 `pyqcu.test`（`python -m pyqcu.test`，随 sdist/wheel 发行，安装态可跑，
+stdlib-only 导入）；`pyqcu/testing/**` 是非正式套件，只在源码 checkout 中（`MANIFEST.in`
+prune、`setup.py` 排除，安装用户没有该包）。旧顶层 `examples/` 已删除，其内容按迁移规则
+进入 `pyqcu/testing/**`。来源：`docs/examples.md`、`docs/ORGANIZATION.md`。
 
 ```bash
 source ./env.sh
-(cd pyqcu/testing && pytest .)
+python -m pyqcu.test --list                               # 正式：21 个 tier 0 用例，不 import 后端
+python -m pyqcu.test --quick                              # 正式：tier 0，8 8 8 16，c64
+python -m pyqcu.test --backend cpu --dtype complex128 --solver cg
+(cd pyqcu/testing && pytest .)                            # 非正式全树
 mpirun -np 4 python pyqcu/testing/python/conftest.py
 python pyqcu/testing/qcu/single_qcu_api.py
 pytest pyqcu/testing/quda
 ```
 
-各子目录 `conftest.py` 是手动选择性入口；运行前检查被取消注释的测试集合，避免把
-“pytest 启动成功”误认为目标测试已执行。
+正式端口不 import `pytest`、不含 `test_*.py`，SKIP 必须带非空 reason（7 个 token：
+`kupl_library`/`cuda_bridge`/`cuda_device`/`mpi_single_rank`/`h5py_mpi`/`mpi_grid`/
+`device_unavailable`；CUDA 桥缺失时 `SKIP(cuda_bridge)` 是预期结果）；`--quick` 不得用于
+性能结论。展开选项（`--lattice-size`/`--lattice-grid`/`--mg-grid`、`--gauge`/`--gauge-sigma`/
+`--source`、`--mass`/`--kappa`/`--csw`、`--solver`/`--dslash`、`--device`/`--backend` 的
+`cpu`/`dcu`/`npu` 别名）只改运行参数与用例筛选，权威清单是 `python -m pyqcu.test --list`。
+`pyqcu/testing` 各子目录 `conftest.py` 是手动选择性入口；运行前检查被取消注释的测试集合，
+避免把“pytest 启动成功”误认为目标测试已执行。
 
 ## 3. CUDA 生产执行拓扑
 
@@ -310,7 +321,8 @@ mpirun -np 1 python -u conftest.py
 
 - 正式独立文档写 `docs/**`；当前任务日志和未归档阶段报告写 `logs/**`。
 - 阶段报告先提交并打 tag；后续清理提交再删除工作区副本，历史通过 tag 读取。
-- 数据/构建实体写 `data/**`；测试和可维护脚本写 `pyqcu/testing/**`。
+- 数据/构建实体写 `data/**`；非正式测试和可维护脚本写 `pyqcu/testing/**`，随包发行的
+  正式快速测试端口写 `pyqcu/test/**`，不得互相搬移。
 - 面向用户的发布站点是 `docs/en`、`docs/zh` 两套 Read the Docs 源；配置布局、构建门
   （双站 `-W`、围栏块一致、`docs_examples` 断言）与版本同步点见
   [`readthedocs-release.md`](readthedocs-release.md)，不要把站点命令写进本文件重复维护。
@@ -327,7 +339,7 @@ mpirun -np 1 python -u conftest.py
 | 文档 | 有参考价值的稳定结论 | 落点 |
 |---|---|---|
 | `docs/AGENTS.md` | `docs/**` 是正式文档规范源；新增/迁移文档必须同步索引，tag 前报告只在工作区暂存。 | `pyqcu-docs`, `pyqcu-form` |
-| `docs/ORGANIZATION.md` | 文档、日志、数据、测试各只有一个规范目录；tag 报告先提交打标，再在后续提交清理工作区副本。 | `pyqcu-form` |
+| `docs/ORGANIZATION.md` | 文档、日志、数据、测试各只有一个规范目录；测试按发行属性二分（正式 `pyqcu/test`、非正式 `pyqcu/testing`）；tag 报告先提交打标，再在后续提交清理工作区副本。 | `pyqcu-form` |
 | `docs/dims.md` | `s/c/d/p/x/y/z/t` 轴语义固定，时空维永远是最后四轴；gauge/fermion/Clover 使用 canonical 顺序。 | `pyqcu-tools`, `pyqcu-lattice`, `pyqcu-dslash` |
 | `docs/env.md` | Python ≥ 3.10，环境入口为 `env.sh`；当前仓库优先进入 `PYTHONPATH`，并导出 `PYQCU_ROOT`、`PYQCU_CUDA_LIB`、`PYQCU_DCU_LIB`、`PYQCU_KUPL_LIB` 与保守 KUPL 默认值。 | `pyqcu-tools`, `pyqcu-testing` |
 | `docs/install.md` | CUDA/DCU/KUPL 通过 `install.sh` 显式选路；KUPL 独立 CMake/CTest；QUDA/PyQUDA 必须匹配当前架构与 ABI。 | `pyqcu-cuda`, `pyqcu-kupl`, `pyqcu-testing-dcu`, `pyqcu-testing-pyquda` |

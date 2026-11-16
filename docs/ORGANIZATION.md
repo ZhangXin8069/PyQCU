@@ -1,8 +1,8 @@
 # PyQCU 文件分类约定
 
-`docs/`、`data/`、`logs/`、`pyqcu/testing/` 采用“保留资产实体只存一个规范目录”
-的方式整理。历史重复代码、生成缓存与一次性会话垃圾直接删除，不建立软链接或嵌套
-归档目录保存。
+`docs/`、`data/`、`logs/`、`pyqcu/test/`、`pyqcu/testing/` 采用“保留资产实体只存
+一个规范目录”的方式整理。历史重复代码、生成缓存与一次性会话垃圾直接删除，不建立
+软链接或嵌套归档目录保存。
 
 ## 规范目录
 
@@ -12,7 +12,8 @@
 | 当前任务未归档日志与阶段报告 | `logs/**` | `.json`、`.log`、`.tsv`、`.txt`、`.stdout`、阶段报告 `.md`/`.tex`/`.pdf` |
 | 已归档 tag 报告 | Git tag 对象 | 通过 `git show <tag>:<path>` 读取，工作区不保留副本 |
 | 数据、安装与构建产物 | `data/**` | `.h5`、`.so`、`.dat`、`.csv`、`.svg`、venv/build/install 树 |
-| 测试及其他代码 | `pyqcu/testing/**` | `.py`、`.sh`、`.patch`、测试入口与历史回归套件 |
+| 测试（正式快速端口） | `pyqcu/test/**` | `python -m pyqcu.test` 的 `Case`/`policy`/后端 runner；随 sdist/wheel 发行，安装态可运行 |
+| 测试（非正式/研究/性能） | `pyqcu/testing/**` | `.py`、`.sh`、`.patch`、集成测试入口、性能基准与历史回归套件；仅源码 checkout |
 
 跨目录提升时保留来源语义：
 
@@ -23,6 +24,7 @@
 - `logs/**` 内的 `.h5`、`.npz`、`.npy`、`.pt` 进入 `data/logs/`；
 - Office 文件及非文档资源进入 `data/docs/`。
 - `logs/**` 和第一方 `data/**` 内仍需维护的测试/脚本进入 `pyqcu/testing/`；
+  正式发行测试端口只写 `pyqcu/test/**`，不向 `pyqcu/testing/` 新增正式用例；
   已被现行实现取代的历史测试套件直接删除。
 
 仍需保留的跨目录资产迁移时保留来源根和相对路径。整理后的旧路径不再建立软链接，
@@ -39,6 +41,33 @@ tag 报告采用固定生命周期：
 
 LaTeX `.aux/.log/.out/.toc/.nav/.snm/.vrb`、`.report-build-*`、逐页
 `report-render-*`、agent/codex 会话、临时文件和生成缓存均直接删除。
+
+## 测试端口分层（正式 / 非正式）
+
+测试代码只有两个规范位置，按“是否随发行包交付”划分，不按文件新旧划分：
+
+| 端口 | 规范位置 | 交付属性 | 内容边界 |
+|---|---|---|---|
+| 正式快速端口 | `pyqcu/test/**` | 随 sdist/wheel 发行；安装态 `python -m pyqcu.test` 可运行 | stdlib-only 导入的 `Case`/`policy`/后端 runner、`selfcheck.py`；21 个 tier 0 跨后端正确性门（默认格点 `[8,8,8,16]`、c64、单 rank、无数据文件），可用 `--lattice-size`/`--lattice-grid`/`--mg-grid`/`--mass`/`--kappa`/`--csw`/`--solver`/`--dslash`/`--device`/`--backend cpu/dcu/npu` 等选项改参数 |
+| 非正式套件 | `pyqcu/testing/**` | **仅源码 checkout**：`MANIFEST.in` 的 `prune pyqcu/testing` 与 `setup.py` 的 `find_packages(exclude=["pyqcu.testing", "pyqcu.testing.*"])` 双重排除 | 集成/回归/性能/QUDA/PyQUDA/HPCKit 矩阵、参考 HDF5、历史资产；模块级依赖 `torch`、`mpi4py`、`pytest` |
+
+- `pip install pyqcu` 的用户**没有** `pyqcu.testing`；安装态验证只能用 `pyqcu.test`
+  或公开 API，不得把 `pyqcu.testing` 写成用户入口。
+- 两个方向都不得互相 import，生产模块也不得 import `pyqcu.test`。
+- **新增正式用例只进 `pyqcu/test/units.py`**；`pyqcu/testing/**` 不再新增“正式”用例，
+  只保留探索性、研究性、性能性和历史回归资产。
+- 正式端口的展开选项（`--lattice-size`/`--lattice-grid`/`--mg-grid`、`--gauge`/
+  `--gauge-sigma`/`--source`、`--mass`/`--kappa`/`--csw`、`--solver`/`--dslash`、
+  `--device`/`--device-id`/`--threads`、`--backend cpu/dcu/npu`）只改运行参数与用例
+  筛选，不改变发行边界与包布局；用例矩阵与生效配置以 `python -m pyqcu.test --list`
+  （或 `--list --json`）为准。
+- `pyqcu/test/**` 内不得出现 `test_*.py`（form 审计只在 `<repo>/testing/**` 内免除
+  `TEST_LOCATION`），也不得 import `pytest`；`pyqcu/test/README.md` 与
+  `pyqcu/test/AGENTS.md` 只是仓库元数据，不进 sdist。
+- 打包闸门：`release_check --offline` 保留 `sdist no testing`（`pyqcu/testing/**` 不进包），
+  并新增正向条目 `sdist ships pyqcu.test`（`pyqcu-<ver>/pyqcu/test/*.py` 必须随包发行）。
+  正式端口的命令、退出码、tier 0 用例与 SKIP 策略见
+  [`pyqcu/test/README.md`](../pyqcu/test/README.md)。
 
 ## 语义例外
 

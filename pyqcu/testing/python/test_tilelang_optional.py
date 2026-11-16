@@ -73,19 +73,40 @@ def test_torch_tools_cpu_path_falls_back_without_tilelang() -> None:
         import warnings
         import torch
 
+        # The silent probe (`pyqcu.tools._define`) and the import-time probes
+        # in `pyqcu.torch.tools._einsum`/`_matul` must not warn: importing the
+        # package is not a request for the optional TileLang kernel.
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
+            import pyqcu.tools
             from pyqcu.torch.tools import Eexyzt_exyzt2Exyzt
+            from pyqcu._tilelang import import_tilelang, tilelang_available
+            assert tilelang_available() is False
+            imported = [str(item.message) for item in caught
+                        if issubclass(item.category, RuntimeWarning)
+                        and "TileLang is unavailable" in str(item.message)]
+            assert imported == [], imported
+
+        # The first explicit request after import still warns -- exactly once,
+        # even though the cached probe result came from a silent probe.
+        def eager():
+            return import_tilelang()
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            assert eager() is None
+            assert eager() is None
+            assert tilelang_available() is False
+            messages = [str(item.message) for item in caught
+                        if issubclass(item.category, RuntimeWarning)
+                        and "TileLang is unavailable" in str(item.message)]
+            assert len(messages) == 1, messages
 
         left = torch.arange(96, dtype=torch.float32).reshape(2, 3, 2, 2, 2, 2)
         right = torch.arange(48, dtype=torch.float32).reshape(3, 2, 2, 2, 2)
         actual = Eexyzt_exyzt2Exyzt(left, right)
         expected = torch.einsum("Eexyzt,exyzt->Exyzt", left, right)
         torch.testing.assert_close(actual, expected)
-        messages = [str(item.message) for item in caught
-                    if issubclass(item.category, RuntimeWarning)
-                    and "TileLang is unavailable" in str(item.message)]
-        assert len(messages) == 1, messages
         print("tilelang-cpu-fallback-ok")
         """
     )

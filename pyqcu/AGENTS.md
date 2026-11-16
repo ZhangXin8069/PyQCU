@@ -24,7 +24,8 @@ PyQCU 顶层 Python 包：CUDA 加速格点 QCD 库。实现 Wilson/Clover Dirac
 | `tools/` | 公共 MPI 网格、布局、HDF5 I/O、env/budget、绘图 |
 | `solver/multigrid/` | Torch/CUDA/KUPL 统一 `Multigrid` 选择器 |
 | `solver/krylov/` | Torch 迭代与 CUDA/KUPL 原生整次 solve 的统一 `Krylov` 选择器 |
-| `testing/` | 全组件集成测试 |
+| `test/` | 正式快速测试端口：`python -m pyqcu.test`（21 个 tier 0 跨后端正确性门，可加 `--lattice-size`/`--mass`/`--kappa`/`--solver`/`--dslash`/`--device`/`--backend cpu/dcu/npu` 等选项；随 sdist/wheel 发行，安装态可运行） |
+| `testing/` | 非正式集成/性能/研究测试（仅源码 checkout，`MANIFEST.in`/`setup.py` 排除，安装用户没有该包） |
 | `cuda/` | 到 `libqcu.so` 的 Cython 桥 + 参数常量（`define.py`） |
 | `kupl/` | 独立 MPI+OpenMP CPU 后端绑定 |
 | `cann/` | Torch 兼容层（NPU 复数运算分解） |
@@ -55,7 +56,10 @@ bash ./build-nv.sh             # 构建 libqcu.so（C++ CUDA 后端）
 bash ./install.sh              # 就地构建 Cython 扩展
 
 # 测试
-cd pyqcu/testing && pytest .
+python -m pyqcu.test --list                   # 正式端口：21 个 tier 0 用例与生效配置
+python -m pyqcu.test --quick                  # 正式端口：tier 0 跨后端正确性门
+python -m pyqcu.test --backend cpu --dtype complex128 --solver cg --only torch/solve/cg
+cd pyqcu/testing && pytest .                  # 非正式套件（仅 checkout）
 mpirun -np 4 python pyqcu/testing/python/conftest.py
 ```
 

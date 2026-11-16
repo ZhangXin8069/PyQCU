@@ -105,7 +105,7 @@ sdist 要在没有预编译原生库、甚至没有仓库的机器上装起来�
 |---|---|---|
 | 元文件 | 逐行 `include LICENSE`、`README.md`、`README.zh-CN.md`、`pyproject.toml`、`setup.py`、`MANIFEST.in` | 占位符与自重建；`MANIFEST.in` 自包含保证从 sdist 再打包结果一致 |
 | 根入口 | `include env.sh build-nv.sh build-dcu.sh install.sh` | 安装机需要同一套构建/安装入口 |
-| Python 源码 | `recursive-include pyqcu *.py *.pyi *.pyx *.pxd` | 必须带 `*.pyx`/`*.pxd`，否则 `install.sh` 无法 cythonize |
+| Python 源码 | `recursive-include pyqcu *.py *.pyi *.pyx *.pxd` | 必须带 `*.pyx`/`*.pxd`，否则 `install.sh` 无法 cythonize；`pyqcu/test/*.py` 是随包发行的正式快速测试端口，必须被这条收进来 |
 | KUPL 树 | `recursive-include cpp/kupl/qcu *.txt *.sh *.map *.md *.h *.hpp *.cpp` + `prune cpp/kupl/qcu/tests`、`prune cpp/kupl/qcu/build`、`prune cpp/kupl/qcu/build-lto` | 自包含 C++17 构建树，不带测试与本地构建目录 |
 | CUDA 树 | `LICENSE`、`CMakeLists-{nv,dcu}.txt`、`make-{nv,dcu}.sh`、`env.sh`、`python/*.h`、`include/*.h(pp)`、`src/*.cu/*.cpp/*.h` | C API 与内核源码，安装时机遇性构建 |
 | 排除目录 | `prune pyqcu/testing`、`build`、`dist`、`data`、`docs`、`logs`、`refer`、`skills` | 测试、证据、文档站点、历史参考与技能都不进发布物 |
@@ -123,17 +123,22 @@ sdist 要在没有预编译原生库、甚至没有仓库的机器上装起来�
 - `SOURCES.txt` 出现 `/home/` 是绝对路径泄漏（`recursive-include` 写错或 `setup.py` 生成路径），
   必须修 manifest，不得改检查或忽略该断言。
 - `prune pyqcu/testing` 与 `global-exclude *.so` 是发布闸门两条硬线，`release_check` 会独立复核。
+  `pyqcu/testing` 的排除只是**排除非正式套件**：`pyqcu/test/**`（正式快速测试端口，
+  `python -m pyqcu.test`）必须随包发行，`release_check` 的 `sdist ships pyqcu.test`
+  正向条目逐文件核对 `pyqcu-<ver>/pyqcu/test/*.py`，不要把整棵 `pyqcu/test*` 一起 prune。
 
 ```bash
 python -m build --sdist
 tar tzf dist/pyqcu-<ver>.tar.gz | grep -E '/pyqcu/testing/|\.so$|\.o$'      # 期望无输出
+tar tzf dist/pyqcu-<ver>.tar.gz | grep -cE '/pyqcu/test/.*\.py$'            # 期望 = 工作树 pyqcu/test/*.py 数
 tar xzOf dist/pyqcu-<ver>.tar.gz pyqcu-<ver>/pyqcu.egg-info/SOURCES.txt | grep '/home/'  # 期望无输出
 python -m twine check dist/pyqcu-<ver>.tar.gz
 python -m pyqcu.testing.release_check --offline   # 逐条记录条目数与通过数，不写死历史数字
 ```
 
-`release_check --offline` 覆盖：version、sdist exists、no testing、no binaries、native sources、
-no home paths、Chinese README、twine check、bilingual blocks、docs examples、sphinx en、sphinx zh。
+`release_check --offline` 覆盖：version、sdist exists、no testing、ships pyqcu.test、
+no binaries、native sources、no home paths、Chinese README、twine check、bilingual blocks、
+docs examples、sphinx en、sphinx zh（13 项，以实际输出为准）。
 0.1.0 台账（`logs/v20261109.txt`）：585 KiB、sha256 `bed98ee7e6d774c69efa8f8752d40fe0d24b79c02df91701d720be9627927ba4`、
 86 个 Python 文件、0 个 `pyqcu/testing`、0 个 `.so`、KUPL 34 条 src、CUDA 33 条 src、无 `/home/`。
 
@@ -238,6 +243,7 @@ git check-ignore -v --no-index pyproject.toml MANIFEST.in docs/en/.readthedocs.y
 ```
 
 出现以下信号说明改错了方向：`git status` 里成片未跟踪的 `docs/en|zh` 文件（放行缺失）、
-`sdist` 里出现 `pyqcu/testing` 或 `.so`（manifest 漏 prune）、`SOURCES.txt` 含 `/home/`
+`sdist` 里出现 `pyqcu/testing` 或 `.so`（manifest 漏 prune）、`sdist` 里缺 `pyqcu/test`
+（`sdist ships pyqcu.test` 失败：端口被误 prune 或未进 git 跟踪）、`SOURCES.txt` 含 `/home/`
 （绝对路径泄漏）、`form-audit.sh` 报 `SKILL_INDEX_COUNT`（计数未同步）、
 四端 commit 不一致（推送未完成或镜像未同步）。

@@ -14,7 +14,7 @@
 - [ ] `MANIFEST.in` 含 `README.zh-CN.md`，未把 `.so/.o` 或 `pyqcu/testing` 带进 sdist
 - [ ] 工作树干净：`git status --porcelain` 为空，`git describe --tags` 指向本次提交
 - [ ] `dist/` 已清空（旧版本产物会让 release_check 读到错文件）
-- [ ] 发布门 12/12、`twine check` PASSED
+- [ ] 发布门 13/13、`twine check` PASSED
 - [ ] 台账 `logs/v<YYYYMMDD>.txt` 已写（产物大小、sha256、门禁输出、数值、外部阻塞）
 
 ## 2. 版本同步核对
@@ -45,6 +45,7 @@ tar tzf dist/pyqcu-<ver>.tar.gz > /tmp/sd.txt
 wc -l < /tmp/sd.txt                                   # 成员数
 grep -c '\.py$' /tmp/sd.txt                           # Python 文件数
 grep -c 'pyqcu/testing/' /tmp/sd.txt                  # 必须 0
+grep -cE '/pyqcu/test/.*\.py$' /tmp/sd.txt            # 必须 = 端口模块数（当前 16）
 grep -c '\.so' /tmp/sd.txt                            # 必须 0
 grep -c 'cpp/kupl/qcu/src/' /tmp/sd.txt               # KUPL 源
 grep -c 'cpp/cuda/qcu/src/' /tmp/sd.txt               # CUDA 源
@@ -58,30 +59,38 @@ CUDA src 33、`README.zh-CN.md` 1、`SOURCES.txt` 无 `/home/`。0.1.0 成员 25
 `README.zh-CN.md`（+5,519 B 未压缩）、`README.md` 的 Repositories 段（+457 B）、
 `pyproject.toml` 的 3 个链接（+202 B），以及派生的 `PKG-INFO`/`SOURCES.txt`。
 
+0.1.1 早于 `pyqcu.test` 端口，所以上面的基线里 `/pyqcu/test/` 为 0 是历史事实，不是
+现行判据。现行硬线：`/pyqcu/test/*.py` 必须与工作树同名文件一一对应（0.1.16 sdist
+实测 16 个，含 `__init__.py`），同时 `pyqcu/testing/` 仍为 0。`release_check` 的
+`sdist ships pyqcu.test` 正向条目与本节 grep 是同一条判据。
+
 判读：成员数骤降或 `cpp/kupl/qcu/src` 为 0 说明 `MANIFEST.in` 的
 `recursive-include` 被改坏；`.so` 计数非 0 说明构建产物被误打包。
 
 ## 4. 发布门
 
 ```bash
-python -m pyqcu.testing.release_check --offline     # 要求 12/12
+python -m pyqcu.testing.release_check --offline     # 要求 13/13
+python -m pyqcu.test --check                        # 端口自检（含 package_inclusion/manifest）
 python -m pyqcu.testing.release_check --online      # 追加 PyPI/RTD 探针
 ```
 
-`--offline` 的 12 项（顺序即输出顺序）：
+`--offline` 的 13 项（顺序即输出顺序；条目数随打包契约增长，以实际输出为准）：
 
 1. `version` — `pyproject` 与 `pyqcu.__version__` 一致
 2. `sdist exists`
-3. `sdist no testing`
-4. `sdist no binaries`
-5. `sdist native sources`（KUPL 与 CUDA 源同时存在）
-6. `sdist no home paths`
-7. `sdist Chinese README`
-8. `twine check`
-9. `bilingual blocks`（overview/usage/performance/install 的代码块 en==zh）
-10. `docs examples`（`pyqcu.testing.docs_examples --keep-going`）
-11. `sphinx en`
-12. `sphinx zh`
+3. `sdist no testing` — `pyqcu/testing/**` 不进包
+4. `sdist ships pyqcu.test` — `pyqcu-<ver>/pyqcu/test/*.py` 与工作树同名文件一一对应
+   （含 `__init__.py`）；缺一个即 FAIL
+5. `sdist no binaries`
+6. `sdist native sources`（KUPL 与 CUDA 源同时存在）
+7. `sdist no home paths`
+8. `sdist Chinese README`
+9. `twine check`
+10. `bilingual blocks`（overview/usage/performance/install 的代码块 en==zh）
+11. `docs examples`（`pyqcu.testing.docs_examples --keep-going`）
+12. `sphinx en`
+13. `sphinx zh`
 
 `--online` 追加：`PyPI JSON`、`PyPI project links`（6 个键齐全）、
 `PyPI repositories section`（描述含 `## Repositories`）、`PyPI simple index`、

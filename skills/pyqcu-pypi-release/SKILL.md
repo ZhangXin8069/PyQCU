@@ -165,7 +165,7 @@ site-packages/pyqcu/cuda/qcu.cpython-312-x86_64-linux-gnu.so   # Cython 桥
 2. 提交（只暂存本次文件，禁 `git add -A`/`git add .`），按
    [`pyqcu-tag`](../pyqcu-tag/SKILL.md) 打 tag；发布内容必须能由该 tag 复现。
 3. `rm -rf dist && python -m build --sdist`。
-4. 发布门：`python -m pyqcu.testing.release_check --offline`，要求 12/12。
+4. 发布门：`python -m pyqcu.testing.release_check --offline`，要求 13/13。
 5. `python -m twine check dist/pyqcu-<ver>.tar.gz`，要求 `PASSED`。
 6. 只上传那一个文件（不要 `dist/*`，避免误带 wheel）：
    `TWINE_USERNAME=__token__ TWINE_PASSWORD="$PYPI_ZHANGXIN8069_API_KEY" python -m twine upload --non-interactive dist/pyqcu-<ver>.tar.gz`。
@@ -337,11 +337,11 @@ site-packages/pyqcu/cuda/qcu.cpython-312-x86_64-linux-gnu.so   # Cython 桥
   `env -u PYTHONPATH -u PYQCU_KUPL_LIB` 后再跑诊断。从 PyPI 干净安装后
   `--json` 指向 venv 的 `site-packages`，KUPL 落位 `pyqcu/kupl/libqcu.dylib`。
 
-发布门 12 项（`release_check --offline` 顺序）：version、sdist exists、sdist no
-testing、sdist no binaries、sdist native sources、sdist no home paths、sdist
-Chinese README、twine check、bilingual blocks、docs examples、sphinx en、
-sphinx zh。`--online` 追加 PyPI JSON、PyPI project links、PyPI repositories
-section、PyPI simple index、RTD en/zh-cn。
+发布门 13 项（`release_check --offline` 顺序）：version、sdist exists、sdist no
+testing、sdist ships pyqcu.test、sdist no binaries、sdist native sources、sdist
+no home paths、sdist Chinese README、twine check、bilingual blocks、docs
+examples、sphinx en、sphinx zh。`--online` 追加 PyPI JSON、PyPI project links、
+PyPI repositories section、PyPI simple index、RTD en/zh-cn。
 
 ## 坑与判据
 

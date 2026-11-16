@@ -1,6 +1,6 @@
 ---
 name: pyqcu-testing
-description: 当任务涉及 pyqcu.testing 集成测试、发布验证（release gate）、Strict MG 快速闸门、MPI/缓存/QIO 或显存验证时使用。
+description: 当任务涉及 pyqcu.testing 非正式集成测试、正式 pyqcu.test 快速端口、发布验证（release gate）、Strict MG 快速闸门、MPI/缓存/QIO 或显存验证时使用。
 ---
 # pyqcu.testing
 
@@ -80,12 +80,52 @@ Wuppertal Gaussian smearing with triple invariants (cpu+cuda both PASS):
 Null-vector quality diagnostic requires the explicit 10-dim block structure argument
 (documented in dev85); non-block layouts fail fast instead of being auto-corrected.
 
-## Running Tests
+## Running Tests（非正式套件）
 
 ```bash
 (cd pyqcu/testing && pytest .)                             # all conftest.py files
 mpirun -np 4 python pyqcu/testing/python/conftest.py       # single file with MPI
 ```
+
+## 正式端口 `pyqcu.test` 与非正式套件 `pyqcu.testing`
+
+测试代码只有两个规范位置，按“是否随包发行”划分，不按文件新旧划分：
+
+| 端口 | 路径 | 发行 | 依赖与范围 |
+|---|---|---|---|
+| 正式 | `pyqcu/test/**` | 随 sdist/wheel（`recursive-include pyqcu *.py`） | stdlib-only 导入，安装态可跑；21 个 tier 0 跨后端正确性门，默认格点 `[8,8,8,16]`、c64、单 rank、无数据文件 |
+| 非正式（本技能） | `pyqcu/testing/**` | 不进 sdist（`prune pyqcu/testing` + `find_packages(exclude=["pyqcu.testing", "pyqcu.testing.*"])`） | 模块级 import `torch`/`mpi4py`/`pytest`；集成、回归、性能、QUDA/HPCKit 矩阵与历史资产 |
+
+```bash
+python -m pyqcu.test --list                      # 只列用例，不 import torch/native
+python -m pyqcu.test --quick                     # tier 0 + 8 8 8 16 + c64 + seed 42
+python -m pyqcu.test --quick --json -            # JSON 报告写 stdout
+python -m pyqcu.test --only torch/mg/legacy --repeat 1 --warmup 1
+python -m pyqcu.test --backend cpu --dtype complex128 --solver cg --list
+```
+
+正式端口的展开选项（默认值与判据见 README）：`--lattice-size`/`--lattice`、
+`--lattice-grid`（MPI 网格）、`--mg-grid`、`--gauge random|unit|ones`、
+`--gauge-sigma`/`--guage-sigma`、`--source point|ones|random`、`--mass`/`--kappa`
+（`kappa = 1/(2m+8)`）、`--csw`、`--max-iter`、`--restart`、`--mg-levels`、
+`--mg-nu-pre`/`--mg-nu-post`、`--device auto|cpu|gpu|dcu|npu`、`--device-id`、`--threads`、
+`--solver all|bicgstab|cg|multigrid|mg`（只筛 solve/mg）、`--dslash all|wilson|clover|both`
+（只筛 dslash）、`--backend` 别名 `cpu`=torch+kupl、`dcu`=cuda、`npu`=torch、
+`--dtype complex64|complex128`、`--atol`；`--quick` 只锁 tier/格点/dtype/seed/repeat。
+
+- 退出码：`0` 无 FAIL/ERROR/TIMEOUT；`1` 任一失败**或全部 SKIP**（除非
+  `--allow-all-skipped`）；`2` 用法/环境错误。`pyqcu --selftest` 的 FAIL 退 2，两者不可混读。
+- **新增正式用例只写 `pyqcu/test/units.py`**；本目录不再新增“正式”用例，只保留探索性、
+  研究性、性能性和历史回归资产。两个方向都不得互相 import，生产模块也不得 import `pyqcu.test`。
+- SKIP 必须带非空 reason（`kupl_library`/`cuda_bridge`/`cuda_device`/`mpi_single_rank`/
+  `h5py_mpi`/`mpi_grid`/`device_unavailable`）；当前 checkout 没有 `pyqcu/cuda/qcu/*.so` 时
+  CUDA 用例报 `SKIP(cuda_bridge)` 是预期结果，不是 FAIL；`prod(--lattice-grid)` 与 MPI size
+  不一致时原生用例报 `SKIP(mpi_grid)`（torch 用例不读网格），加速器族不可用报 `device_unavailable`。
+- `pyqcu/test` 内不得出现 `test_*.py`（form 审计只在 `<repo>/testing/**` 内免除 `TEST_LOCATION`），
+  也不 import `pytest`；自检文件是 `pyqcu/test/selfcheck.py`。
+- `--quick` 只做正确性：不得据此报性能、加速比或回退。
+- 安装态没有 `pyqcu.testing`，用户侧验证只用 `pyqcu.test` 或公开 API；入包由发布门正向条目
+  `sdist ships pyqcu.test` 复核，判据见 [`pyqcu/test/README.md`](../../pyqcu/test/README.md)。
 
 ## 发布验证（release gate）
 
@@ -93,7 +133,7 @@ mpirun -np 4 python pyqcu/testing/python/conftest.py       # single file with MP
 不得用上一轮结果替代。本次发布的完整记录见 `logs/v20261109.txt`。
 
 ```bash
-python -m pyqcu.testing.release_check --offline      # 本次 12/12
+python -m pyqcu.testing.release_check --offline      # 本次 13/13
 python -m pyqcu.testing.docs_examples --keep-going   # 30 ok / 8 skipped / 0 failed
 python -m pyqcu --selftest --json                    # Torch/KUPL/CUDA 三层
 python -B -m pytest -q -p no:cacheprovider \
@@ -106,10 +146,10 @@ python -B -m pytest -q -p no:cacheprovider \
   pyqcu/testing/python/test_krylov_api.py            # KUPL/API 29 passed
 ```
 
-`release_check --offline` 的 12 项为 version、sdist exists、sdist no testing、sdist no
-binaries、sdist native sources（KUPL+CUDA 源码）、sdist no home paths、sdist Chinese
-README、twine check、bilingual blocks、docs examples、Sphinx en `-W`、Sphinx zh `-W`。
-检查项随打包契约增长（0.1.0 为 11/11，0.1.1 增加 `sdist Chinese README` 后为 12/12），
+`release_check --offline` 的 13 项为 version、sdist exists、sdist no testing、sdist ships
+pyqcu.test、sdist no binaries、sdist native sources（KUPL+CUDA 源码）、sdist no home paths、
+sdist Chinese README、twine check、bilingual blocks、docs examples、Sphinx en `-W`、Sphinx zh `-W`。
+检查项随打包契约增长（0.1.0 为 11/11，0.1.1 增加 `sdist Chinese README` 后为 12/12，端口随包后为 13/13），
 汇报时引用真实输出，不照抄历史分母。前提是先构建 `dist/pyqcu-<ver>.tar.gz` 并装好
 `twine`，否则 sdist/twine 项必然失败；`release_check.py` 以 `parents[2]` 定位仓库根，
 只能在源码 checkout 里跑。`--online` 追加 PyPI JSON/simple 索引与 RTD en/zh-cn 探测；
@@ -257,7 +297,8 @@ pip check
 ### 测试入口的边界
 
 - `pyqcu/testing/**` 不进 sdist（`release_check` 的 `sdist no testing` 硬门），安装态用户
-  没有 `pyqcu.testing`；发布后"用户可跑"的检查必须用公开 API 另写。
+  没有 `pyqcu.testing`；随包交付的“用户可跑”检查是 `pyqcu.test`（`python -m pyqcu.test --quick`，
+  入包由 `sdist ships pyqcu.test` 正向复核），其余发布后验证必须用公开 API 另写。
 - `data/pypi/verify_installed.py` 与 `data/pypi/verify_cuda.py` 只是本地发布操作者的验证
   脚本（`data/.gitignore` 忽略、不进包、不是包内 API）：不在文档或技能中承诺其存在，也
   不从包内 import。

@@ -90,7 +90,7 @@ frontmatter：name 与目录名一致 + description 写触发场景（何时使�
 
 | 技能 | 用途 |
 |---|---|
-| `pyqcu-testing` | pyqcu.testing 集成测试与 Strict MultiGrid tier 0/1/2 快速闸门、MPI/缓存/QIO/显存验证协议。 |
+| `pyqcu-testing` | pyqcu.testing 非正式集成测试、正式 `pyqcu.test` 快速端口（21 个 tier 0 用例与 `--lattice-size`/`--mass`/`--solver`/`--device` 等展开选项）、Strict MultiGrid tier 0/1/2 快速闸门、MPI/缓存/QIO/显存验证协议。 |
 | `pyqcu-testing-python` | pyqcu/testing/python：纯 Python 算子/求解器主测试套件（conftest 入口 + 各 conftest.*.py 变体）。 |
 | `pyqcu-testing-cpu` | pyqcu/testing/cpu：纯 Python 后端的 CPU 专用测试。 |
 | `pyqcu-testing-gpu` | pyqcu/testing/gpu：通用 GPU 测试占位。 |

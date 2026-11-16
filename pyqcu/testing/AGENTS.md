@@ -1,6 +1,16 @@
 # AGENTS.md — pyqcu.testing
 
-PyQCU 的集成测试、后端单功能测试、性能基准与历史回归资产统一位于本目录。
+**本目录是非正式测试树（仅源码 checkout）**。集成测试、后端单功能测试、性能基准与
+历史回归资产放在这里，但 `MANIFEST.in` 的 `prune pyqcu/testing` 与 `setup.py` 的
+`find_packages(exclude=["pyqcu.testing", "pyqcu.testing.*"])` 双重排除：`pip install`
+的用户**没有** `pyqcu.testing`。
+
+随发行包交付的正式快速端口是 `pyqcu.test`（`python -m pyqcu.test --quick`，21 个 tier 0
+跨后端正确性门，默认格点 `[8,8,8,16]`、c64、单 rank、无数据文件；可用 `--lattice-size`/
+`--lattice-grid`/`--mg-grid`、`--gauge`/`--source`、`--mass`/`--kappa`/`--csw`、
+`--solver`/`--dslash`、`--device`/`--backend cpu/dcu/npu` 等选项改参数与筛选）。**本目录
+不再新增“正式”用例**：发布门要跑的东西写进 `pyqcu/test/units.py`，这里只保留探索性、
+研究性、性能性和历史回归资产；两个方向都不得互相 import（本目录也不得 import `pyqcu.test`）。
 
 所有端到端正确性门和多后端正确性入口统一使用 `8x8x8x16`。`16x16x16x16`、
 `8x8x16x16` 及更大格点只能用于性能、容量或历史数据验证；`with_data=True` 的 L16

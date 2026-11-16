@@ -36,7 +36,7 @@ torch2np_dtype = {
     torch.complex64: np.complex64,
     torch.complex128: np.complex128,
 }
-_tilelang = import_tilelang()
+_tilelang = import_tilelang(warn=False)
 if _tilelang is not None:
     import tilelang.language as T
 else:

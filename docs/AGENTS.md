@@ -24,7 +24,7 @@ PyQCU 参考文档。
 
 | 文件 | 内容 |
 |---|---|
-| `ORGANIZATION.md` | `docs/`、`data/`、`logs/`、`pyqcu/testing/` 的统一分类规则、垃圾清理与构建树例外 |
+| `ORGANIZATION.md` | `docs/`、`data/`、`logs/`、正式 `pyqcu/test/` 与非正式 `pyqcu/testing/` 的统一分类规则、垃圾清理与构建树例外 |
 | `dims.md` | 维度命名方案（`s`=spin、`c`=color、`d`=direction、`p`=parity、`x/y/z/t`=时空）。`ccdxyzt`、`scxyzt`、`psctzyx` 等约定 |
 | `env.md` | Python 环境设置；`env.sh` 导出当前仓库优先的 `PYTHONPATH`、CUDA/DCU/KUPL 库路径与保守 KUPL 默认值，并配置可用 QUDA 安装树 |
 | `install.md` | 安装指南 — CUDA/DCU/KUPL 后端选择和 install.sh 工作流 |

@@ -21,8 +21,11 @@ real pytest node.
 只有 `exit=0` 或只有 `TESTS=...` 而没有断言结果都不构成验证。来源：
 `docs/multigrid_deprecation_audit_20261022.md:41-61`。
 
-TileLang 是可选依赖。统一探测入口是 `pyqcu._tilelang.import_tilelang()`：不可用时
-每个进程只发一次 `RuntimeWarning`，结果缓存；专项测试必须以明确 skip 原因呈现，
+TileLang 是可选依赖。统一探测入口是 `pyqcu._tilelang.import_tilelang()`：探测结果
+每进程缓存一次；**import 期探测静默**（`warn=False` 或模块级调用），只有 import
+完成后第一次显式请求才发一次 `RuntimeWarning`（`_WARNED` 保证仅一次），
+`tilelang_available()` 永不发 warning。因此 `import pyqcu`/`python -m pyqcu.test`
+不打印该诊断，而显式请求的调用方仍会看到一次。专项测试必须以明确 skip 原因呈现，
 不能把空收集、warning 或 CPU fallback 报告成 TileLang 测试通过。
 
 无依赖契约回归：

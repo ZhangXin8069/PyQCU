@@ -25,7 +25,11 @@ Wilson/Clover Dirac 算子、BiStabCG 与多重网格求解器、stout smearing�
 - 构建 Cython 扩展：`bash ./install.sh`（setup.py build_ext --inplace）
 - 生产求解：`python pyqcu/testing/simple/solve_case.py --backend cuda|quda|kupl`（原子写解，
   失败不发布）；性能测量用 `compare_three_way.py`，说明见 `pyqcu/testing/simple/README.md`
-- 测试：`cd pyqcu/testing && pytest .`；MPI 单文件：`mpirun -np 4 python pyqcu/testing/python/conftest.py`
+- 测试：正式快速端口 `python -m pyqcu.test --quick`（随包发行，安装态可跑；`--list` 列出
+  21 个 tier 0 用例与生效配置，`--lattice-size`/`--lattice-grid`/`--mg-grid`、
+  `--gauge`/`--source`、`--mass`/`--kappa`/`--csw`、`--solver`/`--dslash`、`--device`、
+  `--backend` 的 `cpu`/`dcu`/`npu` 别名等选项只改参数与筛选）；非正式
+  集成/性能套件只在 checkout：`cd pyqcu/testing && pytest .`；MPI 单文件：`mpirun -np 4 python pyqcu/testing/python/conftest.py`
 - Git 标签：`stab<N>`/`dev<N>`/`bug<N>` 独立编号 + 子版本（如 `stab15_1`），见 tag 技能
 - Python ≥ 3.9，依赖 PyTorch、Cython、mpi4py、h5py、numpy、CUDA toolkit；TileLang 可选
 
@@ -55,7 +59,13 @@ Wilson/Clover Dirac 算子、BiStabCG 与多重网格求解器、stout smearing�
 - **平台支持边界**：PyQCU **不支持 macOS**；仅 Torch 后端（`pyqcu.torch`、`pyqcu/` 的 lattice/tools/api 层）在 macOS 上可用。原生 KUPL/CUDA/DCU 后端、原生构建链与 PyPI 产物只面向 Linux（x86_64/aarch64）。因此不得为 macOS 保留 Mach-O 兼容逻辑（`libqcu.dylib` 落位、`install_name_tool`/`codesign` 重链、`otool`/`_dyld_*` 探测），也不得让 `*.dylib` 进入 sdist/wheel 或 `package_data`；发现此类残留按打包缺陷处理，不按平台适配处理。
 - **测试源约定**：**性能测试统一点源**（`pyqcu.lattice.point_source`，单时空点、spin/color 全填），因为点源激发全部本征模、迭代次数更多、更接近真实生产且条件固定；**正确性测试在小格点上用「点源 + 随机源」双源**，随机源用于暴露与源无关的实现缺陷。性能数字必须记录源类型、源坐标（默认 `[0,0,0,0]`）与 gauge 身份；点源与随机源的迭代数不可互相比较。
 - **性能对比口径**：迭代数与独立真残差是机器无关的强判据，**任何机器之间都必须逐项核对**；墙钟**可以跨机器比较**，但前提是先写明硬件与环境身份（GPU 型号/compute_cap/显存/驱动、CPU 型号/核数、NUMA、编译架构 `sm_XX` 与 cubin/PTX、库 SHA256、`OMP_NUM_THREADS`、CUDA/编译器版本），并在报告中同时给出绝对值与样本统计（warmup 次数、重复次数、median/min/max）。硬件信息缺失的墙钟只能标注为「不可比」，不得据此宣称加速或回退。CPU 与 GPU 不合并成单一加速比。
-- **测试**：测试函数在 `pyqcu/testing/__init__.py`，`pyqcu/testing/*/conftest.py` 手动取消注释要运行的测试。
+- **测试**：正式用例只在 `pyqcu.test`（`python -m pyqcu.test --quick`，21 个 tier 0 跨后端
+  快速门，随 sdist/wheel 发行）；展开选项（格点/MPI 网格/MG 网格、规范场与源、
+  `mass`/`kappa`/`csw`、`solver`/`dslash`、`device`/`threads`、`backend` 的
+  `cpu`/`dcu`/`npu` 别名）只改参数与用例筛选，矩阵以 `--list` 为准；非正式集成/性能/
+  研究测试在 `pyqcu.testing`（仅 checkout，安装用户没有该包）；**不得在 `pyqcu/testing`
+  新增正式用例**。非正式套件的函数在 `pyqcu/testing/__init__.py`，
+  `pyqcu/testing/*/conftest.py` 手动取消注释要运行的测试。
 - **CUDA 生产执行拓扑**：一个 Python 进程对应一个 MPI rank、对应一张 GPU/DCU/GPGPU。跨设备并行必须走 MPI 多进程格点分域；生产驱动不得在一个 Python 进程内创建多 GPU worker，也不得让 rank 数超过设备数后把共享设备当作加速路径。DCU/GPGPU 程序遵循同一进程-rank-设备映射。
 - **多 GPU 测试专用例外**：`pyqcu/cuda/_multi_gpu.py`（`MultiGpuMultigrid`）是显式 opt-in 的测试/基准驱动，不会在导入 `pyqcu` 时自动构造或启动。它在一个单 MPI rank 进程内用 N 线程分别绑定 N 张设备，每线程执行完整 Legacy MG，不是一次 solve 的跨卡分域；除非任务明确要求多卡一致性或吞吐测试，新 CUDA 程序不得使用。该测试驱动仍须保证每线程独立 `params/argv/set_ptrs`（`_SET_INDEX_` 各自从 0 计数）；Cython 桥的 `nogil` 调用与 pxd 声明规则保持不变。
 - **求解器停机语义（dev87 起）**：`applyCloverMultigridQcu` 主循环停机为相对判据 rn²<atol²·‖b__o‖²，且单 rank 每 50 迭代做周期真残差刷新（reliable-update，防 fp32 递推漂移）；多 rank 刷新未启用。
@@ -67,11 +77,12 @@ Wilson/Clover Dirac 算子、BiStabCG 与多重网格求解器、stout smearing�
 
 | 路径 | 内容 |
 |---|---|
-| `pyqcu/` | 公共门面与后端：`api/`（后端无关的配置、结果、能力、资产清单与 Protocol）、`torch/`（Torch/CANN 的 dslash、solver、smear、张量专用 tools）、`lattice/`（公共 gamma/Gell-Mann、SU(3)、源场定义）、`tools/`（公共 MPI/HDF5/env/budget/绘图）、`solver/multigrid/`（三后端统一 MG 选择器）、`solver/krylov/`（Torch 迭代与 CUDA/KUPL 原生整次 solve 的统一 Krylov 选择器）、`cuda/`（Cython CUDA 后端与多卡测试驱动）、`kupl/`（独立 CPU 后端）、`testing/`（集成测试）、`cann/dtk/maca`（Tensor 兼容层与占位）。顶层 `dslash/`、`smear/`、`solver/`、`tools/` 保留旧导入兼容。 |
+| `pyqcu/` | 公共门面与后端：`api/`（后端无关的配置、结果、能力、资产清单与 Protocol）、`torch/`（Torch/CANN 的 dslash、solver、smear、张量专用 tools）、`lattice/`（公共 gamma/Gell-Mann、SU(3)、源场定义）、`tools/`（公共 MPI/HDF5/env/budget/绘图）、`solver/multigrid/`（三后端统一 MG 选择器）、`solver/krylov/`（Torch 迭代与 CUDA/KUPL 原生整次 solve 的统一 Krylov 选择器）、`cuda/`（Cython CUDA 后端与多卡测试驱动）、`kupl/`（独立 CPU 后端）、`test/`（随包发行的正式快速测试）、`testing/`（非正式集成/性能测试，仅 checkout）、`cann/dtk/maca`（Tensor 兼容层与占位）。顶层 `dslash/`、`smear/`、`solver/`、`tools/` 保留旧导入兼容。 |
 | `cpp/cuda/qcu/` | C++ CUDA 后端：`src/`（32 个 .cu 内核）、`include/`（24 个模板头）、`python/pyqcu.h`（C API 40 个入口，须与 `qcu_api.pxd` 同步） |
 | `cpp/kupl/qcu/` | 独立 C++17 MPI+OpenMP CPU 后端：4D rank halo、NUMA/OpenMP 绑定、canonical c64/c128 Wilson/Clover dslash、Wilson/Clover 求解器、3D Laplacian、正确性与吞吐测试 |
 | `cpp/{cann,dtk,maca}/qcu/` | 占位 PASS，无实现 |
-| `pyqcu/testing/` | 统一测试入口：`python/`（纯 Python 主套件）、`qcu/`（C++ CUDA 后端）、`kupl/`（CPU 后端 Python ABI/参考差分）、`quda/`、`pyquda/`、`cpu/npu/dcu/gpu/profiler/benchmark/`、`regression/session-2026-08-24/`、`data/`（参考 HDF5）；TileLang 无独立测试目录，按需调用 `pyqcu.testing.test_matmul()` |
+| `pyqcu/test/` | 正式快速测试端口：`python -m pyqcu.test`（`--list`/`--quick`/`--json`，以及格点/MPI 网格/MG 网格、`--gauge`/`--source`、`--mass`/`--kappa`/`--csw`、`--solver`/`--dslash`、`--device`/`--threads`、`--backend cpu/dcu/npu` 等选项），stdlib-only 导入，随 sdist/wheel 发行；21 个 tier 0 跨后端正确性门（`[8,8,8,16]`、c64、单 rank、无数据文件），不承载性能结论 |
+| `pyqcu/testing/` | 非正式测试入口（仅 checkout，`MANIFEST.in` prune、`setup.py` 排除，安装用户没有该包）：`python/`（纯 Python 主套件）、`qcu/`（C++ CUDA 后端）、`kupl/`（CPU 后端 Python ABI/参考差分）、`quda/`、`pyquda/`、`cpu/npu/dcu/gpu/profiler/benchmark/`、`regression/session-2026-08-24/`、`data/`（参考 HDF5）；TileLang 无独立测试目录，按需调用 `pyqcu.testing.test_matmul()` |
 | `skills/` | 项目技能库（36 个技能目录：SKILL.md + 简短 AGENTS.md，目录级领域知识文档；目录名一律 `pyqcu-` 前缀；索引与技能表见 `skills/AGENTS.md`） |
 | `docs/` | 正式独立文档与指南（`.pdf`/`.tex`/`.md`）：`dims.md`、`env.md`、`install.md`、`examples.md`、`profiler.md`、`ORGANIZATION.md`；从 `data/**` 提升的文档位于 `docs/data/` |
 | `refer/` | 参考实现脚本（`huzc/`）、开发历史报告（`multigrid_analysis_20260717.*`）与 `git-rep/` 参考 Git 子库 |

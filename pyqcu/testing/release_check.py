@@ -1,7 +1,9 @@
 """Release gate for PyQCU.
 
-Checks version consistency, sdist contents, bilingual documentation, Sphinx
-builds, and (with ``--online``) the PyPI and Read the Docs endpoints.
+Checks version consistency, sdist contents (including the shipped
+``pyqcu.test`` port, while ``pyqcu.testing`` stays out), bilingual
+documentation, Sphinx builds, and (with ``--online``) the PyPI and Read the
+Docs endpoints.
 
 Examples::
 
@@ -57,6 +59,21 @@ def check_version(ver: str) -> None:
            f"pyproject={ver} package={pyqcu.__version__}")
 
 
+def port_modules() -> list[str]:
+    """``pyqcu/test/*.py`` basenames every sdist must ship (``__init__.py`` first).
+
+    ``pyqcu.test`` is the shipped fast-test port (``python -m pyqcu.test``), so
+    the positive gate asserts the archive carries it, not just that the
+    checkout-only ``pyqcu/testing`` tree is absent.
+    """
+    directory = ROOT / "pyqcu" / "test"
+    shipped = sorted(path.name for path in directory.glob("*.py")
+                     ) if directory.is_dir() else []
+    if "__init__.py" in shipped:
+        return shipped
+    return ["__init__.py", *shipped]
+
+
 def check_sdist(ver: str) -> Path:
     archive = ROOT / "dist" / f"pyqcu-{ver}.tar.gz"
     record("sdist exists", archive.is_file(), str(archive))
@@ -69,6 +86,16 @@ def check_sdist(ver: str) -> Path:
         sources_text = sources.read().decode() if sources else ""
     record("sdist no testing", not any("pyqcu/testing/" in n for n in names),
            "pyqcu/testing is absent")
+    expected = port_modules()
+    prefix = f"pyqcu-{ver}/pyqcu/test/"
+    missing = [name for name in expected if f"{prefix}{name}" not in names]
+    if missing:
+        detail = (f"{len(missing)}/{len(expected)} missing: "
+                  + ", ".join(missing[:5])
+                  + (" ..." if len(missing) > 5 else ""))
+    else:
+        detail = f"{len(expected)} modules incl. __init__.py"
+    record("sdist ships pyqcu.test", not missing, detail)
     record("sdist no binaries",
            not any(n.endswith((".so", ".so.0", ".o", ".dylib"))
                    for n in names),
