@@ -57,15 +57,15 @@ R7  Freeze / commit                                               PASS
     - deferred table in docs/pyqcu_test_l48_remote.md sec. 0.1.8
 
 R8  Sdist build / release_check / twine                           PASS
-    - dist/pyqcu-0.1.18.tar.gz, 1,031,540 B
-    - sha256 bfdc7be8fbec9e3cbb0346497d1c0fe56731fecc92e505f3879a66b7ba166cae
+    - final dist/pyqcu-0.1.18.tar.gz, 1,031,572 B
+    - final sha256 51eb269daad9b05b03ec76256fc229fe0db3daeb64f276a8268a918a1b9779d2
     - release_check --offline: 13/13 PASS
     - sdist: 279 members, 22 pyqcu/test modules, 0 pyqcu/testing, 0 .so,
       0 home path; twine check PASSED
     - docs examples 30 ok / 8 skipped / 0 failed; Sphinx en+zh exit 0
 
 R9  Clean install / installed smoke                               PASS
-    - venv from 0.1.18 sdist with PYQCU_SKIP_NATIVE_BUILD=1
+    - venv from the final 0.1.18 sdist with PYQCU_SKIP_NATIVE_BUILD=1
     - installed pyqcu 0.1.18; PYTHONPATH unset
     - installed python -m pyqcu.test --check: 20 checks, 18 passed,
       2 skipped (no native extension), overall PASS
