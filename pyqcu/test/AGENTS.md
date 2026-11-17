@@ -39,12 +39,20 @@
   都属于契约；改名或改布局按破坏性变更处理。
 - `--csv` 在普通运行是 per-case 报告导出，在 full mode 是台账 CSV；两种语义不能合并。
   `--junit`/`--markdown` 始终是报告导出，`--list`/`--mode list` 下拒绝。
+- `--ledger-export {none,csv,excel,both}` 是 full-mode 唯一的**参考导出**入口：只写
+  `<outdir>/ledger/kupl_kunpeng_all.csv`（参考 100 列）与
+  `<outdir>/ledger/kupl_kunpeng_performance.xlsx`（参考 21 sheet），绝不覆盖
+  `reports/rows.csv`（30 列 `ROW_FIELDS` 语义不变）。默认 `none`；无 `--mode` 与
+  `--mode list` 下是用法错误（退出 `2`），不得改成静默忽略。正式端口观测不到的列必须是
+  空单元格，禁止用参考快照补默认值；新增/改列要同步 `ledger_csv.COLUMN_RULES`
+  （workbook 的 `17_Data_Dictionary` 由它生成）。
 - `--resume` 只复用 `PASS`/`SKIP`；`--skip-failed` 额外复用 `FAIL`（此后不再重试）；
   `ERROR`/`TIMEOUT` 永远重试。`--run-label` 只能作为 `run_id` 后缀，不得含路径分隔符。
 - `--gauge-file`/`--source-file` 是 full-mode 的显式 HDF5 输入（dataset `data`，
-  canonical `xyzt` 布局，见 README「HDF5 输入」）；校验/预热可以读文件，但内置
-  tier-0 runner 不得用文件替换 `--gauge`/`--source`，除非同时把
-  `gauge_origin`/`source_origin` 写进 options/rows。
+  canonical `xyzt` 布局，见 README「HDF5 输入」）。`--native` 规划的原生行由
+  `pyqcu.test.driver.run_row` **真的消费**这两个文件，并必须在行里写
+  `gauge_origin`/`gauge_sha256`/`source_origin`/`source_sha256`；内置 tier-0 runner
+  不得用文件替换 `--gauge`/`--source`（那会变成“证据与数值不一致”）。
 - `--mass` 与 `--kappa` 是同一物理量（`kappa = 1/(2*mass + 8)`）。两者都**没有** CLI
   默认值：未给出就不出现在 `Options.as_kwargs()` 里，由 runner 自己的默认决定；不要
   在 CLI 里补一个“统一默认”去覆盖 runner（tier 0 torch 默认 `kappa = 0.125`）。
@@ -78,9 +86,11 @@
   `device_unavailable` 是**条件** token，不写进 `Case.requires`。
 - 报告 `options` 记录本次生效的全部配置（含 `runner_device`、`mass`/`kappa` 的 `null`
   与 `argv`），`--list --json` 与 `--json` 必须能复现同一次运行；不要在别处另存一份。
-- **`--threads` 只在 torch runner 真正应用**（`torch.set_num_threads`）。tier-0 的
-  `kupl_qcu.py`/`cuda_qcu.py` 不读取它；`native.py` 的 `apply_environment` 是未接线的
-  原生扩展点（需要 `driver:run_row`）。文档/报告只能说“记录”，不得声称转发到 KUPL/OpenMP。
+- **`--threads` 的生效边界**：tier-0 torch runner 调 `torch.set_num_threads`；
+  `--native` 行由 `driver.run_row` → `native.apply_environment` 设置
+  `OMP_NUM_THREADS`/`KUPL_OMP_THREADS`/`OMP_DYNAMIC`（行里给
+  `threads_requested`/`threads_applied`/`environment`）。tier-0 的
+  `kupl_qcu.py`/`cuda_qcu.py` 仍不读取它，那些行只能说“记录”。
 - 输出约定：stdout 每用例一行、列宽稳定可解析；metrics 与失败 gate 只在 `--verbose`
   下写 stderr。runner 的调试打印不得混进 stdout 的报告行（`--json` 复用同一份报告对象）。
 
@@ -95,11 +105,19 @@
   并哈希，不跑数值。
 - `--ranks`、`--threads`、`--shm`/`--no-shm`、`--shared`、`--gauge-file`/`--source-file`
   记录进 rows/`--list --json`；只有确实被 runner 消费的字段才能描述为“已应用”
-  （`--threads` 只在 torch 行应用；KUPL/CUDA 行只记录）。
+  （tier-0 只有 torch 行应用 `--threads`；`--native` 行应用 threads/shm/输入文件）。
+- `--native {dslash,solve,mg}` 追加 tag 为 `<backend>/native/<kind>` 的 tier-0 行，由
+  `pyqcu.test.driver.run_row` 执行 `pyqcu.test.native`。该钩子**只返回观测值**，不得返回
+  `PASS`/`FAIL`（harness 会把 driver 的 `PASS`/`FAIL` 记成 `ERROR`）；非原生 tag 一律
+  返回 `None`，让内置执行器照旧执行。跨节点 `mpirun`/rankfile 仍未实现，只能报
+  `SKIP(mpi_grid)` 并写 `launcher` 证据，不得在小规模上“代跑”出结果。
 - full mode 未显式给 `--tier` 时默认 tier 1；`--quick` 仍锁 tier 0。`--validate`
   单独出现等价于 `--mode validate`，与 `solve`/`run` 同时出现是后置校验。
 - 默认工作根 `pyqcu-test-runs/`（相对当前目录）；新增/改名路径必须同步 README、
   `--list --json` 与 `docs/ORGANIZATION.md` 的发行边界。
+- `--ledger-export` 的 `<outdir>/ledger/` 是**派生的第二份表**，不是台账事实源：它必须
+  能由 rows/`--json` 文档重建（`export_ledger`/`export_from_payload`），`merge` 之后重导
+  必须得到同样的表；写失败按环境错误退出 `2`，不得把半份文件留在原地（temp + rename）。
 
 ## 数值与证据
 
@@ -123,5 +141,14 @@
   改了 full mode 再加跑（用 scratch 目录，不要写仓库）：
   `--mode list --json <scratch>`、`--quick --only torch/lattice --mode prepare|solve|merge|validate
   --outdir <scratch>`，以及 `--resume --skip-failed --run-label cold` 的第二次 solve。
+  改了导出再加跑：`--mode merge --outdir <scratch> --ledger-export both`，确认
+  `<scratch>/ledger/` 里是 100 列 CSV + 21 sheet workbook，且 `reports/rows.csv` 仍是
+  30 列 `ROW_FIELDS`。
 - 文档/策略改动另跑 `bash skills/pyqcu-form/form-audit.sh`、
   `python -B skills/pyqcu-docs/scripts/audit-docs-skills.py`、`git diff --check`。
+- **Python 3.10 语法门**：`--check` 的 `py310_syntax` 用
+  `ast.parse(feature_version=(3, 10))` 解析每个 `pyqcu/test/*.py`，并结构化拦截
+  PEP 646 星号下标/注解（`x[a, *b]`、`def f(*args: *Ts)`；3.12 的
+  `feature_version` 不拦它们，`x[(a, *b)]` 是合法元组显示，不算违规）。新增 3.11+
+  语法会 FAIL 并报 `file:line`；`feature_version` 不可用时只报 SKIP（不得伪造 PASS）。
+  改判据请在 `pyqcu/testing/python/test_pyqcu_test_syntax_floor.py` 同步回归。

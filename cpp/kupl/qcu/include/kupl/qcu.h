@@ -11,6 +11,12 @@
 extern "C" {
 #endif
 
+// set_ptrs is int64[100].  applyInitQcu/applyEndQcu own the ordinary
+// transaction slots [0, _SET_PTRS_COARSE_BASE_ = 30) only and reject
+// _SET_INDEX_ outside that range: [30,60) holds legacy Clover-MG coarse
+// operators, [60,80) strict-MG coarse assets, 80 the strict hierarchy handle
+// and 99 the legacy layout selector.  Out-of-range or reserved cursors abort
+// instead of writing/clearing a multigrid asset pointer.
 KUPL_QCU_API void applyInitQcu(long long _set_ptrs, long long _params,
                                long long _argv);
 KUPL_QCU_API void applyEndQcu(long long _set_ptrs, long long _params);

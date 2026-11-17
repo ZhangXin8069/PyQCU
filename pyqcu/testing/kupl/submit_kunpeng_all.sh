@@ -9,6 +9,34 @@
 #       --shard-index 0 --shard-count 2 --node cn19699 --extra "--expand ..."
 #
 # `--extra` is appended verbatim to the Python driver command line.
+#
+# Observations from the 2026-11-17 remote runs (context only, no behaviour):
+#   * dsub semantics: -nn is the *node* count, -N the *total* replica count and
+#     -rpn the replicas per node, so the single-node request below is
+#     `-nn 1 -N $RANKS -rpn $RANKS`.  Two nodes would be `-nn 2 -N 32 -rpn 16`,
+#     and the rankfile derived from $CCS_ALLOC_FILE must actually be passed to
+#     mpirun (--rankfile): writing the file alone changes no placement.
+#   * Two-node route verified on 2026-11-17 22:15 (job 2155536): a cluster-local
+#     SSH key is accepted by the compute-node sshd (`Server accepts key`) but the
+#     session is then closed, so `plm_rsh` is NOT usable here.  The working path
+#     is `CCS_DRUN_RANK_FILE` + `/opt/batch/agent/tools/drun -mpi pmix`; `drun`
+#     warns that -nn/-rpn/-R are ignored when the rankfile env is set.  Details:
+#     docs/pyqcu_test_l48_remote.md sec. 0.1.6.
+#   * L48 32 ranks on one exclusive node (-x job) solved the BiCGStab control in
+#     1.665 s / 11 iterations, while 16 ranks on a shared node needed 183 s for
+#     the same work.  Keep the exclusive-node default and never compare a shared
+#     point with an exclusive one.
+#   * UCG "version is incompatible" lines are non-fatal (one pair per rank:
+#     HMPI expects UCG 26.1, the host provides 26.0.RC1 and falls back); the
+#     job rc, not those lines, decides failure.
+#   * Environment: HPCKit HMPI plus bisheng libomp and a gcc libstdc++ that
+#     provides GLIBCXX_3.4.29, on Python 3.10.9 (anaconda 2023.3, h5py without
+#     MPI).  dsub/djob only work from a login shell (see the submit tail).
+#
+# Scope of the L48 work: the CG group is blocked (no CG entry in any L48-capable
+# harness, `applyWilsonCgQcu` being Wilson-only) and the two-node 32r row never
+# allocated, so only BiCGStab/MG rows are meaningful here; Strict-MG is out of
+# scope for these scripts.
 
 set -u
 
@@ -139,6 +167,7 @@ JOB="$OUTDIR/jobs/$TAG.sh"
     echo "#DSUB -rpn $RANKS"
     echo "#DSUB -R \"cpu=$THREADS;mem=8G\""
   fi
+  # Exclusive by default: a 32r L48 job needs the whole node (see header).
   if [ "$EXCLUSIVE" = "1" ]; then echo '#DSUB -x job'; fi
   echo "#DSUB -oo $OUTDIR/logs/$TAG.out"
   echo "#DSUB -eo $OUTDIR/logs/$TAG.err"
@@ -170,7 +199,8 @@ if [ ! -x "$DSUB" ]; then
 fi
 
 # Current dsub parses #DSUB resource blocks only with -s/--script; use a login
-# shell so the batch CLI environment and license variables are present.
+# shell so the batch CLI environment and license variables are present.  Poll
+# with `bash -lc 'djob -ll <id>'` for the same reason.
 DSUB_OUT="$(bash -lc "dsub -s '$JOB'" 2>&1)"
 JOB_ID="$(printf '%s\n' "$DSUB_OUT" | grep -o '[0-9][0-9]*' | head -1)"
 if [ -z "$JOB_ID" ]; then

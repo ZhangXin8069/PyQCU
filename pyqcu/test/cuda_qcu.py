@@ -1048,8 +1048,9 @@ def _build_source(probe: _CudaProbe, options: _RunOptions
     source_seed: int | None = None
     if options.source == "point":
         source = torch.zeros(full_shape, dtype=dtype, device="cpu")
-        source[0, options.source_spin, options.source_color,
-               *options.source_site] = 1.0 + 0.0j
+        site = (0, options.source_spin, options.source_color,
+                *options.source_site)
+        source[site] = 1.0 + 0.0j
     elif options.source == "ones":
         source = torch.ones(full_shape, dtype=dtype, device="cpu")
     else:

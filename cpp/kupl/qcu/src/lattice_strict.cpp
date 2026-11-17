@@ -1772,7 +1772,7 @@ std::size_t strict_vcycle(void *full_out, const void *full_rhs,
 }
 
 template <typename Real>
-int strict_end_hierarchy(void *set_ptrs) {
+int strict_end_hierarchy(void *set_ptrs, int expected_data_type) {
   if (set_ptrs == nullptr) {
     throw std::runtime_error("strict hierarchy end received null set_ptrs");
   }
@@ -1782,7 +1782,14 @@ int strict_end_hierarchy(void *set_ptrs) {
   if (hierarchy == nullptr) {
     return 0;
   }
-  if (hierarchy->magic() != StrictHostHierarchy<Real>::kMagic) {
+  // kMagic is the same constant for the float and double instantiations, so
+  // magic() alone cannot prove that this pointer was built by the same
+  // precision that params[_DATA_TYPE_] now selects.  strict_vcycle and
+  // strict_fgmres compare data_type() too; without the same check here a
+  // params[_DATA_TYPE_] change between INIT and END deleted a
+  // StrictHostHierarchy<OtherReal> through the wrong destructor.
+  if (hierarchy->magic() != StrictHostHierarchy<Real>::kMagic ||
+      hierarchy->data_type() != expected_data_type) {
     throw std::runtime_error("strict hierarchy end type mismatch");
   }
   table[kSetPtrsStrictHierarchy] = 0;
@@ -1873,8 +1880,8 @@ template std::size_t strict_vcycle<float>(void *, const void *, void *,
                                           const int32_t *, int);
 template std::size_t strict_vcycle<double>(void *, const void *, void *,
                                            const int32_t *, int);
-template int strict_end_hierarchy<float>(void *);
-template int strict_end_hierarchy<double>(void *);
+template int strict_end_hierarchy<float>(void *, int);
+template int strict_end_hierarchy<double>(void *, int);
 template std::size_t strict_fgmres<float>(
     void *, const void *, const void *, const void *, const void *,
     const void *, const void *, const void *, void *, const int32_t *, int,

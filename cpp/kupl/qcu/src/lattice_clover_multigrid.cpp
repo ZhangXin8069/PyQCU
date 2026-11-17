@@ -1140,8 +1140,18 @@ int clover_multigrid_verify(
     return 2;
   }
   auto *table = static_cast<long long *>(set_ptrs);
-  for (int transition = 0; transition + 1 < params[kMgNumLevel];
-       ++transition) {
+  // _MG_NUM_LEVEL_ is only validated inside LegacyCloverMultigrid, but the
+  // coarse-asset probe below reads table[kSetPtrsCoarseBase + 4*transition + 0
+  // ..3] before that constructor runs.  Clamp the level count to what the
+  // 100-entry set_ptrs table can describe first (same rule as the CUDA
+  // verifier in apply_clover_multigrid_verify.cu): _MG_NUM_LEVEL_ = 21 used to
+  // read table[109], nine slots past the ABI table, before failing.
+  const int num_levels = params[kMgNumLevel];
+  if (num_levels < 1 ||
+      num_levels > 1 + (kSetPtrsSize - kSetPtrsCoarseBase) / 4) {
+    return 2;
+  }
+  for (int transition = 0; transition + 1 < num_levels; ++transition) {
     const int base = kSetPtrsCoarseBase + 4 * transition;
     if (table[base + 0] == 0 || table[base + 1] == 0 ||
         table[base + 2] == 0 || table[base + 3] == 0) {

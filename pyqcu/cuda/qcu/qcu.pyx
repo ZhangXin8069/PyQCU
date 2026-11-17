@@ -36,6 +36,31 @@ cdef long long _contiguous_pointer(object tensor, object name):
     return tensor.data_ptr()
 
 
+cdef int _set_index(object params):
+    """Return params[_SET_INDEX_] after proving it addresses set_ptrs[int64;100].
+
+    applyInitQcu/applyEndQcu in the native CUDA backend index
+    ``static_cast<long long*>(set_ptrs)[params[_SET_INDEX_]]`` without any
+    bounds check (cpp/cuda/qcu/src/apply_init.cu, apply_end.cu), so an
+    out-of-range cursor is an unchecked out-of-bounds write.  The ABI slot
+    table is int64[100]; reject anything else here, before the pointer crosses
+    into C++.  Slots >= _SET_PTRS_COARSE_BASE_ stay legal for the ordinary
+    lifecycle because this module keeps enforcing only the table bound that the
+    CUDA backend itself relies on.
+    """
+    cdef int index
+    if params.numel() != define._PARAMS_SIZE_:
+        raise ValueError(f"QCU params must have {define._PARAMS_SIZE_} elements")
+    if params.dtype != torch.int32:
+        raise TypeError("QCU params must have dtype torch.int32")
+    index = int(params[define._SET_INDEX_].item())
+    if index < 0 or index >= define._SET_PTRS_SIZE_:
+        raise IndexError(
+            f"QCU params[{define._SET_INDEX_}] = {index} is outside "
+            f"set_ptrs[0,{define._SET_PTRS_SIZE_})")
+    return index
+
+
 # CUDA 生产拓扑：一个 Python 进程 = 一个 MPI rank = 一张 GPU/DCU/GPGPU。
 # 单进程多线程多卡仅由测试专用 MultiGpuMultigrid 显式启用。
 #
@@ -84,6 +109,7 @@ def applyInitQcu(_set_ptrs, _params, _argv):
         raise ValueError("atol must be finite and positive")
     if not math.isfinite(csw):
         raise ValueError("csw must be finite")
+    _set_index(_params)
     set_ptrs = _contiguous_pointer(_set_ptrs, "set_ptrs")
     params = _contiguous_pointer(_params, "params")
     argv = _contiguous_pointer(_argv, "argv")
@@ -93,6 +119,7 @@ def applyEndQcu(_set_ptrs, _params):
     cdef long long set_ptrs, params
     set_ptrs = _contiguous_pointer(_set_ptrs, "set_ptrs")
     params = _contiguous_pointer(_params, "params")
+    _set_index(_params)
     with nogil:
         _c_applyEndQcu(set_ptrs, params)
 def testWilsonDslashQcu(_fermion_out, _fermion_in, _gauge, _set_ptrs, _params):

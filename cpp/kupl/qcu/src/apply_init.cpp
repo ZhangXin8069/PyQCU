@@ -23,7 +23,7 @@ void applyInitQcu(long long _set_ptrs, long long _params, long long _argv) {
     }
     long long *table = kupl::qcu::api::set_ptr_table(_set_ptrs);
     const auto *host_params = kupl::qcu::api::params_pointer(_params);
-    const int index = kupl::qcu::api::set_index(host_params);
+    const int index = kupl::qcu::api::ordinary_set_index(host_params);
     if (table[index] != 0) {
       throw std::runtime_error("QCU set_ptrs slot is already initialized");
     }

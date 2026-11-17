@@ -1,0 +1,63 @@
+2026-11-17 22:30 +08:00  L48 two-node experience record (login02 / nsls_yangyb)
+==========================================================================
+
+[RESULT]  KUPL harness two-node c64 PASS
+  job_id        2155536 ("l48_2n32r_l1r0_drun")
+  nodes         cn[19544,19546] (2 execNodes)
+  state         SUCCEEDED, 2026-11-17 22:15:21 -> 22:16:53
+  ranks         32 total, 16/node, 18 cores/rank, OMP_NUM_THREADS=18
+  lattice       48x48x48x96, grid 2x2x2x4, local 24x24x24x24
+  solver        c64 Clover parity-Schur BiCGStab, levels=1, restart=0
+  iterations    11
+  true residual 7.12609211762054e-05 (strict atol 1e-4, converged=true)
+  solver wall   1.1778152959886938 s
+  input prebind 17.433025036007166 s
+  gauge read    9.39212408894673 s
+  source read   4.551332394126803 s
+  residual      2.5908153909258544 s
+  max_rss_kib   2382824 (~2.27 GiB)
+  report        /home/share/nsls_yangyb/PyQCU-main/data/l48_2node_20261117/
+                drun_run/reports/l48_2n32r_l1r0.json
+  status        PASS
+
+[LAUNCHER]  verified route: CCS drun, not plm_rsh
+  export CCS_DRUN_RANK_FILE=$OUT/logs/$JOBTAG-rankfile
+  /opt/batch/agent/tools/drun -mpi pmix -nn 2 -rpn 16 -R core=18 -v -- \
+    python3 -B pyqcu/testing/simple/kupl_multigrid.py ...
+  - drun warns that -N/-nn/-rpn/-nl/-R/--cpu-bind/--distribution are ignored
+    when CCS_DRUN_RANK_FILE is set.  It uses the rankfile; never infer the
+    rank count from the ignored flags.  Recheck report mpi_size/grid/local_lattice.
+  - drun exists only on compute nodes; login02 has no drun.
+  - plm_donau is still rejected by its query(); do not restore --mca plm donau.
+
+[SSH]  key/host trust is not the remaining blocker
+  - generated ~/.ssh/id_ed25519_pyqcu (new, no passphrase); backed up
+    authorized_keys and known_hosts before appending.
+  - compute sshd accepts the key: "Server accepts key"; then closes the session:
+    "Connection closed by <compute-ip> port 22".
+  - This is a compute-node shell/session policy, not a missing key or host key.
+  - Do not use plm_rsh for this account; it cannot start peer orted.
+  - New key remains unused by the verified drun path.
+
+[BOUNDARY]
+  - This is the KUPL harness, not the formal pyqcu.test --l48-two-node matrix.
+  - Formal matrix rows remain UNVERIFIED; c128 and two-node Legacy-MG still have
+    no numerical result; Strict-MG/CG remain out of scope.
+  - Single sample; no scaling claim.  Do not compare this 2-node c64 number to
+    the pathological 16-rank shared-node 183 s point.
+
+[ARTIFACTS]
+  Remote:
+    data/l48_2node_20261117/drun_run/logs/dsub_2n32r_l1r0_drun.out
+    data/l48_2node_20261117/drun_run/logs/mpirun_2n32r_l1r0.err
+    data/l48_2node_20261117/drun_run/reports/l48_2n32r_l1r0.json
+    sh/l48_job_2n32r_l1r0_drun.sh (remote test launcher; original kept)
+  Local:
+    docs/pyqcu_test_l48_remote.md sec. 0.1.6
+    docs/kupl_remote_l48_experience_20261117.md sec. 7.5
+    docs/pyqcu_test_l48_two_node_matrix.md (status note)
+    skills/pyqcu-testing/references/remote-l48-experience.md
+
+[RELEASE]
+  Not released, not pushed, not tagged.  0.1.17/test37 remain; CSV F1/F2 and
+  the stale sdist gate are still open.

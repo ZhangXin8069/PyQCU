@@ -645,6 +645,19 @@ def run_vcycle_test(library: ctypes.CDLL, dtype: np.dtype,
             pointer(params), 1, ctypes.byref(allocated))
         if status != 0 or relative(local_out, repeated) >= tolerance:
             raise AssertionError("persistent strict V-cycle is not deterministic")
+        # The hierarchy magic is the same constant for c64 and c128, so END must
+        # also compare the stored data_type(): with only the magic check it
+        # deleted a StrictHostHierarchy<float> through the <double> destructor
+        # (and vice versa) whenever params[_DATA_TYPE_] moved between INIT and
+        # END.  The mismatch must fail closed and leave the handle in place.
+        stored_data_type = int(params[14])
+        params[14] = 3 if stored_data_type == 2 else 2
+        status = library.applyMultigridStrictEndQcu(
+            pointer(set_ptrs), pointer(params))
+        params[14] = stored_data_type
+        if status == 0 or set_ptrs[80] == 0:
+            raise AssertionError(
+                "strict hierarchy end accepted a mismatched data type")
         status = library.applyMultigridStrictEndQcu(
             pointer(set_ptrs), pointer(params))
         if status != 0 or set_ptrs[80] != 0:

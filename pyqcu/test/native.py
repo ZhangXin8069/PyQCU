@@ -13,18 +13,38 @@ This module adds the *full mode* the production backends really run:
   solve with ``mass``/``kappa``/``csw``/``atol``/``max_iter`` reaching the ABI;
 * an **independent** true residual: ``||D x - b|| / ||b||`` is reconstructed
   from the raw solution with the torch full-lattice Wilson-Clover operator
-  (``pyqcu.torch.dslash``), never from the solver's own recurrence.
+  (``pyqcu.torch.dslash``), never from the solver's own recurrence;
+* a **bounded-memory** reference: :func:`reference_plan` declares the peak
+  workspace of every decomposition *before* a tensor is allocated, rank-local
+  blocks use a distributed ``D x - b`` (production layout, MPI halo from
+  ``pyqcu.torch.tools._mpi_roll``, Allreduce of ``||r||^2``/``||b||^2``),
+  whole-lattice fields use a tiled ``t``-slab reference, and
+  :class:`VerificationUnavailable` is reserved for a reference that really does
+  not fit the declared ``reference_budget``.
 
 Execution topology
-------------------
+-----------------
 One Python process is one MPI rank; a CUDA process owns exactly one device and
 ``device_id``/``--device`` selects it.  Cross-device work is MPI partitioning of
-the four-dimensional lattice, never several devices in one process.  When more
-than one rank runs, the verification gathers the rank-local blocks into the
-global field on rank zero and computes the reference there (the native rank
-order is ``t`` fastest, ``x`` slowest -- ``lattice_geometry.cpp``), so the
-residual is still an *independent* number and not a native re-application of
-the same operator.
+the four-dimensional lattice, never several devices in one process.  The ABI is
+**always** told the rank-local lattice (``params[_LAT_X_.._LAT_T_]``) and the
+process grid (``params[_GRID_*]``); every operand - gauge, source, solution,
+Clover term - has the rank-local extent and ``prod(local) * prod(grid) ==
+prod(global)`` is asserted before the first native call
+(:func:`local_geometry`, :class:`LocalGeometry`).  The *global* lattice only
+appears in the independent residual, in the identity of a global HDF5 input
+file and in the observations.
+
+When more than one rank runs, the residual keeps the same physical definition
+(the full Wilson-Clover operator on the periodic lattice) but no longer gathers
+the global field on rank zero: the native rank order is ``t`` fastest, ``x``
+slowest (``lattice_geometry.cpp``), and each rank applies the operator to its
+own block with the two faces of every partitioned axis exchanged through
+``pyqcu.torch.tools._mpi_roll``.  ``||r||^2`` and ``||b||^2`` are Allreduced, so
+every rank reports the same number while no rank holds the global solution,
+source or gauge field - let alone the whole-lattice Clover term (about 11 GiB
+for L48 c64), which is never materialised.
+
 
 Skips (environmental absence only, always with a reason)
 -------------------------------------------------------
@@ -37,6 +57,9 @@ Skips (environmental absence only, always with a reason)
 ``shm_unavailable``   the shared halo was requested but cannot be used here
                       (single rank, more than one node, non-CPU backend)
 ``device_unavailable````--device`` names something the backend cannot own
+``reference_workspace`` the independent residual does not fit the declared
+                      ``reference_budget``; taken **before** the native call so
+                      a successful solve is never turned into an error
 
 Anything else (a contradictory ``--solver``/``--dslash``, a grid that does not
 tile the lattice, a bad ``atol``) is a usage error, and a numeric mismatch is a
@@ -96,18 +119,25 @@ __all__ = [
     "DEFAULT_MG_ATOL_C128",
     "DEFAULT_MG_ATOL_C64",
     "DEFAULT_MG_GRID",
+    "REFERENCE_BUDGET_BYTES",
+    "REFERENCE_MODES",
     "BackendProbe",
+    "LocalGeometry",
     "NativeCase",
     "NativeEnvironment",
     "SKIP_TOKENS",
+    "VerificationUnavailable",
     "apply_environment",
     "case",
+    "local_geometry",
     "local_lattice",
     "mpi_rank",
     "mpi_size",
+    "operand_plan",
     "probe_backend",
     "process_grid",
     "rank_coordinate",
+    "reference_plan",
     "resolve_shm",
     "resolve_threads",
     "run_case",
@@ -167,9 +197,17 @@ NV_TOLERANCE = 1.0e-2
 #: Stencil build window/batch (the native builder's tuned defaults).
 STENCIL_WINDOW = 8
 STENCIL_BATCH = 8
-#: Upper bound on the gathered verification workspace (fields are re-created on
-#: rank zero; a production L24/L32 lattice would need tens of GiB per tensor).
-REFERENCE_BUDGET_BYTES = 2 << 30
+#: Declared peak workspace of the independent reference, in bytes.
+#:
+#: The default is one rank's budget, not rank 0's: the distributed path is
+#: designed to stay inside it at the production L48 geometries (about 1.3 GiB
+#: per rank at 32 ranks c64, 2.6 GiB at 16 ranks c64, from
+#: :func:`reference_plan`), while the two allocations this module must not
+#: repeat - the rank-0 gather of the three global fields (about 9.5 GiB for L48
+#: c64) and the whole-lattice Clover term (about 11.4 GiB) - are both refused
+#: with the estimate.  A case that needs more declares it through
+#: ``reference_budget`` instead of silently allocating.
+REFERENCE_BUDGET_BYTES = 4 << 30
 #: Environment variables this module owns (applied per run, then restored).
 THREAD_VARIABLES: tuple[str, ...] = ("OMP_NUM_THREADS", "KUPL_OMP_THREADS")
 SHM_VARIABLE = "KUPL_SHM_HALO"
@@ -184,12 +222,14 @@ PROCESS_GRID_VARIABLE = "PYQCU_PROCESS_GRID"
 _SHM_TRUE = {"1", "true", "yes", "on"}
 _SHM_FALSE = {"", "0", "false", "no", "off"}
 
-#: Skip tokens this module can raise (``shm_unavailable`` is not in
-#: ``policy.SKIP_TOKENS`` yet; it is carried as a ``"<token>: <reason>"`` prefix
-#: so the reason stays self-describing and ``Result.skip_token`` stays valid).
+#: Skip tokens this module can raise (``shm_unavailable`` and
+#: ``reference_workspace`` are not in ``policy.SKIP_TOKENS`` yet; they are
+#: carried as a ``"<token>: <reason>"`` prefix so the reason stays
+#: self-describing and ``Result.skip_token`` stays valid).
 SKIP_TOKENS: tuple[str, ...] = (
     "mpi_grid", "mpi_single_rank", "kupl_library", "cuda_bridge",
-    "cuda_device", "shm_unavailable", "device_unavailable")
+    "cuda_device", "shm_unavailable", "device_unavailable",
+    "reference_workspace")
 
 _SPACE = 4
 _CASES = ("dslash", "solve", "mg")
@@ -364,6 +404,117 @@ def rank_coordinate(rank: int, grid: Sequence[int]) -> tuple[int, int, int, int]
         coordinate.append(value % requested[axis])
         value //= requested[axis]
     return tuple(reversed(coordinate))  # type: ignore[return-value]
+
+
+@dataclass(frozen=True)
+class LocalGeometry:
+    """The global lattice, the rank grid and the rank-local extents.
+
+    The native ABI is told the **local** lattice: ``params[_LAT_X_.._LAT_T_]``
+    is what one rank owns and ``params[_GRID_*]`` is how the ranks tile the
+    physical lattice (``pyqcu/testing/simple/kupl_multigrid.py::main`` builds
+    ``make_params(local_lattice, ..., grid=grid)`` and allocates every operand
+    from ``local_lattice``; ``pyqcu/cuda/_runtime.py::from_lattice`` writes its
+    ``lattice`` argument straight into those slots).  Handing it the global
+    extents - which this module did before - makes every rank read and write
+    ``prod(grid)`` times its own slab.
+
+    The invariant is one line::
+
+        prod(local) * prod(grid) == prod(global)
+
+    together with positive and **even** local extents.  Evenness is not
+    cosmetic: both native backends split an odd-Schur parity-compact field
+    (:func:`_compact_shape` halves the last axis), and because every local
+    extent is even, every rank origin is even as well - which is exactly what
+    makes the parity-compact layout separable per rank (the local checkerboard
+    parity equals the global one on every rank).
+    """
+
+    lattice: tuple[int, int, int, int]
+    local: tuple[int, int, int, int]
+    grid: tuple[int, int, int, int]
+
+    def __post_init__(self) -> None:
+        for name in ("lattice", "local", "grid"):
+            values = tuple(int(value) for value in getattr(self, name))
+            if len(values) != _SPACE or any(value <= 0 for value in values):
+                raise ValueError(
+                    f"{name} must be four positive extents, got {values}")
+            object.__setattr__(self, name, values)
+        for axis in range(_SPACE):
+            if self.local[axis] % 2:
+                raise ValueError(
+                    f"local lattice {self.local} has the odd extent "
+                    f"{self.local[axis]} on axis {axis}; both native backends "
+                    "split an even parity-compact field, so every rank-local "
+                    "extent must be even")
+        if self.local_volume * self.grid_volume != self.volume:
+            raise RuntimeError(
+                f"rank geometry is inconsistent: prod(local) * prod(grid) = "
+                f"{self.local_volume} * {self.grid_volume} != prod(global) = "
+                f"{self.volume} (local {self.local}, grid {self.grid}, global "
+                f"{self.lattice})")
+
+    @property
+    def volume(self) -> int:
+        """Sites of the physical (global) lattice."""
+        return math.prod(self.lattice)
+
+    @property
+    def local_volume(self) -> int:
+        """Sites one rank owns."""
+        return math.prod(self.local)
+
+    @property
+    def grid_volume(self) -> int:
+        """Number of ranks in the grid."""
+        return math.prod(self.grid)
+
+    @property
+    def partitioned(self) -> bool:
+        """True when the grid really splits the lattice."""
+        return self.grid_volume > 1 and self.local != self.lattice
+
+    def check(self) -> "LocalGeometry":
+        """Re-assert the invariants (cheap, used before every native call)."""
+        if self.local_volume * self.grid_volume != self.volume:
+            raise RuntimeError(
+                f"prod(local)*prod(grid) != prod(global) for {self.as_dict()}")
+        return self
+
+    def as_dict(self) -> dict[str, Any]:
+        """JSON-safe report (the observations carry it next to ``lattice``)."""
+        return {
+            "lattice": [int(value) for value in self.lattice],
+            "local_lattice": [int(value) for value in self.local],
+            "lattice_grid": [int(value) for value in self.grid],
+            "volume": int(self.volume),
+            "local_volume": int(self.local_volume),
+            "grid_volume": int(self.grid_volume),
+            "local_even": True,
+            "volume_check": bool(
+                self.local_volume * self.grid_volume == self.volume),
+            "partitioned": bool(self.partitioned),
+        }
+
+
+def local_geometry(lattice: Sequence[int], grid: Any = None, *,
+                   size: int | None = None) -> LocalGeometry:
+    """Validate the rank grid and return the rank-local geometry.
+
+    `grid` is validated by :func:`process_grid` (so an ``mpi_grid`` mismatch is
+    still an environmental SKIP and a non-tiling/odd grid is still a usage
+    error), then the ``prod(local) * prod(grid) == prod(global)`` invariant and
+    the evenness of every local extent are asserted.  Pure arithmetic: no
+    torch, numpy or MPI import, so a report can ask "which slab would this rank
+    own?" without a backend.
+    """
+    shape = policy.validate_lattice(lattice)
+    requested = process_grid(shape, grid, size=size)
+    local = local_lattice(shape, requested)
+    geometry = LocalGeometry(lattice=shape, local=local, grid=requested)
+    return geometry.check()
 
 
 def _require_single_rank(*, size: int | None = None, reason: str) -> int:
@@ -823,16 +974,20 @@ class _Controls:
 
     The control arrays come from :meth:`pyqcu.cuda._runtime.QcuRuntime.from_lattice`,
     which validates the lattice/grid/dtype and never touches the module-level
-    arrays.  The transaction is local (instead of ``QcuRuntime.call``) because
-    the Legacy-MG setup entry points carry integer geometry arguments that the
-    tensor-only ``QcuRuntime`` API cannot express, and because this port follows
-    the documented ``applyEndQcu`` *then* ``_SET_INDEX_ += 1`` order.
+    arrays.  ``lattice`` is the **rank-local** lattice - the extents the ABI is
+    told about and the shape every operand has - and ``global_lattice`` is the
+    physical one; ``prod(local) * prod(grid) == prod(global)`` is asserted here,
+    at the boundary where the two used to be confused.  The transaction is local
+    (instead of ``QcuRuntime.call``) because the Legacy-MG setup entry points
+    carry integer geometry arguments that the tensor-only ``QcuRuntime`` API
+    cannot express, and because this port follows the documented
+    ``applyEndQcu`` *then* ``_SET_INDEX_ += 1`` order.
     """
 
     def __init__(self, probe: BackendProbe, *, lattice: Sequence[int],
                  grid: Sequence[int], dtype: str, mass: float, csw: float,
                  atol: float, max_iter: int, plan: int, parity: int,
-                 seed: int) -> None:
+                 seed: int, global_lattice: Sequence[int] | None = None) -> None:
         from pyqcu.cuda import QcuRuntime
 
         self.probe = probe
@@ -842,6 +997,16 @@ class _Controls:
         self.torch_dtype = _torch_dtype(dtype)
         self.lattice = tuple(int(value) for value in lattice)
         self.grid = tuple(int(value) for value in grid)
+        self.global_lattice = (self.lattice if global_lattice is None
+                               else tuple(int(v) for v in global_lattice))
+        if math.prod(self.lattice) * math.prod(self.grid) != math.prod(
+                self.global_lattice):
+            raise RuntimeError(
+                f"the ABI would be told the local lattice {self.lattice} on a "
+                f"{self.grid} grid, which does not tile the "
+                f"{self.global_lattice} global lattice: "
+                f"{math.prod(self.lattice)} * {math.prod(self.grid)} != "
+                f"{math.prod(self.global_lattice)}")
         self.slot_limit = SLOT_LIMIT
         self.runtime = QcuRuntime.from_lattice(
             self.lattice, mass=float(mass), csw=float(csw), atol=float(atol),
@@ -860,6 +1025,19 @@ class _Controls:
     @property
     def kappa(self) -> float:
         return float(self.runtime.kappa)
+
+    @property
+    def geometry(self) -> dict[str, Any]:
+        """What the ABI was told: local extents, grid and the volume check."""
+        return {
+            "abi_lattice": list(self.lattice),
+            "global_lattice": list(self.global_lattice),
+            "lattice_grid": list(self.grid),
+            "abi_local_volume": int(math.prod(self.lattice)),
+            "abi_volume_check": bool(
+                math.prod(self.lattice) * math.prod(self.grid)
+                == math.prod(self.global_lattice)),
+        }
 
     def configure(self, **values: Any) -> None:
         """Update the private controls without rebuilding the object."""
@@ -1078,20 +1256,163 @@ def _preserve_torch_rng(torch: Any) -> Iterator[None]:
         torch.random.set_rng_state(state)
 
 
-def _build_gauge(case: "NativeCase", torch: Any, dtype: Any
-                 ) -> dict[str, Any]:
-    """Build the parity-compact gauge field this rank owns.
+def _su3_flag(full: Any) -> bool | None:
+    """``check_su3`` of a full-lattice gauge field (``None`` when unavailable)."""
+    try:
+        from pyqcu import lattice as lattice_module
+
+        return bool(lattice_module.check_su3(full, tol=1e-3, verbose=False))
+    except BaseException:  # noqa: BLE001 - diagnostics only
+        return None
+
+
+def _hdf5_identity(role: str, path: Path, lattice: Sequence[int],
+                   dtype: str) -> dict[str, Any]:
+    """Validate one ``role`` artifact and return its identity/observations.
+
+    ``pyqcu.test.io`` is imported here (lazily: it is the module that imports
+    ``h5py``) and it is the only reader: the file is opened, its dataset/shape/
+    dtype/attributes are checked and real elements are read before it is
+    accepted, and its SHA256 is streamed.  A file for another lattice or
+    another complex precision is rejected with both values in the message
+    instead of being cast silently - the 2026-11 matrix lost a whole L32 block
+    to a dtype taken from a file *name*.
+    """
+    from . import io
+
+    record = io.describe(path, role=role)
+    declared = tuple(int(value) for value in record["lattice"])
+    if declared != tuple(int(value) for value in lattice):
+        raise ValueError(
+            f"{role} file {path} holds lattice {list(declared)}, this case asks "
+            f"{list(int(value) for value in lattice)}")
+    wanted = "complex128" if str(dtype) == "c128" else "complex64"
+    if str(record["dtype"]) != wanted:
+        raise ValueError(
+            f"{role} file {path} holds {record['dtype']} but the case asks "
+            f"{dtype} ({wanted}); convert the file (pyqcu.test.io.load_"
+            f"{role}(..., dtype=...)) instead of letting the read cast it")
+    return {
+        "origin": "hdf5",
+        "kind": "file",
+        "path": str(path),
+        "layout": str(record["layout"]),
+        # ``compact`` is the ABI tensor in this module's dicts, so the file
+        # layout flag is named after the file, not after the operand.
+        "file_compact": bool(record["compact"]),
+        "lattice": [int(value) for value in declared],
+        "dtype": str(record["dtype"]),
+        "bytes": int(record["bytes"]),
+        "file_bytes": int(record["file_bytes"]),
+        "sha256": io.sha256_file(path),
+    }
+
+
+def _rank_block(value: Any, geometry: LocalGeometry, *, compact: bool,
+                rank: int) -> Any:
+    """Slice the rank-local block out of a *global* field.
+
+    ``value`` is a full ``[..., X, Y, Z, T]`` field or, with ``compact=True``,
+    the parity-compact ``[2, ..., X, Y, Z, T/2]`` one; the last four axes are
+    the lattice.  Every local extent is even (``LocalGeometry`` guarantees it),
+    so every rank origin is even, the local checkerboard parity equals the
+    global one and a compact ``t`` range maps to the contiguous compact indices
+    ``[coord_t * Lt/2, (coord_t+1) * Lt/2)``.  A single-rank geometry returns
+    ``value`` untouched.
+    """
+    if not geometry.partitioned:
+        return value
+    coordinate = rank_coordinate(rank, geometry.grid)
+    selection: list[Any] = [slice(None)] * (value.ndim - _SPACE)
+    for axis in range(_SPACE):
+        # The parity-compact field halves the *last* (t) axis only.
+        extent = geometry.local[axis]
+        if compact and axis == _SPACE - 1:
+            extent //= 2
+        start = coordinate[axis] * extent
+        selection.append(slice(start, start + extent))
+    return value[tuple(selection)]
+
+
+def _build_gauge(case: "NativeCase", torch: Any, dtype: Any,
+                 geometry: LocalGeometry, rank: int = 0) -> dict[str, Any]:
+    """Build the parity-compact gauge field **this rank owns**.
+
+    The ABI operand is the rank-local slab ``[2, 3, 3, 4, X, Y, Z, T/2]`` of
+    ``geometry.local``, never the global field: the extents the ABI is told are
+    the ones the operands really have.
 
     ``unit`` is exactly SU(3) (the identity links), ``random`` uses the project
-    generator with the case seed and ``gauge_sigma`` disorder.  The generated
-    tensor is stored in the compact ``[2, 3, 3, 4, X, Y, Z, T/2]`` ABI layout
-    and the generator's RNG state is restored, so a runner cannot perturb the
-    caller's stream.
+    generator with the case seed and ``gauge_sigma`` disorder.  A ``random``
+    gauge is drawn **per rank** (``seed + rank``) so a partitioned run does not
+    give every rank the same periodic block; on one rank the seed is the case
+    seed, so a single-rank run is bit-identical to before.  A
+    ``case.gauge_file`` (canonical :mod:`pyqcu.test.io` HDF5, full or
+    parity-compressed) is **read** instead - validated against the *global*
+    lattice and dtype the file describes - and its origin/path/layout/SHA256
+    are returned plus ``local_slice`` describing the cut; there is no fallback
+    path, so an unreadable, mismatching or truncated file raises instead of
+    silently producing a generated field.  The generator's RNG state is
+    restored, so a runner cannot perturb the caller's stream.
     """
     import pyqcu.tools as tools
 
-    compact = _compact_shape(case.lattice)
-    full_shape = (3, 3, 4, *case.lattice)
+    local = tuple(int(value) for value in geometry.local)
+    compact = _compact_shape(local)
+    full_shape = (3, 3, 4, *local)
+    cut = {
+        "local_slice": bool(geometry.partitioned),
+        "source_lattice": list(local),
+        "file_lattice": (list(geometry.lattice) if geometry.partitioned
+                         else list(local)),
+    }
+    if case.gauge_file is not None:
+        import numpy as np
+
+        path = Path(case.gauge_file).expanduser()
+        identity = _hdf5_identity("gauge", path, geometry.lattice, case.dtype)
+        from . import io
+
+        array = np.ascontiguousarray(io.load_gauge(path))
+        if identity["file_compact"]:
+            # ``[2, 3, 3, 4, X, Y, Z, T/2]`` is the ABI layout already; the
+            # full field is only needed by the MG cache identity and the
+            # residual reference, which slice the same block.
+            global_compact = torch.from_numpy(array).to(dtype).contiguous()
+            array = None
+            compact_gauge = _rank_block(
+                global_compact, geometry, compact=True, rank=rank).contiguous()
+            global_compact = None
+            full = tools.poooxyzt2oooxyzt(compact_gauge).contiguous()
+        else:
+            global_full = torch.from_numpy(array).to(dtype).contiguous()
+            array = None
+            full = _rank_block(global_full, geometry, compact=False,
+                               rank=rank).contiguous()
+            global_full = None
+            compact_gauge = tools.oooxyzt2poooxyzt(full).contiguous()
+        expected = _gauge_shape(local)
+        if tuple(compact_gauge.shape) != expected:
+            raise RuntimeError(
+                f"gauge file {path} compacts to {tuple(compact_gauge.shape)}, "
+                f"the ABI needs {expected}")
+        return {
+            "full": full,
+            "compact": compact_gauge,
+            "compact_shape": tuple(compact),
+            "su3": _su3_flag(full),
+            "sigma": None,
+            "seed": None,
+            **identity,
+            **cut,
+        }
+
+    seed = int(case.gauge_seed)
+    if geometry.partitioned:
+        # A partitioned random gauge is drawn per rank: the assembled global
+        # field is the juxtaposition of the blocks, and giving every rank the
+        # same seed would make it periodic with the *local* extent instead.
+        seed += int(rank)
     if case.gauge_kind == "unit":
         index = torch.arange(3)
         full = torch.zeros(full_shape, dtype=dtype)
@@ -1103,50 +1424,116 @@ def _build_gauge(case: "NativeCase", torch: Any, dtype: Any
         with _preserve_torch_rng(torch):
             lattice_module.generate_gauge_field(
                 full, sigma=float(case.gauge_sigma),
-                seed=int(case.gauge_seed), verbose=False)
+                seed=seed, verbose=False)
     full = full.contiguous()
     compact_gauge = tools.oooxyzt2poooxyzt(full).contiguous()
-    expected = _gauge_shape(case.lattice)
+    expected = _gauge_shape(local)
     if tuple(compact_gauge.shape) != expected:
         raise RuntimeError(
             f"compact gauge shape {tuple(compact_gauge.shape)} != {expected}")
-    su3 = None
-    try:
-        from pyqcu import lattice as lattice_module
-
-        su3 = bool(lattice_module.check_su3(full, tol=1e-3, verbose=False))
-    except BaseException:  # noqa: BLE001 - diagnostics only
-        su3 = None
     return {
         "full": full,
         "compact": compact_gauge,
         "kind": case.gauge_kind,
+        "origin": case.gauge_kind,
+        "path": None,
+        "layout": None,
+        "dtype": str(dtype).replace("torch.", ""),
+        "bytes": int(full.numel() * full.element_size()),
+        "sha256": None,
         "sigma": (float(case.gauge_sigma) if case.gauge_kind == "random"
                   else None),
-        "seed": (int(case.gauge_seed) if case.gauge_kind == "random" else None),
-        "su3": su3,
+        "seed": seed,
+        "su3": _su3_flag(full),
         "compact_shape": tuple(compact),
+        **cut,
     }
 
 
-def _build_source(case: "NativeCase", torch: Any, dtype: Any
-                  ) -> dict[str, Any]:
+def _build_source(case: "NativeCase", torch: Any, dtype: Any,
+                  geometry: LocalGeometry, rank: int = 0) -> dict[str, Any]:
     """Build the two-parity compact source ``[2, 4, 3, X, Y, Z, T/2]``.
 
-    ``ones`` fills every component with one (a wall source), ``point`` places a
-    unit charge at ``(spin, color, site)``, ``random`` uses a private generator
-    seeded by ``source_seed`` so the process-wide stream is untouched.
+    The extents are the rank-local ones (see :func:`_build_gauge`), so the
+    operand is what the ABI is told the *local* lattice is.  ``ones`` fills
+    every component with one (a wall source, identical on every rank because
+    the assembled global field is all ones), ``point`` places a unit charge at
+    the **global** ``(spin, color, site)`` in the parity block the global
+    checkerboard demands - only the owning rank sets it, and a rank that does
+    not own the site returns an all-zero slab - and ``random`` uses a private
+    generator seeded by ``source_seed`` (``+ rank`` on a partitioned run) so the
+    process-wide stream is untouched.  A ``case.source_file`` (canonical
+    :mod:`pyqcu.test.io` HDF5, full or parity-compressed) is **read** instead
+    and recorded with its SHA256; a missing or mismatching file raises rather
+    than falling back to a generator.
     """
-    compact = _compact_shape(case.lattice)
+    import pyqcu.tools as tools
+
+    local = tuple(int(value) for value in geometry.local)
+    compact = _compact_shape(local)
     shape = (2, 4, 3, *compact)
     real_dtype = _real_dtype(torch, dtype)
+    cut = {
+        "local_slice": bool(geometry.partitioned),
+        "source_lattice": list(local),
+        "file_lattice": (list(geometry.lattice) if geometry.partitioned
+                         else list(local)),
+    }
+    site = [int(value) for value in case.source_site]
+    parity = sum(site) % 2
+    if case.source_file is not None:
+        import numpy as np
+
+        path = Path(case.source_file).expanduser()
+        identity = _hdf5_identity("source", path, geometry.lattice, case.dtype)
+        from . import io
+
+        array = np.ascontiguousarray(io.load_source(path))
+        if identity["file_compact"]:
+            global_compact = torch.from_numpy(array).to(dtype).contiguous()
+            array = None
+            source = _rank_block(global_compact, geometry, compact=True,
+                                 rank=rank).contiguous()
+            global_compact = None
+        else:
+            global_full = torch.from_numpy(array).to(dtype).contiguous()
+            array = None
+            full = _rank_block(global_full, geometry, compact=False,
+                               rank=rank).contiguous()
+            global_full = None
+            source = tools.oooxyzt2poooxyzt(full).contiguous()
+            full = None
+        if tuple(source.shape) != shape:
+            raise RuntimeError(
+                f"source file {path} compacts to {tuple(source.shape)}, the ABI "
+                f"needs {shape}")
+        return {
+            "compact": source,
+            "kind": "file",
+            "site": site,
+            "spin": int(case.source_spin),
+            "color": int(case.source_color),
+            "seed": None,
+            **identity,
+            **cut,
+        }
     if case.source_kind == "point":
         source = torch.zeros(shape, dtype=dtype)
-        source[(0, case.source_spin, case.source_color, *case.source_site)] = 1.0
+        origin = (rank_coordinate(rank, geometry.grid)
+                  if geometry.partitioned else (0, 0, 0, 0))
+        local_site = tuple(site[axis] - origin[axis] * local[axis]
+                           for axis in range(_SPACE))
+        owned = all(0 <= local_site[axis] < local[axis] for axis in range(_SPACE))
+        if owned:
+            source[(parity, case.source_spin, case.source_color,
+                    *local_site)] = 1.0
     elif case.source_kind == "ones":
         source = torch.ones(shape, dtype=dtype)
     else:
-        generator = torch.Generator().manual_seed(int(case.source_seed))
+        seed = int(case.source_seed)
+        if geometry.partitioned:
+            seed += int(rank)
+        generator = torch.Generator().manual_seed(seed)
         single = torch.complex(
             torch.randn((4, 3, *compact), generator=generator,
                         dtype=real_dtype),
@@ -1160,10 +1547,18 @@ def _build_source(case: "NativeCase", torch: Any, dtype: Any
     return {
         "compact": source,
         "kind": case.source_kind,
-        "site": list(case.source_site),
+        "origin": case.source_kind,
+        "path": None,
+        "layout": None,
+        "dtype": str(dtype).replace("torch.", ""),
+        "bytes": int(source.numel() * source.element_size()),
+        "sha256": None,
+        "site": site,
+        "parity": int(parity),
         "spin": int(case.source_spin),
         "color": int(case.source_color),
         "seed": (int(case.source_seed) if case.source_kind == "random" else None),
+        **cut,
     }
 
 
@@ -1198,10 +1593,425 @@ def _native_clover_terms(controls: _Controls, gauge: Any, torch: Any
 
 
 # ---------------------------------------------------------------------------
-# verification: gathered global fields and the torch reference operator
+# verification: bounded-memory independent residuals
 # ---------------------------------------------------------------------------
 class VerificationUnavailable(RuntimeError):
-    """The independent check cannot run at this size (not a numeric failure)."""
+    """The independent check cannot run inside the declared budget.
+
+    This is never a numeric verdict: it says the *reference* could not be
+    computed at this size, which is why the reasoning (the estimate and the
+    budget) always travels in the message, and why the runners report it as an
+    unavailable observation instead of a converged/not-converged decision.
+    """
+
+
+#: Complex elements per lattice site one *rank-local* reference holds at once.
+#:
+#: A declared upper bound, not a measurement.  A rank-local stage keeps the
+#: local gauge field (36 complex numbers per site) and its adjoint (36), the
+#: Clover term (144), the solution and the right-hand side (12 each), the
+#: destination plus the four hopping terms of one ward (about 84), one rolled
+#: copy of the solution (12) and - because the caller keeps them alive - the
+#: three parity-compact operands (60).  Measuring a real L48 run is the
+#: operator's job; this number only decides whether the path is attempted.
+REFERENCE_DISTRIBUTED_SITE_ELEMENTS = 480
+#: Complex elements per site one *tiled* slab holds: the same stages over a
+#: ``t``-slab that is extended by one compact index (two sites) on each side.
+REFERENCE_TILED_SITE_ELEMENTS = 480
+#: Complex elements per site the historical rank-0 gather materialises *before*
+#: the operator runs (the gathered per-rank blocks plus the assembled global
+#: solution, source and gauge arrays).
+REFERENCE_GATHER_SITE_ELEMENTS = 120
+#: Complex elements per site of one whole-lattice reference: the gather, the
+#: parity expansion, the Clover term and the operator temporaries.
+REFERENCE_WHOLE_SITE_ELEMENTS = 480
+#: The Clover term of the whole lattice (``[4,3,4,3,X,Y,Z,T]``, 144 per site).
+REFERENCE_CLOVER_SITE_ELEMENTS = 144
+#: Accepted ``reference_mode`` values.  ``auto`` uses the rank-local distributed
+#: path for rank-local blocks and the tiled path for whole-lattice fields,
+#: ``distributed``/``tiled`` force one of them, ``gather`` keeps the historical
+#: rank-0 gather (small lattices; also the oracle the tests compare against).
+REFERENCE_MODES: tuple[str, ...] = ("auto", "distributed", "tiled", "gather")
+#: Byte multipliers accepted by :func:`_resolve_reference_budget`.
+_BUDGET_UNITS: Mapping[str, int] = {
+    "": 1, "b": 1,
+    "k": 10 ** 3, "kb": 10 ** 3, "ki": 2 ** 10, "kib": 2 ** 10,
+    "m": 10 ** 6, "mb": 10 ** 6, "mi": 2 ** 20, "mib": 2 ** 20,
+    "g": 10 ** 9, "gb": 10 ** 9, "gi": 2 ** 30, "gib": 2 ** 30,
+    "t": 10 ** 12, "tb": 10 ** 12, "ti": 2 ** 40, "tib": 2 ** 40,
+}
+
+
+def _element_bytes(dtype_name: str) -> int:
+    """Bytes of one complex element of ``dtype_name`` (``c64``/``c128``)."""
+    return 16 if _normalize_dtype(dtype_name) == "c128" else 8
+
+
+def _resolve_reference_mode(value: Any) -> str:
+    """Normalize ``reference_mode`` (``auto``/``distributed``/``tiled``/``gather``)."""
+    text = "auto" if value is None else str(value).strip().lower()
+    if text not in REFERENCE_MODES:
+        raise ValueError(
+            f"reference_mode must be one of {', '.join(REFERENCE_MODES)}, "
+            f"got {value!r}")
+    return text
+
+
+def _resolve_reference_budget(value: Any) -> int:
+    """Normalize the reference budget in bytes (``"4GiB"``, ``4 << 30``, ``4e9``)."""
+    if value is None:
+        return int(REFERENCE_BUDGET_BYTES)
+    if isinstance(value, bool):
+        raise ValueError(f"reference_budget must be a byte count, got {value!r}")
+    if isinstance(value, (int, float)):
+        number = int(value)
+    elif isinstance(value, str):
+        text = value.strip().lower().replace("_", "").replace(" ", "")
+        if not text:
+            raise ValueError("reference_budget must not be empty")
+        suffix = ""
+        while text and not (text[-1].isdigit() or text[-1] == "."):
+            suffix = text[-1] + suffix
+            text = text[:-1]
+        try:
+            number = int(float(text) * _BUDGET_UNITS[suffix])
+        except (KeyError, ValueError) as error:
+            raise ValueError(
+                f"reference_budget={value!r} is not a byte count "
+                f"(accepted suffixes: {', '.join(sorted(set(_BUDGET_UNITS)))})"
+            ) from error
+    else:
+        raise ValueError(f"reference_budget must be a byte count, got {value!r}")
+    if number <= 0:
+        raise ValueError(f"reference_budget must be positive, got {value!r}")
+    return number
+
+
+def _tiled_extent(shape: Sequence[int], element: int, budget: int) -> tuple[int, int]:
+    """Largest even ``t`` slab (and its count) whose workspace fits ``budget``.
+
+    The extent must divide the global ``t`` extent so every slab is the same
+    size.  ``(0, 0)`` means not even the smallest slab fits.
+    """
+    per_site = REFERENCE_TILED_SITE_ELEMENTS * int(element)
+    per_t = per_site * int(shape[0]) * int(shape[1]) * int(shape[2])
+    total = int(shape[3])
+    if per_t * total <= int(budget):
+        return total, 1
+    best = 0
+    for extent in range(2, total, 2):
+        if total % extent:
+            continue
+        # One compact halo index on each side keeps the expansion parity exact
+        # (two extra sites per side), so the slab workspace is extent + 4.
+        if per_t * (extent + 4) <= int(budget):
+            best = extent
+    if best <= 0:
+        return 0, 0
+    return best, total // best
+
+
+def reference_plan(lattice: Sequence[int], dtype: str = DEFAULT_DTYPE, *,
+                   lattice_grid: Sequence[int] = (1, 1, 1, 1),
+                   size: int | None = None,
+                   local_lattice: Sequence[int] | None = None,
+                   budget: Any = None, mode: Any = "auto") -> dict[str, Any]:
+    """Declare which independent reference fits the budget, and its peak.
+
+    The function is pure arithmetic (no torch/numpy), so a report and a test can
+    both ask "what would the residual cost here?" without running anything:
+
+    * ``distributed_peak_bytes`` - one rank's workspace for the rank-local
+      ``D x - b`` with the MPI halo and an Allreduce of ``||r||^2``/``||b||^2``;
+    * ``tiled_peak_bytes`` - rank 0's workspace for one ``t`` slab of the
+      whole-lattice residual (``tiled_slab_extent_t`` sites, ``tiled_slabs``
+      slabs, halo included);
+    * ``gather_peak_bytes`` - the historical rank-0 gather *before* the operator
+      runs (the 7.6 GiB class of allocation this module must not repeat);
+    * ``whole_lattice_peak_bytes`` - the whole historical reference (gather,
+      parity expansion, Clover term, operator temporaries);
+    * ``global_clover_bytes`` - the single Clover tensor of the whole lattice
+      (about 11 GiB for L48 c64), which the tiled path never allocates.
+
+    ``mode`` is ``auto`` (distributed for rank-local blocks, tiled for
+    whole-lattice fields), ``distributed``, ``tiled`` or ``gather``.  When the
+    chosen path does not fit, ``mode`` becomes ``"unavailable"`` and ``reason``
+    carries the estimate and the budget.
+    """
+    shape = policy.validate_lattice(lattice)
+    grid = _int4((1, 1, 1, 1) if lattice_grid is None else lattice_grid,
+                 "lattice_grid")
+    if any(value <= 0 for value in grid):
+        raise ValueError(f"lattice_grid extents must be positive, got {grid}")
+    for axis in range(_SPACE):
+        if shape[axis] % grid[axis]:
+            raise ValueError(
+                f"lattice_grid {grid} does not tile lattice {shape}: extent "
+                f"{shape[axis]} on axis {axis} is not divisible by {grid[axis]}")
+    world = math.prod(grid) if size is None else int(size)
+    derived = tuple(shape[axis] // grid[axis] for axis in range(_SPACE))
+    local = derived if local_lattice is None else _int4(local_lattice,
+                                                        "local_lattice")
+    name = _normalize_dtype(dtype)
+    element = _element_bytes(name)
+    limited = (REFERENCE_BUDGET_BYTES if budget is None
+               else _resolve_reference_budget(budget))
+    requested = _resolve_reference_mode(mode)
+    volume = math.prod(shape)
+    distributed = REFERENCE_DISTRIBUTED_SITE_ELEMENTS * math.prod(local) * element
+    gathered = REFERENCE_GATHER_SITE_ELEMENTS * volume * element
+    whole = REFERENCE_WHOLE_SITE_ELEMENTS * volume * element
+    clover = REFERENCE_CLOVER_SITE_ELEMENTS * volume * element
+    extent, slabs = _tiled_extent(shape, element, limited)
+    per_site = REFERENCE_TILED_SITE_ELEMENTS * element
+    tiled = (per_site * shape[0] * shape[1] * shape[2]
+             * (shape[3] if slabs <= 1 else extent + 4)) if extent else 0
+    partitioned = math.prod(grid) > 1 and tuple(local) != tuple(shape)
+    if requested == "auto":
+        chosen = "distributed" if partitioned else "tiled"
+    elif requested == "distributed":
+        if not partitioned:
+            raise ValueError(
+                "reference_mode='distributed' needs rank-local reference "
+                f"blocks, but the fields cover the whole {tuple(shape)} "
+                f"lattice while lattice_grid={grid} declares "
+                f"{math.prod(grid)} rank(s); pass the rank-local block or use "
+                "reference_mode='auto'")
+        chosen = "distributed"
+    else:
+        chosen = requested
+    estimate = {"distributed": distributed, "tiled": tiled,
+                "gather": whole}[chosen]
+    fits = bool(estimate) and int(estimate) <= limited
+    reason = ""
+    if not fits:
+        if chosen == "tiled" and not extent:
+            smallest = (per_site * shape[0] * shape[1] * shape[2] * 6)
+            reason = (
+                f"not even one even t slab of the {tuple(shape)} lattice fits "
+                f"the {limited / 2 ** 20:.0f} MiB reference budget "
+                f"({smallest / 2 ** 30:.2f} GiB for a six-site slab); raise "
+                "reference_budget")
+        else:
+            scope = ("per rank" if chosen == "distributed" else "per t slab")
+            reason = (
+                f"the {chosen} independent reference needs about "
+                f"{int(estimate) / 2 ** 30:.2f} GiB {scope}, above the declared "
+                f"{limited / 2 ** 30:.2f} GiB budget; the whole-lattice gather "
+                f"would need {whole / 2 ** 30:.2f} GiB and its Clover term "
+                f"{clover / 2 ** 30:.2f} GiB. Raise reference_budget only with "
+                "a matching memory plan")
+        chosen_mode = "unavailable"
+    else:
+        chosen_mode = chosen
+    return {
+        "mode": chosen_mode,
+        "requested_mode": requested,
+        "partitioned": bool(partitioned),
+        "reason": reason,
+        "dtype": name,
+        "bytes_per_element": int(element),
+        "lattice": [int(value) for value in shape],
+        "lattice_grid": [int(value) for value in grid],
+        "local_lattice": [int(value) for value in local],
+        "mpi_size": int(world),
+        "volume": int(volume),
+        "budget_bytes": int(limited),
+        "peak_bytes": int(estimate) if fits else 0,
+        "distributed_peak_bytes": int(distributed),
+        "distributed_fits": bool(distributed <= limited),
+        "tiled_peak_bytes": int(tiled),
+        "tiled_slab_extent_t": int(extent),
+        "tiled_slabs": int(slabs),
+        "tiled_fits": bool(tiled and tiled <= limited),
+        "gather_peak_bytes": int(gathered),
+        "gather_fits": bool(whole <= limited),
+        "whole_lattice_peak_bytes": int(whole),
+        "global_clover_bytes": int(clover),
+    }
+
+
+def operand_plan(lattice: Sequence[int], lattice_grid: Any = None, *,
+                 dtype: str = DEFAULT_DTYPE, size: int | None = None
+                 ) -> dict[str, Any]:
+    """Declared ABI operand footprint of **one rank**, in bytes.
+
+    Pure arithmetic (no torch/numpy), so a size budget can be checked before a
+    single tensor is allocated.  The shapes are the parity-compact ABI ones of
+    :func:`_gauge_shape`/:func:`_fermion_shape`/:func:`_clover_shape` at the
+    *rank-local* lattice, and ``global_bytes`` is what the same roles would cost
+    if the ABI were handed the global lattice - the difference is exactly the
+    ``prod(grid)``-fold overshoot the local-slab fix removes.
+
+    ``peak_bytes`` counts what :func:`_solve_case` really keeps alive at once
+    with a Clover solve: the compact gauge, the source and the solution plus the
+    two Clover terms *and* their two inverses (``applyCloversQcu`` writes a term
+    and its inverse per parity).
+    """
+    geometry = local_geometry(lattice, lattice_grid, size=size)
+    element = _element_bytes(dtype)
+    local = geometry.local
+    shapes = {
+        "gauge": _gauge_shape(local),
+        "source": _fermion_shape(local),
+        "solution": _fermion_shape(local),
+        "clover": _clover_shape(local),
+    }
+    global_shapes = {
+        "gauge": _gauge_shape(geometry.lattice),
+        "source": _fermion_shape(geometry.lattice),
+        "solution": _fermion_shape(geometry.lattice),
+        "clover": _clover_shape(geometry.lattice),
+    }
+    per_role = {role: math.prod(shape) * element
+                for role, shape in shapes.items()}
+    global_per_role = {role: math.prod(shape) * element
+                       for role, shape in global_shapes.items()}
+    persistent = (per_role["gauge"] + per_role["source"]
+                  + per_role["solution"])
+    peak = persistent + 4 * per_role["clover"]
+    global_peak = (global_per_role["gauge"] + global_per_role["source"]
+                   + global_per_role["solution"]
+                   + 4 * global_per_role["clover"])
+    return {
+        "lattice": list(geometry.lattice),
+        "local_lattice": list(local),
+        "lattice_grid": list(geometry.grid),
+        "dtype": _normalize_dtype(dtype),
+        "bytes_per_element": int(element),
+        "shapes": {role: list(shape) for role, shape in shapes.items()},
+        "bytes": per_role,
+        "persistent_bytes": int(persistent),
+        "clover_terms": 4,
+        "peak_bytes": int(peak),
+        "budget_bytes": int(REFERENCE_BUDGET_BYTES),
+        "fits_budget": bool(peak <= REFERENCE_BUDGET_BYTES),
+        "global_shapes": {role: list(shape)
+                          for role, shape in global_shapes.items()},
+        "global_bytes": global_per_role,
+        "global_peak_bytes": int(global_peak),
+        "global_fits_budget": bool(global_peak <= REFERENCE_BUDGET_BYTES),
+        "overshoot": (float(global_peak) / float(peak)) if peak else math.inf,
+    }
+
+
+def _reference_plan(torch: Any, *, solution: Any, source: Any, gauge: Any,
+                    lattice: Sequence[int], grid: Sequence[int], size: int,
+                    budget: Any = None, mode: Any = "auto") -> dict[str, Any]:
+    """Validate the field geometry and return the reference plan (no alloc).
+
+    Split out of :func:`_true_residual` so a runner can ask "can the
+    independent residual run at this size?" **before** the native call: the
+    answer only needs the shapes, never a tensor.
+    """
+    shape = _int4(lattice, "lattice")
+    requested = _int4(grid, "lattice_grid")
+    world = int(size)
+    observed = _field_lattice(gauge)
+    for name, value in (("solution", solution), ("source", source)):
+        if _field_lattice(value) != observed:
+            raise ValueError(
+                f"the reference {name} covers {_field_lattice(value)} but the "
+                f"gauge covers {observed}; the residual needs one geometry")
+    if tuple(observed) == tuple(shape):
+        local = shape
+    else:
+        expected = tuple(shape[axis] // requested[axis] for axis in range(_SPACE))
+        if tuple(observed) != expected:
+            raise ValueError(
+                f"the reference fields cover {tuple(observed)}, which is "
+                f"neither the {tuple(shape)} whole lattice nor its "
+                f"{expected} rank-local block under lattice_grid {requested}")
+        local = expected
+    return reference_plan(shape, _dtype_name(torch, gauge),
+                          lattice_grid=requested, size=world,
+                          local_lattice=local, budget=budget, mode=mode)
+
+
+def _preflight_reference(*, dtype: str, lattice: Sequence[int],
+                         local: Sequence[int], grid: Sequence[int],
+                         size: int, budget: Any = None,
+                         mode: Any = "auto") -> dict[str, Any]:
+    """Decide the independent reference **before** the native call.
+
+    A reference that does not fit the declared ``reference_budget`` is an
+    explicit ``SKIP(reference_workspace)`` carrying the estimate, taken before
+    the solve - it must never surface as an ``ERROR`` after a successful solve.
+    For the distributed path the MPI reduction is probed here as well, so a
+    missing or unusable ``mpi4py`` is the same kind of early skip instead of a
+    failure in the middle of the verification.
+
+    Only shapes are needed (no tensor): the rank-local block is what the ABI
+    owns, so ``local`` is the geometry a partitioned run plans for, while a
+    whole-lattice field plans with the global extents.
+    """
+    name = _normalize_dtype(dtype)
+    shape = _int4(lattice, "lattice")
+    rank_local = _int4(local, "local_lattice")
+    requested = _int4(grid, "lattice_grid")
+    plan = reference_plan(shape, name, lattice_grid=requested, size=int(size),
+                          local_lattice=rank_local, budget=budget, mode=mode)
+    if plan["mode"] == "unavailable":
+        _skip(f"the independent residual cannot run at this size: "
+              f"{plan['reason']}", token="reference_workspace")
+    if plan["mode"] == "distributed":
+        _comm(size=int(plan["mpi_size"]))
+    return plan
+
+
+def _residual_unavailable(reason: Any, plan: Mapping[str, Any] | None,
+                          started: float) -> dict[str, Any]:
+    """Observation block of a reference that could not be computed.
+
+    The native call already happened (this is only used *after* a solve), so
+    the failure is reported, not raised: ``relative_residual`` stays ``None``,
+    ``residual_verified`` is ``False`` and ``residual_unavailable`` carries the
+    reason the ledger has to show.
+    """
+    observation = _residual_observation(
+        numerator=0.0, denominator=0.0, solution_norm=0.0,
+        plan=(plan if plan is not None else {
+            "mode": "unavailable", "partitioned": False, "budget_bytes": 0,
+            "peak_bytes": 0, "tiled_slabs": 0}),
+        started=started, source="unavailable")
+    observation.update(
+        relative_residual=None,
+        residual_norm=None,
+        source_norm=None,
+        solution_norm=None,
+        residual_verified=False,
+        residual_unavailable=str(reason),
+    )
+    return observation
+
+
+def _field_lattice(value: Any) -> tuple[int, int, int, int]:
+    """Whole-lattice extents of a parity-compact ``[2, ...X, Y, Z, T/2]`` field."""
+    shape = tuple(int(extent) for extent in value.shape)
+    if len(shape) < _SPACE + 1 or shape[0] != 2:
+        raise ValueError(
+            "a parity-compact reference field must have shape "
+            f"[2, ..., X, Y, Z, T/2], got {shape}")
+    if any(extent <= 0 for extent in shape):
+        raise ValueError(f"a reference field must have positive extents, got {shape}")
+    extents = shape[-_SPACE:]
+    return (extents[0], extents[1], extents[2], extents[3] * 2)
+
+
+def _dtype_name(torch: Any, value: Any) -> str:
+    """``c64``/``c128`` of a torch complex tensor."""
+    return "c128" if value.dtype == torch.complex128 else "c64"
+
+
+def _mpi(size: int) -> tuple[Any, Any]:
+    """``(mpi4py.MPI, MPI.COMM_WORLD)`` for a distributed reduction."""
+    comm = _comm(size=size)
+    if comm is None:
+        _skip("the distributed reference needs at least two MPI ranks",
+              token="mpi_single_rank")
+    from mpi4py import MPI
+
+    return MPI, comm
 
 
 def _comm(*, size: int) -> Any:
@@ -1211,9 +2021,10 @@ def _comm(*, size: int) -> Any:
     try:
         from mpi4py import MPI
     except ImportError as error:
-        _skip(f"the distributed verification gathers the rank-local blocks and "
-              f"needs mpi4py: {type(error).__name__}: {error}; run this case on "
-              "one rank", token="mpi_single_rank")
+        _skip(f"the distributed reference exchanges rank-local halo faces and "
+              f"reduces its norms with mpi4py: {type(error).__name__}: "
+              f"{error}; run this case on one rank",
+              token="mpi_single_rank")
     comm = MPI.COMM_WORLD
     if int(comm.Get_size()) != int(size):
         raise RuntimeError(
@@ -1292,7 +2103,8 @@ def _expand_parity(tools: Any, value: Any) -> Any:
 
 def _full_fields(torch: Any, tools: Any, *, solution: Any, source: Any,
                  gauge: Any, lattice: Sequence[int], grid: Sequence[int],
-                 size: int, purpose: str) -> dict[str, Any] | None:
+                 size: int, purpose: str,
+                 budget: int = REFERENCE_BUDGET_BYTES) -> dict[str, Any] | None:
     """Gather and expand the solution/source/gauge needed by a reference run."""
     gathered: dict[str, Any] = {}
     # Every rank must enter *all* collectives in the same order: a non-root
@@ -1301,7 +2113,7 @@ def _full_fields(torch: Any, tools: Any, *, solution: Any, source: Any,
                         ("gauge", gauge)):
         gathered[name] = _global_compact(
             torch, value, lattice=lattice, grid=grid, size=size,
-            purpose=f"{purpose} {name}")
+            purpose=f"{purpose} {name}", budget=int(budget))
     if any(value is None for value in gathered.values()):
         return None
     return {
@@ -1337,53 +2149,391 @@ def _operator_reference(torch: Any, dslash: Any, *, gauge: Any, kappa: float,
     return apply
 
 
-def _true_residual(torch: Any, *, solution: Any, source: Any, gauge: Any,
-                   lattice: Sequence[int], grid: Sequence[int], size: int,
-                   kappa: float, csw: float, purpose: str,
-                   budget: int = REFERENCE_BUDGET_BYTES) -> dict[str, Any]:
-    """Independent ``||D x - b|| / ||b||`` on the full Wilson-Clover operator.
+def _sum_squares(torch: Any, value: Any) -> float:
+    """``sum |value|^2`` accumulated in float64 without a float64 copy."""
+    real = value.real
+    imag = value.imag
+    return (float(torch.sum(real * real, dtype=torch.float64))
+            + float(torch.sum(imag * imag, dtype=torch.float64)))
 
-    ``solution``/``source``/``gauge`` are the rank-local compact fields; the
-    result is reduced to every rank so every rank reports the same number.
+
+def _reduced_norms(torch: Any, *, residual: Any, source: Any, solution: Any,
+                   comm: Any = None) -> tuple[float, float, float]:
+    """``(||r||, ||b||, ||x||)``, Allreduced over ``comm`` when it is set.
+
+    All ranks compute the same three numbers, so the runner reports one value
+    even though no rank ever holds the global residual.
     """
-    import pyqcu.tools as tools
+    residual_sum = _sum_squares(torch, residual)
+    source_sum = _sum_squares(torch, source)
+    solution_sum = _sum_squares(torch, solution)
+    if comm is not None:
+        MPI, _ = _mpi(size=int(comm.Get_size()))
+        residual_sum = float(comm.allreduce(residual_sum, op=MPI.SUM))
+        source_sum = float(comm.allreduce(source_sum, op=MPI.SUM))
+        solution_sum = float(comm.allreduce(solution_sum, op=MPI.SUM))
+    return (math.sqrt(max(residual_sum, 0.0)),
+            math.sqrt(max(source_sum, 0.0)),
+            math.sqrt(max(solution_sum, 0.0)))
+
+
+def _clover_term(torch: Any, roll: Callable[[Any, int, int], Any], *,
+                 gauge: Any, kappa: float, csw: float) -> Any:
+    """Clover term ``-0.125 * kappa * csw * sum_{mu<nu} sigma F`` (or ``None``).
+
+    The definition is :func:`pyqcu.torch.dslash.make_clover`'s (the production
+    reference this module is checked against), with the periodic shift injected
+    as ``roll(value, shifts, dims)``: ``torch.roll`` for a whole-lattice slab
+    and the MPI halo roll for a rank-local block.  ``csw == 0`` returns ``None``
+    so the operator is the plain Wilson operator, exactly like the reference.
+    """
+    from pyqcu import lattice as lattice_module
+
+    if float(csw) == 0.0:
+        return None
+    dtype, device = gauge.dtype, gauge.device
+    keys = ("xy", "xz", "xt", "yz", "yt", "zt")
+    sigma = {key: lattice_module.gamma_gamma[
+        lattice_module.ward_wards[key]["ward"]].to(device).type(dtype)
+        for key in keys}
+    dagger = gauge.permute(1, 0, 2, 3, 4, 5, 6).conj()
+    clover = torch.zeros((4, 3, 4, 3, *gauge.shape[-_SPACE:]),
+                         dtype=dtype, device=device)
+    factor = -0.125 * float(kappa) * float(csw)
+    for key in keys:
+        mu = lattice_module.ward_wards[key]["mu"]
+        nu = lattice_module.ward_wards[key]["nu"]
+        U_mu = gauge[..., mu, :, :, :, :]
+        U_nu = gauge[..., nu, :, :, :, :]
+        U_dag_mu = dagger[..., mu, :, :, :, :]
+        U_dag_nu = dagger[..., nu, :, :, :, :]
+        field = torch.zeros(U_mu.shape, dtype=dtype, device=device)
+        first = torch.einsum(
+            "abxyzt,bcxyzt->acxyzt", U_mu, roll(U_nu, -1, mu))
+        second = torch.einsum(
+            "abxyzt,bcxyzt->acxyzt", first, roll(U_dag_mu, -1, nu))
+        field = field + torch.einsum(
+            "abxyzt,bcxyzt->acxyzt", second, U_dag_nu)
+        first = torch.einsum(
+            "abxyzt,bcxyzt->acxyzt", U_nu,
+            roll(roll(U_dag_mu, 1, mu), -1, nu))
+        second = torch.einsum(
+            "abxyzt,bcxyzt->acxyzt", first, roll(U_dag_nu, 1, mu))
+        field = field + torch.einsum(
+            "abxyzt,bcxyzt->acxyzt", second, roll(U_mu, 1, mu))
+        first = torch.einsum(
+            "abxyzt,bcxyzt->acxyzt", roll(U_dag_mu, 1, mu),
+            roll(roll(U_dag_nu, 1, mu), 1, nu))
+        second = torch.einsum(
+            "abxyzt,bcxyzt->acxyzt", first,
+            roll(roll(U_mu, 1, mu), 1, nu))
+        field = field + torch.einsum(
+            "abxyzt,bcxyzt->acxyzt", second, roll(U_nu, 1, nu))
+        first = torch.einsum(
+            "abxyzt,bcxyzt->acxyzt", roll(U_dag_nu, 1, nu),
+            roll(U_mu, 1, nu))
+        second = torch.einsum(
+            "abxyzt,bcxyzt->acxyzt", first,
+            roll(roll(U_nu, -1, mu), 1, nu))
+        field = field + torch.einsum(
+            "abxyzt,bcxyzt->acxyzt", second, U_dag_mu)
+        field = field - field.permute(1, 0, 2, 3, 4, 5).conj()
+        clover = clover + factor * torch.einsum(
+            "Ss,Ccxyzt->SCscxyzt", sigma[key], field)
+        del first, second, field
+    return clover
+
+
+def _wilson_clover_apply(torch: Any, roll: Callable[[Any, int, int], Any], *,
+                         vector: Any, gauge: Any, clover: Any,
+                         kappa: float) -> Any:
+    """``D x = (I - kappa * hopping) x + T x`` on one lattice block.
+
+    This is exactly ``dslash.give_wilson(x, U, kappa, with_I=True) +
+    dslash.give_clover(x, clover_term)`` - the reference composition of
+    :func:`_operator_reference` - with the four periodic shifts injected as
+    ``roll(value, shifts, dims)`` so a rank-local block can exchange MPI faces
+    instead of wrapping inside the block.
+    """
+    from pyqcu import lattice as lattice_module
     from pyqcu.torch import dslash
 
-    comm = _comm(size=size)
-    started = time.perf_counter()
-    fields = _full_fields(torch, tools, solution=solution, source=source,
-                         gauge=gauge, lattice=lattice, grid=grid, size=size,
-                         purpose=purpose)
+    dtype, device = vector.dtype, vector.device
+    identity = lattice_module.I.to(device).type(dtype)
+    dagger = gauge.permute(1, 0, 2, 3, 4, 5, 6).conj()
+    dest = vector.clone()
+    factor = float(kappa)
+    for key in lattice_module.ward_keys:
+        ward = lattice_module.wards[key]
+        gamma = lattice_module.gamma[ward].to(device).type(dtype)
+        U_mu = gauge[..., ward, :, :, :, :]
+        U_dag_mu = dagger[..., ward, :, :, :, :]
+        forward = torch.einsum(
+            "Ccxyzt,scxyzt->sCxyzt", U_mu, roll(vector, -1, ward))
+        backward = torch.einsum(
+            "Ccxyzt,scxyzt->sCxyzt", roll(U_dag_mu, 1, ward),
+            roll(vector, 1, ward))
+        hopping = (torch.einsum("Ss,sCxyzt->SCxyzt",
+                                identity - gamma, forward)
+                   + torch.einsum("Ss,sCxyzt->SCxyzt",
+                                  identity + gamma, backward))
+        dest = dest - factor * hopping
+    if clover is not None:
+        dest = dest + dslash.give_clover(vector, clover)
+    return dest
+
+
+def _residual_observation(*, numerator: float, denominator: float,
+                          solution_norm: float, plan: Mapping[str, Any],
+                          started: float, source: str,
+                          notes: Sequence[str] = ()) -> dict[str, Any]:
+    """The observation block a runner stores next to ``relative_residual``."""
+    value = (math.inf if denominator == 0.0
+             else float(numerator / denominator))
+    observation = {
+        "relative_residual": value,
+        "source_norm": float(denominator),
+        "residual_norm": float(numerator),
+        "solution_norm": float(solution_norm),
+        "reference_seconds": time.perf_counter() - started,
+        "residual_source": source,
+        "residual_mode": plan["mode"],
+        "residual_partitioned": bool(plan["partitioned"]),
+        "residual_budget_bytes": int(plan["budget_bytes"]),
+        "residual_peak_bytes": int(plan["peak_bytes"]),
+        "residual_slabs": int(plan["tiled_slabs"]),
+        "residual_plan": dict(plan),
+    }
+    if notes:
+        observation["residual_notes"] = list(notes)
+    return observation
+
+
+def _residual_fields(residual: Mapping[str, Any]) -> dict[str, Any]:
+    """The observation keys every runner copies out of a residual block.
+
+    One place decides what a reference contributes, so an unavailable reference
+    (:func:`_residual_unavailable`) reaches the ledger with the same keys as a
+    computed one - ``relative_residual=None``, ``residual_verified=False`` and
+    the reason - instead of a KeyError in the middle of a successful solve.
+    """
+    value = residual["relative_residual"]
+    fields: dict[str, Any] = {
+        "relative_residual": value,
+        "relative_error": value,
+        "true_residual": value,
+        "source_norm": residual["source_norm"],
+        "residual_norm": residual["residual_norm"],
+        "solution_norm": residual["solution_norm"],
+        "residual_source": residual["residual_source"],
+        "residual_mode": residual["residual_mode"],
+        "residual_partitioned": residual["residual_partitioned"],
+        "residual_budget_bytes": residual["residual_budget_bytes"],
+        "residual_peak_bytes": residual["residual_peak_bytes"],
+        "residual_slabs": residual["residual_slabs"],
+        "residual_plan": residual["residual_plan"],
+        "residual_verified": bool(value is not None),
+        "reference_seconds": residual["reference_seconds"],
+    }
+    if residual.get("residual_unavailable"):
+        fields["residual_unavailable"] = residual["residual_unavailable"]
+    return fields
+
+
+def _residual_distributed(torch: Any, tools: Any, *, solution: Any, source: Any,
+                          gauge: Any, plan: Mapping[str, Any], kappa: float,
+                          csw: float, started: float) -> dict[str, Any]:
+    """Rank-local ``D x - b`` with the production layout and the MPI halo.
+
+    Each rank holds its parity-compact block, expands it to the local full
+    lattice, applies the whole Wilson-Clover operator with the periodic shift
+    provided by :mod:`pyqcu.torch.tools._mpi_roll`, and contributes its local
+    ``||r||^2``/``||b||^2`` to an Allreduce.  No rank ever holds the global
+    field, so the rank-0 gather (and its multi-GiB workspace) is gone.
+    """
+    from pyqcu.torch.tools import _mpi_roll
+
+    comm = _comm(size=int(plan["mpi_size"]))
+    if comm is None:
+        raise VerificationUnavailable(
+            "the rank-local reference needs MPI_COMM_WORLD, but this run has "
+            "one rank")
+
+    def roll(value: Any, shifts: int, dims: int) -> Any:
+        return _mpi_roll.roll(value, shifts=shifts, dims=dims)
+
+    fields = {
+        "solution": tools.poooxyzt2oooxyzt(solution.contiguous()),
+        "source": tools.poooxyzt2oooxyzt(source.contiguous()),
+        "gauge": tools.poooxyzt2oooxyzt(gauge.contiguous()),
+    }
+    with _mpi_roll.distributed_roll(
+            comm=comm, process_grid=plan["lattice_grid"],
+            local_extents=plan["local_lattice"]):
+        clover = _clover_term(torch, roll, gauge=fields["gauge"], kappa=kappa,
+                              csw=csw)
+        applied = _wilson_clover_apply(
+            torch, roll, vector=fields["solution"], gauge=fields["gauge"],
+            clover=clover, kappa=kappa)
+    del clover
+    residual = applied - fields["source"]
+    numerator, denominator, solution_norm = _reduced_norms(
+        torch, residual=residual, source=fields["source"],
+        solution=fields["solution"], comm=comm)
+    return _residual_observation(
+        numerator=numerator, denominator=denominator,
+        solution_norm=solution_norm, plan=plan, started=started,
+        source=("independent torch full Wilson-Clover reconstruction of the "
+                "rank-local blocks (MPI halo from pyqcu.torch.tools._mpi_roll, "
+                "allreduce of ||Dx-b||^2 and ||b||^2)"))
+
+
+def _residual_tiled(torch: Any, tools: Any, *, solution: Any, source: Any,
+                    gauge: Any, plan: Mapping[str, Any], kappa: float,
+                    csw: float, started: float) -> dict[str, Any]:
+    """Whole-lattice residual computed one bounded ``t`` slab at a time.
+
+    Every slab carries one compact halo index on each side (two sites), which
+    keeps the parity expansion exact (the slab's ``t`` origin stays even) and
+    supplies the ``t`` neighbours the operator and the Clover term need; the
+    operator itself is the same injected-roll Wilson-Clover apply.  The norms
+    are accumulated in float64, so the peak is one slab - never the 11 GiB
+    Clover term of the whole lattice.
+    """
+    def roll(value: Any, shifts: int, dims: int) -> Any:
+        return torch.roll(value, shifts=shifts, dims=dims)
+
+    shape = tuple(int(value) for value in plan["lattice"])
+    extent = int(plan["tiled_slab_extent_t"])
+    slabs = int(plan["tiled_slabs"])
+    count = extent // 2
+    compact_t = shape[3] // 2
+    residual_sum = source_sum = solution_sum = 0.0
+    for index in range(max(slabs, 1)):
+        if slabs <= 1:
+            gutter: Any = slice(None)
+            interior = slice(None)
+        else:
+            indices = [(index * count - 1 + offset) % compact_t
+                       for offset in range(count + 2)]
+            gutter = torch.as_tensor(indices, dtype=torch.long,
+                                     device=solution.device)
+            interior = slice(2, 2 + extent)
+        gauge_slab = tools.poooxyzt2oooxyzt(gauge[..., gutter].contiguous())
+        vector = tools.poooxyzt2oooxyzt(solution[..., gutter].contiguous())
+        right = tools.poooxyzt2oooxyzt(
+            source[..., index * count:(index + 1) * count].contiguous())
+        clover = _clover_term(torch, roll, gauge=gauge_slab, kappa=kappa,
+                              csw=csw)
+        applied = _wilson_clover_apply(
+            torch, roll, vector=vector, gauge=gauge_slab, clover=clover,
+            kappa=kappa)
+        residual = applied[..., interior] - right
+        residual_sum += _sum_squares(torch, residual)
+        source_sum += _sum_squares(torch, right)
+        solution_sum += _sum_squares(torch, vector[..., interior])
+        del gauge_slab, vector, right, clover, applied, residual
+    return _residual_observation(
+        numerator=math.sqrt(max(residual_sum, 0.0)),
+        denominator=math.sqrt(max(source_sum, 0.0)),
+        solution_norm=math.sqrt(max(solution_sum, 0.0)),
+        plan=plan, started=started,
+        source=(f"independent torch full Wilson-Clover reconstruction of the "
+                f"{tuple(shape)} lattice in {max(slabs, 1)} t slab(s) of "
+                f"{extent} site(s) (no rank-0 gather of the global field)"))
+
+
+def _residual_gathered(torch: Any, tools: Any, *, solution: Any, source: Any,
+                       gauge: Any, plan: Mapping[str, Any], kappa: float,
+                       csw: float, purpose: str,
+                       started: float) -> dict[str, Any]:
+    """Historical rank-0 gather; kept for small lattices and as the test oracle."""
+    from pyqcu.torch import dslash
+
+    comm = _comm(size=int(plan["mpi_size"]))
+    fields = _full_fields(
+        torch, tools, solution=solution, source=source, gauge=gauge,
+        lattice=plan["lattice"], grid=plan["lattice_grid"],
+        size=int(plan["mpi_size"]), purpose=purpose,
+        budget=int(plan["budget_bytes"]))
     value: float | None = None
-    source_norm = residual_norm = solution_norm = None
+    numerator = denominator = solution_norm = None
     if fields is not None:
         operator = _operator_reference(torch, dslash, gauge=fields["gauge"],
                                        kappa=kappa, csw=csw)
-        applied = operator(fields["solution"])
-        residual = applied - fields["source"]
+        residual = operator(fields["solution"]) - fields["source"]
         denominator = float(torch.linalg.vector_norm(fields["source"]))
         numerator = float(torch.linalg.vector_norm(residual))
+        solution_norm = float(torch.linalg.vector_norm(fields["solution"]))
         value = (math.inf if denominator == 0.0
                  else float(numerator / denominator))
-        source_norm = denominator
-        residual_norm = numerator
-        solution_norm = float(torch.linalg.vector_norm(fields["solution"]))
     if comm is not None:
         value = comm.bcast(value, root=0)
-        source_norm = comm.bcast(source_norm, root=0)
-        residual_norm = comm.bcast(residual_norm, root=0)
+        numerator = comm.bcast(numerator, root=0)
+        denominator = comm.bcast(denominator, root=0)
         solution_norm = comm.bcast(solution_norm, root=0)
-    return {
-        "relative_residual": value,
-        "source_norm": source_norm,
-        "residual_norm": residual_norm,
-        "solution_norm": solution_norm,
-        "reference_seconds": time.perf_counter() - started,
-        "residual_source": (
-            "independent torch full Wilson-Clover reconstruction"
-            + ("" if size <= 1 else
-               " of the gathered global field (MPI all-blocks on rank 0)")),
-    }
+    observation = _residual_observation(
+        numerator=float(numerator or 0.0), denominator=float(denominator or 0.0),
+        solution_norm=float(solution_norm or 0.0), plan=plan, started=started,
+        source=("independent torch full Wilson-Clover reconstruction of the "
+                "gathered global field (MPI all-blocks on rank 0)"),
+        notes=["residual_mode='gather' keeps the historical rank-0 path; use "
+               "'auto' for the bounded reference"])
+    observation["relative_residual"] = value
+    observation["residual_norm"] = numerator
+    observation["source_norm"] = denominator
+    observation["solution_norm"] = solution_norm
+    return observation
+
+
+def _true_residual(torch: Any, *, solution: Any, source: Any, gauge: Any,
+                   lattice: Sequence[int], grid: Sequence[int], size: int,
+                   kappa: float, csw: float, purpose: str,
+                   budget: Any = None,
+                   mode: Any = "auto",
+                   plan: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """Independent ``||D x - b|| / ||b||`` inside a declared memory budget.
+
+    The physical definition never changes: the *full* Wilson-Clover operator
+    ``D = I + csw*T - kappa*hopping`` applied to the raw solution on the whole
+    (periodic) lattice, never the solver's recurrence.  Only the decomposition
+    does, and :func:`reference_plan` decides it before a single tensor is
+    allocated:
+
+    * rank-local blocks (the production layout, one block per rank) use the
+      distributed path - ``_mpi_roll`` halo, Allreduce of ``||r||^2``/``||b||^2``;
+      this is the bounded path and the one a multi-rank solve takes;
+    * whole-lattice fields (one rank owning everything) use the tiled path on
+      every rank, with no collective at all;
+    * ``mode="gather"`` keeps the historical rank-0 gather for small lattices.
+
+    ``plan`` is the already-decided :func:`reference_plan`; a runner passes it
+    in so the decision was taken *before* the native call
+    (:func:`_preflight_reference`).  Without one the plan is computed here, and
+    ``VerificationUnavailable`` is raised when the chosen path really does not
+    fit the budget (or when no path exists), carrying the estimate, the budget
+    and the alternative costs.
+    """
+    import pyqcu.tools as tools
+
+    started = time.perf_counter()
+    if plan is None:
+        plan = _reference_plan(
+            torch, solution=solution, source=source, gauge=gauge,
+            lattice=lattice, grid=grid, size=size, budget=budget, mode=mode)
+    if plan["mode"] == "unavailable":
+        raise VerificationUnavailable(plan["reason"])
+    if plan["mode"] == "distributed":
+        return _residual_distributed(
+            torch, tools, solution=solution, source=source, gauge=gauge,
+            plan=plan, kappa=kappa, csw=csw, started=started)
+    if plan["mode"] == "gather":
+        return _residual_gathered(
+            torch, tools, solution=solution, source=source, gauge=gauge,
+            plan=plan, kappa=kappa, csw=csw, purpose=purpose, started=started)
+    return _residual_tiled(
+        torch, tools, solution=solution, source=source, gauge=gauge,
+        plan=plan, kappa=kappa, csw=csw, started=started)
 
 
 def _bare_hopping_reference(torch: Any, dslash: Any, *, source: Any,
@@ -1425,6 +2575,12 @@ class NativeCase:
     backend: str = DEFAULT_BACKEND
     lattice: tuple[int, int, int, int] = DEFAULT_LATTICE
     lattice_grid: tuple[int, int, int, int] | None = None
+    #: Rank-local extents the ABI is told about, derived from ``lattice`` and
+    #: ``lattice_grid`` (``None``/``1x1x1x1`` mean "the whole lattice").  A
+    #: multi-rank case must declare a grid: every native operand has this shape,
+    #: while ``lattice`` stays the physical lattice the independent residual is
+    #: defined on.
+    local_lattice: tuple[int, int, int, int] | None = None
     dtype: str = DEFAULT_DTYPE
     seed: int = DEFAULT_SEED
     repeat: int = 1
@@ -1460,22 +2616,48 @@ class NativeCase:
     cache_policy: str = "auto"
     cache: Path | None = None
     cache_directory: Path | None = None
+    #: Independent-reference policy.  ``reference_mode`` is ``auto`` (the
+    #: distributed path for rank-local blocks, the tiled path for whole-lattice
+    #: fields), ``distributed``, ``tiled`` or ``gather``; ``reference_budget``
+    #: is the declared peak workspace of the reference in bytes.  A case whose
+    #: reference cannot fit raises :class:`VerificationUnavailable` carrying the
+    #: estimate instead of allocating it silently.
+    reference_mode: str = "auto"
+    reference_budget: int = REFERENCE_BUDGET_BYTES
+    #: Explicit HDF5 gauge/source artifacts (:mod:`pyqcu.test.io`).  When one is
+    #: set the field is *read from it* instead of generated, and the origin,
+    #: path, layout and SHA256 are reported - never a silent fallback to the
+    #: ``gauge``/``source`` generator.
+    gauge_file: Path | None = None
+    source_file: Path | None = None
     extras: Mapping[str, Any] = field(default_factory=dict)
 
     @property
+    def operand_lattice(self) -> tuple[int, int, int, int]:
+        """Extents of every ABI operand: the rank-local slab, not the global.
+
+        ``prod(operand_lattice) * prod(lattice_grid) == prod(lattice)`` holds by
+        construction (:func:`_declared_local`); the runners re-derive the same
+        numbers from the live MPI grid (:func:`local_geometry`) and refuse to
+        run if the two disagree.
+        """
+        return (tuple(self.lattice) if self.local_lattice is None
+                else tuple(self.local_lattice))
+
+    @property
     def compact(self) -> tuple[int, int, int, int]:
-        """Parity-compact ``[X, Y, Z, T/2]`` extents."""
-        return _compact_shape(self.lattice)
+        """Parity-compact ``[X, Y, Z, T/2]`` extents of the ABI operands."""
+        return _compact_shape(self.operand_lattice)
 
     @property
     def fermion_shape(self) -> tuple[int, ...]:
         """Two-parity compact fermion shape of the ABI."""
-        return _fermion_shape(self.lattice)
+        return _fermion_shape(self.operand_lattice)
 
     @property
     def clover_shape(self) -> tuple[int, ...]:
         """Parity compact Clover-term shape of the ABI."""
-        return _clover_shape(self.lattice)
+        return _clover_shape(self.operand_lattice)
 
     def as_dict(self) -> dict[str, Any]:
         """JSON-safe description of the request (reported by every runner)."""
@@ -1485,6 +2667,7 @@ class NativeCase:
             "lattice": list(self.lattice),
             "lattice_grid": (None if self.lattice_grid is None
                              else list(self.lattice_grid)),
+            "local_lattice": list(self.operand_lattice),
             "dtype": self.dtype,
             "seed": int(self.seed),
             "repeat": int(self.repeat),
@@ -1519,6 +2702,12 @@ class NativeCase:
             "cache": None if self.cache is None else str(self.cache),
             "cache_directory": (None if self.cache_directory is None
                                 else str(self.cache_directory)),
+            "gauge_file": (None if self.gauge_file is None
+                           else str(self.gauge_file)),
+            "source_file": (None if self.source_file is None
+                            else str(self.source_file)),
+            "reference_mode": self.reference_mode,
+            "reference_budget_bytes": int(self.reference_budget),
             "extra_options": dict(self.extras),
         }
 
@@ -1628,6 +2817,42 @@ def _resolve_int(value: Any, name: str, *, minimum: int = 0) -> int:
     return number
 
 
+def _path_option(value: Any) -> Path | None:
+    """Normalise an optional HDF5 input path (``None``/``''`` stay ``None``)."""
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    return Path(text).expanduser()
+
+
+def _declared_local(lattice: Sequence[int], lattice_grid: Any
+                    ) -> tuple[int, int, int, int]:
+    """Rank-local extents a *declared* grid implies (pure arithmetic).
+
+    Option resolution must not ask MPI anything (``--list`` and ``case()`` run
+    without a launcher), so the local extents come from the declared grid here;
+    :func:`local_geometry` re-derives them from the live grid before the first
+    native call and the two are required to agree.  A grid that does not tile
+    the lattice is a usage error at both places - no launch could make it valid.
+    """
+    shape = tuple(int(value) for value in lattice)
+    if lattice_grid is None:
+        return shape  # type: ignore[return-value]
+    requested = _int4(lattice_grid, "lattice_grid")
+    if any(value <= 0 for value in requested):
+        raise ValueError(f"lattice_grid extents must be positive, got {requested}")
+    for axis in range(_SPACE):
+        if shape[axis] % requested[axis]:
+            raise ValueError(
+                f"lattice_grid {requested} does not tile lattice {shape}: "
+                f"extent {shape[axis]} on axis {axis} is not divisible by "
+                f"{requested[axis]}")
+    return tuple(shape[axis] // requested[axis]
+                 for axis in range(_SPACE))  # type: ignore[return-value]
+
+
 def _options(case: Any = None, *, kind: str = "solve", **explicit: Any
              ) -> NativeCase:
     """Merge a ``Case``/``Options`` container with explicit keywords.
@@ -1678,6 +2903,7 @@ def _options(case: Any = None, *, kind: str = "solve", **explicit: Any
     max_iter = _resolve_max_iter(_get("max_iter"), kind=kind)
     grid_value = _get("lattice_grid")
     lattice_grid = None if grid_value is None else _int4(grid_value, "lattice_grid")
+    local_lattice = _declared_local(lattice, lattice_grid)
     threads = _get("threads")
     threads = None if threads is None else resolve_threads(threads)
     shm = _get("shm")
@@ -1738,11 +2964,16 @@ def _options(case: Any = None, *, kind: str = "solve", **explicit: Any
             f"cache_policy must be auto/off/require, got {cache_policy!r}")
     cache_value = _get("cache")
     cache_directory = _get("cache_directory")
+    reference_mode = _resolve_reference_mode(_get("reference_mode"))
+    reference_budget = _resolve_reference_budget(_get("reference_budget"))
+    gauge_file = _path_option(_get("gauge_file"))
+    source_file = _path_option(_get("source_file"))
     return NativeCase(
         kind=kind,
         backend=_resolve_backend(_get("backend")),
         lattice=lattice,
         lattice_grid=lattice_grid,
+        local_lattice=local_lattice,
         dtype=dtype,
         seed=seed,
         repeat=repeat,
@@ -1783,6 +3014,10 @@ def _options(case: Any = None, *, kind: str = "solve", **explicit: Any
         cache=(None if cache_value is None else Path(str(cache_value)).expanduser()),
         cache_directory=(None if cache_directory is None
                          else Path(str(cache_directory)).expanduser()),
+        reference_mode=reference_mode,
+        reference_budget=reference_budget,
+        gauge_file=gauge_file,
+        source_file=source_file,
         extras=extras,
     )
 
@@ -1803,18 +3038,82 @@ def _require_operator(option: NativeCase, *, dslash: str | None = None,
 # ---------------------------------------------------------------------------
 # shared observation blocks
 # ---------------------------------------------------------------------------
+def _input_observations(gauge: Mapping[str, Any] | None,
+                        source: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Origin/path/hash of the two inputs (``hdf5`` or the generator name).
+
+    The row ledger has to answer "which bytes did this run consume?", so the
+    origin is never inferred from a file name: ``origin="hdf5"`` always comes
+    with the validated path, layout, dtype and the streamed SHA256, and a
+    generated field names its generator instead (``random``/``unit``/
+    ``ones``/``point``) with no hash to mistake for evidence.
+    """
+    observations: dict[str, Any] = {}
+    for role, built in (("gauge", gauge), ("source", source)):
+        if built is None:
+            continue
+        observations.update({
+            f"{role}_origin": built.get("origin"),
+            f"{role}_path": built.get("path"),
+            f"{role}_sha256": built.get("sha256"),
+            f"{role}_layout": built.get("layout"),
+            f"{role}_file_dtype": built.get("dtype"),
+            # ``bytes`` is the payload size; an HDF5 input also reports its
+            # real ``st_size``, which is what a "file_bytes" key promises.
+            f"{role}_file_bytes": built.get("file_bytes", built.get("bytes")),
+        })
+    return observations
+
+
+def _case_geometry(option: NativeCase, grid: Sequence[int],
+                   geometry: LocalGeometry | None = None) -> LocalGeometry:
+    """The rank geometry of ``option`` under the live ``grid``, cross-checked.
+
+    The runners get the geometry from :func:`_run_native`; a direct call to a
+    case function re-derives it from the option and the grid.  Either way the
+    option's own ``operand_lattice`` must be the same slab, otherwise the
+    ledger would describe one geometry while the native call used another.
+    """
+    shape = policy.validate_lattice(option.lattice)
+    requested = _int4(grid, "lattice_grid")
+    if geometry is None:
+        geometry = local_geometry(shape, requested,
+                                  size=math.prod(requested))
+    geometry.check()
+    if tuple(option.operand_lattice) != geometry.local:
+        raise RuntimeError(
+            f"the case declares the local lattice "
+            f"{list(option.operand_lattice)} but the {list(geometry.grid)} grid "
+            f"owns {list(geometry.local)}; refusing to run with two geometries")
+    return geometry
+
+
 def _common_observations(option: NativeCase, probe: BackendProbe,
                          grid: Sequence[int], environment: NativeEnvironment,
-                         controls: _Controls, started: float) -> dict[str, Any]:
-    """Observation block shared by every native runner."""
+                         controls: _Controls, started: float, *,
+                         gauge: Mapping[str, Any] | None = None,
+                         source: Mapping[str, Any] | None = None
+                         ) -> dict[str, Any]:
+    """Observation block shared by every native runner.
+
+    ``lattice`` is always the physical (global) lattice and ``local_lattice``
+    the slab this rank owns; ``abi_geometry`` restates what the ABI was told
+    (``params[_LAT_*]``/``params[_GRID_*]``) with the volume check, so a ledger
+    row can tell "the operators ran on this rank's slab" from "the operators
+    were handed the global lattice".
+    """
+    geometry = _case_geometry(option, grid)
     return {
         "backend": probe.backend,
         "device": probe.device,
         "library": probe.library,
         "native_kind": option.kind,
         "lattice": list(option.lattice),
-        "local_lattice": list(local_lattice(option.lattice, grid)),
+        "local_lattice": list(geometry.local),
         "lattice_grid": list(grid),
+        "global_volume": int(geometry.volume),
+        "local_volume": int(geometry.local_volume),
+        "abi_geometry": controls.geometry,
         "grid_coordinate": list(rank_coordinate(probe.rank, grid)),
         "mpi_size": int(probe.size),
         "mpi_rank": int(probe.rank),
@@ -1829,6 +3128,7 @@ def _common_observations(option: NativeCase, probe: BackendProbe,
         "gauge_sigma": float(option.gauge_sigma),
         "gauge_seed": int(option.gauge_seed),
         "source_kind": option.source_kind,
+        **_input_observations(gauge, source),
         "source": {
             "kind": option.source_kind,
             "site": list(option.source_site),
@@ -1886,6 +3186,15 @@ def _run_native(option: NativeCase) -> dict[str, Any]:
     size = mpi_size()
     rank = mpi_rank()
     grid = process_grid(option.lattice, option.lattice_grid, size=size)
+    # The ABI/operand geometry follows the *live* grid; the declared grid the
+    # options already turned into ``local_lattice`` must agree with it.
+    geometry = local_geometry(option.lattice, grid, size=size)
+    if tuple(option.operand_lattice) != geometry.local:
+        raise RuntimeError(
+            f"the case declares the local lattice "
+            f"{list(option.operand_lattice)} but the {list(grid)} grid in this "
+            f"job owns {list(geometry.local)}; refusing to run with two "
+            "geometries")
     declared = _resolve_backend(option.backend)
     if option.kind == "dslash":
         _require_single_rank(
@@ -1918,26 +3227,34 @@ def _run_native(option: NativeCase) -> dict[str, Any]:
                 f"environment says {size} (rank {rank}); refusing to run with "
                 "inconsistent process grids")
         if option.kind == "dslash":
-            return _dslash_case(option, probe, grid, environment, started)
+            return _dslash_case(option, probe, grid, environment, started,
+                                geometry=geometry)
         if option.kind == "solve":
-            return _solve_case(option, probe, grid, environment, started)
-        return _mg_case(option, probe, grid, environment, started)
+            return _solve_case(option, probe, grid, environment, started,
+                               geometry=geometry)
+        return _mg_case(option, probe, grid, environment, started,
+                        geometry=geometry)
 
 
 def _dslash_case(option: NativeCase, probe: BackendProbe,
                  grid: Sequence[int], environment: NativeEnvironment,
-                 started: float) -> dict[str, Any]:
+                 started: float, *,
+                 geometry: LocalGeometry | None = None) -> dict[str, Any]:
     """Apply the native Wilson/Clover dslash once per parity and compare."""
     torch = _import_torch("kupl_library")
     from pyqcu.torch import dslash as dslash_module
 
+    geometry = _case_geometry(option, grid, geometry)
+    local = geometry.local
     controls = _Controls(
-        probe, lattice=option.lattice, grid=grid, dtype=option.dtype,
+        probe, lattice=local, grid=grid, dtype=option.dtype,
         mass=option.mass, csw=option.csw, atol=option.atol,
         max_iter=option.max_iter, plan=controls_plan(probe, "dslash"),
-        parity=0, seed=option.seed)
-    gauge = _build_gauge(option, torch, controls.torch_dtype)
-    source = _build_source(option, torch, controls.torch_dtype)
+        parity=0, seed=option.seed, global_lattice=geometry.lattice)
+    gauge = _build_gauge(option, torch, controls.torch_dtype, geometry,
+                         probe.rank)
+    source = _build_source(option, torch, controls.torch_dtype, geometry,
+                           probe.rank)
     parity_shape = (4, 3, *option.compact)
     # The ABI operand is one parity block: the even target is fed by the odd
     # source and the odd target by the even source.
@@ -1982,7 +3299,8 @@ def _dslash_case(option: NativeCase, probe: BackendProbe,
                           float(torch.linalg.vector_norm(outputs[target])))
     relative = max(errors.values())
     observations = _common_observations(option, probe, grid, environment,
-                                        controls, started)
+                                        controls, started, gauge=gauge,
+                                        source=source)
     observations.update(
         check="dslash_clover" if clover else "dslash_wilson",
         abi_symbol=entry,
@@ -2011,7 +3329,7 @@ def _dslash_case(option: NativeCase, probe: BackendProbe,
         ],
         **controls.controls_applied(
             mass=option.mass, csw=option.csw, atol=option.atol,
-            max_iter=option.max_iter, grid=grid, lattice=option.lattice),
+            max_iter=option.max_iter, grid=grid, lattice=local),
     )
     return _finish(observations, controls, global_before, samples, {
         "gauge_unchanged": bool(torch.equal(gauge["compact"], gauge_before)),
@@ -2021,16 +3339,36 @@ def _dslash_case(option: NativeCase, probe: BackendProbe,
 
 def _solve_case(option: NativeCase, probe: BackendProbe,
                 grid: Sequence[int], environment: NativeEnvironment,
-                started: float) -> dict[str, Any]:
-    """Run one native solve and reconstruct the true residual independently."""
+                started: float, *,
+                geometry: LocalGeometry | None = None) -> dict[str, Any]:
+    """Run one native solve and reconstruct the true residual independently.
+
+    Every operand is the rank-local slab of ``geometry.local`` - the extents the
+    ABI is told - and the independent residual is planned **before** the native
+    call (:func:`_preflight_reference`), so a reference that cannot fit the
+    budget is an explicit ``SKIP(reference_workspace)`` instead of an
+    ``ERROR`` after a successful solve.  On more than one rank the residual is
+    the bounded distributed, halo-exchanged ``D x - b`` of
+    :func:`_residual_distributed`; a failure that still happens after the solve
+    is reported as ``residual_verified=False`` + ``residual_unavailable`` and
+    never raised.
+    """
     torch = _import_torch("kupl_library")
+    geometry = _case_geometry(option, grid, geometry)
+    local = geometry.local
+    plan = _preflight_reference(
+        dtype=option.dtype, lattice=geometry.lattice, local=local,
+        grid=grid, size=probe.size, budget=option.reference_budget,
+        mode=option.reference_mode)
     controls = _Controls(
-        probe, lattice=option.lattice, grid=grid, dtype=option.dtype,
+        probe, lattice=local, grid=grid, dtype=option.dtype,
         mass=option.mass, csw=option.csw, atol=option.atol,
         max_iter=option.max_iter, plan=controls_plan(probe, "solve"),
-        parity=1, seed=option.seed)
-    gauge = _build_gauge(option, torch, controls.torch_dtype)
-    source = _build_source(option, torch, controls.torch_dtype)
+        parity=1, seed=option.seed, global_lattice=geometry.lattice)
+    gauge = _build_gauge(option, torch, controls.torch_dtype, geometry,
+                         probe.rank)
+    source = _build_source(option, torch, controls.torch_dtype, geometry,
+                           probe.rank)
     solution = controls.tensor(option.fermion_shape)
     # The CUDA ABI has no iteration getter on the Wilson solver, so a zero
     # Clover term is used there: with csw = 0 the Clover solver *is* the Wilson
@@ -2063,14 +3401,22 @@ def _solve_case(option: NativeCase, probe: BackendProbe,
     samples = time_samples(solve_once, repeat=option.repeat,
                            warmup=option.warmup)
     iterations = int(state["iterations"])
-    residual = _true_residual(
-        torch, solution=solution, source=source["compact"],
-        gauge=gauge["compact"], lattice=option.lattice, grid=grid,
-        size=probe.size, kappa=controls.kappa, csw=option.csw,
-        purpose="solve")
+    residual_started = time.perf_counter()
+    try:
+        residual = _true_residual(
+            torch, solution=solution, source=source["compact"],
+            gauge=gauge["compact"], lattice=geometry.lattice, grid=grid,
+            size=probe.size, kappa=controls.kappa, csw=option.csw,
+            purpose="solve", budget=option.reference_budget,
+            mode=option.reference_mode, plan=plan)
+    except Exception as error:  # noqa: BLE001 - never an ERROR after a solve
+        residual = _residual_unavailable(
+            f"the independent residual failed after the native solve: "
+            f"{type(error).__name__}: {error}", plan, residual_started)
     value = residual["relative_residual"]
     observations = _common_observations(option, probe, grid, environment,
-                                        controls, started)
+                                        controls, started, gauge=gauge,
+                                        source=source)
     observations.update(
         check="solve_bistabcg",
         equation="wilson" if not clover else "wilson_clover",
@@ -2083,22 +3429,14 @@ def _solve_case(option: NativeCase, probe: BackendProbe,
         iterations_available=iterations > 0,
         hit_max_iter=iterations >= int(option.max_iter),
         converged=bool(value is not None and value <= float(option.atol)),
-        relative_residual=value,
-        relative_error=value,
-        true_residual=value,
-        source_norm=residual["source_norm"],
-        residual_norm=residual["residual_norm"],
-        solution_norm=residual["solution_norm"],
-        residual_source=residual["residual_source"],
-        residual_verified=bool(value is not None),
-        reference_seconds=residual["reference_seconds"],
+        **_residual_fields(residual),
         notes=[
             "the native solver fails closed (a native error aborts the "
             "process), so atol/max_iter are validated before the transaction",
         ],
         **controls.controls_applied(
             mass=option.mass, csw=option.csw, atol=option.atol,
-            max_iter=option.max_iter, grid=grid, lattice=option.lattice),
+            max_iter=option.max_iter, grid=grid, lattice=local),
     )
     return _finish(observations, controls, global_before, samples, {
         "gauge_unchanged": bool(torch.equal(gauge["compact"], gauge_before)),
@@ -2137,7 +3475,7 @@ def _build_mg_assets(option: NativeCase, controls: _Controls, gauge: Any,
     expect; the parity is fixed at 1 (the odd-Schur fine field) before them.
     """
     define = controls.define
-    fine_odd = _compact_shape(option.lattice)
+    fine_odd = _compact_shape(option.operand_lattice)
     coarse = tuple(int(fine_odd[axis] // option.mg_grid[axis])
                    for axis in range(_SPACE))
     coarse_vectors, fine_components = int(option.dof[1]), 12
@@ -2306,16 +3644,30 @@ def _configure_legacy_mg(option: NativeCase, controls: _Controls,
 
 
 def _mg_case(option: NativeCase, probe: BackendProbe, grid: Sequence[int],
-             environment: NativeEnvironment, started: float) -> dict[str, Any]:
-    """Run one native Legacy-MG solve with a cache or a native asset build."""
+             environment: NativeEnvironment, started: float, *,
+             geometry: LocalGeometry | None = None) -> dict[str, Any]:
+    """Run one native Legacy-MG solve with a cache or a native asset build.
+
+    Same operand geometry as :func:`_solve_case` (the rank-local slab), with the
+    independent reference planned before the native call and never turned into
+    an ``ERROR`` afterwards.
+    """
     torch = _import_torch("kupl_library")
+    geometry = _case_geometry(option, grid, geometry)
+    local = geometry.local
+    plan = _preflight_reference(
+        dtype=option.dtype, lattice=geometry.lattice, local=local,
+        grid=grid, size=probe.size, budget=option.reference_budget,
+        mode=option.reference_mode)
     controls = _Controls(
-        probe, lattice=option.lattice, grid=grid, dtype=option.dtype,
+        probe, lattice=local, grid=grid, dtype=option.dtype,
         mass=option.mass, csw=option.csw, atol=option.atol,
         max_iter=option.max_iter, plan=controls_plan(probe, "mg"),
-        parity=1, seed=option.seed)
-    gauge = _build_gauge(option, torch, controls.torch_dtype)
-    source = _build_source(option, torch, controls.torch_dtype)
+        parity=1, seed=option.seed, global_lattice=geometry.lattice)
+    gauge = _build_gauge(option, torch, controls.torch_dtype, geometry,
+                         probe.rank)
+    source = _build_source(option, torch, controls.torch_dtype, geometry,
+                           probe.rank)
     terms, inverses = _native_clover_terms(controls, gauge["compact"], torch)
     assets: dict[str, Any] = {}
     cache_entry = None
@@ -2352,13 +3704,22 @@ def _mg_case(option: NativeCase, probe: BackendProbe, grid: Sequence[int],
     samples = time_samples(solve_once, repeat=option.repeat,
                            warmup=option.warmup)
     iterations = int(state["iterations"])
-    residual = _true_residual(
-        torch, solution=solution, source=source["compact"],
-        gauge=gauge["compact"], lattice=option.lattice, grid=grid,
-        size=probe.size, kappa=controls.kappa, csw=option.csw, purpose="MG")
+    residual_started = time.perf_counter()
+    try:
+        residual = _true_residual(
+            torch, solution=solution, source=source["compact"],
+            gauge=gauge["compact"], lattice=geometry.lattice, grid=grid,
+            size=probe.size, kappa=controls.kappa, csw=option.csw, purpose="MG",
+            budget=option.reference_budget, mode=option.reference_mode,
+            plan=plan)
+    except Exception as error:  # noqa: BLE001 - never an ERROR after a solve
+        residual = _residual_unavailable(
+            f"the independent residual failed after the native MG solve: "
+            f"{type(error).__name__}: {error}", plan, residual_started)
     value = residual["relative_residual"]
     observations = _common_observations(option, probe, grid, environment,
-                                        controls, started)
+                                        controls, started, gauge=gauge,
+                                        source=source)
     observations.update(
         check="mg_legacy",
         variant="legacy",
@@ -2375,15 +3736,7 @@ def _mg_case(option: NativeCase, probe: BackendProbe, grid: Sequence[int],
         converged=bool(
             value is not None and value <= float(option.atol)
             and (state["verify_status"] in (None, 0))),
-        relative_residual=value,
-        relative_error=value,
-        true_residual=value,
-        source_norm=residual["source_norm"],
-        residual_norm=residual["residual_norm"],
-        solution_norm=residual["solution_norm"],
-        residual_source=residual["residual_source"],
-        residual_verified=bool(value is not None),
-        reference_seconds=residual["reference_seconds"],
+        **_residual_fields(residual),
         asset_source=("cache" if cache_entry is not None
                       and cache_info.get("cache_reused") else "native"),
         asset_shapes={name: list(value_.shape)
@@ -2398,7 +3751,7 @@ def _mg_case(option: NativeCase, probe: BackendProbe, grid: Sequence[int],
         ],
         **controls.controls_applied(
             mass=option.mass, csw=option.csw, atol=option.atol,
-            max_iter=option.max_iter, grid=grid, lattice=option.lattice),
+            max_iter=option.max_iter, grid=grid, lattice=local),
     )
     if cache_entry is not None:
         observations.update(cache_entry.as_dict())
@@ -2421,6 +3774,8 @@ def run_dslash(case: Any = None, *, lattice: Any = None, lattice_grid: Any = Non
                gauge_seed: Any = None, source_seed: Any = None,
                source_site: Any = None, source_spin: Any = None,
                source_color: Any = None, backend: Any = None,
+               gauge_file: Any = None, source_file: Any = None,
+               reference_budget: Any = None, reference_mode: Any = None,
                options: Any = None, **extras: Any) -> dict[str, Any]:
     """Apply one native Wilson (default) or Clover dslash per parity.
 
@@ -2443,8 +3798,9 @@ def run_dslash(case: Any = None, *, lattice: Any = None, lattice_grid: Any = Non
         device_id=device_id, threads=threads, shm=shm, dslash=dslash,
         solver=solver, gauge_seed=gauge_seed, source_seed=source_seed,
         source_site=source_site, source_spin=source_spin,
-        source_color=source_color, backend=backend, options=options,
-        extras=extras)
+        source_color=source_color, backend=backend, gauge_file=gauge_file,
+        source_file=source_file, reference_budget=reference_budget,
+        reference_mode=reference_mode, options=options, extras=extras)
     return _run_native(option)
 
 
@@ -2458,14 +3814,19 @@ def run_solve(case: Any = None, *, lattice: Any = None, lattice_grid: Any = None
               gauge_seed: Any = None, source_seed: Any = None,
               source_site: Any = None, source_spin: Any = None,
               source_color: Any = None, backend: Any = None,
+              gauge_file: Any = None, source_file: Any = None,
+              reference_budget: Any = None, reference_mode: Any = None,
               options: Any = None, **extras: Any) -> dict[str, Any]:
     """Run one native BiCGStab solve and report the independent true residual.
 
     The operator is Wilson when ``csw == 0`` (the KUPL Wilson solver or, on
     CUDA, the Clover solver with a zero Clover term) and Wilson-Clover
     otherwise.  ``||D x - b|| / ||b||`` is reconstructed from the raw solution
-    on the full lattice with ``pyqcu.torch.dslash``; several ranks are supported
-    by gathering the rank-local blocks on rank zero.
+    with ``pyqcu.torch.dslash`` on this rank's slab, with the halo exchanged
+    through ``pyqcu.torch.tools._mpi_roll`` and ``||r||^2``/``||b||^2``
+    Allreduced, so no rank ever holds the global field.  A reference that does
+    not fit ``reference_budget`` skips with ``reference_workspace`` *before* the
+    solve.
 
     Required observations for a ``native_solver`` gate: ``relative_residual``,
     ``iterations``, ``max_iter``.
@@ -2478,8 +3839,9 @@ def run_solve(case: Any = None, *, lattice: Any = None, lattice_grid: Any = None
         device_id=device_id, threads=threads, shm=shm, dslash=dslash,
         solver=solver, gauge_seed=gauge_seed, source_seed=source_seed,
         source_site=source_site, source_spin=source_spin,
-        source_color=source_color, backend=backend, options=options,
-        extras=extras)
+        source_color=source_color, backend=backend, gauge_file=gauge_file,
+        source_file=source_file, reference_budget=reference_budget,
+        reference_mode=reference_mode, options=options, extras=extras)
     _require_operator(option, solver="bistabcg")
     return _run_native(option)
 
@@ -2498,6 +3860,8 @@ def run_mg(case: Any = None, *, lattice: Any = None, lattice_grid: Any = None,
            coarse_max_iter: Any = None, coarse_tol_factor: Any = None,
            deflate: Any = None, verify: Any = None, cache: Any = None,
            cache_policy: Any = None, cache_directory: Any = None,
+           gauge_file: Any = None, source_file: Any = None,
+           reference_budget: Any = None, reference_mode: Any = None,
            options: Any = None, **extras: Any) -> dict[str, Any]:
     """Run one native Legacy-MG solve (``applyCloverMultigridQcu``).
 
@@ -2519,7 +3883,9 @@ def run_mg(case: Any = None, *, lattice: Any = None, lattice_grid: Any = None,
         device_id=device_id, threads=threads, shm=shm, dslash=dslash,
         solver=solver, gauge_seed=gauge_seed, source_seed=source_seed,
         source_site=source_site, source_spin=source_spin,
-        source_color=source_color, backend=backend, options=options,
+        source_color=source_color, backend=backend, gauge_file=gauge_file,
+        source_file=source_file, reference_budget=reference_budget,
+        reference_mode=reference_mode, options=options,
         mg_levels=mg_levels, dof=dof, nv_iters=nv_iters, restart=restart,
         coarse_max_iter=coarse_max_iter,
         coarse_tol_factor=coarse_tol_factor, deflate=deflate, verify=verify,

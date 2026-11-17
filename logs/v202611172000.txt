@@ -1,0 +1,24 @@
+# L48 close-out snapshot — 2026-11-17 20:00 +08:00
+
+## Remote
+
+- `2153005` (c128 single-node 32r) was canceled by the user's close-out order:
+  `dkill` accepted, final state **FAILED** at 20:00:30, `startTime=-`, `execNodes=-`.
+- `2153889` / `2154119` (MG32 no matching cache) were already FAILED/canceled and never started.
+- `djob -u nsls_yangyb`: **no active jobs**; no two-node job submitted.
+
+## Local final checks
+
+- `python -m pyqcu.test --check`: **20/20 PASS**.
+- `python -m pyqcu.test --quick`: rc **0** (tier-0; 19 cases).
+- Adapter tests: **127 passed** (port / driver / ledger parity / ledger export / L48 matrix).
+- `git diff --check`: clean.
+
+## Not released
+
+- c128 has no sample (ABANDONED/UNVERIFIED).
+- Two-node L48 has no result (launcher fixed, no allocation; job canceled).
+- dslash/clover 32r is blocked on the compute-node init hang.
+- 32r/two-node Legacy-MG is DEFERRED/CACHE-MISSING.
+- CSV/Excel is not wired into the CLI.
+- `0.1.17` / `test37` remain published; next release would be `0.1.18` / `test38` only after ten-round review.

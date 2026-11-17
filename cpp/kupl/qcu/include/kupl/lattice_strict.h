@@ -53,7 +53,7 @@ std::size_t strict_vcycle(void *full_out, const void *full_rhs,
                           int start_level);
 
 template <typename Real>
-int strict_end_hierarchy(void *set_ptrs);
+int strict_end_hierarchy(void *set_ptrs, int expected_data_type);
 
 template <typename Real>
 std::size_t strict_fgmres(

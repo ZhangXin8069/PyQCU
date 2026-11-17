@@ -3,6 +3,8 @@
 > 证据等级：C 级时点证据，未打 tag，单样本为主；本文数值仅来自
 > [`skills/pyqcu-kupl/references/kupl-hbm-scan-20261112-evidence.md`](../skills/pyqcu-kupl/references/kupl-hbm-scan-20261112-evidence.md)，
 > 该文件未出现的数值一律标为“待补”，不作推算。
+> **例外**：§11 是 2026-11-17 追加的 L48 组态记录，数值来源是该节标注的远端作业号
+> （不在上述证据文件内），引用时按 C 级处理。
 
 本文记录 2026-11-12 会话在 LX2 集群上验证过的 KUPL HBM 绑定配置、MPI 映射、
 调度器用法、超时协议和实测结果。通用的构建、变量语义和规划器用法见
@@ -249,3 +251,27 @@ mpirun -np 32 --bind-to none --map-by ppr:2:numa --allow-run-as-root ...
 | 关键经验 1–6 | `skills/pyqcu-kupl/references/kupl-hbm-scan-20261112-evidence.md:78-95` |
 | y76 基线与原配方 | `skills/pyqcu-kupl/references/kupl-hbm-scan-20261112-evidence.md:97-104` |
 | 待补项 | `skills/pyqcu-kupl/references/kupl-hbm-scan-20261112-evidence.md:106-110` |
+
+## 11. 2026-11-17 追加：L48 组态的实测配置
+
+> 追加段，**不改 §1–§10 的 L24 配置与数值**。L48 权威记录见
+> [`pyqcu_test_l48_remote.md`](pyqcu_test_l48_remote.md) §0.1；证据等级 **C**
+> （远端作业，原始 `report.json`/`numastat` 未归档）。
+
+| 项 | L48 观测 | 与本文 L24 配方的关系 |
+|---|---|---|
+| 格点 / 精度 | `48³×96`（`10,616,832` site）、c64 | 本文配方按 L24（`24³×64`、`884,736` site）标定；L48 是 12× 体积，per-rank slab 与 cache 预算另算（Legacy-MG 逻辑约 `17.4 GiB`） |
+| 32 rank、1 独占节点 | BiCGStab `1.6646 s`、11 it、`7.126e-5`、RSS `3.14 GiB`（`2152757`） | “整节点独占 + `-x job`”的前提与 §4 一致：资源写 `dsub` 命令行、`-x job` 在节点被部分占用时保持 PENDING |
+| 16 rank、**共享**节点 | `183.0 s`、同残差、RSS `4.42 GiB`（`2152325`） | **共享节点破坏 §2 的 NUMA/HBM 独占假设**：cpuset 与内存带宽被邻居压缩，结果病态，不作基线 |
+| c64 Legacy-MG、16 rank | wall `110.35 s` + builder `1741.88 s`（总 `2656 s`）、RSS `11.93 GiB`、cache（E=2）`1.276 GiB` | 本文的 `KUPL_NUMA_BIND`/`KUPL_MEMORY_POLICY` 仍是推荐值；但 §5 的超时/内存协议必须按 L48 重算（RSS `11.93 GiB` 已高于 L24 生产行） |
+| 两节点 | `2153008` PENDING | §4 的 `dsub` 语义仍适用，但 launcher 未传 rankfile |
+
+新增待补项（L48 专属）：
+
+- L48 独占节点的 `KUPL_TOPOLOGY_REPORT`/`numastat` 未归档 → 无法确认 HBM 绑定仍落在
+  `memory_node 16–31`（本文 §2 的结论只在 L24 上验证过）。
+- L48 的 `-R "cpu=...;mem=..."` 实际取值未记录；`11.93 GiB` 只是 RSS 峰值下界，
+  不能反推 `mem` 申请。
+- 共享节点样本必须同时记录邻居作业与 cpuset，否则不得写入任何配置结论。
+- c128 与两节点在 L48 上仍无结果（`2153005` / `2153008` PENDING）；CG 组已退役，
+  L48 不再排 CG 用例。

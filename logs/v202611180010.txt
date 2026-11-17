@@ -1,0 +1,68 @@
+2026-11-18 00:10 +08:00  PyQCU 0.1.18 ten-round release review
+================================================================
+
+Scope: 0.1.18 release candidate from the worktree at HEAD 1f65469e plus the
+uncommitted L48/QCU changes.  All checks below are run from /home/zhangxin/PyQCU.
+This is a review ledger, not a claim that deferred work is complete.
+
+DEFERRED / NOT CLAIMED (kept for next task)
+------------------------------------------
+- Formal pyqcu.test --l48-two-node on the remote 32-rank job: UNVERIFIED;
+  the remote overlay lacks the flag and no formal two-node run exists.
+- Formal matrix c128 / 16 / 64-rank variants: UNVERIFIED.  The four
+  two-node PASSes are KUPL harness runs, not formal pyqcu.test rows.
+- 32-rank/two-node Legacy-MG: DEFERRED / CACHE-MISSING; no identity-matched
+  cache, no rebuild, coarse correction not demonstrated.
+- CSV F1/F2: DEFERRED.  The 100-column/21-sheet export was exercised, but
+  duplicate run_id (F1) and the environment typo usage error (F2) are not fixed.
+- 2155899 MG fallback diagnostic: PENDING; no execNodes/report; not a result.
+- Real multi-rank /tmp formal-port execution and its independent residual:
+  DEFERRED; only unit/small-lattice coverage exists.
+
+ROUNDS
+------
+R1  Scope / version / whitespace / large files / secret scan     PASS
+    - version 4 places = 0.1.18 (pyproject, pyqcu.__version__, docs en/zh conf)
+    - docs install assertions updated to 0.1.18
+    - git diff --check clean; form large-file gate PASS (0 checked, 10 MB limit)
+    - secret scan no token/private key match
+
+R2  Self-check and manifest                                       PASS
+    - python -B -m pyqcu.test --check: 20/20 PASS
+    - --list: 19 tier-0; --list --l48-two-node: 24 (5 L48 tier-1)
+    - version in list payload: 0.1.18
+
+R3  Full Python tests                                             PASS
+    - python -m pytest -q pyqcu/testing/python: 403 passed, 3 skipped
+    - includes native/ledger/launch/L48/driver/syntax/QCU interface
+
+R4  Tier-0 numerical quick                                        PASS
+    - python -B -m pyqcu.test --quick: 19/19 PASS, 0 skip/fail/error/timeout
+
+R5  Docs / skills / form                                          PASS
+    - audit-docs-skills.py: PASS docs=58 skills=36
+    - form-audit.sh: PASS (36 dirs, 18 existing exemptions)
+    - git diff --check clean
+
+R6  CLI / syntax / KUPL C++ / tag-chain                           PASS (tag-chain known exception)
+    - syntax-floor + QCU interface: 30 passed
+    - --list --l48-two-node JSON: count=24, l48=5
+    - KUPL ctest: 42/42 passed (185.71 s)
+    - tag-chain: FAIL only on historical bug45 [BLOCK], 0 safe repair
+      candidates; accepted as the documented historical exception, no rewrite.
+
+R7  Freeze / commit                                               PENDING at write time
+R8  Sdist build / release_check / twine                            PENDING at write time
+R9  Clean install / installed smoke                               PENDING at write time
+R10 Final independent audit / go-no-go                            PENDING at write time
+
+Evidence commands / files:
+- /tmp/r2_check.out, /tmp/r2_list.json
+- /tmp/r4_quick.out
+- /tmp/r5_python.out
+- /tmp/r6_syntax.out, /tmp/r6_ctest.out, /tmp/r6_tagchain.out
+- docs/pyqcu_test_l48_remote.md sec. 0.1.8 (deferred table)
+- docs/pyqcu_test_l48_remote.md sec. 0.1.6/0.1.7 (harness evidence)
+
+Release policy: only sdist; do not overwrite 0.1.17/test37; next tag test38
+follows test37; publish only after R7-R10 pass.  No wheel upload.

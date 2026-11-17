@@ -13,6 +13,13 @@ templates. See
 [`pyqcu-cuda/SKILL.md`](../pyqcu-cuda/SKILL.md#cuda-production-topology).
 The migrated example paths and standard test commands are summarized in
 [`pyqcu-docs/references/extracted-guidance.md`](../pyqcu-docs/references/extracted-guidance.md#2-测试与示例入口).
+L48 双节点真实 LIME/HDF5 的操作清单见
+[`references/l48-remote.md`](references/l48-remote.md)：远端 `login02` 基线已验证，
+单节点 c64 已有结果（32r `1.6646 s`），但 c128/两节点仍 PENDING、CG 组退役。
+本轮经验速查（0.1.17 覆盖树 18/18 vs 本机 19/19、3.10 PEP 646 语法门、dtype/读取放大、
+183 s 病态不作基线、16r “MG” 实为 fallback、cache identity 与 launcher 修复）见
+[`references/remote-l48-experience.md`](references/remote-l48-experience.md)，完整证据与
+链接见 [`docs/kupl_remote_l48_experience_20261117.md`](../../docs/kupl_remote_l48_experience_20261117.md)。
 
 ## Architecture
 
@@ -106,20 +113,22 @@ python -m pyqcu.test --mode list --json -        # full-mode 台账行，不执�
 ```
 
 正式端口的展开选项（默认值与判据见 README）：`--lattice-size`/`--lattice`、
-`--lattice-grid`（MPI 网格）、`--mg-grid`、`--lattice-preset L24|L32`、
+`--lattice-grid`（MPI 网格）、`--mg-grid`、`--lattice-preset L24|L32|L48`、
 `--gauge random|unit|ones`、`--gauge-sigma`/`--guage-sigma`、`--source point|ones|random`、
 `--mass`/`--kappa`（`kappa = 1/(2m+8)`）、`--csw`、`--max-iter`、`--restart`、
 `--mg-levels`、`--mg-nu-pre`/`--mg-nu-post`、`--device auto|cpu|gpu|dcu|npu`、
 `--device-id`、`--threads`、`--solver all|bicgstab|cg|multigrid|mg`（只筛 solve/mg）、
 `--dslash all|wilson|clover|both`（只筛 dslash）、`--backend` 别名
 `cpu`=torch+kupl、`dcu`=cuda、`npu`=torch、`--dtype complex64|complex128`、`--atol`、
-`--profile quick|cpu|gpu|c128|clover|mg|full`、`--sweep`、`--junit/--csv/--markdown`；
+`--profile quick|cpu|gpu|c128|clover|mg|full`、`--sweep`、`--native dslash|solve|mg`、
+`--junit/--csv/--markdown`；
 `--quick` 只锁 tier/格点/dtype/seed/repeat。
 
 - `--threads` **只在 torch runner 真正应用**（`torch.set_num_threads`，metrics 里
   `threads_applied`/`torch_threads`）；tier-0 的 `kupl_qcu.py`/`cuda_qcu.py` 不读取它，
   只把它记录进 `rows`/`options`。不要把 `--threads` 写成 KUPL/OpenMP 的已转发参数；
-  `native.py` 的 `apply_environment` 是未接线的原生扩展点（需要 `driver:run_row`）。
+  `native.py` 的 `apply_environment` 由 `--native` 行经 `driver.run_row` 接线（设置
+  `OMP_NUM_THREADS`/`KUPL_OMP_THREADS`，行里给 `threads_requested`/`threads_applied`）。
 - full mode（`--mode`）是编排层，不是第二套 runner：row 仍走同一 `Test.run`/`Case.expect`。
   `rows/<run_id>.json` 是事实源，`reports/rows.csv`/`merged.json` 是派生视图；
   `--resume` 复用 `PASS`/`SKIP`，`--skip-failed` 额外复用 `FAIL`（不再重试），
@@ -131,9 +140,12 @@ python -m pyqcu.test --mode list --json -        # full-mode 台账行，不执�
 - HDF5 输入（full mode `--gauge-file`/`--source-file`）：dataset `data`，仅
   `complex64`/`complex128`，canonical `xyzt` 布局（gauge `[3,3,4,x,y,z,t]`，source
   `[4,3,x,y,z,t]`；parity-compressed 加前导 `2` 且 `t/2`，必须带 `layout` 属性）。
-  `prepare` 校验、`prewarm` 读取并哈希；内置 tier-0 runner 不会用文件替换
-  `--gauge`/`--source`，除非同时记录 `gauge_origin`/`source_origin`。文件缺失/形状不符是
-  输入 `FAIL`（退出 1），不是用法错误；未请求的输入是 `SKIP`。
+  `prepare` 校验、`prewarm` 读取并哈希。消费方有两条：`--native` 行由
+  `pyqcu.test.driver.run_row` 真的读文件（校验 + SHA256 后交给 `native`，行里写
+  `gauge_origin=hdf5`/`gauge_sha256`），内置 tier-0 runner 不会用文件替换
+  `--gauge`/`--source`。文件缺失/形状不符是输入 `FAIL`（退出 1），不是用法错误；
+  未请求的输入是 `SKIP`。跨节点 `mpirun`（rankfile/`CCS_ALLOC_FILE`）仍是 TODO：
+  `--native` 行在 `--ranks` 与 `MPI_COMM_WORLD` 不符时报 `SKIP(mpi_grid)`。
 
 - 退出码：`0` 无 FAIL/ERROR/TIMEOUT；`1` 任一失败**或全部 SKIP**（除非
   `--allow-all-skipped`）；`2` 用法/环境错误。`pyqcu --selftest` 的 FAIL 退 2，两者不可混读。
@@ -329,78 +341,21 @@ pip check
 
 ## Strict MultiGrid Fast Gates
 
-Use `python pyqcu/testing/qcu/strict/quda_comparison/run_strict_fast.py`; tiers are cumulative and the default is tier 0. For the shortest edit loop, first run `--list` (no environment sourcing or setup), then run the default tier with `--fail-fast --json <path>` when a machine-readable result is useful:
+Strict-MG 快速闸门分三层（tier 0 CPU 代数 smoke、tier 1 CUDA 小格、tier 2 真实
+gauge + QUDA 正式门），由
+`pyqcu/testing/qcu/strict/quda_comparison/run_strict_fast.py` 执行；tier 累积，
+默认 tier 0。最短编辑回路先 `--list`，再用 `--fail-fast --json <path>` 固化结果：
 
 ```bash
 python pyqcu/testing/qcu/strict/quda_comparison/run_strict_fast.py --list
 python pyqcu/testing/qcu/strict/quda_comparison/run_strict_fast.py --fail-fast --json strict-fast.json
 ```
 
-- **Tier 0 — CPU algebra smoke:** the focused synthetic suite covers 20 checks for exports, FGMRES edge cases (including complex-Givens phase cancellation), strict mode/geometry guards, `R=P†`, full-coarse parity transfer, MATPC, `X/Y/Yhat` assets/layouts, recursive null-vector propagation, matrix-free guards and colored Galerkin batching/memory models. This is the edit-loop default.
-- **Tier 1 — CUDA small lattice:** cumulatively adds strict primitive/V-cycle/complete-solve and fused-C++ FGMRES checks covering lazy persistent workspace reuse, warm x0, budget/descriptor guards and complex128 dispatch. Runtime depends on GPU, driver and build; do not encode a fixed seconds claim. Use it before handing off a CUDA change, and ensure Python does not regain a duplicate Krylov arena.
-- **Tier 2 — real gauge + QUDA formal gate:** only selected explicitly with `--tier 2`; runs the formal `bench_strict_vs_quda.py` collector with the canonical real-gauge/null-vector bundle, cache-hit and QIO contracts. It records correctness, true residual, setup/solve timing and schema-v2 memory evidence; a fair speedup is emitted only when both sides pass. It may write its documented dev87 artifacts.
-
-Before any formal QUDA comparison, run and persist two fast, single-rank gates: the `4^4` reduction smoke (`pyqcu/testing/qcu/strict/quda_comparison/smoke_quda_reduction.py`) and an `8^4` Nc24 setup-only probe using `n_vec=12`, `coarse_spin=2`, and no timed solve. Both must be green before formal collection. Judge smoke success from resolved/read-back parameters after setup, never from requested arguments alone; missing resolved evidence is a failure. The formal path must build `QUDA_MULTIGRID_NVEC_LIST=12,24` (comma-separated): `12` serves `BlockOrthogonalize`'s `B.size`, and `24 = n_vec × coarse_spin` serves the coarse color/operator. A build containing only `12` or only `24` ends in `MPI_ABORT`.
-
-Strict CUDA tests must use `hierarchy_mode="strict"`/`StrictMultigrid`, fixed fine `target_parity=1` and coarse `start_level=1`; `setup_operator="schur"` is not a substitute for Strict. Keep the per-instance `_SET_INDEX_` fixed from `CudaSchurOp` construction through Strict init, V-cycle/FGMRES and Strict end; the legacy increment rule is tested separately. For ABI edits, also assert CPU `int32[58]`/`int64[100]` controls and the `params[57]` cold/warm behavior; do not use a fast gate that only checks requested CLI metadata.
-
-When configuring PyQUDA, `QudaMultigridParam` array getters return copies. Copy each complete array column, edit it, assign the complete column with `setattr`, and immediately read it back; indexed mutation such as `param.n_vec[0] = 12` or `param.vec_load[0] = ...` silently changes nothing. Keep the QDP host gauge contiguous `complex128` even for c64 device precision; device `setPrecision(single)` is not a host-gauge dtype conversion.
-
-The runner supports `--list`, `--only <gate>` (repeatable), per-command `--timeout`, `--fail-fast`, and `--json`. `--only` is the short edit-loop path for a named gate and bypasses cumulative tier selection. Keep tier 0 data-free and single-startup where possible; never move real-gauge setup or external QUDA imports into the default gate. The protocol/cache/QIO gate is a seconds-scale suite kept separate from the tiered runner. Run the four focused files together when changing the collector, cache or conversion contract:
-
-```bash
-python -B -m pytest -q -p no:cacheprovider \
-  pyqcu/testing/qcu/strict/quda_comparison/test_prepare_fair_nullvec.py \
-  pyqcu/testing/qcu/strict/quda_comparison/test_convert_full_nullvec_to_quda_qio.py \
-  pyqcu/testing/qcu/strict/quda_comparison/test_bench_strict_protocol.py \
-  pyqcu/testing/qcu/strict/quda_comparison/test_strict_runtime_cache.py
-```
-
-The default tier 0 embeds the three pure-CPU Galerkin fast checks; `--only cpu-smoke` runs them in the same pytest startup, while `--only <other-gate>` isolates a single edit target. Benchmark protocol tests require repository-contained cache directories, persist cache `directory/expect` in the execution record, and prove that a hit/miss mismatch fails before heavy imports or device allocation. They also cover QMP FUNNELED initialization and atexit lifetime without importing PyQUDA. WSL2 guard fixtures must fail closed when forced synchronization is disabled or the selected `libquda.so` is missing, not first in `LD_LIBRARY_PATH`, or lacks the patch marker; synthetic fixtures must assert `report["library_sha256"] == sha256(fixture_binary)`. Qualify the selected production library dynamically in the real reduction smoke rather than hard-coding its digest.
-
-MPI coverage is deliberately separate from the tiered runner:
-
-```bash
-python -m pytest -q -p no:cacheprovider pyqcu/testing/qcu/strict/quda_comparison/test_strict_mpi_preflight.py
-mpirun -np 2 python -m pytest -q -p no:cacheprovider pyqcu/testing/qcu/strict/quda_comparison/test_strict_mpi_preflight.py
-```
-
-These MPI tests cover rank-symmetric preflight plus c64/c128 global dot/norm reduction. Current capabilities declare setup/full/compact/R-P halos, global reduction and distributed fused FGMRES all true. The repository additionally has a two-rank P100 end-to-end strict solve with an independent true residual below `1e-6`. Keep the production gates: one process/rank/device, symmetric capability preflight and independent residual validation.
-
-2026-09-17 方向三补充：tier 0 为 20 passed，tier 1 `cuda-strict` 为
-11 passed（新增 c128 blocked basis + c64 CPU-staged Galerkin 与 CUDA
-runtime assets 的数值等价检查），`cuda-fused-fgmres` 为 3 passed。CPU
-block staging 的正式契约是 `retain_blocks=False`；若测试或调用方把 CPU
-canonical blocks 留到安装阶段，必须 fail closed，而不是静默混入 CUDA
-asset。
-
-2026-09-17 全量闸门：`source ./env.sh && source
-pyqcu/testing/qcu/strict/quda_comparison/quda_env.sh && python pyqcu/testing/qcu/strict/quda_comparison/run_all.py
---with-quda` 在 V100 上 `PASS 5/5`，总耗时 `757.4 s`；其中
-`quda_solve_scaled_agreement` 与 `quda_mg_scaled_agreement` 均通过，
-后者的 PyQCU wall 为 `1.22 s`、QUDA setup/solve 为 `613.78/70.05 s`。
-该结果只证明既有 dev87 回归集合未被本轮 cache/staging 改动破坏，不替代
-单独的速度比报告。
-
-parity 分组改动后复跑同一闸门，2026-09-17 再次 `PASS 5/5`，总耗时
-`756.3 s`；PyQCU wall 为 `1.18 s`、QUDA setup/solve 为
-`615.33/69.60 s`。该复跑确认新的 16-bucket source 顺序没有破坏
-dev87 的算子/求解器/QUDA 对照回归。
-
-随后使用 `QCU_CUDA_ARCHITECTURES='70-real;70-virtual'` 重建 native V100
-`libqcu.so`（`cuobjdump` 含 `sm_70.cubin`）并第三次运行同一闸门：
-`PASS 5/5`，总耗时 `751.2 s`；PyQCU wall 为 `1.17 s`、QUDA
-setup/solve 为 `609.79/69.73 s`。因此 CUDA 源码、Python strict
-路径和 QUDA 对照在 sm70 cubin 下均已回归。
-
-修正 `checkCudaErrors`/`checkMpiErrors` 双重求值后，重新构建 sm70
-并第四次运行全量闸门：`PASS 5/5`，总耗时 `755.5 s`；PyQCU wall
-为 `1.17 s`、QUDA setup/solve 为 `613.31/70.26 s`。该次结果同时
-覆盖了错误宏修复后的 C++ 二进制。
-
-Runtime-cache tests must enforce schema v2 per-tensor streaming SHA256, reject any tensor/metadata tamper before device transfer, bound host chunks to about 8 MiB, and account for two logical reads on a hit. A same-identity concurrent-publication test must fully validate the winning target's manifest, dataset attrs, and tensor SHA256 values before reuse. Fair-QIO protocol tests must fingerprint canonical full `[12,4,3,X,Y,Z,T]` data against `canonical_dataset_sha256`, require `QUDA_DEGRAND_ROSSI_GAMMA_BASIS`, and verify round-trip content with a two-file 8 MiB streaming scan; `source_sha256` is checked only as E12 provenance.
-
-Strict memory tests must distinguish live allocation from allocator reservation: before the first solve the C++ fused workspace is planned but not resident; after it, resident bytes must equal `(2*m+5)*B_f+2*B_c`. Galerkin tests use a separate four-full-field-arena budget: c64 production selects colored `C=12` under a `4 GiB` setup cap, while c128 stays at `C=1` under `1 GiB`; the c64 `512 MiB` value belongs only to outer Krylov. The formal benchmark's memory schema version 2 is a success-record hard gate: sampler start must not call `mem_get_info` on the main thread, stop must not add a final sample, and join timeout must retain the thread handle and fail closed. Require `device_used_max_observed_bytes`, keep the independent device-wide probe and sampler stop outside formal timing/`setup_seconds`, and filter `nvidia-smi` by target GPU UUID with fields named only `max_observed`. QUDA setup and warmup exception tests must release the sampler, multigrid, and Gauge while preserving the primary failure. Warm up, repeat solves, assert no new Torch allocation and stable owned/live bytes, then call `close()` while retaining the solver object and verify hierarchy slots/assets are released. Do not call `empty_cache()` before the leak assertion.
+完整的 tier 契约、QUDA/PyQUDA 构建与参数回读要求、Strict runtime-cache/内存判据、
+MPI preflight 与 2026-09 回归记录见
+[`references/strict-mg-fast-gates.md`](references/strict-mg-fast-gates.md)。
+涉及 ABI、cache/schema v2、QIO 或显存断言时先读该参考，不要把 tier 0 的
+“20 checks”当成当前分母。
 
 ## Logging Convention
 

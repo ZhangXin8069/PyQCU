@@ -64,3 +64,17 @@ gauge HDF5，不直接读取 LIME。
 - 若 10 分钟内未发布 cache，结论只能是 `CAPACITY/TIMEOUT BLOCKED`，不得引用
   历史 cache 时间或历史 A100 solve 时间。
 - 未完成的 rank、level 或 `mg_grid` 扩展均标记 `BLOCKED/UNVERIFIED`。
+
+## 5. 相关材料（2026-11-17 补充，只链接不复述）
+
+- 本文的 `dof=12 12`、`mg-grid=2 2 2 2` 逻辑 payload（`18,728,091,648 B`）仍是
+  仓库内**唯一**的 L48 容量预算，不是 LX2 远端实测。
+- 远端（`login02` / `/home/share/nsls_yangyb/PyQCU-main`）的 L48 进展、LIME 转换
+  计时与两节点探测状态见
+  [`pyqcu_test_l48_remote.md`](pyqcu_test_l48_remote.md) §2.4；那里的 L48 尚未
+  solve，两节点仍 PENDING。
+- LIME → canonical HDF5 的调用形状与 dtype 口径分别见
+  [`kupl_only_deployment.md`](kupl_only_deployment.md) §7.1、
+  [`kupl_kunpeng_progress_20261110.md`](kupl_kunpeng_progress_20261110.md)，
+  以及同名 `*_c64.h5` 实为 complex128 的根因
+  [`kupl_hdf5_source_gauge_rootcause_20261115.md`](kupl_hdf5_source_gauge_rootcause_20261115.md)。

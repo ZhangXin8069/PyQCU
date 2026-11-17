@@ -1,0 +1,299 @@
+[日志元数据]
+日志类型: stage
+生成时间: 2026-11-17 13:41 +0800
+批次: pyqcu-test-l48-remote-20261117
+主任务: 为 pyqcu.test 的 L48 + 两节点 + 真实 LIME/HDF5 生产路径建立设计、技能参考与任务日志
+触发原因: 阶段成果（只写 docs/skills/logs；不改核心代码，不改既有 AGENTS.md，不 commit/push）
+摘要: 新增 1 份设计说明、1 份技能参考和本日志；确认 L48 文件只读到元数据，远端 SSH 未解析，两节点/L48 求解均未验证。当前 `pyqcu.test` full mode 仍只编排 19 个 tier-0 case，`--gauge-file` 只做 HDF5 证据，`driver:run_row` 缺失；旧驱动只支持 L24/L32、无 LIME，`submit_kunpeng_all.sh` 写死 `-nn 1`。
+Git 根目录: /home/zhangxin/PyQCU
+日志文件: logs/v202611171341.txt
+
+> **更正（2026-11-17 14:02，见 `logs/v202611171402.txt`）**：本文 §2/§4 的“远端未
+> 访问”“`ssh lingsheng` 不可解析即集群不可达”“L48 只在本地、未上传”已被本轮推翻：
+> 远端可经 `login02` / `nsls_yangyb` + 用户提供的内部路由登录，L48 LIME 已在远端并被
+> `prepare_case.py` 转成 HDF5（41 s，文件名误标 c64、实为 complex128）。
+> 两节点与 L48 solve 仍未通过（探测 `2152277` PENDING）。
+
+## 0. 一句话状态
+
+文档侧已落盘；**远端未访问、L48 未转换、L48 未求解、两节点未验证**。本日志中的
+“完成”只指文档/日志写入完成，不代表设计已实现或任务目标已达成。
+
+## 1. 目标
+
+把正式端口 `pyqcu.test` 扩展到 L48（`48x48x48x96`）真实 LIME/HDF5 输入，并在
+灵晟（Lingsheng / LX2）两个计算节点上运行；用 `pyqcu.test` 的 full-mode 台账
+替代并改进：
+
+- `pyqcu/testing/kupl/test_kunpeng_all.py`
+- `pyqcu/testing/kupl/submit_kunpeng_all.sh`
+
+“改进”指：正式端口随包发行、row/report/CSV/resume/validate 语义统一、原生
+`dslash/solve/mg` 真正执行、输入身份可审计、两节点启动不依赖写死的单节点假设。
+
+## 2. 环境
+
+| 项目 | 事实 | 证据 |
+|---|---|---|
+| 本机 | WSL2，用户 `zhangxin`，仓库 `/home/zhangxin/PyQCU` | `pwd`、`uname` |
+| 数据 | `~/data -> /mnt/f/Data` | `readlink -f ~/data` |
+| L48 文件 | `/home/zhangxin/data/beta6.20_mu-0.2770_ms-0.2400_L48x96_cfg_7000.lime` | `stat` |
+| 文件大小 | `6,115,435,952 B`（约 5.70 GiB） | `stat` |
+| 版本 | `pyproject.toml` `version = "0.1.17"` | 文件 |
+| Git | HEAD `1f65469e`；`git describe` = `test37-1-g1f65469e` | `git describe --tags --always` |
+| 初始工作树 | `git status --short` 为空 | 本任务开始时 |
+| 远端 | `ssh lingsheng` 报 `Could not resolve hostname`；`~/.ssh/config` 不存在 | 本机命令 |
+| 远端路径/数据 | 未知；未上传 L48 | 未执行 |
+
+## 3. 已验证事实
+
+### 3.1 L48 输入（只读元数据）
+
+| 事实 | 值 | 证据 |
+|---|---|---|
+| LIME 魔数 | `45 67 89 ab`，version `0x00018000` | 文件头 |
+| 维度 | `48 48 48 96` | `lime_metadata` |
+| 精度 | `D`（complex128） | `scidac-private-record-xml` |
+| `datacount` / `colors` | `4` / `3` | 同上 |
+| `clovCoeff` | `1.160920225783` | `scidac-record-xml` |
+| `Mass` | `-0.2770` | 同上 |
+| payload | `6,115,295,232 B` | `ildg-binary-data` record |
+| 未做 | 未全量 `read_lime_gauge`、未校验 SciDAC checksum、未转 HDF5、未求解 | 本任务未执行 |
+
+按 `48^3*96 = 10,616,832` site 计算的 c64 逻辑尺寸（算术，不是已写出的文件）：
+
+- gauge c64 `[3,3,4,48,48,48,96]` = `3,057,647,616 B`（约 2.85 GiB）
+- source c64 `[4,3,48,48,48,96]` = `1,019,215,872 B`（约 0.95 GiB）
+- Legacy-MG cache 逻辑 payload = `18,728,091,648 B`（约 17.44 GiB；按
+  `dof=12 12`、`mg-grid=2 2 2 2` 的历史预算，引用
+  `docs/qcu_quda_solver_dcu_l48_20261029.md`）
+
+### 3.2 正式端口 `pyqcu.test`
+
+- `python -B -m pyqcu.test --list --json -` 实测 **19** 个 tier 0 case，
+  `[8,8,8,16]`、c64；`--quick` 仍是这个正确性门，不是 L48 生产入口。
+- `--lattice-preset` 只有 `L24`/`L32`；`--lattice-preset L48` 被 argparse 拒绝
+  （`pyqcu/test/common.py:1539-1542`、`pyqcu/test/__main__.py:242-245`）。
+- `--mode list --lattice-preset L24` 实测 19 行，标签仍是 `torch/*`、`kupl/*`、
+  `cuda/*` 的 tier 0 case；不是 L24 生产 `solve/mg` 行。
+- `--mode list --lattice-size 48 48 48 96` 实测同样只展开 19 个 tier 0 case；
+  显式 L48 格点能列计划，但没有 L48 生产行。
+- `--ranks 16 --shm` 在 `--mode list` 中确实写进 row（ranks `[16]`、shm `True`），
+  但内置 tier-0 执行器仍按单进程 case 执行；`--threads` 只在 torch runner 应用。
+  `pyqcu/test/README.md:198-206` 明确“记录 vs 生效”。
+- `--gauge-file`/`--source-file` 是 HDF5 输入，`prepare` 校验、`prewarm` 读取并
+  哈希；内置 tier-0 case 不会用文件替换自己的 `--gauge`/`--source`
+  （`pyqcu/test/README.md:218-241`）。实测 `--mode prewarm --gauge-file <L48.lime>`
+  报 `gauge file rejected: ... cannot be opened as HDF5`；普通运行的
+  `--gauge-file` 不替换 `--gauge` 生成场。
+- `MODE_HOOKS` 声明了 `driver:("run_row",)`（`pyqcu/test/common.py:1559-1565`），
+  `_solve_row` 会查 `mode_hook("driver","run_row")`（`:2609`），但仓库没有
+  `pyqcu/test/driver.py`；因此当前走回退 executor，不是原生全格点 runner。
+- `pyqcu/test/native.py` 已有 `run_dslash`/`run_solve`/`run_mg`/`run_case`
+  （`:2539`），但 `_build_gauge`/`_build_source` 只按 seed/source 生成场
+  （`:1081`、`:1132`），没有 HDF5/LIME 输入参数。
+- `--mode validate` 在正式端口是台账一致性校验（`pyqcu/test/common.py:2829`），
+  不是数值冒烟；与旧驱动的 `--mode validate` 同名异义。
+- 文档计数漂移：根 `AGENTS.md`、`skills/AGENTS.md` 写 “21 个 tier 0”，
+  实际 `--list` 与 `pyqcu/test/README.md` 为 19。未改既有文档。
+
+### 3.3 旧驱动与提交脚本
+
+- `test_kunpeng_all.py` 的 `LATTICES = {"L24", "L32"}` 在 `:87`；全文没有 LIME
+  分支，输入只经 `h5py` 的 `h5_readable`/`prewarm_h5`（`:310`）。
+- 模式：`list/prepare/prewarm/solve/merge/run/validate`（`:1569-1835`）；
+  `--mode validate` 强制 `8 8 8 16`、2 rank、`shm=0` 的小格冒烟（`:1749-1778`）。
+- 驱动自己启动 `mpirun -np <ranks> --bind-to none --map-by ppr:2:numa`
+  （`:1243`、`:1302`），外层必须是一个 task。
+- `submit_kunpeng_all.sh` 写死 `#DSUB -nn 1`（`:137`），并用
+  `-N $RANKS -rpn $RANKS`（`:138-139`）表达单节点整节点分配；
+  `ranks*threads > 608` 直接退出 2（`:94-97`）；提交用 `dsub -s`（`:174`）。
+- 驱动默认 `--lat 24 24 24 64`、`--lattices L24,L32`、`--ranks 32`、
+  `--threads 18`、`--shm 1`（`:1878-1935`）。
+- `--lattices` 只在 `--expand` 时参与矩阵展开：实测
+  `--mode list --lattices L48` 仍输出 `--lat` 默认 L24 的单行；
+  `--mode list --expand --lattices L48` 才在 `expand_rows` 抛 `KeyError: 'L48'`。
+
+### 3.4 手册（dsub 语义）
+
+`refer/kunpeng/深圳超算二期用户手册.pdf` 的“四、作业提交”与“调度脚本常用参数示例”
+给出：
+
+- `-nn`/`--nnodes`：作业运行的节点数；支持 `-nn "min,max"`，`min=max` 可简写
+  `-nn x`。
+- `-N`/`--replica`：资源副本数；默认一份资源启动一个任务。
+- `-rpn`/`--replica-per-node`：每个节点最大任务数。
+- 未给 `-N` 但同时给 `-nn` 与 `-rpn` 时，按手册规则推导 `N = nn * rpn`。
+- 多节点示例：`-nn 2` + `-rpn 32` = 2 节点 × 32 份资源 = 64 份。
+- `dsub -s 脚本` 提交；`dattach jobid` 默认第一个节点，`dattach -en "node" jobid`
+  指定节点；`djob -l/-ll` 查询，`dkill` 终止。
+- MPI 脚本模板从 `CCS_ALLOC_FILE` 读节点列表构造 rankfile，`CCS_TASK_REPLICA`
+  作为 `mpirun -np` 的规模。
+
+这些是**手册语义**，不是本账号实跑结果。仓库现场记录另有相反口径：
+`#DSUB` 头里的 `-N/-rpn/-R/-nl` 可能被忽略，调度参数应写在 `dsub` 命令行；
+两节点作业曾因缺少 hostfile 在 `mpirun` 阶段 `RC=255`
+（`docs/kupl_l24_perf_20261113.md:496-499`、`docs/kupl_mpi_scaling_20261114.md:32-33`）。
+
+### 3.5 代码中的 hostfile 缺口
+
+- `pyqcu/testing/simple/mpi/solve_case.py::build_mpirun_command`（`:327`）只拼
+  `mpirun --allow-run-as-root --oversubscribe --bind-to ... --map-by ... -np N`，
+  没有 `--hostfile`/`--host`/`--rankfile`。
+- `pyqcu/testing/simple/mpi/_entrypoint.py::build_mpirun_command`（`:407`）同样
+  没有 hostfile/rankfile 参数。
+- `test_kunpeng_all.py` 的 `driver_command`（`:1298`）也没有 hostfile/rankfile。
+- 因此两节点目标的第一步不是“把 -nn 改成 2”，而是先补 launcher/rankfile 合同。
+
+## 4. 开放阻塞
+
+按优先级：
+
+1. **远端访问**：`ssh lingsheng` 无法解析；`~/.ssh/config` 不存在。需要用户提供
+   别名、主机、端口、用户名、密钥；不得猜 IP 或写死 hostname。
+2. **数据未上传**：L48 6.1 GB 文件目前只在本地 WSL2；远端 `~/data` 路径、配额、
+   上传方式均未知。
+3. **两节点未验证**：无 hostfile/rankfile 支持；历史两节点作业 `RC=255`；
+   `CCS_ALLOC_FILE`/`CCS_TASK_REPLICA` 是否在当前 Donau/HPCKit 25.2.1 作业中存在
+   未知。
+4. **调度器口径冲突**：手册说 `#DSUB -nn/-N/-rpn` 有效；仓库现场文档说这些头
+   可能被忽略。必须实测哪种方式在当前账号生效。
+5. **L48 未转换/未求解**：只读了 LIME 元数据；没有 canonical HDF5、没有 cache、
+   没有 solve、没有独立真残差。
+6. **正式端口缺口**：无 `L48` preset；无 `pyqcu/test/driver.py`；`--gauge-file`
+   只接受 HDF5；`--mode validate` 名称冲突；`--ranks/--threads/--shm` 在
+   tier-0 执行器中只记录。
+7. **HDF5 MPI 未知**：远端 `h5py.get_config().mpi` 未知；若为 False，多 rank
+   cache 构建/MPIO 读取不可用。
+8. **容量未知**：L48 canonical gauge+source 约 4.08 GB（3.80 GiB），cache 逻辑约 17.4 GiB；
+   远端配额是否足够未验证。
+9. **walltime 未知**：L48 cache 历史 4-rank `499 s`；两节点 32 rank 构建/求解是否
+   能在当前默认 900 s 内完成未验证。
+
+## 5. 下一步行动
+
+### P0（解除阻塞，必须先做）
+
+1. 由用户提供 `lingsheng` 的 SSH 连接信息；建立 `~/.ssh/config` 别名（具体值不写入
+   仓库），验证 `ssh <alias> 'hostname; pwd; df -h ~'`。
+2. 确认远端仓库路径、`~/data` 挂载点、L48 上传方式；上传后核对
+   `stat -c %s` = `6115435952` 与 `sha256sum`。
+3. 在远端探测：`h5py.get_config().mpi`、`mpirun --version`、`echo $CCS_ALLOC_FILE`、
+   `dsub --help`、`djob --help`、`dinfo -q q_hpcapp`。
+4. 用 `dsub -nn 2` 做一次**空 MPI 作业**（`mpirun -np 2 hostname`），确认两个
+   `execNodes` 与 rankfile/hostfile 可用；先不跑 L48。
+
+### P1（正式端口实现，建议新文件/小步提交）
+
+1. `pyqcu/test/driver.py`：实现 `run_row`，调用 `native.run_case` 或 MPI 子进程；
+   只返回观测值，PASS/FAIL 仍由 harness 判。
+2. `pyqcu/test/native.py` 增加 HDF5 输入路径（`gauge_file`/`source_file` 或
+   `input_gauge`/`input_source`），按 rank 切 slab；记录 `gauge_origin`/
+   `source_origin`/SHA256。
+3. `pyqcu/test/common.py` 增加 `L48 = (48,48,48,96)` preset（或独立 `L48` 选项），
+   并加单元测试确保不与 `L24/L32` 混淆。
+4. 新增 `submit_pyqcu_test.sh`：`--nodes`、`--ranks-per-node`、`--rankfile`、
+   `-nn 2`；保留 `--dry-run`；不要改旧脚本，先并行验证。
+5. 解决 `--mode validate` 名称冲突：建议新增 `--mode smoke` 做数值冒烟，
+   `validate` 只做台账校验。
+
+### P2（L48 数值验证）
+
+1. 单节点 2 rank `8x8x8x16` 冒烟 → 单节点 16 rank L48 子块 → 单节点 16 rank 全 L48。
+2. 两节点 32 rank `grid 2 2 2 4`、`--no-shm`，先 1 个 row；通过后扩到矩阵。
+3. 每个 PASS 必须带独立真残差、迭代数、输入 SHA256、`djob -ll` `execNodes`、
+   作业号、`wall_seconds` 与 `elapsed_seconds`。
+4. 任何未通过的组合写 `BLOCKED/UNVERIFIED`，不得用单节点结果替代两节点。
+
+## 6. Owner agents
+
+| Owner | 职责 | 本轮状态 |
+|---|---|---|
+| `pyqcu-testing` | 主责：正式端口 `pyqcu.test` 的 `driver.run_row`、L48 preset、测试与台账语义 | 只写设计/参考；代码未改 |
+| `pyqcu-kupl` | KUPL 原生路径、`--shm`/线程、旧驱动兼容与替换判据 | 提供旧驱动事实；未改代码 |
+| `pyqcu-testing-data` | LIME/HDF5 输入身份、SHA256、shape/dtype/lattice 验证、损坏/截断排查 | 只读元数据；未转换 |
+| `pyqcu-benchmark` | 两节点作业证据、wall/elapsed 分离、跨节点可比性红线 | 未采集性能 |
+| `pyqcu-docs` / `pyqcu-form` | docs/skills 索引、形式审计与链接检查 | form PASS；docs audit 因新文档未登记 FAIL（见 §7.1） |
+| 远端操作者（人工） | SSH/账号、数据上传、`dsub` 队列与节点分配 | 未开始 |
+
+## 7. 本轮交付物
+
+| 路径 | 类型 | 状态 |
+|---|---|---|
+| `docs/pyqcu_test_l48_remote.md` | 设计说明（P 级，未实现） | 新建（docs 顶层；`docs/.gitignore` 的 `**/` 规则忽略子目录） |
+| `skills/pyqcu-testing/references/l48-remote.md` | 技能参考（操作者清单） | 新建 |
+| `skills/pyqcu-testing/SKILL.md` | 一行参考指针（指向 `references/l48-remote.md`） | 已改（+2 行） |
+| `logs/v202611171341.txt` | 本任务日志 | 新建 |
+| `pyqcu/test/**` 代码 | 正式端口实现 | **未改** |
+| `pyqcu/testing/kupl/test_kunpeng_all.py` / `submit_kunpeng_all.sh` | 旧驱动 | **未改** |
+| 既有 `AGENTS.md` / `docs/AGENTS.md` / `skills/AGENTS.md` | 索引 | **未改**（按任务约束） |
+
+因未改既有 AGENTS.md，`docs/AGENTS.md`、`skills/pyqcu-testing/AGENTS.md`、
+`skills/pyqcu-docs/references/project-docs-map.md` 尚未登记新文件；这是已知的
+后续工作，不把“未登记”当成完成。
+
+### 7.1 本轮审计
+
+- `python -B skills/pyqcu-docs/scripts/audit-docs-skills.py`：
+  `FAIL docs=54 skills=36 errors=11`。其中 `DOCS-COUNT`/`DOCS-INDEX`/`DOCS-MAP`/
+  `DOCS-GUIDANCE`/`DOCS-UNIQUE` 均为新文档未登记（受“不改既有 AGENTS.md”约束）；
+  `SKILL-SIZE`/`AGENTS-SIZE` 为既有告警。代码行锚点 `[LINK]` 与新参考声明
+  `[POINTER]` 已清零。
+- `bash skills/pyqcu-form/form-audit.sh`：`PASS`（36 个技能目录与索引一致）。
+- 并发工作区变更（非本任务）：2026-11-17 13:44 起 `pyqcu/test/cuda_qcu.py`、
+  `pyqcu/test/kupl_qcu.py` 出现点源索引写法改动；另有未跟踪的
+  `pyqcu/test/ledger_csv.py`。本任务未编辑、未回滚这些文件，最终交付以本任务
+  新增/修改的 4 个文件为准。
+
+## 8. TODO / 待验证清单
+
+- [ ] 远端 SSH 可解析、可登录。
+- [ ] L48 文件上传并核对大小/SHA256。
+- [ ] 远端 `h5py` MPI、`mpirun`、`dsub`/`djob` 可用性。
+- [ ] `#DSUB` vs `dsub` 命令行参数的实际行为。
+- [ ] `CCS_ALLOC_FILE`/`CCS_TASK_REPLICA`/`CCS_JOB_ID` 是否存在及格式。
+- [ ] `dsub -nn 2` 实际分配两个节点，`execNodes` 核对通过。
+- [ ] L48 LIME 全量读取/checksum/转 HDF5 成功，`pyqcu.test.io.describe` 可读。
+- [ ] L48 c64 gauge/source 大小、SHA256、磁盘配额。
+- [ ] 单节点 KUPL L48 solve 通过。
+- [ ] 两节点 32 rank L48 solve 通过（含独立真残差）。
+- [ ] L48 MG cache 构建/复用通过。
+- [ ] 正式端口 L48 row 与旧驱动同配置对照（不是性能加速比）。
+- [ ] 更新 docs/skills 索引（需允许编辑既有 AGENTS.md 的批次）。
+- [ ] 修正 “21 vs 19 tier 0” 文档漂移。
+
+## 9. 证据命令（本机已执行）
+
+```bash
+# L48 元数据（只读，未读 payload）
+python3 - <<'PY'
+import importlib.util, json
+spec = importlib.util.spec_from_file_location('lime_mod', 'pyqcu/testing/simple/_lime.py')
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+print(json.dumps(m.lime_metadata('/home/zhangxin/data/beta6.20_mu-0.2770_ms-0.2400_L48x96_cfg_7000.lime'), indent=2))
+PY
+
+# 正式端口矩阵
+python -B -m pyqcu.test --list --json -
+
+# full-mode L24 / L48 列表（只列计划，不执行）
+python -B -m pyqcu.test --mode list --lattice-preset L24 --json -
+python -B -m pyqcu.test --mode list --lattice-size 48 48 48 96 --json -
+
+# L48 preset 应被拒绝
+python -B -m pyqcu.test --mode list --lattice-preset L48 --json -
+
+# 旧驱动详情
+python -B pyqcu/testing/kupl/test_kunpeng_all.py --help
+sed -n '80,100p;270,330p;1860,1965p' pyqcu/testing/kupl/test_kunpeng_all.py
+sed -n '1,190p' pyqcu/testing/kupl/submit_kunpeng_all.sh
+```
+
+## 10. 状态声明
+
+- 远端访问：**未建立**。
+- L48 输入：**仅本地元数据，未转换**。
+- L48 正确性：**未验证**。
+- 两节点：**未验证**。
+- 性能：**未测量**。
+- 本轮结论：文档侧可交接；实现和远端验证均需后续 agent 按 §5 执行。

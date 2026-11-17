@@ -216,13 +216,17 @@ SOLVER_CHOICES: tuple[str, ...] = ("all", "bicgstab", "cg", "multigrid", "mg")
 DEFAULT_SOLVER = "all"
 #: Solver choice -> tag patterns.  ``solve/bistabcg`` matches
 #: ``<backend>/solve/bistabcg`` (the historical ``bistabcg`` spelling of
-#: BiCGStab); a trailing ``/`` marks a tag *segment* match (``mg``).
+#: BiCGStab); a trailing ``/`` marks a tag *segment* match (``mg``).  The
+#: ``l48/*`` entries keep the tier-1 L48 two-node matrix selectable by the same
+#: flag: its tags are ``<backend>/l48/bicgstab/<dtype>`` and
+#: ``<backend>/l48/legacy-mg/<dtype>``.  There is deliberately no ``l48/cg``
+#: pattern - that group is retired (see :mod:`pyqcu.test.l48`).
 SOLVER_TAG_FILTERS: dict[str, tuple[str, ...]] = {
     "all": (),
-    "bicgstab": ("solve/bistabcg",),
+    "bicgstab": ("solve/bistabcg", "l48/bicgstab"),
     "cg": ("solve/cg",),
-    "multigrid": ("mg/",),
-    "mg": ("mg/",),
+    "multigrid": ("mg/", "l48/legacy-mg"),
+    "mg": ("mg/", "l48/legacy-mg"),
 }
 
 #: ``--dslash`` vocabulary.  Only ``kind == "dslash"`` cases are filtered;
@@ -673,7 +677,9 @@ def _tag_matches_patterns(tag: str, patterns: tuple[str, ...]) -> bool:
 
     A pattern without a trailing ``/`` is a tag suffix (``solve/cg`` matches
     ``torch/solve/cg``); a pattern with one is a tag segment (``mg/`` matches
-    every ``*/mg/*`` tag).
+    every ``*/mg/*`` tag); a pattern with an inner ``/`` also matches a
+    contiguous run of tag segments (``l48/bicgstab`` matches
+    ``kupl/l48/bicgstab/c64``).
     """
     segments = tag.split("/")
     for pattern in patterns:
@@ -681,6 +687,8 @@ def _tag_matches_patterns(tag: str, patterns: tuple[str, ...]) -> bool:
             if pattern.rstrip("/") in segments:
                 return True
         elif tag == pattern or tag.endswith("/" + pattern):
+            return True
+        elif f"/{pattern}/" in f"/{tag}/":
             return True
     return False
 

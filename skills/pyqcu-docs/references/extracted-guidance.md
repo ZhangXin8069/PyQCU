@@ -59,7 +59,7 @@ prune、`setup.py` 排除，安装用户没有该包）。旧顶层 `examples/` 
 
 ```bash
 source ./env.sh
-python -m pyqcu.test --list                               # 正式：21 个 tier 0 用例，不 import 后端
+python -m pyqcu.test --list                               # 正式：19 个 tier 0 用例，不 import 后端
 python -m pyqcu.test --quick                              # 正式：tier 0，8 8 8 16，c64
 python -m pyqcu.test --mode list --json -                 # 正式：full-mode 台账行，不执行
 python -m pyqcu.test --backend cpu --dtype complex128 --solver cg
@@ -397,3 +397,8 @@ mpirun -np 1 python -u conftest.py
 | `docs/kupl_performance_20261115.md` | 跨版本对照只在同口径下成立：`atol`/`strict-acceptance`、源、grid/shm、节点、cache 任一项不同即不可相除；c128 无鲲鹏 c128 墙钟时不得用 x86 历史值补齐；单样本差 <5% 不判快慢。 | `pyqcu-benchmark`, `pyqcu-kupl` |
 | `docs/kupl_matrix_scope_20261115.md` | MPI h5py 只做接口检查（`h5py 3.7.0`/`HDF5 1.10.6`、`get_config().mpi=False`、无 `mpio`、无一行 `hdf5_mpio_read=true`、不重编译/安装、ranked cache 不列入计划）；thread 9/seed24/random gauge/random 源/point 源/r50 六轴放弃；`source_..._c64.h5` 是 random seed42、`ones`/`ones_v2` 同为 `9cdcfc82…f55a`；6 条 L32 FAIL 属首次有效运行；cache 只重签不重跑；`djob -c`/`dsub -c` 不可用。 | `pyqcu-kupl`, `pyqcu-benchmark`, `pyqcu-testing-data` |
 | `docs/kupl_l24_c64_mg2_shm1_boundary_20261115.md` | MG2+shm1 的单个 `shared halo handshake timeout: publish`（`b3267714a641ea60`）**不是稳定失败**：同 config 复测 2/2 PASS、真残差与 shm0 逐位相同 → 1 FAIL / 2 PASS；不写 `known_skips.json`（只留 candidate，默认 disabled），不得整体禁 `balanced+mg2+shm1`、不得静默回退 shm0；`--resume` 判重读 `rows/<run_id>.json` 而非 CSV，重测必须换 outdir。 | `pyqcu-kupl`, `pyqcu-benchmark`, `pyqcu-testing-qcu` |
+| `docs/pyqcu_test_l48_remote.md` | `pyqcu.test` 的 L48 状态以 §0 与 §0.1 为准：`login02` 访问、0.1.15 非 git 快照 + 0.1.17 Python 覆盖、`--check` 18/18、HMPI 单 rank、L48 转换 41 s 已验证；§0.1 首批结果：c64 BiCGStab 32 rank 独占节点 `1.6646 s`/11 it/`7.126e-5`（`2152757`）、16 rank 共享节点 `183.0 s` 属病态不作基线、c64 Legacy-MG 16 rank wall `110.35 s`+builder `1741.88 s`/cache `1.276 GiB`；c128 `2153005` 与两节点 `2153008` PENDING、32r dslash/clover UNVERIFIED、CG 组退役、Strict-MG 排除；cache 只认同 identity（只有 16 rank cache，32r 不重建）、CSV/Excel parity 仍在验证。设计仍是 P 级、未实现；并发未提交实现不算修复。 | `pyqcu-testing`, `pyqcu-kupl`, `pyqcu-benchmark` |
+| `docs/pyqcu_test_l48_two_node_matrix.md` | L48 两节点 tier-1 矩阵只有定义：5 个正式 case 全部 `UNVERIFIED`，`2x2x2x4`/32 ranks/2 nodes；CG 退役、Strict-MG 排除；`launch_plan()` 只返回数据结构，不启动进程。 | `pyqcu-testing`, `pyqcu-kupl`, `pyqcu-testing-data` |
+| `docs/pyqcu_test_audit_risk_20261117.md` | `pyqcu.test`/L48 的 P0/P1 **全部未修复**：无文件驱动原生 solve、无 `driver.run_row`、无跨节点 launcher、CUDA rank-grid 仅 SKIP、MPI abort/死锁与 `_SET_INDEX_` 游标风险、KUPL 驱动无 L48、`submit_kunpeng_all.sh` 写死 `-nn 1`/`mem=8G`、CSV/Excel parity 未验证。不得据此声称 L48 solve 或两节点 PASS。 | `pyqcu-testing`, `pyqcu-kupl`, `pyqcu-testing-data`, `pyqcu-benchmark` |
+| `docs/kupl_remote_l48_experience_20261117.md` | L48 远端的判定纪律：0.1.17 覆盖树 18/18 ≠ 本机 20/20（17:55；17:47 为 19/19）≠ `--quick` 19 case；PEP 646 `source[*tuple]` 要结构性扫描；文件名不是 dtype；384 B hyperslab/3.56× 放大与 `dtfs` 33–36 s 停顿；`wall`/`mpirun`/`elapsed` 三分；183 s 是共享病态节点、不作基线；16r “MG” 110.35 s 实际回退 fine BiCGStab；cache 只认同 identity、32r 无 cache 不重建；`2152277` 只是 placement probe，两节点 MPI 需 rankfile/`CCS_DRUN_RANK_FILE`。 | `pyqcu-testing`, `pyqcu-kupl`, `pyqcu-testing-data`, `pyqcu-benchmark` |
+| `docs/pyqcu_test_l48_review.md` | 发布前必须十轮（R1–R10）全 PASS；当前快照 R1/R2/R6/R7/R9 FAIL、R3/R4/R5 部分 PASS、R8 的 docs 计数已修复（PASS）、R10 UNVERIFIED；`0.1.17`/`test37` 已发布不可覆盖，下一版只能是 `0.1.18`/`test38`；`bug45` 是唯一历史 tag-chain `[BLOCK]`，不重写、不声称 tag gate 全绿。 | `pyqcu-testing`, `pyqcu-docs`, `pyqcu-tag` |

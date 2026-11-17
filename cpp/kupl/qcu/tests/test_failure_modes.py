@@ -28,6 +28,9 @@ def bind_library(path: Path) -> ctypes.CDLL:
         function = getattr(library, name)
         function.argtypes = (LL,) * count
         function.restype = None
+    verify = library.verifyCloverMultigridQcu
+    verify.argtypes = (LL,) * 9
+    verify.restype = ctypes.c_int
     status = library.applyMultigridStrictInitQcu
     status.argtypes = (LL, LL, ctypes.c_int, ctypes.POINTER(ctypes.c_ulonglong))
     status.restype = ctypes.c_int
@@ -104,6 +107,45 @@ def child_multigrid_require_correction(library: ctypes.CDLL) -> None:
         pointer(params))
 
 
+def child_ordinary_slot(index: int, library: ctypes.CDLL) -> None:
+    """Prove ordinary INIT/END refuse the reserved multigrid slots."""
+    params, argv, set_ptrs, _ = make_state()
+    params[15] = index
+    library.applyInitQcu(pointer(set_ptrs), pointer(params), pointer(argv))
+    print(f"UNEXPECTED: applyInitQcu accepted reserved slot {index}")
+
+
+def child_ordinary_slot_end(index: int, library: ctypes.CDLL) -> None:
+    params, argv, set_ptrs, _ = make_state()
+    params[15] = index
+    library.applyEndQcu(pointer(set_ptrs), pointer(params))
+    print(f"UNEXPECTED: applyEndQcu accepted reserved slot {index}")
+
+
+def child_ordinary_last_slot(library: ctypes.CDLL) -> None:
+    """The last ordinary slot (_SET_PTRS_COARSE_BASE_ - 1) must still work."""
+    params, argv, set_ptrs, _ = make_state()
+    params[15] = 29
+    library.applyInitQcu(pointer(set_ptrs), pointer(params), pointer(argv))
+    print(f"init_ok={int(set_ptrs[29]) != 0}")
+    library.applyEndQcu(pointer(set_ptrs), pointer(params))
+    print(f"end_ok={int(set_ptrs[29]) == 0}")
+
+
+def child_multigrid_verify_levels(library: ctypes.CDLL) -> None:
+    """An absurd _MG_NUM_LEVEL_ must not index set_ptrs past its 100 entries."""
+    params, argv, set_ptrs, _ = make_state()
+    library.applyInitQcu(pointer(set_ptrs), pointer(params), pointer(argv))
+    dummy = np.zeros(1, dtype=np.complex64)
+    for levels in (5, 18, 19, 21):
+        params[17] = levels
+        status = library.verifyCloverMultigridQcu(
+            pointer(dummy), pointer(dummy), pointer(dummy), pointer(dummy),
+            pointer(dummy), pointer(dummy), pointer(dummy), pointer(set_ptrs),
+            pointer(params))
+        print(f"levels={levels} status={status}")
+
+
 def run_child(library_path: Path, mode: str) -> subprocess.CompletedProcess[str]:
     environment = os.environ.copy()
     environment.update({
@@ -127,7 +169,9 @@ def main() -> int:
     parser.add_argument(
         "--child",
         choices=("clover", "multigrid-null", "multigrid-mode",
-                 "multigrid-require-correction"))
+                 "multigrid-require-correction", "init-reserved-slot",
+                 "init-legacy-layout-slot", "end-reserved-slot",
+                 "ordinary-last-slot", "multigrid-verify-levels"))
     args = parser.parse_args()
     library = bind_library(args.library)
     if args.child == "clover":
@@ -141,6 +185,21 @@ def main() -> int:
         return 0
     if args.child == "multigrid-require-correction":
         child_multigrid_require_correction(library)
+        return 0
+    if args.child == "init-reserved-slot":
+        child_ordinary_slot(30, library)
+        return 0
+    if args.child == "init-legacy-layout-slot":
+        child_ordinary_slot(99, library)
+        return 0
+    if args.child == "end-reserved-slot":
+        child_ordinary_slot_end(30, library)
+        return 0
+    if args.child == "ordinary-last-slot":
+        child_ordinary_last_slot(library)
+        return 0
+    if args.child == "multigrid-verify-levels":
+        child_multigrid_verify_levels(library)
         return 0
 
     status = library.applyMultigridStrictInitQcu(0, 0, 0, None)
@@ -176,10 +235,52 @@ def main() -> int:
             "Clover-MG correction requirement did not fail explicitly: "
             f"returncode={correction_mg.returncode} "
             f"stderr={correction_mg.stderr[-2000:]}")
+
+    # N3: ordinary INIT/END own set_ptrs[0, _SET_PTRS_COARSE_BASE_) only; the
+    # coarse/strict/layout slots must be refused instead of overwritten.
+    for mode, label in (
+            ("init-reserved-slot", "INIT at _SET_INDEX_=30"),
+            ("init-legacy-layout-slot", "INIT at _SET_INDEX_=99"),
+            ("end-reserved-slot", "END at _SET_INDEX_=30")):
+        reserved = run_child(args.library, mode)
+        if (reserved.returncode == 0 or
+                "reserved for multigrid assets" not in reserved.stderr):
+            raise AssertionError(
+                f"{label} was not rejected: "
+                f"returncode={reserved.returncode} "
+                f"stderr={reserved.stderr[-2000:]}")
+        if "UNEXPECTED" in reserved.stdout:
+            raise AssertionError(f"{label} was accepted by the backend")
+    last_slot = run_child(args.library, "ordinary-last-slot")
+    if (last_slot.returncode != 0 or "init_ok=True" not in last_slot.stdout or
+            "end_ok=True" not in last_slot.stdout):
+        raise AssertionError(
+            "ordinary slot 29 no longer initializes: "
+            f"returncode={last_slot.returncode} stdout={last_slot.stdout!r} "
+            f"stderr={last_slot.stderr[-2000:]}")
+
+    # N5: _MG_NUM_LEVEL_ beyond the 17 coarse-asset transitions the 100-entry
+    # set_ptrs table can describe must be rejected before table[] is read.
+    verify_levels = run_child(args.library, "multigrid-verify-levels")
+    if verify_levels.returncode != 0:
+        raise AssertionError(
+            "verifyCloverMultigridQcu crashed on an out-of-range level count: "
+            f"returncode={verify_levels.returncode} "
+            f"stderr={verify_levels.stderr[-2000:]}")
+    for expected in ("levels=5 status=1", "levels=18 status=1",
+                     "levels=19 status=2", "levels=21 status=2"):
+        if expected not in verify_levels.stdout:
+            raise AssertionError(
+                f"verifyCloverMultigridQcu clamp lost {expected!r}: "
+                f"stdout={verify_levels.stdout!r} "
+                f"stderr={verify_levels.stderr[-2000:]}")
+
     print(
         "status=PASS clover_nonconvergence=abort "
         "multigrid_null=abort multigrid_mode=abort "
-        "multigrid_require_correction=abort status_error=1")
+        "multigrid_require_correction=abort status_error=1 "
+        "ordinary_slot_reserved=abort ordinary_slot_29=ok "
+        "multigrid_verify_levels=clamped")
     return 0
 
 

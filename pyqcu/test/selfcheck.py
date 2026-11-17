@@ -37,6 +37,12 @@ What is checked
     expands deterministically within ``matrix.MAX_CASES`` and ``--list --json``
     emits those rows, and ``report.write_report`` writes JSON/JUnit/CSV/
     Markdown atomically with no ``.tmp`` left behind.
+11. Every ``pyqcu/test/*.py`` parses with the **Python 3.10 grammar**
+    (``ast.parse(feature_version=(3, 10))``) and carries no PEP 646 starred
+    subscript/annotation.  A 3.11-only construct is invisible to a local 3.12
+    interpreter but is a hard ``SyntaxError`` for the 3.10.9 release run, so
+    the gate reports ``file:line`` without needing that interpreter.  A parser
+    that does not honour ``feature_version`` reports SKIP, never PASS.
 
 ``main()`` returns ``0`` when every check passes (skips are not failures) and
 ``1`` otherwise.  ``python -m pyqcu.test --check`` delegates here.
@@ -71,8 +77,8 @@ from .common import (
     write_json_atomic,
 )
 
-__all__ = ["Check", "main", "run_checks", "test_policy_constants",
-           "test_selfcheck"]
+__all__ = ["Check", "check_py310_syntax", "main", "run_checks",
+           "test_policy_constants", "test_selfcheck"]
 
 #: ``pyqcu/test`` directory (works from a checkout and from site-packages).
 PACKAGE_DIR = Path(__file__).resolve().parent
@@ -84,6 +90,8 @@ HARNESS_MODULES = (
     "__init__.py",
     "__main__.py",
     "common.py",
+    "l48.py",
+    "launch.py",
     "matrix.py",
     "policy.py",
     "profiles.py",
@@ -104,7 +112,7 @@ REQUIRED_FLAGS = (
     "--threads", "--device-id", "--list", "--json", "--junit", "--csv",
     "--markdown", "--repeat", "--warmup", "--seed", "--dtype", "--atol",
     "--timeout", "--fail-fast", "--allow-all-skipped", "--outdir",
-    "--verbose", "--check",
+    "--verbose", "--check", "--l48-two-node", "--ledger-export",
 )
 
 #: An import statement of a forbidden module (top-level or ``pyqcu.testing``).
@@ -112,6 +120,29 @@ _FORBIDDEN_IMPORT = re.compile(
     r"^\s*(?:import|from)\s+(?:pyqcu\.testing|torch|numpy|mpi4py|pytest)\b",
     re.MULTILINE,
 )
+
+#: Python grammar the shipped sources must parse with.  ``pyproject.toml``
+#: declares ``requires-python >= 3.9`` and the release validation installs on
+#: Python 3.10.9, which is the strictest interpreter actually exercised: a
+#: 3.11-only construct is a hard ``SyntaxError`` there while a local 3.12 run
+#: accepts it.  One constant, so tightening to 3.9 stays a one-line change.
+PY310_TARGET = (3, 10)
+
+#: Description of the grammar gate, printed by ``--check`` on PASS and SKIP so
+#: the score line states what was actually proved (the star scan matters: the
+#: ``feature_version`` flag alone misses PEP 646).
+PY310_SYNTAX_DESCRIPTION = (
+    "every pyqcu/test/*.py parses with the Python 3.10 grammar "
+    "(ast.parse(feature_version=(3, 10)) plus a PEP 646 star scan)")
+
+#: Construct the running parser has to reject when it is given
+#: ``feature_version=(3, 10)``.  ``except*`` (PEP 654) is 3.11-only, so an
+#: interpreter that accepts this probe ignores the flag and cannot prove PASS.
+_PY310_PROBE = "try:\n    pass\nexcept* RuntimeError:\n    pass\n"
+
+#: PEP 646 constructs Python 3.10 cannot read and ``feature_version`` misses.
+_PEP646_SUBSCRIPT = "starred subscript is PEP 646 (Python 3.11+)"
+_PEP646_ANNOTATION = "starred annotation is PEP 646 (Python 3.11+)"
 
 
 class Check(NamedTuple):
@@ -177,6 +208,7 @@ def _check_import_is_stdlib_only() -> Check:
         "import pyqcu.test.units\n"
         "import pyqcu.test.selfcheck\n"
         "import pyqcu.test.__main__\n"
+        "import pyqcu.test.launch\n"
         "import pyqcu.test.torch_qcu\n"
         "import pyqcu.test.kupl_qcu\n"
         "import pyqcu.test.cuda_qcu\n"
@@ -481,6 +513,153 @@ def _check_no_test_modules() -> Check:
             f"pyqcu/test must not contain pytest modules: {', '.join(offenders)}")
     return Check("no_test_modules", "PASS",
                  "pyqcu/test holds no test_*.py (see selfcheck.py instead)")
+
+
+def _feature_version_is_enforced() -> tuple[bool, str]:
+    """Return ``(True, "")`` when the running parser honours the grammar floor.
+
+    ``ast.parse(feature_version=...)`` exists since Python 3.8, but honouring
+    it is not guaranteed: an implementation may reject the argument
+    (``TypeError`` without the keyword, ``ValueError`` for an unsupported
+    tuple) or silently ignore it.  A gate that cannot enforce the 3.10 grammar
+    must never report PASS, so this probe - not the docstring - picks between
+    PASS and SKIP.
+    """
+    try:
+        ast.parse(_PY310_PROBE, feature_version=PY310_TARGET)
+    except SyntaxError:
+        return True, ""
+    except (TypeError, ValueError) as error:
+        return False, (
+            f"ast.parse(feature_version={PY310_TARGET!r}) is not supported "
+            f"({type(error).__name__}: {error})")
+    return False, (
+        f"ast.parse(feature_version={PY310_TARGET!r}) accepts an exception "
+        "group, so this interpreter ignores the flag")
+
+
+def _is_parenthesized(text: str, node: ast.AST) -> bool:
+    """Whether ``node`` is a parenthesised display, not a bare subscript item.
+
+    ``x[(a, *b)]`` and ``x[a, *b]`` produce the *same* ``Tuple`` node; only the
+    source shows the parentheses, and that difference is the whole bug: a
+    starred element inside a parenthesised tuple display has been legal since
+    Python 3.5, while a bare ``*b`` as a *subscript item* is the 3.11-only
+    PEP 646 grammar.  Falls back to the column offset when no source segment is
+    available - a parenthesised display starts at its ``(``.
+    """
+    segment = ast.get_source_segment(text, node)
+    if segment is not None:
+        return segment.lstrip().startswith("(")
+    elements = getattr(node, "elts", ())
+    return bool(elements) and node.col_offset != elements[0].col_offset
+
+
+def _pep646_star_problems(text: str, tree: ast.AST) -> list[tuple[int, str]]:
+    """3.11-only PEP 646 stars that ``feature_version`` does not reject.
+
+    CPython 3.12/3.13 still accept ``x[0, spin, color, *site]`` and
+    ``def f(*args: *Ts)`` under ``feature_version=(3, 10)``: the starred
+    subscript/annotation rule landed in 3.11 without a version check (unlike
+    ``except*`` and PEP 695, which *are* rejected).  That is exactly the
+    construct that reached the 3.10.9 run (``source[*option.source_site]`` in
+    ``kupl_qcu.py``/``cuda_qcu.py``), so it is detected structurally from the
+    AST rather than trusted to the parser flag.
+
+    Only the two positions Python 3.10 cannot parse are reported: a starred
+    *subscript item* (``x[a, *b]``, ``x[*b]``, ``x[1:2, *b]``) and a starred
+    ``*args`` annotation (``def f(*args: *Ts)``).  ``x[(a, *b)]`` is a plain
+    tuple display and stays legal, so the subscript check looks at the source
+    parentheses before reporting.
+
+    Returns ``(line, message)`` pairs, sorted and duplicate-free.
+    """
+    found: set[tuple[int, str]] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Subscript):
+            slice_node = node.slice
+            if isinstance(slice_node, ast.Starred):
+                found.add((slice_node.lineno, _PEP646_SUBSCRIPT))
+            elif isinstance(slice_node, ast.Tuple) \
+                    and not _is_parenthesized(text, slice_node):
+                for element in slice_node.elts:
+                    if isinstance(element, ast.Starred):
+                        found.add((element.lineno, _PEP646_SUBSCRIPT))
+        elif isinstance(node, ast.arg) \
+                and isinstance(node.annotation, ast.Starred):
+            found.add((node.annotation.lineno, _PEP646_ANNOTATION))
+    return sorted(found)
+
+
+def check_py310_syntax(
+        directory: str | os.PathLike[str] | None = None) -> Check:
+    """Every ``pyqcu/test/*.py`` must parse with the Python 3.10 grammar.
+
+    The port ships in the sdist/wheel and ``pyproject.toml`` declares
+    ``requires-python >= 3.9``; the release validation also installs on Python
+    3.10.9.  A 3.11-only construct is therefore a hard ``SyntaxError`` for
+    users while a local 3.12 interpreter accepts it -
+    ``source[*option.source_site]`` (PEP 646) shipped in
+    ``kupl_qcu.py``/``cuda_qcu.py`` exactly that way.  This check re-parses
+    every module of the package with the 3.10 grammar and reports
+    ``file:line`` for each failure, so the defect is caught here without a
+    3.10 interpreter.
+
+    Two layers, because the flag alone does not catch the regression:
+
+    * ``ast.parse(text, feature_version=(3, 10))`` rejects the constructs the
+      running parser gates (``except*``, PEP 695 ``type``/type parameters);
+    * :func:`_pep646_star_problems` finds the 3.11 stars that the flag misses.
+
+    ``directory`` defaults to :data:`PACKAGE_DIR`; the regression test in
+    ``pyqcu/testing/python`` passes a temporary directory, so no 3.11-only
+    syntax is ever committed under ``pyqcu/test``.  When the grammar layer is
+    unavailable the check reports SKIP with the reason instead of a fake PASS -
+    unless the structural layer already found a real defect, which is a FAIL
+    whatever the parser supports.
+    """
+    base = PACKAGE_DIR if directory is None else Path(directory)
+    files = sorted(path for path in base.glob("*.py") if path.is_file())
+    if not files:
+        return Check("py310_syntax", "SKIP", f"no *.py under {base}")
+    enforced, reason = _feature_version_is_enforced()
+    problems: list[str] = []
+    for path in files:
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as error:
+            problems.append(f"{path.name}: unreadable "
+                            f"({type(error).__name__}: {error})")
+            continue
+        tree: ast.AST | None = None
+        if enforced:
+            try:
+                tree = ast.parse(text, filename=str(path),
+                                 feature_version=PY310_TARGET)
+            except SyntaxError as error:
+                problems.append(f"{path.name}:{error.lineno}: {error.msg} "
+                                "(rejected by the Python 3.10 grammar)")
+        if tree is None:
+            try:
+                tree = ast.parse(text, filename=str(path))
+            except SyntaxError as error:
+                if not enforced:
+                    problems.append(
+                        f"{path.name}:{error.lineno}: {error.msg} "
+                        f"(rejected by Python {sys.version_info.major}."
+                        f"{sys.version_info.minor})")
+                continue
+        problems.extend(f"{path.name}:{line}: {message}"
+                        for line, message in _pep646_star_problems(text, tree))
+    if problems:
+        return Check("py310_syntax", "FAIL", "; ".join(problems))
+    if not enforced:
+        return Check(
+            "py310_syntax", "SKIP",
+            f"not verified - {PY310_SYNTAX_DESCRIPTION}: {reason}; "
+            f"{len(files)} modules passed the structural PEP 646 scan only")
+    return Check("py310_syntax", "PASS",
+                 f"{len(files)} modules: {PY310_SYNTAX_DESCRIPTION}")
 
 
 def _setup_find_packages_arguments() -> dict[str, list[str]]:
@@ -882,8 +1061,121 @@ def _check_units_contract() -> Check:
         return Check("units_contract", "FAIL", "; ".join(problems))
     return Check(
         "units_contract", "PASS",
-        f"{len(units.CASES)} cases: 11 torch, 5 kupl, 5 cuda; runners and "
+        f"{len(units.CASES)} cases: 11 torch, 5 kupl, 3 cuda; runners and "
         "gates match policy")
+
+
+def _check_l48_matrix() -> Check:
+    """The L48 two-node matrix is present, tier 1, and CG/Strict-MG free.
+
+    Three independent statements are checked together because they can drift
+    apart silently:
+
+    * the manifest itself (groups, per-case parameters, even rank grids);
+    * the tier-0 matrix (``--quick`` still selects exactly the 19 shipped
+      cases, CG included) and the L48 plan (CG retired, everything else kept);
+    * the CLI surface (``--mode list --l48-two-node`` emits the matrix rows and
+      the manifest payload, and ``--quick --l48-two-node`` still selects 19).
+    """
+    import contextlib
+    import io
+
+    from . import l48
+    from .__main__ import main
+    from .common import Test
+
+    problems: list[str] = []
+    try:
+        l48.validate()
+    except ValueError as error:
+        return Check("l48_matrix", "FAIL", f"invalid manifest: {error}")
+    if tuple(group.name for group in l48.GROUPS) != l48.GROUP_NAMES:
+        problems.append(f"group order {tuple(g.name for g in l48.GROUPS)}")
+    for group in l48.GROUPS:
+        text = " ".join((group.name, group.title, group.summary)).lower()
+        if "strict" in text:
+            problems.append(f"group {group.name!r} mentions Strict-MG")
+        if group.name in l48.FORBIDDEN_GROUPS:
+            problems.append(f"group {group.name!r} is forbidden")
+    for case in l48.cases():
+        if int(case.tier) != 1:
+            problems.append(f"{case.tag}: tier {case.tier} != 1")
+        if not case.pinned:
+            problems.append(f"{case.tag}: L48 geometry is not pinned")
+        if l48.is_cg_tag(case.tag) or "strict" in case.tag:
+            problems.append(f"{case.tag}: CG/Strict-MG in the L48 matrix")
+    if l48.RETIREMENT.get("status") != "RETIRED":
+        problems.append("the L48 CG retirement is not RETIRED")
+
+    quick = Test.default().select(quick=True)
+    quick_tags = {case.tag for case in quick.cases}
+    if quick_tags != set(policy.TIER0_TAGS):
+        problems.append(
+            f"--quick tags {sorted(quick_tags)} != the 19 tier-0 tags")
+    if not set(l48.CG_TAGS) <= quick_tags:
+        problems.append("the tier-0 CG cases disappeared from --quick")
+    l48_plan = Test.default().select(lattice=l48.LATTICE, tier=1)
+    expected = len(policy.TIER0_TAGS) - len(l48.CG_TAGS)
+    if len(l48_plan.cases) != expected:
+        problems.append(
+            f"L48 plan has {len(l48_plan.cases)} cases, expected {expected} "
+            f"(19 tier-0 - {len(l48.CG_TAGS)} retired CG)")
+    if any(l48.is_cg_tag(case.tag) for case in l48_plan.cases):
+        problems.append("an L48 plan still carries a CG case")
+
+    buffer = io.StringIO()
+    with contextlib.redirect_stdout(buffer):
+        code = main(["--mode", "list", "--l48-two-node", "--only", "kupl/l48",
+                     "--json", "-"])
+    if code != 0:
+        return Check("l48_matrix", "FAIL",
+                     f"--mode list --l48-two-node returned {code}")
+    try:
+        payload = json.loads(buffer.getvalue())
+    except ValueError:
+        return Check("l48_matrix", "FAIL",
+                     f"unparsable --mode list output: {_tail(buffer.getvalue())}")
+    rows = payload.get("rows", {}).get("items", [])
+    if len(rows) != len(l48.DECLARATIONS):
+        problems.append(
+            f"{len(rows)} L48 rows != {len(l48.DECLARATIONS)} declarations")
+    manifest = payload.get("l48_two_node") or {}
+    if tuple(manifest.get("case_tags", ())) != tuple(
+            case.tag for case in l48.cases()):
+        problems.append("the listing manifest disagrees with l48.cases()")
+    if not payload.get("retired_groups"):
+        problems.append("the listing does not report the retired L48 CG group")
+    for row in rows:
+        if tuple(row.get("lattice") or ()) != l48.LATTICE:
+            problems.append(f"{row.get('tag')}: row lattice is not L48")
+        if row.get("ranks") != l48.RANKS:
+            problems.append(f"{row.get('tag')}: row ranks != {l48.RANKS}")
+
+    buffer = io.StringIO()
+    with contextlib.redirect_stdout(buffer):
+        code = main(["--list", "--quick", "--l48-two-node", "--json", "-"])
+    if code != 0:
+        problems.append(f"--list --quick --l48-two-node returned {code}")
+    else:
+        try:
+            quick_payload = json.loads(buffer.getvalue())
+        except ValueError:
+            quick_payload = {}
+        if quick_payload.get("count") != len(policy.TIER0_TAGS):
+            problems.append(
+                f"--quick --l48-two-node selected {quick_payload.get('count')} "
+                f"cases, expected {len(policy.TIER0_TAGS)}")
+        if any("l48" in str(case.get("tag", ""))
+               for case in quick_payload.get("cases", ())):
+            problems.append("--quick selected an L48 matrix case")
+
+    if problems:
+        return Check("l48_matrix", "FAIL", "; ".join(problems))
+    return Check(
+        "l48_matrix", "PASS",
+        f"{len(l48.DECLARATIONS)} tier-1 cases in {len(l48.GROUPS)} groups "
+        f"(2x2x2x4, 32 ranks/2 nodes, no Strict-MG/CG); L48 plan "
+        f"{expected} tier-0 cases (CG retired), --quick {len(quick.cases)}")
 
 
 def _check_run_config() -> Check:
@@ -1449,11 +1741,13 @@ _CHECKS: tuple[tuple[str, Callable[[], Check]], ...] = (
     ("run_config", _check_run_config),
     ("source_imports", _check_source_imports),
     ("no_test_modules", _check_no_test_modules),
+    ("py310_syntax", check_py310_syntax),
     ("package_inclusion", _check_package_inclusion),
     ("manifest", _check_manifest),
     ("extensions", _check_extensions),
     ("policy_constants", _check_policy_constants),
     ("units_contract", _check_units_contract),
+    ("l48_matrix", _check_l48_matrix),
     ("gate_evaluation", _check_gate_evaluation),
     ("exit_codes", _check_exit_codes),
     ("runner_resolution", _check_runner_resolution),

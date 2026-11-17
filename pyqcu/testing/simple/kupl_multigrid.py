@@ -1178,7 +1178,17 @@ def _read_local_slab(path_value, starts: tuple[int, int, int, int],
                      local_shape: tuple[int, int, int, int], *,
                      hdf5_mpio: bool = False, comm=None,
                      slab_dir: Path | None = None, rank: int = 0):
-    """Read only this rank's HDF5 hyperslab (dataset ``data``, last four axes)."""
+    """Read only this rank's HDF5 hyperslab (dataset ``data``, last four axes).
+
+    Observed (remote L48, 2026-11-17): this is a rank-local hyperslab, never a
+    full-file read, but the canonical file is one *contiguous* dataset with
+    ``t`` fastest, so splitting ``t`` leaves 3,981,312 elementary 384 B runs
+    per rank (10,380 ``pread`` calls, +3.56x bytes read).  The shared ``dtfs``
+    client also stalls intermittently (same file and node: 43.8 s vs 276.8 s),
+    which is why ``slab_dir`` (contiguous ``rank_XXXX.h5``) is the preferred
+    input path.  ``hdf5_mpio`` cannot fix this here: the remote h5py is built
+    without MPI support.
+    """
     if slab_dir is not None:
         slab_path = Path(slab_dir) / f"rank_{int(rank):04d}.h5"
         if not slab_path.is_file():
@@ -1248,6 +1258,10 @@ def main(argv=None) -> int:
     parser.add_argument("--coarse-max-iter", type=int, default=200)
     parser.add_argument("--coarse-tol-factor", type=float, default=1.0e4)
     parser.add_argument("--nv-iters", type=int, default=2)
+    # Observed (L48, 2026-11-17): reuse the cache instead of rebuilding it.  A
+    # 16-rank E=2 (`--dof 12 2`) build measured 1.276 GiB and 1741.9 s of
+    # builder, there is no matching 32r/two-node cache yet, and break-even
+    # against the no-cache baseline is ~24 solves.
     parser.add_argument("--coarse-cache", type=Path, default=None,
                         help="load lonv/hnn/hdg/sit instead of rebuilding setup")
     parser.add_argument("--write-coarse-cache", type=Path, default=None)
@@ -1270,6 +1284,9 @@ def main(argv=None) -> int:
         help="canonical input layout used by the KUPL Legacy MG ABI")
     parser.add_argument("--gauge", default=None)
     parser.add_argument("--source", default=None)
+    # Preferred over the global --gauge/--source files for large lattices: a
+    # slab directory skips the 384 B-request hyperslab pattern described in
+    # _read_local_slab.
     parser.add_argument("--gauge-slab-dir", type=Path, default=None,
                         help="directory of contiguous rank_XXXX.h5 gauge slabs")
     parser.add_argument("--source-slab-dir", type=Path, default=None,
@@ -1327,6 +1344,10 @@ def main(argv=None) -> int:
             "(--write-coarse-cache with more than one rank)")
     dtype = np.dtype(np.complex64 if args.dtype == "c64" else np.complex128)
     hdf5_mpio_read = _hdf5_mpio_read_enabled(comm)
+    # Observed (L48, 2026-11-17): `input_prebind_seconds` is KUPL
+    # applyInitQcu/register work (MPI topology plus scratch allocation, then
+    # torn down again), not a second read of the inputs and not overlapped
+    # with them.
     input_prebind_seconds = 0.0
     if (_environment_enabled("KUPL_NUMA_BIND")
             and not _environment_enabled("KUPL_SKIP_INPUT_PREBIND")):
@@ -1620,6 +1641,11 @@ def main(argv=None) -> int:
     set_ptrs[SET_PTRS_LEGACY_LAYOUT] = resolve_legacy_layout(
         cache_layout, use_coarse_assets, tuple(null_vectors), local_lattice)
 
+    # Observed (L48, 2026-11-17): `wall_seconds` is the solve call only, max
+    # over ranks.  For the same 11 BiCGStab iterations it was 1.665 s at 32
+    # ranks on one exclusive node and 183 s at 16 ranks on a shared node; the
+    # 16-rank shared point is pathological (the node, not the rank count), so
+    # 32-rank comparisons need an exclusive node.
     verify_status = None
     qcu.applyInitQcu(wrapped["set_ptrs"], wrapped["params"], wrapped["argv"])
     try:
@@ -1657,6 +1683,11 @@ def main(argv=None) -> int:
         if verify_status is not None:
             verify_status = int(comm.allreduce(verify_status, op=MPI.MAX))
 
+    # Observed (L48, 2026-11-17): `residual_seconds` below times the
+    # independent NumPy reconstruction in kupl_residual, not the solver.  It can
+    # dominate the row (139.8 s against `wall_seconds` 183.0 s at 16 ranks;
+    # 161.7 s against 110.4 s with a coarse cache), so it is never added to the
+    # solver wall.
     residual_seconds = 0.0
     residual_started = time.perf_counter()
     if args.skip_independent_residual:

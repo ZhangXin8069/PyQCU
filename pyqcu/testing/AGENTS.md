@@ -5,7 +5,7 @@
 `find_packages(exclude=["pyqcu.testing", "pyqcu.testing.*"])` 双重排除：`pip install`
 的用户**没有** `pyqcu.testing`。
 
-随发行包交付的正式快速端口是 `pyqcu.test`（`python -m pyqcu.test --quick`，21 个 tier 0
+随发行包交付的正式快速端口是 `pyqcu.test`（`python -m pyqcu.test --quick`，19 个 tier 0
 跨后端正确性门，默认格点 `[8,8,8,16]`、c64、单 rank、无数据文件；可用 `--lattice-size`/
 `--lattice-grid`/`--mg-grid`、`--gauge`/`--source`、`--mass`/`--kappa`/`--csw`、
 `--solver`/`--dslash`、`--device`/`--backend cpu/dcu/npu` 等选项改参数与筛选；

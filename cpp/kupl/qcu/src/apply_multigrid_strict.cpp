@@ -251,13 +251,14 @@ int applyMultigridStrictEndQcu(long long _set_ptrs, long long _params) {
   return kupl::qcu::api::status_guarded(
       "MULTIGRID_STRICT_END", [&] {
         const auto *params = kupl::qcu::api::params_pointer(_params);
-        if (params[kupl::qcu::kDataType] == kupl::qcu::kLatC64) {
+        const int data_type = params[kupl::qcu::kDataType];
+        if (data_type == kupl::qcu::kLatC64) {
           return kupl::qcu::strict_end_hierarchy<float>(
-              kupl::qcu::api::mutable_pointer(_set_ptrs));
+              kupl::qcu::api::mutable_pointer(_set_ptrs), data_type);
         }
-        if (params[kupl::qcu::kDataType] == kupl::qcu::kLatC128) {
+        if (data_type == kupl::qcu::kLatC128) {
           return kupl::qcu::strict_end_hierarchy<double>(
-              kupl::qcu::api::mutable_pointer(_set_ptrs));
+              kupl::qcu::api::mutable_pointer(_set_ptrs), data_type);
         }
         throw std::runtime_error("strict hierarchy supports c64/c128");
       });

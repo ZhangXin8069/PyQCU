@@ -19,6 +19,12 @@ therefore the single-rank independent check::
 All directions are periodic, as in the single-rank reference.  The half-time
 indexing and parity selection require even local extents along every axis;
 ``kupl_multigrid._rank_geometry`` already enforces that for KUPL.
+
+Observed (remote L48, 2026-11-17): being independent makes this expensive --
+complex128, single-threaded NumPy and 12 blocking ``sendrecv`` halo exchanges.
+It cost 139.8 s against a 183.0 s solve and 161.7 s against a 110.4 s MG
+solve, so the reported ``residual_seconds`` can dominate a row.  It is not part
+of the solver and must not be added to the solver ``wall_seconds``.
 """
 
 from __future__ import annotations

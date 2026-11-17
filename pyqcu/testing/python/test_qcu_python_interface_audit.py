@@ -205,6 +205,42 @@ def test_cuda_wrapper_return_types_match_python_contract() -> None:
     assert annotations["applyMultigridStrictFgmresQcu"].startswith("dict[")
 
 
+def test_cuda_init_and_end_validate_set_index_before_native_call() -> None:
+    """The native CUDA backend indexes set_ptrs[params[15]] unchecked."""
+    assert define._SET_PTRS_SIZE_ == 100
+    pyx_source = (_CUDA_QCU / "qcu.pyx").read_text(encoding="utf-8")
+    matches = list(_PYX_DEFINITION.finditer(pyx_source))
+    bodies = {
+        match.group("name"): pyx_source[
+            match.end():matches[index + 1].start()
+            if index + 1 < len(matches) else len(pyx_source)]
+        for index, match in enumerate(matches)
+    }
+    assert "cdef int _set_index(object params):" in pyx_source
+    for name in ("applyInitQcu", "applyEndQcu"):
+        body = bodies[name]
+        guard = body.find("_set_index(_params)")
+        native = body.find("with nogil:")
+        assert guard != -1, name
+        assert native != -1, name
+        assert guard < native, name
+    # The helper itself must reject both sides of the int64[100] table.
+    helper = pyx_source.split("cdef int _set_index(", 1)[1]
+    assert "params[define._SET_INDEX_]" in helper
+    assert "index < 0 or index >= define._SET_PTRS_SIZE_" in helper
+
+
+def test_cuda_set_index_out_of_range_is_rejected_before_native_code() -> None:
+    qcu = pytest.importorskip("pyqcu.cuda.qcu")
+    params = torch.zeros(define._PARAMS_SIZE_, dtype=torch.int32)
+    params[define._DATA_TYPE_] = define._LAT_C64_
+    set_ptrs = torch.zeros(define._SET_PTRS_SIZE_, dtype=torch.int64)
+    for index in (-1, define._SET_PTRS_SIZE_, 4 * define._SET_PTRS_SIZE_):
+        params[define._SET_INDEX_] = index
+        with pytest.raises(IndexError, match="outside set_ptrs"):
+            qcu.applyEndQcu(set_ptrs, params)
+
+
 def _runtime_fixture(fake_qcu) -> tuple[QcuRuntime, torch.Tensor]:
     params = torch.zeros(define._PARAMS_SIZE_, dtype=torch.int32)
     params[define._DATA_TYPE_] = define._LAT_C64_

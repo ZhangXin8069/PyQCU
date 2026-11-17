@@ -1114,8 +1114,9 @@ def _build_source(option: _Options, torch: Any, torch_dtype: Any
                 f"or {(2, 4, 3, *shape)}, got {tuple(candidate.shape)}")
     elif option.source_kind == "point":
         source = torch.zeros(full_shape, dtype=torch_dtype)
-        source[0, option.source_spin, option.source_color,
-               *option.source_site] = 1.0 + 0.0j
+        site = (0, option.source_spin, option.source_color,
+                *option.source_site)
+        source[site] = 1.0 + 0.0j
         source = source.contiguous()
     elif option.source_kind == "unit":
         source = torch.ones(full_shape, dtype=torch_dtype).contiguous()

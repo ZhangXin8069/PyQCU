@@ -71,6 +71,22 @@ inline int set_index(const int32_t *params) {
   return index;
 }
 
+// Ordinary INIT/END own set_ptrs[0, kSetPtrsCoarseBase) only.  Everything from
+// kSetPtrsCoarseBase up is reserved: [30,60) holds the legacy Clover-MG coarse
+// operators, [60,80) the strict-MG coarse assets, 80 the strict hierarchy
+// handle and 99 the legacy layout selector.  Unbounded set_index() therefore
+// let a plain transaction write the slot token over a coarse pointer, or zero
+// it on END, just by advancing _SET_INDEX_.
+inline int ordinary_set_index(const int32_t *params) {
+  const int index = set_index(params);
+  if (index >= kSetPtrsCoarseBase) {
+    throw std::runtime_error(
+        "params[_SET_INDEX_] is reserved for multigrid assets, ordinary "
+        "transactions are limited to [0, _SET_PTRS_COARSE_BASE_)");
+  }
+  return index;
+}
+
 inline const void *slot_key(long long set_ptrs, const int32_t *params) {
   return static_cast<const void *>(set_ptr_table(set_ptrs) +
                                    set_index(params));

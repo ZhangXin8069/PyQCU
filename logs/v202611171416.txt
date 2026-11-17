@@ -1,0 +1,263 @@
+[日志元数据]
+日志类型: stage
+生成时间: 2026-11-17 14:16 +0800
+批次: pyqcu-test-l48-remote-20261117
+主任务: 归档本轮远端/审计已验证事实：更新 L48 设计状态、建立 P0/P1 风险登记、补操作者检查单与任务日志
+触发原因: 阶段成果（只写 docs/skills/logs；不改核心代码，不改版本/标签，不 commit/push）
+摘要: 在既有 `docs/pyqcu_test_l48_remote.md` 增加 §0“已验证 vs TODO”状态表并纠正 0.1.15 底座、18/18/19/19 分母与 c64 状态；新增 `docs/pyqcu_test_audit_risk_20261117.md` 登记 P0-1…P0-6、P1-1…P1-10（全部未修复）；在 `skills/pyqcu-testing/references/l48-remote.md` 增加 6 步操作者检查单并标注已验证/未验证；同步 docs/skills 索引。远端事实沿用上一批次实测记录，本轮未重跑；L48 未求解、两节点仍 PENDING、CSV/Excel parity 未通过。
+Git 根目录: /home/zhangxin/PyQCU
+日志文件: logs/v202611171416.txt
+
+## 0. 一句话状态
+
+文档、技能参考与风险登记已写入；**L48 solve 未运行、两节点未通过、c64 未确认、
+CSV/Excel parity 未通过**。本轮只做归档，不改核心代码、不改版本、不 push、不打 tag。
+“完成”仅指文档/日志写入完成，不代表设计已实现或远端目标已达成。
+
+## 1. 目标与范围
+
+1. 在既有设计说明 `docs/pyqcu_test_l48_remote.md` 增加“已验证 vs TODO”状态表，
+   保留原设计正文，不新建第二份设计说明。
+2. 新增一份**审计/风险登记**，链接既有审计，清楚标 P0/P1 与“未修复”。
+3. 写本任务日志，记录精确命令/结果与阻塞。
+4. 在 `skills/pyqcu-testing/references/l48-remote.md` 增加短操作者检查单：
+   环境、`pyqcu.test --check`、HMPI 1-rank、L48 c64 dtype、dsub 2-node PENDING 行为；
+   未验证命令必须显式标注。
+5. 不声称 L48 solve 或两节点 PASS；不写私网 IP、密钥或口令。
+
+## 2. 环境
+
+| 项目 | 事实 | 证据 |
+|---|---|---|
+| 本机 | WSL2，用户 `zhangxin`，仓库 `/home/zhangxin/PyQCU` | `pwd`、`uname` |
+| 版本 | `pyproject.toml` = `0.1.17`；HEAD `1f65469e`；`git describe` = `test37-1-g1f65469e` | `git describe` |
+| 初始工作树 | 已含上一批次的未提交文档与并发 `pyqcu/test/**` 改动；本批次开始前 `docs/pyqcu_test_l48_remote.md`、`logs/v202611171341.txt`、`logs/v202611171402.txt`、`skills/pyqcu-testing/references/l48-remote.md` 等为未跟踪/已修改 | `git status --short` |
+| 远端 | `login02` / `nsls_yangyb`，经用户提供的内部路由；地址、密钥、口令不入库 | 上一批次记录（`logs/v202611171402.txt` §3.1） |
+
+## 3. 已验证事实（远端沿用上一批次，本轮未重跑）
+
+### 3.1 远端访问、代码与运行时
+
+| 项目 | 结果 | 来源 |
+|---|---|---|
+| 登录 | `hostname` → `login02`；`whoami` → `nsls_yangyb` | 上一批次 `logs/v202611171402.txt` §3.1；地址不入库 |
+| 仓库 | `/home/share/nsls_yangyb/PyQCU-main`，**非 git 的 0.1.15 快照**；0.1.17 Python 代码覆盖前备份为 `pyqcu.bak.20261117` | `git -C` 报 not a git repository；远端目录 |
+| 自检 | `python -m pyqcu.test --check` = **18/18 PASS** | 上一批次远端执行；本机当前工作树是 19/19（见 §5） |
+| 修复的 3.10 缺陷 | `kupl_qcu.py`/`cuda_qcu.py` 的 `source[0, spin, color, *site]` 索引在 Python 3.10 报 `SyntaxError`；改为先拼 `site = (0, spin, color, *site)` 再 `source[site]` 后 18/18 | `git diff pyqcu/test/kupl_qcu.py pyqcu/test/cuda_qcu.py`（未提交） |
+| Python | 3.10.9（anaconda 2023.3），aarch64 | `python -V`、`uname -m` |
+| numpy | 1.23.5 | `import numpy` |
+| h5py | 3.7.0，HDF5 1.10.6，`get_config().mpi == False` | `h5py.version` / `get_config().mpi` |
+| mpi4py | 4.1.2 | 上一批次记录；原始 stdout 未归档 → TODO |
+| torch | 1.12.1 | 同上 |
+
+### 3.2 HPCKit 26.1.RC1 / HMPI
+
+| 项目 | 结果 |
+|---|---|
+| HPCKit | `/work_ssd/software/HPCKit/26.1.RC1`；`source ./env.sh` 后叠加 `PATH`、`LD_LIBRARY_PATH`、`OPAL_PREFIX`、`PYTHONPATH` |
+| 关键库 | `hmpi/lib`（HMPI 运行库）、`compiler/gcc/lib64`（`GLIBCXX_3.4.29`）、`compiler/bisheng/lib`（`libomp`）、`/work_ssd/software/HPCKit/alllib` |
+| `mpirun --version` | HMPI（Open MPI 4.1.6rc4） |
+| 1-rank 启动 | `mpirun -np 1 --bind-to none python3 -m pyqcu.test --quick --backend kupl --only kupl/abi/symbols,kupl/dslash/wilson --json -` 可启动；`kupl/abi/symbols`、`kupl/dslash/wilson` PASS |
+| 多 rank | **未验证**；formal KUPL dslash/solve 用例声明 `mpi_single_rank`，2 rank 会 `SKIP` |
+
+### 3.3 L48 LIME 与 canonical HDF5
+
+| 项目 | 结果 |
+|---|---|
+| 远端 L48 | `~/data/beta6.20_mu-0.2770_ms-0.2400_L48x96_cfg_7000.lime`，`6,115,435,952 B`，complex128（`precision D`）；与本地同大小、同前 4 KiB SHA256（全文件 SHA256 未比） |
+| 输出目录 | `~/PyQCU-main/data/l48_canonical_20261117` |
+| 转换命令 | `prepare_case.py --lime <L48> --lat 48 48 48 96 --mass -0.277 --csw 1.160920226 --seed 42 --out-dir <out>` |
+| 耗时 | **41 s**（单次；原始 stdout 未归档 → TODO） |
+| gauge 产物 | `gauge_48x48x48x96_c64.h5`，**文件名误标 c64，dataset 实为 complex128**，`6,115,301,376 B` |
+| source 产物 | `prepare_case.py` 的 source 生成式是 `numpy PCG64 normal float64 → astype(complex64)`，**source 为 complex64**（源码 `prepare_case.py:85-101`；远端未单独回读归档） |
+| c64 cast | **TODO/待验证**：改名为 `..._c128.h5`、按 t-slab 转 c64、写 `source_dtype`/`cast_to`、`os.replace`；尚未完成 `pyqcu.test.io.describe(..., role="gauge")` 回读 |
+
+### 3.4 两节点调度探测
+
+| 项目 | 结果 |
+|---|---|
+| 探测作业 | `2152277`（`dsub -s` 提交） |
+| 状态 | **PENDING**；`mainStateReasonMsg` = `No available node can fit ... execution nodes preference` |
+| 能否证明两节点可跑 | **不能**；没有 `execNodes`，没有两节点成功记录 |
+| 同时刻队列 | `q_hpcapp` OPEN/ACTIVE，127 running / 211 pending；`dinfo` 仅 7 个 `OK` 节点，其余 `CLOSE_FULL`/`CLOSE_ADMIN`/`UNAVAILABLE` |
+| 仍缺 | `login02` → `cn*` 免密（`Permission denied (publickey)`）；`djob -l 2152277` 原始输出归档；跨节点 launcher/rankfile |
+
+### 3.5 审计 P0/P1
+
+| 来源 | 结论 |
+|---|---|
+| `logs/pyqcu_audit_20261112.txt` | Python L24 KUPL 求解路径的 P0/P1/P2 审查；**不是** `pyqcu.test` 端口审计；本文只沿用方法学 |
+| 本轮 `docs/pyqcu_test_audit_risk_20261117.md` | P0-1…P0-6、P1-1…P1-10 全部 **未修复**；覆盖无文件驱动原生 solve、无 `driver.run_row`、无跨节点 launcher、CUDA rank-grid 仅 SKIP、MPI abort/死锁与 `_SET_INDEX_` 游标风险、KUPL 驱动无 L48、`submit_kunpeng_all.sh` 写死 `-nn 1`/`mem=8G`、CSV/Excel parity 未验证 |
+
+### 3.6 CSV / Excel 台账
+
+- 正式端口当前 `reports/rows.csv` 是 30 列 `ROW_FIELDS`（`pyqcu/test/common.py:1586`）。
+- 目标契约是旧驱动的 100 列 `CSV_COLUMNS`（`pyqcu/testing/kupl/test_kunpeng_all.py:95`）
+  与 21 sheet 工作簿。
+- `pyqcu/test/ledger_csv.py`、`ledger_excel.py`、`pyqcu/testing/python/test_ledger_parity.py`
+  均未跟踪、未接线；`--csv` 仍写 `ROW_FIELDS`；parity 测试未跑完 → **不得发 PASS**。
+
+## 4. 本轮改动文件
+
+| 路径 | 类型 | 改动 |
+|---|---|---|
+| `docs/pyqcu_test_l48_remote.md` | 既有设计说明 | 顶部状态改为指向 §0；新增 §0“已验证 vs TODO”17 行状态表；§2.4.2 补 0.1.15 快照与 18/18 vs 19/19；§2.4.4 补 source complex64、c64 TODO 与回读门；§2.4.6 标 parity 未通过；§2.4.7 加“未修复”声明；§10 加审计/日志链接。设计正文未改 |
+| `docs/pyqcu_test_audit_risk_20261117.md` | 新增审计风险登记 | P0-1…P0-6、P1-1…P1-10，逐条证据锚点、影响、状态；明确“全部未修复”；含只读复核命令 |
+| `docs/AGENTS.md` | 索引 | 文档计数 53→55；登记设计说明与审计风险登记；研究报告计数 50→52 |
+| `skills/pyqcu-testing/references/l48-remote.md` | 技能参考 | 新增 §2.3 六步操作者检查单（环境、`--check`、HMPI 1-rank、L48 c64 dtype、dsub 2-node PENDING、单节点冒烟），逐项标已验证/未验证；补 0.1.15 快照、source complex64、c64 TODO、审计/日志链接 |
+| `skills/pyqcu-docs/references/project-docs-map.md` | 文档映射 | 计数 53→55；新增两份文档的 P/C 级别、Primary 与 Consumers |
+| `skills/pyqcu-docs/references/extracted-guidance.md` | 提取结论 | 新增两份文档的稳定结论（状态以 §0 为准、P0/P1 未修复） |
+| `skills/pyqcu-docs/SKILL.md` | 文档技能 | 计数 53→55 |
+| `logs/v202611171416.txt` | 本任务日志 | 新建 |
+
+未改：`pyqcu/**` 任何核心代码、`pyqcu/testing/**`、版本号、标签、远端文件。
+工作区里 `pyqcu/test/**` 的修改和未跟踪文件是**其他批次**的并发实现，不是本任务产出；
+本任务没有编辑、没有回滚它们。
+
+## 5. 精确命令与结果
+
+### 5.1 本批次本机执行（可复跑）
+
+```bash
+cd /home/zhangxin/PyQCU
+```
+
+| # | 命令 | 结果 |
+|---:|---|---|
+| 1 | `python -B -m pyqcu.test --check` | `selfcheck: 19 checks, 19 passed, 0 skipped, 0 failed`；`overall: PASS`。**注意**：这是当前工作树（含并发未提交改动），远端 0.1.17 覆盖树仍是 **18/18**；两个分母不能混读 |
+| 2 | `python -B -m pyqcu.test --list --json -` | `count 19 lattice [8, 8, 8, 16] dtype c64` |
+| 3 | `python -B -m pyqcu.test --mode list --lattice-preset L48 --json -` | `rows 19 first torch/lattice [48, 48, 48, 96] c64`；**没有 L48 生产 solve/mg 行** |
+| 4 | `python -B -m pyqcu.test --mode list --lattice-size 48 48 48 96 --json -` | `rows 19 first torch/lattice`；同上 |
+| 5 | `git cat-file -e HEAD:pyqcu/test/driver.py; echo $?` | `128`（发布树无 `driver.py`） |
+| 6 | `git cat-file -e HEAD:pyqcu/test/ledger_csv.py; echo $?` | `128`（发布树无 ledger 模块） |
+| 7 | `git cat-file -e HEAD:pyqcu/test/ledger_excel.py; echo $?` | `128` |
+| 8 | `git show HEAD:pyqcu/test/common.py \| grep -A3 '^LATTICE_PRESETS'` | 只有 `L24`/`L32`，**发布树无 `L48`** |
+| 9 | `grep -rn "hostfile\|rankfile\|CCS_ALLOC_FILE" pyqcu/test pyqcu/testing/simple/mpi` | 命中 `pyqcu/test/driver.py:50`、`:380-388`、`pyqcu/test/AGENTS.md:105`、`pyqcu/test/README.md:226`（均写明跨节点 `mpirun`/rankfile **未实现**）；`pyqcu/testing/simple/mpi/solve_case.py:589` 只是提示“可用外部 rankfile”，不是 launcher 支持 |
+| 10 | `python3 -B skills/pyqcu-docs/scripts/audit-docs-skills.py` | 创建本日志前：`FAIL docs=55 skills=36 errors=3`（1 个新日志链接缺失 + 2 个既有 `SKILL-SIZE`/`AGENTS-SIZE` 告警）；本日志创建后复跑见 §5.3 |
+| 11 | `bash skills/pyqcu-form/form-audit.sh` | `PASS: form 审计通过；36 个技能目录与索引一致，豁免 18 个既有资产 finding` |
+| 12 | `git diff --check` | 无输出，退出 0 |
+
+### 5.2 远端命令（上一批次实测，本轮未重跑；地址/密钥不入库）
+
+```bash
+# 登录（地址由用户提供）
+ssh <user-provided> 'hostname; whoami'
+# → login02 / nsls_yangyb
+
+# 代码快照
+git -C /home/share/nsls_yangyb/PyQCU-main rev-parse --git-dir
+# → fatal: not a git repository（0.1.15 非 git 快照）
+ls -d /home/share/nsls_yangyb/PyQCU-main/pyqcu.bak.20261117
+# → 0.1.17 Python 覆盖前的备份
+
+# 自检（Python 3.10 语法修复后）
+python -m pyqcu.test --check
+# → 18 checks, 18 passed, 0 failed；overall PASS
+
+# 运行时探针
+python -V; uname -m
+# → Python 3.10.9；aarch64（anaconda 2023.3）
+python -c 'import numpy,h5py,mpi4py,torch; print(numpy.__version__, h5py.__version__, h5py.get_config().mpi, mpi4py.__version__, torch.__version__)'
+# → numpy 1.23.5；h5py 3.7.0；mpi=False；mpi4py 4.1.2；torch 1.12.1
+
+# HPCKit 26.1.RC1 + HMPI
+source ./env.sh
+export PATH=<HK>/hmpi/bisheng/release/hmpi/bin:/work_ssd/software/soft/tool/anaconda3/2023.3/bin:/opt/batch/cli/bin:$PATH
+export LD_LIBRARY_PATH=<HK>/hmpi/bisheng/release/hmpi/lib:<HK>/compiler/gcc/lib64:<HK>/compiler/bisheng/lib:/work_ssd/software/HPCKit/alllib:$LD_LIBRARY_PATH
+export OPAL_PREFIX=<HK>/hmpi/bisheng/release/hmpi
+mpirun --version
+# → HMPI（Open MPI 4.1.6rc4）
+${OPAL_PREFIX}/bin/mpirun -np 1 --bind-to none python3 -m pyqcu.test --quick \
+  --backend kupl --only kupl/abi/symbols,kupl/dslash/wilson --json -
+# → kupl/abi/symbols PASS；kupl/dslash/wilson PASS
+
+# L48 转换与 dtype
+stat -c '%s' "$HOME/data/beta6.20_mu-0.2770_ms-0.2400_L48x96_cfg_7000.lime"
+# → 6115435952
+python3 pyqcu/testing/simple/prepare_case.py \
+  --lime "$HOME/data/beta6.20_mu-0.2770_ms-0.2400_L48x96_cfg_7000.lime" \
+  --lat 48 48 48 96 --mass -0.277 --csw 1.160920226 --seed 42 \
+  --out-dir "$HOME/PyQCU-main/data/l48_canonical_20261117"
+# → 41 s（单次）
+python3 -c 'import h5py;h=h5py.File("<out>/gauge_48x48x48x96_c64.h5","r");print(h["data"].dtype,h["data"].shape)'
+# → complex128 (3, 3, 4, 48, 48, 48, 96)；文件 6,115,301,376 B → 文件名误标 c64
+
+# 两节点探测
+dsub -s <job.sh>
+# → 作业 2152277
+djob -l 2152277
+# → PENDING；mainStateReasonMsg = No available node can fit ... execution nodes preference
+dinfo
+# → 仅 7 个 OK 节点；q_hpcapp 127 running / 211 pending
+```
+
+### 5.3 文档/技能审计（本日志创建后复跑）
+
+```bash
+python3 -B skills/pyqcu-docs/scripts/audit-docs-skills.py
+# → FAIL docs=55 skills=36 errors=2
+#   [SKILL-SIZE] skills/pyqcu-testing/SKILL.md: 526 行（既有告警）
+#   [AGENTS-SIZE] skills/pyqcu-testing/AGENTS.md: 15 行（既有告警）
+bash skills/pyqcu-form/form-audit.sh
+# → PASS（36 个技能目录与索引一致）
+git diff --check
+# → 退出 0
+```
+
+> `SKILL-SIZE`/`AGENTS-SIZE` 是改动前就存在的告警，不是本轮新增；本轮只新增 2 份文档
+> 与 1 份日志，均已登记到 docs 索引、项目映射与提取结论。
+
+## 6. 阻塞与未完成
+
+1. **L48 c64 未确认**：`gauge_..._c64.h5` 实为 complex128；c64 cast 与
+   `pyqcu.test.io.describe(..., role="gauge")` 回读均未完成。在此之前不得声称已有
+   c64 gauge。
+2. **两节点未通过**：探测 `2152277` 仍 PENDING；没有 `execNodes`；`login02` → `cn*`
+   免密仍 `Permission denied (publickey)`；跨节点 launcher/rankfile 未实现。
+3. **L48 solve/MG 未运行**：没有 L48 数值结果、独立真残差或 cache 证据。
+4. **CSV/Excel parity 未通过**：100 列/21 sheet 未接线，`--csv` 仍写 30 列
+   `ROW_FIELDS`；parity 测试未跑完。
+5. **远端原始输出未归档**：`--check`、版本探针、`prepare_case.py` 41 s 计时、
+   `djob -l 2152277` 均未保存原始 stdout。
+6. **本机与远端 `--check` 分母不同**：远端 0.1.17 覆盖树 18/18；本机当前工作树
+   19/19（并发未提交改动多 1 项检查）。报告时必须写清环境，不能把 19/19 写成远端结果。
+7. **文档计数漂移（部分修复）**：本轮已把 `docs/AGENTS.md`、`docs` 映射与
+   `pyqcu-docs` 技能的文档计数改为 55；根 `AGENTS.md:29,64,88` 与
+   `skills/AGENTS.md:93` 的“21 个 tier 0”仍未改（本轮不编辑这些 AGENTS.md）。
+
+## 7. 状态声明
+
+- 远端访问：**已建立**（`login02` / `nsls_yangyb`，用户内部路由；地址/密钥不入库）。
+- 远端代码：**0.1.15 非 git 快照 + 0.1.17 Python 覆盖**；`--check` 18/18。
+- L48 输入：**complex128 HDF5 已写出**（41 s）；c64 **未确认**。
+- L48 solve/MG：**未运行**；不得写 PASS。
+- 两节点：**PENDING，未通过**；不得写两节点 PASS。
+- CSV/Excel：**实现中，未接线，parity 未通过**。
+- 审计 P0/P1：**全部未修复（NOT FIXED）**。
+- 版本/标签：**未改**（`0.1.17` / `test37`）；未 commit、未 push、未打 tag。
+
+## 8. TODO
+
+- [ ] 完成 L48 c64 cast；用 `pyqcu.test.io.describe(..., role="gauge")` 回读
+      `complex64`/`[3,3,4,48,48,48,96]`/`[48,48,48,96]`，记录 SHA256 与字节数。
+- [ ] 归档远端原始输出：`--check`、版本探针、`prepare_case.py` 41 s、`djob -l 2152277`。
+- [ ] 提交并审计工作区的 `pyqcu/test/driver.py`、`LATTICE_PRESETS["L48"]`、HDF5 输入身份；
+      在提交/审计/远端复跑前不得把 P0-1/P0-2/P1-1 写成已修复。
+- [ ] 补跨节点 launcher/rankfile（`CCS_ALLOC_FILE` → rankfile），再做 `dsub -nn 2`；
+      只有 `djob -ll` 的 `execNodes` 恰好两个节点时才可写两节点证据。
+- [ ] 完成 CSV/Excel parity：100 列逐列同序 + 21 sheet 逐项对照；未通过前不得声称替换旧驱动。
+- [ ] 单节点 L48 冒烟（先 `8x8x8x16` 子体积，再 L48 局部块，`--no-shm`），再做两节点。
+- [ ] 修正根 `AGENTS.md` 与 `skills/AGENTS.md` 的“21 vs 19 tier 0”漂移（需允许编辑 AGENTS.md 的批次）。
+- [ ] 记录 L48 容量/配额：canonical c64 gauge+source 约 4.08 GB，Legacy-MG cache 逻辑约
+      17.4 GiB；确认远端配额与 walltime。
+
+## 9. Owner agents
+
+| Owner | 职责 | 本轮状态 |
+|---|---|---|
+| `pyqcu-testing` | 主责：`pyqcu.test` 状态、`driver.run_row`、L48 preset、操作者检查单 | 只写 docs/skills/logs；代码未改 |
+| `pyqcu-kupl` | KUPL 原生路径、旧驱动无 L48/LIME、submit 单节点 | 只登记风险；未改代码 |
+| `pyqcu-testing-data` | L48 LIME/HDF5 身份、dtype、SHA256、`io.describe` 回读 | 只记录 dtype 现状；c64 未完成 |
+| `pyqcu-benchmark` | 两节点作业证据、wall/elapsed 分离、CSV/Excel 契约 | 未采集性能；parity 未通过 |
+| `pyqcu-docs` / `pyqcu-form` | docs/skills 索引、映射、提取结论、form 审计 | 已登记；form PASS |
+| 远端操作者（人工） | SSH/账号、数据、`dsub` 队列与节点分配 | 两节点仍 PENDING |

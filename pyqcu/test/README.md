@@ -34,8 +34,9 @@ python -m pyqcu.test --mode list     # full-mode 台账行：只计划，不执�
 ```text
 python -m pyqcu.test [--backend LIST [LIST ...]] [--profile NAME]
   [--lattice-size N [N ...] | --lattice N [N ...]] [--lattice-grid N [N ...]]
-  [--mg-grid N [N ...]] [--lattice-preset {L24,L32}]
+  [--mg-grid N [N ...]] [--lattice-preset {L24,L32,L48}]
   [--mode {list,prepare,prewarm,solve,merge,run,validate}]
+  [--native {dslash,solve,mg} [{dslash,solve,mg} ...]]
   [--quick] [--tier 0|1|all] [--only TAG [TAG ...]] [--sweep SPEC]
   [--solver CHOICE] [--dslash CHOICE] [--device DEVICE]
   [--gauge random|unit|ones] [--gauge-sigma F | --guage-sigma F]
@@ -46,6 +47,7 @@ python -m pyqcu.test [--backend LIST [LIST ...]] [--profile NAME]
   [--list] [--json [PATH|-]] [--junit PATH] [--csv PATH] [--markdown PATH]
   [--repeat N] [--warmup N] [--seed N] [--fail-fast] [--allow-all-skipped]
   [--outdir DIR] [--rows DIR] [--reports DIR] [--solutions DIR] [--cache-dir DIR]
+  [--ledger-export {none,csv,excel,both}]
   [--run-label LABEL] [--resume] [--skip-failed] [--ranks N] [--shm | --no-shm]
   [--shared] [--gauge-file PATH] [--source-file PATH] [--validate]
   [--verbose] [--check] [--version]
@@ -54,9 +56,9 @@ python -m pyqcu.test [--backend LIST [LIST ...]] [--profile NAME]
 四个整数的参数（格点、进程网格、MG 块网格）接受三种写法：`8 8 8 16`、`8,8,8,16`、
 `[8,8,8,16]`；`--backend` 与 `--only` 接受逗号分隔、空格分隔或重复给出的多个值
 （`--only a,b`、`--only a b`、`--only a --only b` 三者等价）。`--mode` 的
-`rows/reports/solutions/cache` 路径、`--resume`/`--skip-failed`/`--run-label` 与
-`--gauge-file`/`--source-file` 见 [「Full mode（工作台账）」](#full-mode工作台账)
-和 [「HDF5 输入」](#hdf5-输入)。
+`rows/reports/solutions/cache` 路径、`--resume`/`--skip-failed`/`--run-label`、
+`--native` 与 `--gauge-file`/`--source-file` 见
+[「Full mode（工作台账）」](#full-mode工作台账) 和 [「HDF5 输入」](#hdf5-输入)。
 
 ### 用例选择
 
@@ -81,7 +83,7 @@ python -m pyqcu.test [--backend LIST [LIST ...]] [--profile NAME]
 | `--lattice-size` / `--lattice` | 同一选项的两个拼写，取 `8 8 8 16`、`8,8,8,16` 或 `[8,8,8,16]`。四个正整数且**偶数、≥ 4**（奇偶分解与 clover 需要偶数体积），默认 `8 8 8 16`；非法值按用法错误退出 `2` |
 | `--lattice-grid` | MPI 4D 进程网格（`x y z t`），默认 `1 1 1 1`。**乘积与 `mpirun -np` 的 rank 数不一致不是用法错误**：原生后端（KUPL/CUDA）报 `SKIP(mpi_grid)`，torch 用例不看该网格。真正执行且选中原生用例时，不一致会在 stderr 打一行提示 |
 | `--mg-grid` | 多重网格粗化块网格（每维因子），默认 `2 2 2 2`；只被 `*/mg/*` 用例使用 |
-| `--lattice-preset` | 发布验收格点 `L24`（`24 24 24 64`）/ `L32`（`32 32 32 64`）；与 `--lattice-size`/`--lattice` 或 `--quick` 同时给出是用法错误（退出 `2`）。它只改格点，不改变 tier 或判据 |
+| `--lattice-preset` | 发布验收格点 `L24`（`24 24 24 64`）/ `L32`（`32 32 32 64`）/ `L48`（`48 48 48 96`，生产组态格点）；与 `--lattice-size`/`--lattice` 或 `--quick` 同时给出是用法错误（退出 `2`）。它只改格点，不改变 tier 或判据；`L48` 只给几何命名，要用它跑行还需 `--native`（见 [「Full mode（工作台账）」](#full-mode工作台账)），tier-0 `8 8 8 16` 门禁不受影响 |
 
 ### 规范场、源与物理参数
 
@@ -110,7 +112,7 @@ python -m pyqcu.test [--backend LIST [LIST ...]] [--profile NAME]
 |---|---|
 | `--device` | `auto`（默认，不向前转发，由后端自选；torch 路径即 CPU）、`cpu`、`gpu`（→ `cuda:0`）、`dcu`（→ `dcu:0`）、`npu`（→ `npu:0`）。也可直接给具体设备串（如 `cuda:3`）。请求的加速器族在本机不可用时报 `SKIP(device_unavailable)`，不是 FAIL |
 | `--device-id` | 加速器序号（`>= 0`），转发给原生 runner |
-| `--threads` | 线程数；**记录到 `rows/*.json`、`--list --json` 与报告 `options.threads`**。当前 CLI 真正应用它的只有 tier-0 torch 用例：调用 `torch.set_num_threads`，并在 metrics 里给 `torch_threads`/`threads_requested`/`threads_applied`/`threads_error`。tier-0 的 `kupl_qcu.py`/`cuda_qcu.py` **不读取** `--threads`；`native.py` 的原生 runner 扩展点会在首次原生调用前用 `apply_environment` 设置 `OMP_NUM_THREADS`/`KUPL_OMP_THREADS`/`OMP_DYNAMIC`，但该路径需要 `driver:run_row` 模块，当前 checkout 未提供。因此看到 KUPL/CUDA 行里的 `threads` 只表示“记录值”，不表示 KUPL/OpenMP 线程数被改变。未给出时记录 `null`，由环境/后端默认决定 |
+| `--threads` | 线程数；**记录到 `rows/*.json`、`--list --json` 与报告 `options.threads`**。真正应用它的有两条路径：tier-0 torch 用例调用 `torch.set_num_threads`（metrics 给 `torch_threads`/`threads_requested`/`threads_applied`/`threads_error`）；`--native` 规划的原生行由 `pyqcu.test.driver` 经 `native.apply_environment` 在首次原生调用前设置 `OMP_NUM_THREADS`/`KUPL_OMP_THREADS`/`OMP_DYNAMIC`/`KUPL_SHM_HALO`，行里给 `threads_requested`/`threads_applied`/`environment`。tier-0 的 `kupl_qcu.py`/`cuda_qcu.py` **不读取** `--threads`，那里的 `threads` 只表示“记录值”。未给出时记录 `null`，由环境/后端默认决定 |
 
 ### 执行与输出
 
@@ -125,6 +127,7 @@ python -m pyqcu.test [--backend LIST [LIST ...]] [--profile NAME]
 | `--fail-fast` | 首个 `FAIL`/`ERROR`/`TIMEOUT` 立即停止（`SKIP` 不触发停止）；full-mode `solve`/`run` 同样在首个非 SKIP 失败行停止 |
 | `--allow-all-skipped` | 全部 SKIP 时仍返回 0（默认返回 1）；只影响数值运行与 full-mode `solve`/`run`，不改变 `prepare`/`prewarm` 的输入 SKIP |
 | `--outdir DIR` | 普通运行：额外把 JSON 报告原子写到 `DIR/report.json`。full mode：默认工作根（默认 `pyqcu-test-runs`），其下派生 `rows/`、`reports/`、`solutions/`、`caches/` |
+| `--ledger-export {none,csv,excel,both}` | full mode 的可选**参考导出**：把本次台账再写成非正式 KUPL 驱动的公开表格契约（100 列 CSV 和/或 21 个 sheet 的 workbook），落在 `<outdir>/ledger/`。`reports/rows.csv` 的 30 列语义不变、**绝不会**被它覆盖；`--mode list`/`--mode validate` 与无 `--mode` 下是用法错误（退出 `2`）。默认 `none`；未给该 flag 时仍尊重环境变量（见 [「参考 CSV/Excel 导出」](#参考-csvexcel-导出ledger-export)） |
 | `--verbose` | 每个用例的 metrics 与失败 gate 写 stderr；stdout 保持每用例一行、稳定可解析 |
 
 `--json` 报告是 `TestReport.as_dict()`：顶层 `package`、`version`、`status`、
@@ -179,11 +182,46 @@ repeat 1。`--quick --mode solve` 是合法组合，但仍是 tier-0 小格运�
 | `<outdir>/reports/prepare.json`、`prewarm.json`、`merged.json` | 对应模式的输入/合并文档 |
 | `<outdir>/solutions/` | runner 报告 `solution_path` 时复制到这里的解文件；没有就保持为空，台账绝不伪造解文件 |
 | `<outdir>/caches/index.json` | Legacy-MG cache 目录索引：行数、dtype/lattice、`cache_require` 绑定、`identity_fields`、`default_cache_dir`，以及已有 artifact 的 `ready`/`cache_status` |
+| `<outdir>/ledger/` | 只有 `--ledger-export` 选中的参考 CSV/workbook（默认不存在；见 [「参考 CSV/Excel 导出」](#参考-csvexcel-导出ledger-export)） |
 
 `--cache-dir` 可以指向目录，也可以指向一个已有的 Legacy-MG cache **artifact 文件**；
 `prepare` 只创建目录/索引并调用 `pyqcu.test.cache.cache_status` 探测，**不重建 cache**
 （重建需要 native builder，属于非正式树）。探测默认校验 manifest 的 `file_sha256`，
 并绑定 rows 一致同意的 `lattice`/`dtype`/`seed`/`mpi_size`；被拒绝时该输入记 `FAIL`。
+
+### 参考 CSV/Excel 导出（`--ledger-export`）
+
+`--ledger-export {none,csv,excel,both}` 在 full mode 结束后，把同一批行再导出成非正式
+KUPL 驱动（`pyqcu/testing/kupl/test_kunpeng_all.py`）的公开表格契约：
+
+| 文件 | 内容 |
+|---|---|
+| `<outdir>/ledger/kupl_kunpeng_all.csv` | 参考的 100 列 `CSV_COLUMNS`：同样的列名与顺序、CRLF、`None` = 空字段、行按 `run_id` 排序 |
+| `<outdir>/ledger/kupl_kunpeng_performance.xlsx` | 参考的 21 个 sheet 工作簿：`04_Performance_All` 44 列、`05`–`08` 27 列、`02_Summary` 的 12 个参考键、状态条件色、table 对象与 2 张图 |
+
+- **不替换** `reports/rows.csv`：那份 30 列 `ROW_FIELDS` 台账的语义完全不变，参考表是
+  写在 `<outdir>/ledger/` 的第二份派生产物；两个文件都以 temp + `os.replace` 原子发布，
+  所以读到的永远是旧文件或完整新文件，不会是半份。
+- **不编造数值**：正式端口观测不到的列（`node`/cpufreq/OPT_PROFILE 计数器、
+  `out_path`/`err_path`/`returncode`、`review`、`distributed_relative_residual` 等）写成
+  空单元格，逐列理由在 `ledger_csv.COLUMN_RULES` 与 workbook 的 `17_Data_Dictionary`；
+  `atol` 只来自求解器容差，不复制 `compare` 门。`cg`/`mg` 这两个 `solver` 值是正式端口的
+  **扩展**，不会被改名成参考里的 `mg1`/`mg2` 去冒充同一配置。
+- 适用模式：`solve`/`run`/`merge`/`prepare`/`prewarm`。`--mode list` 是计划（行
+  `status` 为 `null`），没有可导出的判定；`--mode validate` 的行由 solve 产生，导出只会
+  把 `phase` 标成 `validate` 而误述来源——两者以及无 `--mode` 的普通 case 运行都按用法
+  错误拒绝（要导出 row 文件用 `--mode merge`，它会以正确的 `phase=solve` 重建同一份表）。
+  导出结果写进 `--json` 文档的 `ledger_export` 块
+  （`csv_path`/`excel_path`/`rows`/`columns`/`sheets`/`note`/`error`）。
+- 默认关闭（`none`）。未给该 flag 时仍接受环境变量 `PYQCU_TEST_LEDGER_EXPORT`
+  （`csv`/`excel`/`xlsx`/`both`/`1`=both、`0`/`off`/`none`=关闭），
+  `PYQCU_TEST_LEDGER_EXPORT_DIR` 覆盖目标目录；显式 `--ledger-export none` 优先于环境变量。
+  写失败时 stderr 报一行，正常 summary 照常打印，最后以退出码 `2` 结束（不把失败埋成 0）。
+
+```bash
+# 从 row 文件重建台账，并额外写参考 CSV + workbook（不覆盖 reports/rows.csv）
+python -m pyqcu.test --mode merge --outdir runs/l24 --ledger-export both
+```
 
 ### run_id、resume 与 run-label
 
@@ -201,9 +239,39 @@ repeat 1。`--quick --mode solve` 是合法组合，但仍是 tier-0 小格运�
 |---|---|---|
 | `--ranks` | `rows/*.json`、`--list --json` | 台账/证据字段；默认 `prod(--lattice-grid)`。真正的 MPI 规模仍由 `mpirun -np` 与 `--lattice-grid` 决定 |
 | `--threads` | 同上 | 只在 torch 行生效（`torch.set_num_threads`）；KUPL/CUDA 行只记录，见 [设备与线程](#设备与线程) |
-| `--shm` / `--no-shm` | 同上 | 内置执行器只记录；`native.py` 的 `apply_environment` 会写 `KUPL_SHM_HALO` 并在不可用时报 `SKIP(shm_unavailable)`，但该原生路径需要 `driver:run_row` 模块，当前 checkout 未提供 |
-| `--shared` | 同上 | 只作为“请求单节点共享执行路径”的证据字段；当前内置 runner 不据此改变执行路径 |
-| `--gauge-file` / `--source-file` | 同上 | `prepare` 校验、`prewarm` 读取并哈希；内置 tier-0 case 执行仍用 case 自己的 `--gauge`/`--source` 生成场（见 [「HDF5 输入」](#hdf5-输入)） |
+| `--shm` / `--no-shm` | 同上 | tier-0 内置执行器只记录；`--native` 行的 `pyqcu.test.driver` 会让 `native.apply_environment` 写 `KUPL_SHM_HALO`，请求了但不可用时该行报 `SKIP(shm_unavailable)`（带 reason），绝不静默改成 `shm=0` 还写 `shm=true` |
+| `--shared` | 同上 | 只作为“请求单节点共享执行路径”的证据字段；当前没有任何 runner 据此改变执行路径 |
+| `--native {dslash,solve,mg}` | `rows/*.json`、`--mode list` | **生效**：为每个选中的原生后端追加 tag 为 `<backend>/native/<kind>` 的行（tier 0），由 `pyqcu.test.driver.run_row` 执行 `pyqcu.test.native`；其它 tag 仍走内置执行器（driver 返回 `None` = 不是我的行） |
+| `--gauge-file` / `--source-file` | 同上 | `--native` 行**真的读文件**（`pyqcu.test.io` 校验 + SHA256，再交给 `native` 当 ABI 操作数），行里给 `gauge_origin=hdf5`/`gauge_sha256`/`gauge_layout`；内置 tier-0 case 仍用自己 `--gauge`/`--source` 生成场（见 [「HDF5 输入」](#hdf5-输入)） |
+
+### 原生行与 `driver:run_row`
+
+`--native dslash|solve|mg` 把 `pyqcu.test.native` 的正式原生用例接入台账：每个选中的
+原生后端（`kupl`/`cuda`；`--backend all` 展开为两者）各追加一行，tag 为
+`<backend>/native/<kind>`，dtype/格点/线程/shm 与本行配置一致。这些行由
+[`pyqcu/test/driver.py`](driver.py) 的 `run_row` 执行（`MODE_HOOKS` 一直声明的钩子）：
+
+- **只返回观测值**：`run_row` 不返回 `PASS`/`FAIL`（返回了会被 harness 记成 `ERROR`）；
+  它给出的数字由 `Case.expect` 判据判定，与普通 case 运行完全同一条路径。
+- **记录**：`gauge_origin`/`gauge_path`/`gauge_sha256`/`gauge_layout`、source 同理，
+  `ranks`/`mpi_size`/`ranks_match`、`lattice_grid`/`local_lattice`（由 `--ranks` 派生，
+  也可由 row 的 `lattice_grid` 指定）、`threads_requested`/`threads_applied`、
+  `shm_requested`/`shm_applied`、`environment`、`launcher`。
+- **不静默回退**：文件缺失/损坏/格点或 dtype 不符 → `ERROR`；`--ranks` 与
+  `MPI_COMM_WORLD` 不符 → `SKIP(mpi_grid)` 并在 reason 里给出应有的 `mpirun -np`；
+  没有可用偶数分域 → `SKIP(mpi_grid)`。绝不换小格点、绝不换随机组态。
+- **仍未实现（`TODO`）**：`mpirun` 跨节点启动（rankfile/`CCS_ALLOC_FILE`，见
+  [`docs/pyqcu_test_l48_remote.md`](../../docs/pyqcu_test_l48_remote.md) §5.3）。每行
+  `launcher.mpi_launch=false` 就是这条缺口，跨节点作业前必须先补它。
+
+```bash
+# 一个真实输入的原生 solve 行（8x8x8x16 单 rank 冒烟；L48 需先按 §5.1 选 ranks/grid）
+python -m pyqcu.test --mode solve --native solve --only kupl/native/solve \
+  --gauge-file runs/inputs/gauge_8x8x8x16_c64.h5 \
+  --source-file runs/inputs/source_8x8x8x16_c64.h5 \
+  --ranks 1 --threads 8 --no-shm --outdir runs/native
+python -m pyqcu.test --mode validate --outdir runs/native
+```
 
 ### 退出码
 
@@ -234,11 +302,19 @@ full mode 的 `--gauge-file`/`--source-file` 是**显式输入的 HDF5 文件**�
 一次并记录 `sha256`/字节数。两个模式都只处理**已请求**的输入：未给 `--gauge-file` 时
 该条目记 `SKIP`（不是 FAIL）。文件缺失、不可读、形状不符记 `FAIL` 并使该模式退出 `1`。
 
-内置 tier-0 case 执行器**不会**把 `--gauge-file`/`--source-file` 偷偷替换进 case：
-case 的数字仍由它自己的 `--gauge`/`--source`/`--seed` 决定，台账里的文件字段是本次
-运行声明的输入证据。需要“按文件组态求解”的驱动属于非正式树的职责；若后续把文件
-接入 runner，必须同时让 `options`/`rows` 记录 `gauge_origin`/`source_origin`，不得让
-报告声称的参数与实际读到的不一致。
+文件的**消费者**有两条，语义不同：
+
+- `--native` 规划的原生行（`--mode ... --native solve`）由 `pyqcu.test.driver.run_row`
+  驱动：driver 先用 `pyqcu.test.io` 校验并存 SHA256，再把同一个文件交给
+  `pyqcu.test.native` 当 gauge/source 操作数。行里记录 `gauge_origin=hdf5`、
+  `gauge_path`、`gauge_sha256`、`gauge_layout`、`gauge_file_dtype`（source 同理）；
+  文件缺失/损坏/格点或 dtype 不符一律 `ERROR`/`FAIL`，**不会**退回生成场或换成小格点。
+- 内置 tier-0 case 执行器**不会**把文件替换进 case：它的数字仍由自己的
+  `--gauge`/`--source`/`--seed` 决定，此时文件字段只是本次运行声明的输入证据
+  （行里 `metrics.gauge_origin` 写的是生成器名，`gauge_sha256` 为 `null`）。
+
+任何新接线的 runner 必须同时记录 `gauge_origin`/`source_origin` 与哈希，不得让报告
+声称的参数与实际读到的不一致。
 
 ## 参数映射（先读这一节）
 
@@ -391,6 +467,7 @@ python -m pyqcu.test --mode prepare --outdir runs/l24 --lattice-preset L24
 python -m pyqcu.test --mode solve --outdir runs/l24 --ranks 16 --shm \
   --resume --skip-failed --run-label cold
 python -m pyqcu.test --mode merge --outdir runs/l24
+python -m pyqcu.test --mode merge --outdir runs/l24 --ledger-export both
 python -m pyqcu.test --mode validate --outdir runs/l24
 
 # 8) HDF5 输入：只校验/预热，不跑数值（路径换成你自己的、与 8x8x8x16 匹配的文件）

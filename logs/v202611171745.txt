@@ -1,0 +1,294 @@
+[日志元数据]
+日志类型: stage
+生成时间: 2026-11-17 17:49 +0800
+批次: pyqcu-test-l48-remote-20261117
+主任务: 把 L48 / 远端 / pyqcu.test 会话的可复用经验落成独立文档与技能速查，并建立本轮任务日志
+触发原因: 阶段成果（只新增 docs/skills/logs；不改核心代码、不改 `pyqcu/test/**`、不改版本/标签、不 commit/push）
+摘要: 新增 `docs/kupl_remote_l48_experience_20261117.md`（经验与判定规则）、`skills/pyqcu-testing/references/remote-l48-experience.md`（操作者速查）与本日志；同步 docs/skills 索引。记录远端 0.1.17 覆盖树 18/18、本机工作树 20/20（17:55；17:47 为 19/19）、`--quick` 19 个 tier-0 case；L48 c64/c128 输入身份；32r c64 BiCGStab 1.6646 s/11 it/7.126e-5/3.137 GiB；16r 共享 183.0 s 为病态、不作基线；16r “MG” 110.35 s 实际回退 fine BiCGStab；32r/两节点 MG、c128、CG、32r dslash、两节点 MPI 均无有效结果。未发布：仍是 0.1.17 / test37。
+Git 根目录: /home/zhangxin/PyQCU
+日志文件: logs/v202611171745.txt
+
+## 0. 一句话状态
+
+经验文档、技能速查与索引已写入；**两节点未跑通、c128 未运行、32r/两节点 MG 无结果、
+CG 已退役、32r dslash 仍挂起**。本轮“完成”只指文档/日志写入完成，不代表任何
+L48 数值目标或发布门达成。版本仍是 `0.1.17` / tag `test37`，未 commit、未 push、
+未打 tag、未上传 PyPI。
+
+## 1. 目标与边界
+
+1. 把本轮会话中**可复用的判定规则、失败路径与证据边界**写成独立经验文档，避免
+   再开一份“设计说明”或复制既有 L48 设计正文。
+2. 在 `skills/pyqcu-testing/references/` 增加操作者速查，只列最短命令与“不要做”的
+   事项；既有 `l48-remote.md` 不覆盖、不重写。
+3. 建立本轮任务日志，记录精确作业号、路径、状态与 caveat。
+4. 只新增文件；不改核心代码、不改 `pyqcu/test/**`、不改
+   `docs/pyqcu_test_l48_remote.md`、不改 `skills/pyqcu-testing/references/l48-remote.md`；
+   不 commit/push/tag/release。
+5. 不写私网地址、密钥、口令；远端路径只保留到目录/作业号粒度。
+
+## 2. 本轮新增/变更文件
+
+| 路径 | 类型 | 作用 |
+|---|---|---|
+| `docs/kupl_remote_l48_experience_20261117.md` | 新增 | 9 组经验 + 状态词表 + 证据索引 + 未验证清单；链接既有设计/评审/风险登记，不复制设计正文 |
+| `skills/pyqcu-testing/references/remote-l48-experience.md` | 新增 | 操作者速查：12 条硬规则、环境配方、3.10 自检、输入/dtype、HDF5/`dtfs`、结果判读、cache、launcher、发布纪律 |
+| `logs/v202611171745.txt` | 新增 | 本日志 |
+| `docs/AGENTS.md` | 索引更新 | 登记经验文档；docs 计数按实际文件数更新 |
+| `skills/pyqcu-docs/references/project-docs-map.md` | 索引更新 | 登记经验文档（C 级、Primary `pyqcu-testing`） |
+| `skills/pyqcu-docs/references/extracted-guidance.md` | 索引更新 | 登记经验文档的提取结论 |
+| `skills/pyqcu-testing/SKILL.md` | 指针更新 | 在既有 `l48-remote.md` 指针旁增加经验速查链接 |
+
+> 并发边界：`docs/pyqcu_test_l48_remote.md` 与
+> `skills/pyqcu-testing/references/l48-remote.md` 由另一批次编辑，本日志批次
+> **未写入**。`pyqcu/test/**` 由 bg-43 编辑，本批次**未写入**。
+> 另：`docs/pyqcu_test_l48_review.md` 是本轮此前已存在但未登记索引的文档；本批次
+> 只补它的索引行（docs 索引/映射/提取结论），不改其内容。
+
+## 3. 已验证事实（按 9 组经验）
+
+### 3.1 远端访问与运行时
+
+| 项目 | 事实 | 状态 |
+|---|---|---|
+| 登录 | `login02` / `nsls_yangyb`，经用户内部路由；地址/密钥不入库 | **VERIFIED-C** |
+| `ssh lingsheng` | 别名不存在（DNS 不解析）；不是集群不可达 | **VERIFIED** |
+| 远端仓库 | `/home/share/nsls_yangyb/PyQCU-main`，非 git；0.1.15 快照 + 0.1.17 Python 覆盖；备份 `pyqcu.bak.20261117` | **VERIFIED** |
+| 代码身份 | 会话开始时 `kupl_multigrid.py` md5 `c38aefb89962be8b40e8798d86581233`，与当时本机一致；17:46 后本机被并发批次修改，17:55 实测 `87a43f447ea5d518076e06a7f10c31bc`，远端仍是 `c38aef…` | **VERIFIED（时点）** |
+| 版本身份 | “0.1.17”只是版本字符串，不是 PyPI 0.1.17 sdist（sdist 16 个 test 文件 vs 工作树 19 个） | **VERIFIED** |
+| 运行时 | Python 3.10.9 aarch64 / anaconda 2023.3；numpy 1.23.5；h5py 3.7.0 + HDF5 1.10.6（`mpi=False`）；mpi4py 4.1.2；torch 1.12.1 | **VERIFIED-C**（mpi4py/torch 原始 stdout 未归档） |
+| HPCKit | 26.1.RC1；HMPI（Open MPI 4.1.6rc4） | **VERIFIED** |
+| 数据盘 | `/home/share` = `dtfs`；登录节点 128 CPU / ~502 GB | **VERIFIED** |
+
+### 3.2 HPCKit/HMPI 环境
+
+| 项目 | 事实 | 状态 |
+|---|---|---|
+| `PATH` | HMPI bin + anaconda 2023.3 + `/opt/batch/cli/bin` | **VERIFIED** |
+| `LD_LIBRARY_PATH` | `hmpi/lib` + `compiler/gcc/lib64`（`GLIBCXX_3.4.29`）+ `compiler/bisheng/lib`（`libomp`）+ `alllib` | **VERIFIED** |
+| `OPAL_PREFIX` | `<HK>/hmpi/bisheng/release/hmpi`，缺则 `mpirun` 选项异常 | **VERIFIED** |
+| 单 rank | `mpirun -np 1 --bind-to none` 可跑；`kupl/abi/symbols`、`kupl/dslash/wilson` PASS | **VERIFIED** |
+| 多 rank 正式用例 | `mpi_single_rank`，2 rank 会 `SKIP` | **BLOCKED（设计如此）** |
+| UCG 26.0/26.1 | 每 rank 一行，非致命；16r 16+16、32r 32+32；时间预算 0.011–0.048 s（183 s 的 0.006–0.026%），不能解释 183 s | **VERIFIED** |
+| UCG A/B（`--mca coll ^ucg`） | 未做 | **TODO** |
+
+### 3.3 Python 3.10 可移植性
+
+| 项目 | 事实 | 状态 |
+|---|---|---|
+| 故障 | `source[0, spin, color, *site]`（PEP 646 starred subscript）在 Python 3.10 是 `SyntaxError` | **VERIFIED** |
+| 修复 | 先拼 `site = (0, spin, color, *site)` 再 `source[site]`；语义不变 | **VERIFIED** |
+| 远端结果 | 覆盖树 `--check` 18/18 PASS | **VERIFIED-C** |
+| 本机结果 | 17:47 `--check` 19/19 PASS；17:55 复查 **20/20 PASS**（并发批次又加 1 项检查，19 modules + 新项） | **VERIFIED（带时间）** |
+| tier-0 | `--list`/`--quick` 19 cases，`[8,8,8,16]`，c64（11 torch / 5 kupl / 5 cuda） | **VERIFIED** |
+| 语法门 | `ast.parse(feature_version=(3,10))` 在 3.12/3.13 仍接受该非法写法；必须加结构性 PEP 646 扫描；flag 不被遵守时返回 `SKIP` | **VERIFIED** |
+| 回归测试 | `pyqcu/testing/python/test_pyqcu_test_syntax_floor.py` 6 passed（2.36 s） | **VERIFIED** |
+
+> 远端 18 / 本机 19 的差值是并发批次新增的 `py310_syntax` 检查；两个分母不能混读。
+
+### 3.4 L48 输入与 HDF5
+
+| 项目 | 事实 | 状态 |
+|---|---|---|
+| LIME | `~/data/beta6.20_mu-0.2770_ms-0.2400_L48x96_cfg_7000.lime`；6,115,435,952 B；complex128；`48×48×48×96`；`Mass=-0.2770`、`clovCoeff=1.160920225783` | **VERIFIED** |
+| 全文件 SHA | 未比对（只比了前 4 KiB） | **UNVERIFIED** |
+| canonical 转换 | `prepare_case.py ... --lat 48 48 48 96 --mass -0.277 --csw 1.160920226 --seed 42`，41 s | **VERIFIED-C**（原始 stdout 未归档） |
+| dtype 陷阱 | `gauge_..._c64.h5` 实为 complex128，6,115,301,376 B | **VERIFIED** |
+| c64 cast | t-slab 分块写 complex64；bit-exact：382,205,952 elements，0 mismatch，0 nonfinite，52.6 s | **VERIFIED** |
+| `io.describe` | complex64、`[3,3,4,48,48,48,96]`、`[48,48,48,96]`、dataset 3,057,647,616 B、attrs `source_dtype`/`cast_to` | **VERIFIED-C** |
+| canonical 身份 | c128 gauge `b931b0cf…`；c64 gauge `c8e8df3b…`；c64 source `e4dc2a4c…`；c128 source `3e07d910…` | **VERIFIED** |
+| source 语义 | c64 source = PCG64 normal → complex64、seed 42；c128 source = 精确 widening（16.299 s，`slice_equal true`） | **VERIFIED** |
+| HDF5 布局 | contiguous、无 chunk、无压缩；`(x,y,z,t)`，`t` 最快 | **VERIFIED** |
+| 读放大 | 16r 1/16 slab：3,981,312 个 384 B run → 10,380 次 `pread`，rchar 679,480,530 B，**3.56×**；32r 1/32：**7.1×** | **VERIFIED** |
+| `dtfs` 停顿 | +33…+36 s，3/12 次；所有 32 rank 同时中招的一次；机制推断为 storage-client timeout/retry | **VERIFIED（数值）/ UNVERIFIED（机制）** |
+| slab-dir | `--gauge-slab-dir`/`--source-slab-dir` + `prepare_mpi_slab.py`；16r cold 3.855 s / warm 0.254 s；183 s → ~129 s 为预测 | **VERIFIED（I/O probe）/ UNVERIFIED（L48 32r 复跑）** |
+| slab + cache | `--write-coarse-cache` 与 slab-dir 是否兼容未实测 | **UNVERIFIED** |
+
+### 3.5 性能结果与判读
+
+| 用例 | 结果 | 状态 |
+|---|---|---|
+| c64 BiCGStab 32r / 1 节点独占（`2152757`，`cn12072`） | 1.6645688 s / 11 it / 7.126092e-5（strict 1e-4）/ 3.137 GiB / PASS | **VERIFIED**（单样本） |
+| c64 BiCGStab 16r / 共享（`2152325`，`cn12038`） | 183.0004 s / 11 it / 7.125789e-5 / 4.221 GiB | **VERIFIED 但病态**；不作基线、不作分母 |
+| 32r vs 16r 的 110× | 节点、独占性、grid 全不同；每 site-iteration 0.456 vs 25.07 µs（55×） | **UNVERIFIED（因果）**；不是 scaling |
+| c64 “Legacy-MG” 16r（`2152391`） | wall 110.3546 s + builder 1741.882 s，elapsed 2656 s，cache 1.276 GiB，残差 7.125789e-5 | **数字 VERIFIED，但不是有效 MG** |
+| MG 回退证据 | `final_true_residual` 与 levels=1 逐位相同；`2152601` 用 `KUPL_REQUIRE_MG_CORRECTION=1` 得到 `rejected fine BiCGStab fallback` + `MPI_ABORT` | **VERIFIED** |
+| c128（`2153005`） | 无结果；16:11–16:26 一直 PENDING | **PENDING** |
+| 两节点（`2153008`） | 无结果；16:11:54 → 17:06:47 观察 55 min，最后记录仍 PENDING、无 `execNodes`；17:44 只复查了 `2152970` | **PENDING（截至最后记录）** |
+| 32r MG（`2152970`） | 无结果；17:44 仍 PENDING | **PENDING** |
+| CG | 无 L48 CG harness；用户决定退役 | **BLOCKED / DEFERRED** |
+| 32r dslash/clover | 计算节点 MPI init 后挂起；登录节点同命令 ~2 s；根因未定位 | **UNVERIFIED / BLOCKED** |
+| Strict-MG | 未跑；不作 L48 备选 | **DEFERRED** |
+
+### 3.6 Cache 策略
+
+| 项目 | 事实 | 状态 |
+|---|---|---|
+| identity | lattice、dtype、mass、csw、mg_grid、nv_iters、dof、seed、gauge_kind/SHA、ranks、grid、verify_status=0 | **VERIFIED**（设计 §0.1.2） |
+| 16r cache | `caches/l48_16r_mg_l2r5`，1,369,800,704 B = 1.276 GiB，E=2，`patch_galerkin_error 3.59e-07`，`verify_status=0` | **VERIFIED** |
+| 复用 | `2152601` 复用该 cache；因 `KUPL_REQUIRE_MG_CORRECTION=1` 硬失败（设计如此） | **VERIFIED（机制）** |
+| 32r/两节点 | 无匹配 cache；`2152970` 的 `--write-coarse-cache` 从未产出；**DEFERRED，不重建** | **DEFERRED** |
+| break-even | 1741.88 / (183.00 − 110.35) ≈ 24 次；算额外 gauge read 约 27 次 | **VERIFIED（算术）/ 仅对这对数字** |
+| MG 加速 | 110.35 s 是 fallback 的 fine BiCGStab，不是 MG 加速 | **UNVERIFIED / 不应声称** |
+| 17.44 GiB | E=12 历史预算，不是本轮 E=2 cache | **VERIFIED（区分）** |
+
+### 3.7 调度器与两节点 launcher
+
+| 项目 | 事实 | 状态 |
+|---|---|---|
+| 请求 | `-nn 2 -N 32 -rpn 16` 解析为 nnodes 2 / replica 32 / ntasksPerNode 16 / reqCPU 18 / reqMem 8192 / exclusive true / timeout 600 | **VERIFIED**（`djob -ll 2153008`） |
+| 每节点 | 16 × 18 = 288 CPU（47% of 608）、128 GiB；不是 576/node | **VERIFIED** |
+| PENDING 原因 | 队列只有 7–8 个 `OK` 节点、无 608 空闲 CPU；`-x job` 需要两个全空节点 | **VERIFIED（快照）** |
+| 账号配额 | `testusers_rebuild` used 608 / limit 1216 = 2×608；2 节点独占吃满配额 | **UNVERIFIED（`dlimit` permission denied）** |
+| `2152277` | 最终 **SUCCEEDED**（15:48:25–15:48:37，12 s，`cn12254`/`cn19475`）；只打印分配，**无 `mpirun`** | **VERIFIED** |
+| `2152277` 误读 | 设计说明 §2.4.5 仍写 PENDING（旧快照）；不是两节点 MPI 结果 | **已更正** |
+| 跨节点 MPI 失败 | `2152326`/`2152334` 的 `mpirun` 均 `RC=255`：`Host key verification failed`、`Permission denied (publickey)` | **VERIFIED** |
+| 根因 | 默认 `plm_rsh_agent = "ssh : rsh"`；账号无私钥；脚本写了 rankfile 但**从未传给 `mpirun`**；无 `CCS_DRUN_RANK_FILE`/`$CCS_MPI_OPTIONS`/`-x` | **VERIFIED** |
+| 修复配方 | `CCS_DRUN_RANK_FILE` + `-rf` + `--mca rmaps_rank_file_physical true` + `$CCS_MPI_OPTIONS` + `-x PATH -x LD_LIBRARY_PATH`；rankfile 18 cores/rank，16 rows/node | **VERIFIED（厂商模板）/ 未在 L48 两节点实跑** |
+| `$CCS_MPI_OPTIONS` 内容 / `plm_donau` 加载 | 未读到；`ldd` 报 `libopen-rte.so.40 => not found` | **UNVERIFIED** |
+
+### 3.8 发布与过程纪律
+
+| 项目 | 事实 | 状态 |
+|---|---|---|
+| 已发布 | `0.1.17` / `test37`；PyPI sdist 912,755 B，sha256 `82d1af5f…b19dca` | **VERIFIED** |
+| 下一版 | `0.1.18` / `test38`，只在十轮复审全过后 | **计划** |
+| 本轮状态 | R1/R2/R6/R7/R8/R9 FAIL；R3/R4/R5 部分 PASS；R10 UNVERIFIED | **VERIFIED-C** |
+| 本轮动作 | 不改版本、不 commit、不 push、不打 tag、不上 PyPI | **VERIFIED** |
+| Strict-MG | 未跑、排除；`--strict-acceptance` 只是容差门 | **VERIFIED** |
+| `bug45` | tag-chain 唯一历史 `[BLOCK]`，接受为例外；不改写 `bug45`/`dev106` | **VERIFIED** |
+| 100 列/21 sheet | parity 未通过，不得声称替换旧驱动 | **UNVERIFIED** |
+| 覆盖红线 | 0.1.17/test37 不可覆盖；既有 docs/logs/skills 不覆盖 | **VERIFIED** |
+
+### 3.9 Agent/验证工作流
+
+| 规则 | 做法 | 状态 |
+|---|---|---|
+| 只读审计 | `djob -l/-ll`、`dnode`、`dqueue`、`duser`、`md5sum`、`sha256sum`、`find -newermt` | **VERIFIED** |
+| 有界监视 | 20 s poll + 硬超时（840 s / 14 min / 55 min）；超时写 `WATCH_TIMEOUT`，不推断 | **VERIFIED** |
+| 状态词 | `VERIFIED`/`VERIFIED-C`/`PENDING`/`BLOCKED`/`DEFERRED`/`UNVERIFIED`/`TODO` | **VERIFIED** |
+| 证据分级 | 远端 report.json > job stdout > 会话草稿；原始 stdout 未归档 = C | **VERIFIED** |
+| 不写远端 repo | 作业脚本/报告放 `data/<batch>/**` 或 repo 外；Python 用 `-B` | **VERIFIED** |
+| 不 cancel 他人作业 | `2152277`/`2152970`/`2153005`/`2153056` 均未 cancel | **VERIFIED** |
+| 状态快照带时间 | `2152277` 从 PENDING 变 SUCCEEDED；引用必须带 `djob` 时间 | **VERIFIED** |
+
+## 4. 关键更正（相对旧快照）
+
+1. **`2152277` 不是 PENDING**：15:48:25 已 SUCCEEDED，`cn12254`/`cn19475`，12 s；
+   但只是 placement probe，无 `mpirun`。设计说明 §2.4.5 的 PENDING 是 15:48 前快照。
+2. **16r “MG” 不是 MG**：`2152391` 的 110.35 s 实际是 fine BiCGStab fallback；
+   `final_true_residual` 与 levels=1 逐位相同；`2152601` 硬失败确认。
+   “L48 已有有效 MG 性能点”不成立。
+3. **183 s 不是 16-rank 基线**：共享节点 `cn12038`（历史排除名单）、grid 不同；
+   每 site-iteration 25.07 µs vs 32r 0.456 µs（55×）；只能写病态记录。
+4. **c64 文件名不是 dtype**：`gauge_..._c64.h5` 曾是 complex128；真正 c64 是
+   t-slab cast + bit-exact 校验后的 `3,057,653,856 B` 文件。
+5. **“0.1.17”不是制品身份**：远端是 0.1.15 底座 + 0.1.17 Python 覆盖；
+   PyPI sdist 只有 16 个 test 文件，工作树 19 个。
+
+## 5. 验证与审计
+
+本轮只做文档/日志，不跑数值；文档侧验证：
+
+- 本地链接存在性、代码围栏、标题锚点：由 `skills/pyqcu-docs/scripts/audit-docs-skills.py`
+  检查（结果见 §5.1）。
+- `python -B -m pyqcu.test --check`：17:47 为 19/19 PASS；17:55 复查为 **20/20 PASS**
+  （并发批次又加 1 项检查；本机工作树，引用需带时间）。
+- `python -B -m pyqcu.test --list --json -`：19 cases，`[8,8,8,16]`，c64。
+- 未跑 `pyqcu/testing/kupl/test_kunpeng_all.py` 或任何 L48 数值；未提交、未发布。
+
+### 5.1 审计结果（2026-11-17 17:52–17:55）
+
+```text
+$ python -B skills/pyqcu-docs/scripts/audit-docs-skills.py
+FAIL docs=57 skills=36 errors=2
+[SKILL-SIZE] skills/pyqcu-testing/SKILL.md: SKILL.md 为 530 行，应拆分到 references/
+[AGENTS-SIZE] skills/pyqcu-testing/AGENTS.md: AGENTS.md 为 15 行，应保持简短导航
+
+$ bash skills/pyqcu-form/form-audit.sh
+PASS: form 审计通过；36 个技能目录与索引一致，豁免 18 个既有资产 finding。
+
+$ git diff --check
+# exit 0
+
+$ grep -nE '<IP/key patterns>' \
+    docs/kupl_remote_l48_experience_20261117.md \
+    skills/pyqcu-testing/references/remote-l48-experience.md logs/v202611171745.txt
+# 无命中（无私网 IP、无密钥）
+```
+
+- 基线审计在写入前是 `errors=12`（含 `pyqcu_test_l48_review.md` 未登记 3 条 +
+  docs 计数 55≠56 + 两处技能计数 + 一条 `../logs/v202611171745.txt` 链接不存在）。
+  17:52–17:55 的审计只剩 2 条**既有** `SKILL-SIZE`/`AGENTS-SIZE` 告警；doc 计数/索引/
+  映射/提取结论/链接均已清零。
+- **并发更新（17:56:30）**：bg-48 新增 `docs/pyqcu_test_l48_two_node_matrix.md` 后，
+  最终审计重新出现 `DOCS-COUNT/INDEX/MAP/GUIDANCE`（docs=58，索引仍 57）。这是
+  bg-48 的新文件，本批次**未登记、未编辑**；本批次自己的 3 个文件与既有 review 的索引
+  在此前已清零。引用最终审计时必须带上这个并发前提。
+- `SKILL-SIZE`/`AGENTS-SIZE` 是改动前就存在的告警，不是本轮新增；本轮只在
+  `skills/pyqcu-testing/SKILL.md` 加了 4 行指针。
+- `python -B -m pyqcu.test --check`：17:47 19/19；17:55 **20/20**（本机工作树，
+  并发批次仍在改 `pyqcu/test/**`，引用带时间）。
+- `python -B -m pyqcu.test --list --json -`：19 cases，`[8,8,8,16]`，c64。
+- 未跑数值、未提交、未发布。
+
+## 6. 未验证 / 阻塞（汇总）
+
+| # | 项目 | 状态 | 解除条件 |
+|---:|---|---|---|
+| 1 | c128 L48（`2153005`） | PENDING | 分配 + report |
+| 2 | 两节点 L48（`2153008`） | PENDING | 两个 `execNodes` + 实际 `mpirun` |
+| 3 | 跨节点 launcher | BLOCKED | rankfile/`CCS_DRUN_RANK_FILE`/`$CCS_MPI_OPTIONS` 接线 |
+| 4 | 32r/两节点 MG cache | DEFERRED | 另立批次重建并记录 identity/builder/verify |
+| 5 | 32r dslash/clover | UNVERIFIED | 定位计算节点 MPI init 挂起 |
+| 6 | Legacy-MG 分项/作业号归档 | TODO | 归档 `report.json`/每 rank 日志/`djob -l 2152391` |
+| 7 | CSV/Excel parity | UNVERIFIED | 100 列逐列同序 + 21 sheet 一致；CLI 接线 |
+| 8 | 远端原始 stdout | TODO | 归档 `--check`、版本探针、`io.describe`、41 s、`djob -l` |
+| 9 | Strict-MG | DEFERRED | 单独立项 |
+| 10 | UCG A/B | TODO | 同节点/几何/seed 3 样本 |
+| 11 | 16r 干净基线 | TODO | 独占节点 + `numastat -p` |
+| 12 | HBM 页驻留 | UNVERIFIED | `KUPL_TOPOLOGY_REPORT`/`numastat` |
+| 13 | slab-dir + `--write-coarse-cache` | UNVERIFIED | 复核兼容性并实测 |
+| 14 | `$CCS_MPI_OPTIONS`/`plm_donau` | UNVERIFIED | 进入作业读环境并实测 drun |
+
+## 7. 版本 / 发布状态
+
+- 版本：`0.1.17`（`pyproject.toml`）；HEAD `1f65469e`；`git describe` =
+  `test37-1-g1f65469e`。
+- 已发布：`0.1.17` / `test37`；**不可覆盖**。
+- 下一版：`0.1.18` / `test38`，只在十轮复审（R1–R10）全 PASS 后。
+- 本轮：未 commit、未 push、未打 tag、未 build、未 upload。
+- `bug45`：唯一历史 `[BLOCK]`，接受为例外，不重写。
+
+## 8. TODO（下一批次）
+
+- [ ] 归档远端原始输出：`--check`、版本探针、`io.describe`、`prepare_case.py` 41 s、
+      `djob -l 2152277/2153008/2152391/2152970/2153005`。
+- [ ] 修两节点 launcher（`--rankfile`/`CCS_DRUN_RANK_FILE`/`$CCS_MPI_OPTIONS`/
+      `rmaps_rank_file_physical`），再做 `dsub -nn 2`；只有 `execNodes` 恰好两个才算。
+- [ ] 用 `--gauge-slab-dir`/`--source-slab-dir` 复跑 16r/32r，记录
+      `gauge_read_seconds`/`source_read_seconds` 前后对比。
+- [ ] 有效 MG：`atol=1e-6` + 现有 16r cache + `KUPL_REQUIRE_MG_CORRECTION=1` 退出 0，
+      记录 `coarse_atol`、迭代、真残差；不要用 fallback 结果。
+- [ ] 32r/两节点 MG 若要做，先另立批次重建 cache 并记录 identity/builder/verify。
+- [ ] 定位 32r dslash/clover 计算节点挂起；登录 smoke 不算。
+- [ ] 补齐 CSV/Excel parity 与 CLI 接线。
+- [ ] 修正根 `AGENTS.md`/`skills/AGENTS.md` 的“21 vs 19 tier 0”漂移（需允许编辑的批次）。
+
+## 9. Owner agents
+
+| Owner | 职责 | 本轮状态 |
+|---|---|---|
+| `pyqcu-testing` | 主责：`pyqcu.test` 状态、L48 经验、技能速查 | 只写 docs/skills/logs |
+| `pyqcu-kupl` | KUPL 原生路径、HMPI 环境、两节点 launcher | 只记录经验；未改代码 |
+| `pyqcu-testing-data` | L48 输入身份、dtype、SHA、`io.describe` | 只记录已核实输入；原始 stdout 仍 TODO |
+| `pyqcu-benchmark` | 32r/16r/MG 结果判读、时钟口径、cache 摊销 | 只记录已有结果；未采新数据 |
+| `pyqcu-docs` / `pyqcu-form` | docs/skills 索引、链接、form 审计 | 待审计结果 |
+| 远端操作者（人工） | SSH/账号、数据、`dsub` 队列与节点分配 | 两节点/ c128/32r MG 仍 PENDING |
+| bg-43 | `pyqcu/test/**` 并发实现 | 本批次未触碰 |
+| bg-48 | 设计说明/操作者参考 | 本批次未触碰其两个文件 |
+
+## 10. 审计记录
+
+审计输出、基线与剩余告警已并入 §5.1（`2026-11-17 17:52–17:55`）。无额外发现；未提交、
+未发布。

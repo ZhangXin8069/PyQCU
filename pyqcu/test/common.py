@@ -55,7 +55,7 @@ from types import MappingProxyType
 from typing import Any
 
 from .. import __version__ as _PACKAGE_VERSION
-from . import policy
+from . import l48, policy
 
 __all__ = [
     "CASE_MODE",
@@ -69,19 +69,26 @@ __all__ = [
     "MODES",
     "ModePaths",
     "Options",
+    "RANK_RECORD_FIELDS",
+    "RANK_RESIDUAL_RTOL",
+    "RANK_STATUS_PRECEDENCE",
     "ROW_FIELDS",
     "Result",
     "Skip",
     "Test",
     "TestReport",
     "UsageError",
+    "agreed_resume_row",
+    "allgather_rank_records",
     "as_dict",
     "build_rows",
     "call_hook",
     "evaluate_expect",
     "GATE_OPERATORS",
+    "gather_rank_outcome",
     "grid_product",
     "json_safe",
+    "ledger_owner",
     "load_rows",
     "load_mode_module",
     "merge_ledger",
@@ -89,6 +96,9 @@ __all__ = [
     "module_availability",
     "mpi_info",
     "probe_env",
+    "rank_outcome",
+    "rank_record",
+    "rank_status_key",
     "relative_error",
     "relative_residual",
     "resolve_runner",
@@ -102,6 +112,7 @@ __all__ = [
     "validate_ledger",
     "validate_rows",
     "write_json_atomic",
+    "write_ledger_json",
     "write_row",
 ]
 
@@ -606,6 +617,369 @@ def probe_env() -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# multi-rank ledger protocol: N processes, one logical row
+# ---------------------------------------------------------------------------
+#: Worst-first status order of one logical row.  A row executed by several MPI
+#: ranks carries the **worst** status any rank reported, never rank 0's alone:
+#: one rank's ``ERROR`` must not disappear behind another rank's ``PASS``.
+RANK_STATUS_PRECEDENCE: tuple[str, ...] = ("ERROR", "FAIL", "TIMEOUT", "SKIP",
+                                           "PASS")
+
+#: Fields of the compact record one row's allgather exchanges (7 values/rank).
+#: The full observation mapping is deliberately *not* shipped between ranks: it
+#: carries input identity and byte counts that would make the collective the
+#: slowest part of a 32-rank L48 row.
+RANK_RECORD_FIELDS: tuple[str, ...] = (
+    "rank", "status", "skip_token", "reason", "iterations",
+    "relative_residual", "converged")
+
+#: Relative spread under which two ranks' residuals count as the same number.
+#: A distributed solve reduces its inner products globally, so ranks differ by
+#: rounding only; a wider spread is a real disagreement and is recorded.
+RANK_RESIDUAL_RTOL = 1e-9
+
+#: Cache of ``size -> (communicator, error)`` for :func:`_rank_communicator`.
+#: ``mpi4py`` is imported inside that function (the port stays stdlib-only at
+#: import time) and only once per world size, so a single-rank run never pays
+#: for - or initializes - MPI.
+_RANK_COMMUNICATORS: dict[int, tuple[Any, str | None]] = {}
+
+
+def _rank_int(value: Any) -> int | None:
+    """``int(value)`` for a real integer, ``None`` for anything else."""
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _rank_float(value: Any) -> float | None:
+    """Finite-or-infinite ``float(value)``; ``None`` when unusable or NaN.
+
+    ``inf`` is kept on purpose: an infinite residual is the *worst* possible
+    evidence and must survive into the aggregate, while a ``NaN`` cannot be
+    ordered and is dropped (its rank's gate would fail on its own anyway).
+    """
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return None if math.isnan(number) else number
+
+
+def _rank_bool(value: Any) -> bool | None:
+    """``value`` when it is a real boolean, ``None`` otherwise."""
+    return value if isinstance(value, bool) else None
+
+
+def rank_status_key(status: Any) -> int:
+    """Sort key of a status: lower is worse (``ERROR`` 0 ... ``PASS`` 4).
+
+    An unknown status sorts *before* ``ERROR``: a record that cannot be parsed
+    must never win over a real verdict, and :func:`rank_outcome` turns it into
+    an ``ERROR`` instead of trusting it.
+    """
+    text = str(status if status is not None else "").strip().upper()
+    try:
+        return RANK_STATUS_PRECEDENCE.index(text)
+    except ValueError:
+        return -1
+
+
+def ledger_owner(*, rank: int | None = None) -> bool:
+    """True on the one process allowed to write the ledger and the report.
+
+    ``rows/<run_id>.json``, ``reports/<run_id>.json``, the append-only CSV, the
+    solution copies and the ``--json``/``--outdir`` payload have exactly one
+    writer: rank 0 of the MPI world (:func:`mpi_info`, which reads the launcher
+    environment without importing mpi4py).  Every other rank computes, reports
+    through :func:`gather_rank_outcome` and writes nothing, so no two processes
+    can interleave a JSON document or append the same CSV concurrently.
+
+    With one process - the default, and every non-MPI invocation - this is
+    always true, so single-rank behaviour is unchanged.
+    """
+    world_rank = mpi_info()[1] if rank is None else int(rank)
+    return int(world_rank) == 0
+
+
+def write_ledger_json(path: Any, payload: Any,
+                      *, owner: bool | None = None) -> Path | None:
+    """Write one ledger document from the owning rank only.
+
+    A replica rank returns ``None`` instead of writing: the row/report/CSV
+    layout is single-writer (see :func:`ledger_owner`), so ``--mode prepare``,
+    ``prewarm``, ``merge`` and the per-row reports cannot be written by 32
+    processes at once.  ``owner`` overrides the probe for tests and library
+    callers.
+    """
+    if not (ledger_owner() if owner is None else bool(owner)):
+        return None
+    return write_json_atomic(path, payload)
+
+
+def rank_record(rank: int, observations: Mapping[str, Any] | None = None, *,
+                status: Any = None, skip_token: Any = None,
+                reason: Any = None) -> dict[str, Any]:
+    """One rank's compact record of a row (see :data:`RANK_RECORD_FIELDS`).
+
+    ``status``/``skip_token``/``reason`` override what ``observations`` says,
+    which is what the driver's pre-flight needs ("this rank *can* run" is a
+    decision, not an observation).  An unparsable status becomes ``ERROR``: a
+    record the aggregator cannot read must fail the row, never pass it.
+    """
+    observation = observations if isinstance(observations, Mapping) else {}
+    declared = status if status is not None else observation.get("status")
+    text = str(declared).strip().upper() if declared is not None else "PASS"
+    detail = reason if reason is not None else observation.get("reason")
+    if text not in policy.STATUSES:
+        detail = f"rank {int(rank)} reported the unknown status {declared!r}"
+        text = "ERROR"
+    token = skip_token if skip_token is not None \
+        else observation.get("skip_token")
+    iterations = _rank_int(_resolve_observation("iterations", observation)[0])
+    residual = _rank_float(
+        _resolve_observation("relative_residual", observation)[0])
+    converged = _rank_bool(
+        _resolve_observation("converged", observation)[0])
+    return {
+        "rank": int(rank),
+        "status": text,
+        "skip_token": str(token) if token else None,
+        "reason": None if text == "PASS" else (str(detail or "").strip() or None),
+        "iterations": iterations,
+        "relative_residual": residual,
+        "converged": converged,
+    }
+
+
+def rank_outcome(records: Sequence[Mapping[str, Any]],
+                 *, size: int | None = None) -> dict[str, Any]:
+    """Aggregate the per-rank records of one row into its single outcome.
+
+    The status is the worst one any rank reported
+    (:data:`RANK_STATUS_PRECEDENCE`), so a single rank's ``ERROR`` fails the row
+    even when every other rank passed; the numbers are the worst *evidence*
+    (largest iteration count, largest independent residual, ``converged`` only
+    when every rank converged), so a rank whose solve did not converge cannot be
+    outvoted either.  ``disagreement`` records whether the ranks agreed at all,
+    which is what lets a reader tell "all 32 ranks passed" from "the worst rank
+    passed while another one reported something else".
+
+    An empty record list is an ``ERROR``: "no rank reported" is not a pass.
+    """
+    current = [dict(item) for item in (records or ())
+               if isinstance(item, Mapping)]
+    total = len(current) if size is None else int(size)
+    if not current:
+        return {
+            "status": "ERROR",
+            "skip_token": None,
+            "reason": "no rank reported an outcome for this row",
+            "iterations": None,
+            "relative_residual": None,
+            "converged": None,
+            "worst_rank": None,
+            "disagreement": False,
+            "records": [],
+        }
+    ordered = sorted(
+        current, key=lambda item: (rank_status_key(item.get("status")),
+                                   _rank_int(item.get("rank")) or 0))
+    worst = ordered[0]
+    status = str(worst.get("status") or "").strip().upper()
+    if status not in policy.STATUSES:
+        status = "ERROR"
+    worst_rank = _rank_int(worst.get("rank"))
+    reason = str(worst.get("reason") or "").strip() or None
+    if status == "SKIP" and reason is None:
+        # A SKIP without a reason is the documented ERROR, and it must not look
+        # like a clean skip just because it lost the aggregation.
+        status = "ERROR"
+    if status == "PASS" and reason is None:
+        reason = None
+    elif reason is None:
+        reason = f"rank {worst_rank} reported {status} without a reason"
+    if reason is not None and len(current) > 1:
+        # Only a genuine comparison is labelled with the rank it came from: a
+        # rank-local fallback (no communicator) must not look like "rank 0/32".
+        reason = f"rank {worst_rank}/{total}: {reason}"
+
+    iterations = [value for value in
+                  (_rank_int(item.get("iterations")) for item in current)
+                  if value is not None]
+    residuals = [value for value in
+                 (_rank_float(item.get("relative_residual"))
+                  for item in current) if value is not None]
+    converged = [item["converged"] for item in current
+                 if isinstance(item.get("converged"), bool)]
+    statuses = {str(item.get("status") or "").strip().upper()
+                for item in current}
+    disagreement = len(statuses) > 1
+    if not disagreement and len(set(iterations)) > 1:
+        disagreement = True
+    if not disagreement and len(set(converged)) > 1:
+        disagreement = True
+    if not disagreement and len(residuals) > 1:
+        disagreement = not math.isclose(
+            min(residuals), max(residuals),
+            rel_tol=RANK_RESIDUAL_RTOL, abs_tol=0.0)
+    return {
+        "status": status,
+        "skip_token": (str(worst.get("skip_token"))
+                       if status == "SKIP" and worst.get("skip_token") else None),
+        "reason": None if status == "PASS" else reason,
+        "iterations": max(iterations) if iterations else None,
+        "relative_residual": max(residuals) if residuals else None,
+        "converged": all(converged) if converged else None,
+        "worst_rank": worst_rank,
+        "disagreement": bool(disagreement),
+        "records": current,
+    }
+
+
+def _rank_communicator(size: int, rank: int) -> tuple[Any, str | None]:
+    """``MPI.COMM_WORLD`` when this process really is one of ``size`` ranks.
+
+    Returns ``(communicator, None)`` or ``(None, reason)``.  mpi4py is resolved
+    through :func:`importlib.import_module` **inside** this function and only
+    when the launcher environment claims more than one rank, so a single-rank
+    run never pays for, nor initializes, MPI; the harness module graph stays
+    stdlib-only (``selfcheck.source_imports`` forbids an ``import mpi4py``
+    statement here, and a missing mpi4py is a reported limitation, never a
+    hard dependency).  A world whose size contradicts the launcher probe is
+    refused instead of gathered on: two different worlds must not silently
+    look like agreement.
+    """
+    if int(size) <= 1:
+        return None, None
+    cached = _RANK_COMMUNICATORS.get(int(size))
+    if cached is not None:
+        return cached
+    try:
+        MPI = importlib.import_module("mpi4py").MPI
+    except Exception as error:  # noqa: BLE001 - reported, never propagated
+        result: tuple[Any, str | None] = (
+            None, f"mpi4py unavailable: {type(error).__name__}: {error}")
+        _RANK_COMMUNICATORS[int(size)] = result
+        return result
+    try:
+        communicator = MPI.COMM_WORLD
+        found = int(communicator.Get_size())
+    except Exception as error:  # noqa: BLE001 - reported
+        result = (None, "MPI.COMM_WORLD unavailable: "
+                        f"{type(error).__name__}: {error}")
+        _RANK_COMMUNICATORS[int(size)] = result
+        return result
+    if found != int(size):
+        result = (None,
+                  f"MPI_COMM_WORLD has {found} rank(s) but the launcher "
+                  f"environment reports {int(size)}; refusing to treat them "
+                  "as one world")
+        _RANK_COMMUNICATORS[int(size)] = result
+        return result
+    result = (communicator, None)
+    _RANK_COMMUNICATORS[int(size)] = result
+    return result
+
+
+def allgather_rank_records(record: Mapping[str, Any], *,
+                           size: int | None = None, rank: int | None = None,
+                           comm: Any = None
+                           ) -> tuple[list[dict[str, Any]], str, str | None]:
+    """Exchange one compact rank record; return ``(records, mode, reason)``.
+
+    Exactly one collective per call and no retry: the caller enters it at the
+    same point of every rank's execution of the same row, which is what keeps
+    the protocol deadlock-free.  ``mode`` is
+
+    ``allgather``    a real collective; ``records`` holds one entry per rank
+    ``single_rank``  one process; there is nothing to exchange
+    ``unavailable``  several ranks but no usable communicator - ``reason`` says
+                     why, and the caller must record it instead of claiming the
+                     ranks agreed (a silent single-rank fallback would turn 32
+                     processes into 32 independent, unreviewable verdicts)
+    """
+    world, world_rank = mpi_info()
+    total = int(world if size is None else size)
+    here = int(world_rank if rank is None else rank)
+    if total <= 1:
+        return [dict(record)], "single_rank", None
+    communicator = comm
+    if communicator is None:
+        communicator, failure = _rank_communicator(total, here)
+        if communicator is None:
+            return [dict(record)], "unavailable", failure
+    try:
+        gathered = list(communicator.allgather(dict(record)))
+    except Exception as error:  # noqa: BLE001 - reported, never propagated
+        return ([dict(record)], "unavailable",
+                f"allgather failed: {type(error).__name__}: {error}")
+    records = [dict(item) for item in gathered if isinstance(item, Mapping)]
+    if len(records) != total:
+        return ([dict(record)], "unavailable",
+                f"allgather returned {len(records)} record(s) for {total} "
+                "rank(s); the ranks cannot be compared")
+    records.sort(key=lambda item: _rank_int(item.get("rank")) or 0)
+    return records, "allgather", None
+
+
+def gather_rank_outcome(observations: Mapping[str, Any] | None = None, *,
+                        size: int | None = None, rank: int | None = None,
+                        status: Any = None, skip_token: Any = None,
+                        reason: Any = None, comm: Any = None,
+                        phase: str = "row") -> dict[str, Any]:
+    """Allgather this rank's outcome of one row and return the row evidence.
+
+    This is the one place the port collects across ranks, and every rank calls
+    it exactly once per row: :func:`pyqcu.test.driver.run_row` after its native
+    call and the full-mode ``solve`` loop after each row.  Returning only after
+    the collective is what makes rank 0 safe to write ``rows/<run_id>.json``,
+    ``reports/<run_id>.json`` and the CSV - it can only do so once every rank
+    has reported - and what keeps ``--fail-fast`` from deadlocking: the gathered
+    outcome is identical on every rank, so every rank stops at the same row.
+
+    The returned mapping is JSON-safe and carries ``rank_disagreement``,
+    ``mpi_rank``/``mpi_size``, ``rank_gather``, the worst status/reason/token
+    and the worst ``iterations``/``relative_residual``/``converged``.
+    ``status``/``reason``/``skip_token`` are *not* renamed onto the observation
+    keys here: the driver and the ledger translate them explicitly, so a
+    gathered ``PASS`` can never be mistaken for a declared verdict.
+    """
+    world, world_rank = mpi_info()
+    total = int(world if size is None else size)
+    here = int(world_rank if rank is None else rank)
+    record = rank_record(here, observations, status=status,
+                         skip_token=skip_token, reason=reason)
+    records, mode, failure = allgather_rank_records(
+        record, size=total, rank=here, comm=comm)
+    outcome = rank_outcome(records, size=total)
+    evidence: dict[str, Any] = {
+        "rank_phase": str(phase),
+        "rank_gather": mode,
+        "rank_disagreement": bool(outcome["disagreement"]),
+        "rank_status": str(outcome["status"]),
+        "rank_worst": outcome["worst_rank"],
+        "mpi_rank": here,
+        "mpi_size": total,
+        "rank_outcomes": records,
+    }
+    if failure:
+        evidence["rank_gather_reason"] = str(failure)
+    if outcome["status"] != "PASS":
+        evidence["rank_reason"] = outcome["reason"]
+        evidence["rank_skip_token"] = outcome["skip_token"]
+    for key in ("iterations", "relative_residual", "converged"):
+        if outcome[key] is not None:
+            evidence[key] = outcome[key]
+    return evidence
+
+
+# ---------------------------------------------------------------------------
 # runner resolution and invocation
 # ---------------------------------------------------------------------------
 _RUNNERS: dict[str, Callable[..., Any]] = {}
@@ -973,6 +1347,11 @@ class Case:
     the runner returns.  ``requires`` lists skip tokens the runner is expected
     to honour (it is metadata for ``--list`` and the report: probing a native
     backend is the runner module's job, not the harness's).
+
+    ``pinned`` marks a case whose lattice and dtype are part of its identity
+    (the L48 two-node matrix): :meth:`Test.select` will not rescale it to the
+    run-level ``--lattice-size``/``--dtype``.  Every tier-0 case is unpinned,
+    so the ``8x8x8x16`` matrix keeps its historical retarget behaviour.
     """
 
     tag: str
@@ -985,6 +1364,7 @@ class Case:
     requires: tuple[str, ...] = ()
     expect: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
     timeout: float | None = None
+    pinned: bool = False
 
     def __post_init__(self) -> None:
         if not self.tag or "/" not in self.tag:
@@ -1030,6 +1410,7 @@ class Case:
         object.__setattr__(self, "requires", tuple(self.requires))
         object.__setattr__(self, "expect", expect)
         object.__setattr__(self, "tier", int(self.tier))
+        object.__setattr__(self, "pinned", bool(self.pinned))
         object.__setattr__(self, "timeout",
                            None if self.timeout is None else float(self.timeout))
 
@@ -1046,6 +1427,7 @@ class Case:
             "requires": list(self.requires),
             "expect": json_safe(self.expect),
             "timeout": self.timeout,
+            "pinned": self.pinned,
         }
 
 
@@ -1261,6 +1643,10 @@ class Test:
             raise ValueError(f"seed must be a non-negative int, got {self.seed!r}")
         if self.atol is not None and float(self.atol) <= 0.0:
             raise ValueError(f"atol must be > 0, got {self.atol!r}")
+        # The L48 CG group is retired: an L48 plan never carries a CG case.
+        # The tier-0 CG cases stay untouched on the 8x8x8x16 quick lattice.
+        object.__setattr__(self, "cases",
+                           l48.drop_retired(self.cases, self.lattice))
 
     @classmethod
     def default(cls) -> "Test":
@@ -1330,12 +1716,37 @@ class Test:
                          else _checked(policy.validate_dslash, dslash,
                                        "--dslash"))
 
+        new_lattice = (policy.validate_lattice(lattice) if lattice is not None
+                       else self.lattice)
+        new_dtype = policy.validate_dtype(dtype) if dtype is not None else self.dtype
+        new_seed = int(seed) if seed is not None else self.seed
+
+        # The L48 CG group is retired.  Asking for it explicitly on an L48
+        # plan is a usage error (a silent empty selection would look clean);
+        # an implicit selection simply loses the CG cases, while the tier-0
+        # CG cases remain selectable on the 8x8x8x16 quick lattice.
+        retired_cg = l48.is_l48_lattice(new_lattice)
+        if retired_cg and solver is not None and solver_choice == "cg":
+            raise UsageError(
+                "--solver cg requests the retired L48 CG group; the L48 "
+                "two-node matrix is BiCGStab + Legacy-MG only, and the tier-0 "
+                "CG cases stay available on 8 8 8 16 (drop --lattice-preset "
+                "L48 or use --solver bicgstab)")
+        if retired_cg:
+            cg_patterns = [pattern for pattern in patterns
+                           if l48.is_cg_tag(pattern)]
+            if cg_patterns:
+                raise UsageError(
+                    f"--only {', '.join(cg_patterns)} requests the retired L48 "
+                    "CG group; the tier-0 CG cases stay available on 8 8 8 16")
+
         selected = tuple(
             case for case in self.cases
             if (backend_filter is None or case.backend in backend_filter)
             and (tier is None or case.tier <= int(tier))
             and (not patterns or any(_tag_matches(case, pattern)
                                      for pattern in patterns))
+            and not (retired_cg and l48.is_cg_tag(case.tag))
             and policy.solver_selects(case.kind, case.tag, solver_choice)
             and policy.dslash_selects(case.kind, case.tag, dslash_choice))
 
@@ -1349,12 +1760,10 @@ class Test:
                     f"--only matched no case: {', '.join(unmatched)}; "
                     f"known tags: {', '.join(case.tag for case in self.cases)}")
 
-        new_lattice = (policy.validate_lattice(lattice) if lattice is not None
-                       else self.lattice)
-        new_dtype = policy.validate_dtype(dtype) if dtype is not None else self.dtype
-        new_seed = int(seed) if seed is not None else self.seed
-        cases = tuple(replace(case, lattice=new_lattice, dtype=new_dtype)
-                      for case in selected)
+        cases = tuple(
+            case if case.pinned
+            else replace(case, lattice=new_lattice, dtype=new_dtype)
+            for case in selected)
         new_lattice_grid = (
             _checked(policy.validate_lattice_grid, lattice_grid,
                      "--lattice-grid")
@@ -1536,9 +1945,16 @@ FULL_MODE_TIER = 1
 #: Named latices of the release-acceptance matrix.  ``--lattice-preset`` is the
 #: only way to spell them: a bare ``--lattice-size 24 24 24 64`` keeps working
 #: and keeps meaning the same thing.
+#:
+#: ``L48`` is the production configuration
+#: (``beta6.20_mu-0.2770_ms-0.2400_L48x96_cfg_7000.lime``, ``48x48x48x96``); the
+#: preset only *names* the geometry - it selects no case by itself, so the tier-0
+#: ``8x8x8x16`` matrix and ``--quick`` are unaffected, and a run still needs
+#: ``--native`` (or an explicit ``Test``) to plan rows at this size.
 LATTICE_PRESETS: dict[str, tuple[int, int, int, int]] = {
     "L24": (24, 24, 24, 64),
     "L32": (32, 32, 32, 64),
+    "L48": (48, 48, 48, 96),
 }
 
 #: Default work root when ``--outdir``/``--rows``/... are not given.
@@ -1690,6 +2106,14 @@ class FullModeOptions:
     source_file: str | None = None
     validate: bool = False
     lattice_preset: str | None = None
+    #: The grid the invocation *asked for* (``--lattice-grid``), or ``None``
+    #: when it asked for nothing.  ``None`` is not the same as the default
+    #: ``(1, 1, 1, 1)``: a native row derives its grid from ``ranks`` in that
+    #: case, while an explicit grid is the decomposition the row must use (or
+    #: report a ``SKIP(mpi_grid)``) - a requested grid is never replaced by a
+    #: different one.  ``build_rows`` records it as the row's ``lattice_grid``,
+    #: which is what :func:`pyqcu.test.driver.run_row` consumes.
+    lattice_grid: tuple[int, int, int, int] | None = None
     tier: int = FULL_MODE_TIER
     repeat: int = policy.DEFAULT_REPEAT
     warmup: int = policy.DEFAULT_WARMUP
@@ -1731,6 +2155,9 @@ class FullModeOptions:
         object.__setattr__(self, "source_file",
                            None if self.source_file is None
                            else str(absolute_path(self.source_file)))
+        object.__setattr__(self, "lattice_grid",
+                           None if self.lattice_grid is None
+                           else policy.validate_lattice_grid(self.lattice_grid))
 
     def as_dict(self) -> dict[str, Any]:
         """The effective full-mode configuration (``--list --json``/report)."""
@@ -1750,6 +2177,8 @@ class FullModeOptions:
             "cache_dir": str(self.paths.cache),
             "validate": self.validate,
             "lattice_preset": self.lattice_preset,
+            "lattice_grid": (None if self.lattice_grid is None
+                             else list(self.lattice_grid)),
             "repeat": self.repeat,
             "warmup": self.warmup,
             "timeout": self.timeout,
@@ -1804,6 +2233,11 @@ def build_rows(test: "Test", options: FullModeOptions, *,
             "dslash": test.dslash,
             "device": test.device,
             "ranks": int(options.ranks),
+            # ``None`` = "derive one from ranks" (the native driver's job);
+            # an explicit ``--lattice-grid`` is recorded so the row consumes the
+            # grid it was asked for instead of silently deriving another one.
+            "lattice_grid": (None if options.lattice_grid is None
+                             else list(options.lattice_grid)),
             "threads": (options.threads if options.threads is not None
                         else test.threads),
             "shm": options.shm,
@@ -1827,6 +2261,25 @@ def build_rows(test: "Test", options: FullModeOptions, *,
         }
         if combination is not None:
             row["combination"] = dict(combination)
+        # The L48 two-node matrix declares its own geometry and solver
+        # parameters; a row must reproduce the declaration instead of the
+        # run-level defaults of an unrelated flag (which may be 1 rank and
+        # ``--solver all``).  Non-matrix tags get no extra fields.
+        overrides = l48.row_overrides(case.tag)
+        if overrides:
+            row.update({
+                "dtype": overrides["dtype"],
+                "ranks": overrides["ranks"],
+                "lattice_grid": list(overrides["lattice_grid"]),
+                "nodes": overrides["nodes"],
+                "solver": overrides["solver"],
+                "mg_levels": overrides["mg_levels"],
+                "restart": overrides["restart"],
+                "dslash": overrides["dslash"],
+                "l48_group": overrides["group"],
+                "l48_evidence": overrides["evidence"],
+                "l48_blocked_by": overrides["blocked_by"],
+            })
         row["run_id"] = row_id(row, label=options.run_label)
         rows.append(row)
     return rows
@@ -1861,6 +2314,74 @@ def row_is_resumable(existing: Any, *, skip_failed: bool = False) -> bool:
     if status in ("PASS", "SKIP"):
         return True
     return bool(skip_failed) and status == "FAIL"
+
+
+def agreed_resume_row(paths: ModePaths, row: Mapping[str, Any], *,
+                      skip_failed: bool = False, size: int | None = None,
+                      rank: int | None = None, comm: Any = None
+                      ) -> tuple[dict[str, Any] | None, dict[str, Any]]:
+    """The row every rank may resume, or ``None``: one logical decision.
+
+    ``--resume`` reads ``rows/<run_id>.json`` and ``--resume``/``--skip-failed``
+    are per-row decisions, so a replica rank that resumed a row while another
+    rank re-ran it would skip the driver's collectives and leave the others
+    waiting inside one - the 32-rank hang the audit records as P0-5.  The
+    decision is therefore taken once for the whole world: every rank reports
+    whether *it* could resume the row and the row is reused only when **all** of
+    them can.
+
+    Returns ``(existing_row, evidence)``.  ``existing_row`` is the row to reuse
+    (``None``: execute it), and ``evidence`` is JSON-safe so the caller can
+    record why:
+
+    ``resume_gather``        ``allgather``/``single_rank``/``unavailable``
+    ``resume_disagreement``  the ranks did not agree, so the row was re-run
+    ``resume_reason``        why a resumable row was not reused
+    ``resume_ranks``         how many ranks were asked
+
+    Without a usable communicator a multi-rank world never resumes anything (the
+    same answer on every rank, so the collectives stay aligned) and the local
+    ledger is still read for the single-process case, where ``--resume`` behaves
+    exactly as before.
+    """
+    run_id = str(row.get("run_id") or "")
+    existing = read_row(paths, run_id)
+    local = row_is_resumable(existing, skip_failed=skip_failed)
+    world, world_rank = mpi_info()
+    total = int(world if size is None else size)
+    here = int(world_rank if rank is None else rank)
+    evidence: dict[str, Any] = {"resume_ranks": total}
+    if total <= 1:
+        evidence["resume_gather"] = "single_rank"
+        evidence["resume_disagreement"] = False
+        return (dict(existing) if local and existing is not None else None), evidence
+    records, mode, failure = allgather_rank_records(
+        {"rank": here, "resumable": bool(local)}, size=total, rank=here,
+        comm=comm)
+    evidence["resume_gather"] = mode
+    evidence["resume_disagreement"] = False
+    if failure:
+        evidence["resume_gather_reason"] = str(failure)
+    claimed = [item.get("resumable") is True for item in records]
+    if mode != "allgather" or len(claimed) != total:
+        # No comparison was possible: re-running is the only answer that every
+        # rank reaches on its own, so no rank can drop out of a collective.
+        evidence["resume_reason"] = (
+            "the multi-rank resume decision is unavailable "
+            f"({failure or 'no communicator'}); the row was re-run so that "
+            "no rank skips a collective the others enter")
+        return None, evidence
+    evidence["resume_disagreement"] = len(set(claimed)) > 1
+    if not all(claimed):
+        evidence["resume_reason"] = (
+            "not every rank could resume this row "
+            f"({sum(1 for value in claimed if not value)}/{total} could not); "
+            "the row was re-run so that no rank skips a collective the others "
+            "enter")
+        return None, evidence
+    if existing is None:  # pragma: no cover - all ranks said "resumable"
+        return None, evidence
+    return dict(existing), evidence
 
 
 def _csv_value(value: Any) -> str:
@@ -1945,9 +2466,20 @@ def append_csv(path: Any, rows: Sequence[Mapping[str, Any]], *,
 
 
 def write_row(paths: ModePaths, row: dict[str, Any], *,
-              columns: Sequence[str] = ROW_FIELDS) -> Path:
-    """Persist one row: ``rows/<run_id>.json``, its report copy and the CSV."""
-    paths.ensure()
+              columns: Sequence[str] = ROW_FIELDS,
+              owner: bool | None = None) -> Path:
+    """Persist one row: ``rows/<run_id>.json``, its report copy and the CSV.
+
+    The ledger has exactly one writer: rank 0 of the MPI world
+    (:func:`ledger_owner`).  A non-owning rank of a 32-process row validates the
+    row exactly like rank 0 and then performs **no I/O** - it has already
+    reported through :func:`gather_rank_outcome` - so ``rows/``, ``reports/``
+    and the append-only CSV can never be written concurrently.  ``owner``
+    overrides the probe for tests and library callers.
+
+    Returns the row path in every case, so a caller can report what the owning
+    rank wrote (or will write) without a second path derivation.
+    """
     run_id = str(row.get("run_id") or "").strip()
     if not run_id:
         raise ValueError("cannot write a row without a run_id")
@@ -1955,6 +2487,9 @@ def write_row(paths: ModePaths, row: dict[str, Any], *,
         raise ValueError(f"row {run_id}: a SKIP needs a non-empty reason")
     row["report_path"] = str(paths.reports / f"{run_id}.json")
     path = row_path(paths, run_id)
+    if not (ledger_owner() if owner is None else bool(owner)):
+        return path
+    paths.ensure()
     write_json_atomic(path, row)
     write_json_atomic(paths.reports / f"{run_id}.json", row)
     append_csv(paths.csv, [row], columns=columns)
@@ -2355,8 +2890,9 @@ def _cache_prepare(options: FullModeOptions, rows: Sequence[Mapping[str, Any]],
     field the rows agree on (:func:`_cache_row_binding`).
     """
     entries: list[dict[str, Any]] = []
+    owner = ledger_owner()
     cache = options.paths.cache
-    if not cache.is_file():
+    if not cache.is_file() and owner:
         cache.mkdir(parents=True, exist_ok=True)
     manifest = cache if cache.is_file() else cache / "index.json"
     payload: dict[str, Any] = {
@@ -2380,15 +2916,16 @@ def _cache_prepare(options: FullModeOptions, rows: Sequence[Mapping[str, Any]],
         notes.append("cache module absent: only the cache directory was created")
         payload["hook"] = None
         try:
-            write_json_atomic(manifest, payload)
+            write_ledger_json(manifest, payload, owner=owner)
         except (OSError, ValueError) as failure:
             entries.append(_mode_entry(
                 "cache", manifest, status="FAIL",
                 reason=(f"cannot write cache manifest: "
                         f"{type(failure).__name__}: {failure}")))
             return entries
-        entries.append(_mode_entry("cache", manifest, status="PASS",
-                                   reason=None, bytes=manifest.stat().st_size))
+        entries.append(_mode_entry(
+            "cache", manifest, status="PASS", reason=None,
+            bytes=(manifest.stat().st_size if manifest.is_file() else None)))
         return entries
 
     payload["hook"] = "cache"
@@ -2422,7 +2959,7 @@ def _cache_prepare(options: FullModeOptions, rows: Sequence[Mapping[str, Any]],
         payload["ready"] = None
     try:
         if not cache.is_file():
-            write_json_atomic(manifest, payload)
+            write_ledger_json(manifest, payload, owner=owner)
     except (OSError, ValueError) as failure:
         entries.append(_mode_entry(
             "cache", manifest, status="FAIL",
@@ -2481,8 +3018,15 @@ def _prepare_inputs(options: FullModeOptions, test: "Test", *,
 def _mode_prepare(options: FullModeOptions, test: "Test",
                   on_entry: Callable[[dict[str, Any]], None] | None,
                   notes: list[str]) -> tuple[dict[str, Any], int]:
-    """``--mode prepare``: create the layout, verify inputs, write the cache."""
-    options.paths.ensure()
+    """``--mode prepare``: create the layout, verify inputs, write the cache.
+
+    Every rank validates the inputs (a per-node page-cache warm is exactly what
+    a two-node run wants), but only rank 0 writes the layout, the cache
+    manifest and ``reports/prepare.json`` - see :func:`ledger_owner`.
+    """
+    owner = ledger_owner()
+    if owner:
+        options.paths.ensure()
     entries = _prepare_inputs(options, test, prewarm=False, notes=notes)
     for entry in entries:
         if on_entry is not None:
@@ -2495,7 +3039,8 @@ def _mode_prepare(options: FullModeOptions, test: "Test",
                             "native": _native_probe(options, notes)})
     document["duration_seconds"] = 0.0
     try:
-        write_json_atomic(options.paths.reports / "prepare.json", document)
+        write_ledger_json(options.paths.reports / "prepare.json", document,
+                          owner=owner)
     except (OSError, ValueError) as error:
         notes.append(f"cannot write reports/prepare.json: {error}")
     return document, _mode_exit(aggregate)
@@ -2504,8 +3049,14 @@ def _mode_prepare(options: FullModeOptions, test: "Test",
 def _mode_prewarm(options: FullModeOptions, test: "Test",
                   on_entry: Callable[[dict[str, Any]], None] | None,
                   notes: list[str]) -> tuple[dict[str, Any], int]:
-    """``--mode prewarm``: read each requested input once (page-cache warm)."""
-    options.paths.ensure()
+    """``--mode prewarm``: read each requested input once (page-cache warm).
+
+    As in ``prepare``, the read happens on every rank (each node warms its own
+    page cache) while only rank 0 writes ``reports/prewarm.json``.
+    """
+    owner = ledger_owner()
+    if owner:
+        options.paths.ensure()
     entries = _prepare_inputs(options, test, prewarm=True, notes=notes)
     for entry in entries:
         if on_entry is not None:
@@ -2517,7 +3068,8 @@ def _mode_prewarm(options: FullModeOptions, test: "Test",
         notes=notes, extra={"io": _io_evidence(notes),
                             "native": _native_probe(options, notes)})
     try:
-        write_json_atomic(options.paths.reports / "prewarm.json", document)
+        write_ledger_json(options.paths.reports / "prewarm.json", document,
+                          owner=owner)
     except (OSError, ValueError) as error:
         notes.append(f"cannot write reports/prewarm.json: {error}")
     return document, _mode_exit(aggregate)
@@ -2555,15 +3107,17 @@ def _copy_solution(row: dict[str, Any], paths: ModePaths) -> str | None:
     """Copy a runner-produced ``solution_path`` into ``--solutions``.
 
     A runner that reports a solution file is honoured; the ledger never
-    fabricates one.  When the copy fails the original path is recorded, which
-    keeps the evidence traceable instead of dropping it.
+    fabricates one.  When the copy fails, or when this process is a replica
+    rank (the solution directory is owned by rank 0, see :func:`ledger_owner`),
+    the original path is recorded - which keeps the evidence traceable instead
+    of dropping it, and keeps 32 ranks from copying the same file at once.
     """
     metrics = row.get("metrics") or {}
     candidate = metrics.get("solution_path") if isinstance(metrics, Mapping) else None
     if not isinstance(candidate, str) or not candidate.strip():
         return None
     source = absolute_path(candidate)
-    if not source.is_file():
+    if not source.is_file() or not ledger_owner():
         return str(source)
     try:
         target = paths.solutions / f"{row['run_id']}{source.suffix or '.bin'}"
@@ -2590,16 +3144,90 @@ def _apply_result(row: dict[str, Any], result: Result,
     return row
 
 
+#: Keys a driver may return that carry harness meaning; everything else is an
+#: observation and lands in ``row["metrics"]``.
+_DRIVER_ROW_KEYS = ("status", "reason", "skip_token", "failed", "seconds")
+
+#: Statuses an observation-only driver may *declare*.  ``PASS``/``FAIL`` are a
+#: verdict, and a verdict belongs to ``Case.expect`` (see :func:`_judge`), so a
+#: driver that returns one is an ``ERROR`` instead of a trusted result.
+_DRIVER_STATUSES = ("SKIP", "ERROR", "TIMEOUT")
+
+
+def _apply_driver(row: dict[str, Any], observations: Mapping[str, Any],
+                  case: Case | None) -> dict[str, Any]:
+    """Merge one driver result into its row and let the harness judge it.
+
+    ``pyqcu.test.driver.run_row`` is a *runner* in the full-mode pipeline: it
+    reports what it observed and never decides ``PASS``/``FAIL``.  What it may
+    declare is an execution status (``SKIP``/``ERROR``/``TIMEOUT``, each with a
+    non-empty reason); a mapping without a status is judged here with the case's
+    own ``expect`` gates, exactly like a plain case run, so a native row cannot
+    pass by returning numbers nobody checked.
+
+    Observations are merged into ``row["metrics"]`` (the row fields stay at the
+    top level) because ``--mode validate`` re-checks a ``PASS`` row against the
+    gate keys its case declares - a driver result dumped at the top level would
+    make every native ``PASS`` unverifiable.
+    """
+    declared = observations.get("status")
+    text = None if declared is None else str(declared).strip().upper()
+    if text is not None and text not in _DRIVER_STATUSES:
+        row.update(
+            status="ERROR",
+            reason=(f"driver.run_row returned a verdict (status={text!r}); a "
+                    "driver reports observations and Case.expect decides "
+                    "PASS/FAIL") if text in ("PASS", "FAIL") else
+                   (f"driver.run_row returned status {declared!r}; a driver may "
+                    f"declare only {', '.join(_DRIVER_STATUSES)}"))
+        return row
+    for key in _DRIVER_ROW_KEYS[1:]:
+        if key in observations:
+            row[key] = json_safe(observations[key])
+    metrics = dict(row.get("metrics") or {})
+    metrics.update({str(key): json_safe(value)
+                    for key, value in observations.items()
+                    if key not in _DRIVER_ROW_KEYS})
+    row["metrics"] = metrics
+    if text is not None:
+        row["status"] = text
+        if not str(row.get("reason") or "").strip():
+            row.update(status="ERROR",
+                       reason=f"driver.run_row reported {text} without a reason")
+        return row
+    if case is None:
+        row.update(status="ERROR",
+                   reason=f"tag {row.get('tag')!r} is not in the selected matrix")
+        return row
+    try:
+        failed = evaluate_expect(case.expect, observations, dtype=case.dtype)
+    except ValueError as error:
+        row.update(status="ERROR", reason=f"invalid expect gate: {error}")
+        return row
+    if failed:
+        row.update(status="FAIL", failed=list(failed), reason="; ".join(failed))
+    else:
+        row.update(status="PASS", failed=[], reason=None)
+    return row
+
+
 def _solve_row(row: dict[str, Any], case: Case | None, *, test: "Test",
                options: FullModeOptions, execute: Callable[[Case], Result] | None,
-               paths: ModePaths) -> dict[str, Any]:
-    """Execute (or resume) one row and return it with a real verdict."""
-    if options.resume:
-        existing = read_row(paths, str(row["run_id"]))
-        if row_is_resumable(existing, skip_failed=options.skip_failed):
-            resumed = dict(existing)
-            resumed["resumed"] = True
-            return resumed
+               paths: ModePaths,
+               reuse: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """Execute one row and return it with a real verdict.
+
+    ``reuse`` is the already-written row to resume, decided for the **whole**
+    world by :func:`agreed_resume_row`; a row that is reused is not executed at
+    all.  The decision is deliberately not taken here: a rank that resumed a row
+    on its own would skip the collectives every other rank enters (the driver's
+    pre-flight and outcome gather), which is exactly the 32-rank hang the audit
+    records as P0-5.
+    """
+    if reuse is not None:
+        resumed = dict(reuse)
+        resumed["resumed"] = True
+        return resumed
     row["resumed"] = False
     if case is None:
         row.update(status="ERROR",
@@ -2615,25 +3243,20 @@ def _solve_row(row: dict[str, Any], case: Case | None, *, test: "Test",
             row.update(status="ERROR",
                        reason=f"driver.run_row failed: {error}")
             return row
-        if not isinstance(value, Mapping):
+        if value is None:
+            # ``None`` is the driver saying "this row is not mine" (a tier-0
+            # case of a backend it does not drive): the built-in executor below
+            # runs it exactly as it did before the driver existed.  It is a
+            # routing decision, never a substitute for a requested input.
+            pass
+        elif not isinstance(value, Mapping):
             row.update(
                 status="ERROR",
                 reason=(f"driver.run_row returned {type(value).__name__}, "
-                        "expected a mapping of observations"))
+                        "expected a mapping of observations or None"))
             return row
-        status = value.get("status")
-        if status not in policy.STATUSES:
-            row.update(
-                status="ERROR",
-                reason=("driver.run_row returned no status: a runner reports "
-                        "observations, the harness decides the verdict"))
-            return row
-        for key, item in value.items():
-            row[key] = json_safe(item)
-        if row["status"] == "SKIP" and not str(row.get("reason") or "").strip():
-            row.update(status="ERROR",
-                       reason="driver.run_row skipped without a reason")
-        return row
+        else:
+            return _apply_driver(row, value, case)
 
     executor = execute if execute is not None else _default_executor(test, options)
     try:
@@ -2659,22 +3282,99 @@ def _solve_row(row: dict[str, Any], case: Case | None, *, test: "Test",
     return row
 
 
+def _gather_row_verdict(entry: dict[str, Any], *,
+                        notes: list[str] | None = None) -> dict[str, Any]:
+    """Reduce one solved row to the worst verdict across the MPI ranks.
+
+    Every rank executes the row and calls :func:`gather_rank_outcome` once; the
+    row keeps the worst status and the worst evidence (largest iteration count,
+    largest independent residual, ``converged`` only if every rank converged).
+    This is the harness-side counterweight to the driver's own gather: a tier-0
+    row is executed by the built-in executor instead of the driver and can
+    diverge across ranks too, and a rank that computed ``FAIL`` must not be
+    overwritten by rank 0's ``PASS``.
+
+    The collective also acts as the row's barrier: rank 0 writes
+    ``rows/<run_id>.json`` only after it returns, i.e. after every rank has
+    reported, and ``--fail-fast`` sees the same verdict on every rank (so every
+    rank stops at the same row instead of leaving the others in a collective).
+    """
+    metrics = dict(entry.get("metrics") or {})
+    merged = gather_rank_outcome(
+        metrics, status=entry.get("status"),
+        skip_token=entry.get("skip_token"), reason=entry.get("reason"),
+        phase="verdict")
+    for key in ("rank_phase", "rank_gather", "rank_gather_reason",
+                "rank_disagreement", "rank_status", "rank_worst", "mpi_rank",
+                "mpi_size", "rank_outcomes"):
+        if key in merged:
+            metrics[key] = merged[key]
+    for key in ("iterations", "relative_residual", "converged"):
+        if merged.get(key) is not None:
+            metrics[key] = merged[key]
+    entry["metrics"] = metrics
+    if merged.get("rank_gather") == "unavailable" and notes is not None:
+        notes.append(
+            f"row {entry.get('run_id')}: multi-rank reduction unavailable "
+            f"({merged.get('rank_gather_reason') or 'no communicator'}); the "
+            "verdict of this row is rank-local")
+    worst = str(merged.get("rank_status") or "")
+    if worst and worst != entry.get("status"):
+        # The disagreement is written into the row itself, not only into its
+        # metrics: a reader of rows/<run_id>.json must see the verdict the run
+        # actually earned.
+        entry["status"] = worst
+        entry["reason"] = (merged.get("rank_reason")
+                           or f"rank verdict {worst}")
+        entry["skip_token"] = (merged.get("rank_skip_token")
+                               if worst == "SKIP" else None)
+        if worst != "FAIL":
+            entry["failed"] = []
+    return entry
+
+
 def _mode_solve(options: FullModeOptions, test: "Test",
                 rows: list[dict[str, Any]], *,
                 execute: Callable[[Case], Result] | None,
                 on_entry: Callable[[dict[str, Any]], None] | None,
                 notes: list[str]) -> tuple[dict[str, Any], int]:
-    """``--mode solve``: execute every row, persist it, append the ledger."""
-    options.paths.ensure()
+    """``--mode solve``: execute every row, persist it, append the ledger.
+
+    One logical row over N processes: every rank executes the row and reports a
+    compact record (:func:`_gather_row_verdict`), the row keeps the worst
+    verdict, and only rank 0 (:func:`ledger_owner`) writes it
+    (:func:`write_row`) - so a 32-process run produces exactly one row file,
+    one report copy and one CSV line per row.
+
+    ``--resume`` is part of the same protocol: the row is reused only when
+    every rank can resume it (:func:`agreed_resume_row`), so no rank can skip
+    the collectives the others enter by trusting a different copy of the ledger.
+    """
+    owner = ledger_owner()
+    if owner:
+        options.paths.ensure()
     cases = {case.tag: case for case in test.cases}
     executed: list[dict[str, Any]] = []
     stopped = False
     for index, row in enumerate(rows, 1):
+        # ``--resume`` is one decision for the whole world: a replica that
+        # resumed a row on its own would skip the driver's collectives and hang
+        # every other rank (P0-5), so the decision is gathered before the row.
+        reuse: dict[str, Any] | None = None
+        resume_evidence: dict[str, Any] = {}
+        if options.resume:
+            reuse, resume_evidence = agreed_resume_row(
+                options.paths, row, skip_failed=options.skip_failed)
         entry = _solve_row(row, cases.get(str(row.get("tag"))), test=test,
                            options=options, execute=execute,
-                           paths=options.paths)
+                           paths=options.paths, reuse=reuse)
+        if resume_evidence:
+            metrics = dict(entry.get("metrics") or {})
+            metrics.update(resume_evidence)
+            entry["metrics"] = metrics
         entry.setdefault("run_label", options.run_label)
-        write_row(options.paths, entry)
+        entry = _gather_row_verdict(entry, notes=notes)
+        write_row(options.paths, entry, owner=owner)
         executed.append(entry)
         if on_entry is not None:
             on_entry(entry)
@@ -2694,8 +3394,9 @@ def _mode_solve(options: FullModeOptions, test: "Test",
         notes=notes,
         extra={"planned": len(rows), "executed": len(executed),
                "fail_fast_stopped": stopped,
+               "ledger_writer": owner,
                "native": _native_probe(options, notes)})
-    if options.validate:
+    if options.validate and owner:
         validation, validation_exit = validate_ledger(
             options.paths, test.cases, notes=notes)
         document["validation"] = validation
@@ -2744,6 +3445,13 @@ def merge_ledger(paths: ModePaths, *, notes: list[str] | None = None,
             f"no row file under {paths.rows}: nothing to merge")
         document["status"] = "SKIP"
         return document, policy.EXIT_CODES["fail"]
+    owner = ledger_owner()
+    if not owner:
+        # A replica rank of a multi-process ``--mode run`` must not rewrite the
+        # CSV 31 more times: the merged view is rank 0's artefact.
+        document["duration_seconds"] = 0.0
+        return document, (policy.EXIT_CODES["fail"] if problems
+                          else policy.EXIT_CODES["pass"])
     try:
         write_csv(paths.csv, rows)
         write_json_atomic(paths.reports / "merged.json", document)

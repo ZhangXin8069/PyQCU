@@ -48,7 +48,7 @@ LaTeX `.aux/.log/.out/.toc/.nav/.snm/.vrb`、`.report-build-*`、逐页
 
 | 端口 | 规范位置 | 交付属性 | 内容边界 |
 |---|---|---|---|
-| 正式快速端口 | `pyqcu/test/**` | 随 sdist/wheel 发行；安装态 `python -m pyqcu.test` 可运行 | stdlib-only 导入的 `Case`/`policy`/后端 runner、`selfcheck.py`；19 个 tier 0 跨后端正确性门（默认格点 `[8,8,8,16]`、c64、单 rank、无数据文件），可用 `--lattice-size`/`--lattice-grid`/`--mg-grid`/`--mass`/`--kappa`/`--csw`/`--solver`/`--dslash`/`--device`/`--backend cpu/dcu/npu` 等选项改参数；`--mode list/prepare/prewarm/solve/merge/run/validate` 是 full-mode 工作台账（rows/reports/solutions/caches，`--resume`/`--skip-failed`/`--run-label`），`--threads` 只在 torch runner 应用、KUPL/CUDA runner 仅记录 |
+| 正式快速端口 | `pyqcu/test/**` | 随 sdist/wheel 发行；安装态 `python -m pyqcu.test` 可运行 | stdlib-only 导入的 `Case`/`policy`/后端 runner、`selfcheck.py`；19 个 tier 0 跨后端正确性门（默认格点 `[8,8,8,16]`、c64、单 rank、无数据文件），可用 `--lattice-size`/`--lattice-grid`/`--mg-grid`/`--mass`/`--kappa`/`--csw`/`--solver`/`--dslash`/`--device`/`--backend cpu/dcu/npu` 等选项改参数；`--mode list/prepare/prewarm/solve/merge/run/validate` 是 full-mode 工作台账（rows/reports/solutions/caches，`--resume`/`--skip-failed`/`--run-label`），`--threads` 在 tier-0 torch runner 与 `--native` 原生行应用（后者经 `pyqcu/test/driver.py::run_row` → `native.apply_environment`），tier-0 KUPL/CUDA runner 仅记录；`--native dslash|solve|mg` 规划 `<backend>/native/<kind>` 行并让 `--gauge-file`/`--source-file` 真正成为原生输入 |
 | 非正式套件 | `pyqcu/testing/**` | **仅源码 checkout**：`MANIFEST.in` 的 `prune pyqcu/testing` 与 `setup.py` 的 `find_packages(exclude=["pyqcu.testing", "pyqcu.testing.*"])` 双重排除 | 集成/回归/性能/QUDA/PyQUDA/HPCKit 矩阵、参考 HDF5、历史资产；模块级依赖 `torch`、`mpi4py`、`pytest` |
 
 - `pip install pyqcu` 的用户**没有** `pyqcu.testing`；安装态验证只能用 `pyqcu.test`

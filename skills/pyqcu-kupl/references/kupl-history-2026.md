@@ -747,3 +747,23 @@ not a KUPL code defect.
 - **旧分布式路径**：push/pull slot 混叠、pull cell 索引、压缩时间 hop `±1`、
   3 维 corner 缺失未修；生产禁用 `KUPL_MG_STENCIL_FORCE_DISTRIBUTED=1`。
 - **回归**：本地 `pytest pyqcu/testing/simple -q` → **119 passed**。
+
+## 2026-11-17 L48 首批求解结果（c64）与 CG/cache 裁定
+
+- 单节点 c64 BiCGStab：**32 rank / 1 独占节点** `1.6646 s`、11 it、真残差
+  `7.126e-5`（strict `1e-4`）、RSS `3.14 GiB`（作业 `2152757`）。这是**首个**
+  可引用的 L48 数值结果。
+- 同用例 **16 rank / 共享节点** `183.0 s`、同残差、RSS `4.42 GiB`（作业
+  `2152325`）：**病态对照**，不作基线、不作分母。rank 数、节点独占性与排队窗口
+  三者都不同，`183.0/1.6646` 不得写成 scaling 或回退。
+- c64 Legacy-MG：**16 rank** wall `110.35 s` + `builder 1741.88 s`，总计 `2656 s`
+  （`2656 − 1852.23 = 803.8 s` 未分解，标 TODO）、残差 `7.126e-5`、RSS
+  `11.93 GiB`；cache（E=2）`1.276 GiB`。作业号未记录 → TODO。
+- c128 BiCGStab（`2153005`）与两节点（`2153008`）**仍 PENDING**，无结果；
+  32 rank dslash/clover 在**计算节点挂起**（UNVERIFIED，登录节点 smoke 不能替代）。
+- **cache 策略**：只认同 identity 复用（`lattice`/`dtype`/`mass`/`csw`/`mg_grid`/
+  `nv_iters`/`dof`/`seed`/gauge identity/`ranks`/`grid`，`verify_status=0`）；
+  当前只有 **16 rank** L48 cache，32 rank / 两节点**不重建（DEFERRED）**。
+- **CG 组已退役**：L48 没有 CG harness，后续不排 CG 用例；Strict-MG 排除在本轮
+  范围外。权威表与阻塞清单见
+  [`docs/pyqcu_test_l48_remote.md`](../../../docs/pyqcu_test_l48_remote.md) §0.1。

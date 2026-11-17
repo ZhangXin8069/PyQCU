@@ -1,0 +1,92 @@
+2026-11-17 23:30 +08:00  L48 two-node KUPL-harness variant batch (login02)
+==========================================================================
+
+[RESULT]  four KUPL-harness two-node PASSes (PASS rule: report status=PASS AND
+          final_true_residual < 1e-4 from the independent distributed NumPy
+          Wilson-Clover reconstruction; job SUCCEEDED alone is not a PASS)
+
+  # variant                    job       dtype  ranks/node(core)  grid/local              it    final_true_residual     solver wall (s)  max RSS      report (data/l48_variants_20261118/reports/)
+  1 c128 BiCGStab 32r          2155785   c128   32/2 (18)          2 2 2 4 / 24x24x24x24   16    7.466169937510113e-06   3.9853145200759172  3415116 KiB  v1_c128_2n32r_l1r0.json
+  2 c64  BiCGStab 16r          2155830   c64    16/2 (36)          2 2 2 2 / 24x24x24x48   11    7.125979321648942e-05   3.0647244779393077  4315972 KiB  v2_c64_2n16r_l1r0.json
+  3 c64  BiCGStab 64r          2155868   c64    64/2 (9)           2 2 4 4 / 24x24x12x24   11    7.125993463624718e-05   2.797133596148342   1386252 KiB  v3_c64_2n64r_l1r0.json
+  4 c64  Legacy-MG 16r cache   2155888   c64    16/2 (36)          2 2 2 2 / 24x24x24x48   null  7.125979321648942e-05   2.129854183178395   8487320 KiB  v4_c64_2n16r_legacy_mg_l2r5.json
+
+  nodes: 2155785 cn[12044,12054]; 2155830/2155868 cn[12041,12067];
+         2155888 cn[12054,12067].  All SUCCEEDED, jobExitCode=0, execNodeCnt=2.
+  prebind (s): 17.786567784147337 / 8.75744577893056 / 34.120542434975505 /
+               9.21071798610501
+  mpirun-block / job wall (s): 90/94, 56/60, 81/84, 79/82.
+  solver/settings: applyCloverMultigridQcu; v1-v3 levels=1 restart=0 max_iter=50;
+                   v4 levels=2 restart=5 max_iter=30, dof 12 2, mg_grid 2 2 2 2,
+                   reused caches/l48_16r_mg_l2r5 (verify_status=0, no rebuild,
+                   builder_seconds=21.420243138913065 = load+validate).
+
+[EVIDENCE]
+  - report root: /home/share/nsls_yangyb/PyQCU-main/data/l48_variants_20261118/
+  - all four report JSON files carry status=PASS, converged=true and the
+    independent residual above; residual_source = distributed NumPy
+    Wilson-Clover full reconstruction with MPI halo exchange.
+  - inputs: v1 uses the c128 gauge/source pair; v2-v4 use the c64 pair.
+    dtype read from dataset.dtype, never from the file name.  Measured SHA256
+    prefixes: gauge c128 b931b0cf..., gauge c64 c8e8df3b..., source c128
+    3e07d910..., source c64 e4dc2a4c...  (data/l48_variants_20261118_shas.txt).
+    case_manifest.json still mixes c64 file name with c128 size/SHA: do not
+    quote it for identity.
+  - submission: dsub -s data/l48_variants_20261118/<wrapper>.sh, one two-node
+    job at a time (djob -u empty before every submit); verified route is
+    CCS_DRUN_RANK_FILE rankfile + drun -mpi pmix (same as job 2155536).
+
+[LAUNCHER]  rankfile wins over -nn/-rpn/-R
+  - every job printed: "-N, -nn, -rpn, -nl, -R, --cpu-bind, --distribution are
+    ignored when rankfile environment variable CCS_DRUN_RANK_FILE is specified".
+  - actual ranks/node came from rankfile rows (8, 16 and 32 all ran); core/rank
+    came from rankfile width (9, 18 and 36 all accepted; generator guard cpr<=37).
+  - do not infer ranks or binding from -nn/-rpn/-R; verify the report
+    mpi_size/grid/local_lattice and keep RANKFILE_OK rows=... width=... lines.
+
+[MG CAVEAT]
+  - 2155888 residual is bit-identical to the levels=1 c64 16r run (2155830):
+    7.125979321648942e-05, with atol=1e-4 x coarse_tol_factor=1e4 => coarse_atol=1.0.
+    This is the documented fine-BiCGStab fallback signature: v4 proves the
+    distributed Legacy-MG cache-load + solve path, NOT active coarse correction
+    and NOT an MG speedup.
+  - 32-rank Legacy-MG (grid 2 2 2 4) has no matching cache -> DEFERRED /
+    CACHE-MISSING; no cache was rebuilt or renamed.
+
+[FORMAL FLAG ABSENT]
+  - remote overlay: python3 -m pyqcu.test --list --l48-two-node
+    -> "unrecognized arguments: --l48-two-node", RC=2; pyqcu/test/l48.py absent;
+    grep -c l48 pyqcu/test/__main__.py pyqcu/test/common.py = 0/0.
+  - control: python3 -m pyqcu.test --check -> RC=0, 18/18 checks.
+  - therefore no formal pyqcu.test L48 two-node row ran; all five formal matrix
+    rows stay UNVERIFIED.
+
+[BOUNDARY]
+  - These are KUPL-harness results (pyqcu/testing/simple/kupl_multigrid.py),
+    not formal pyqcu.test --l48-two-node matrix rows.
+  - Single sample per variant, different node pairs / ranks-per-node / cores per
+    rank: no scaling ratio, no per-site timing model.
+  - Diagnostic 2155899 (v4 + KUPL_REQUIRE_MG_CORRECTION=1) was still PENDING at
+    archive time with no execNodes; it is not a result.
+  - No remote repo file was edited; no local commit, push, release or tag.
+
+[ARTIFACTS]
+  Remote (all under /home/share/nsls_yangyb/PyQCU-main/):
+    data/l48_variants_20261118/run_variant.sh
+    data/l48_variants_20261118/l48_v{1,2,3,4,4b}_*.sh
+    data/l48_variants_20261118/logs/dsub_v{1,2,3,4,4b}.{out,err}
+    data/l48_variants_20261118/logs/*-rankfile, *-rankfile-check.txt
+    data/l48_variants_20261118/logs/*-mpirun.err
+    data/l48_variants_20261118/logs/v5_port_probe.txt
+    data/l48_variants_20261118/reports/v{1,2,3,4}_*.json
+    data/l48_variants_20261118_shas.txt
+  Local:
+    docs/pyqcu_test_l48_remote.md sec. 0.1.7 (+ status rows 12/19, sec. 9.2-9.4)
+    docs/kupl_remote_l48_experience_20261117.md sec. 7.5/7.6, 11
+    docs/pyqcu_test_l48_two_node_matrix.md (status note only)
+    skills/pyqcu-testing/references/remote-l48-experience.md sec. 8.1
+    logs/v202611172330.txt (this file)
+
+[RELEASE]
+  Not committed, not pushed, not tagged, not released.  0.1.17 / test37 remain;
+  docs=58 and skills=36 unchanged.

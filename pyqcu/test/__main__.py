@@ -48,6 +48,28 @@ terminal rows) and ``--skip-failed`` (also skip ``FAIL``) are exact.
 is explicit and selects tier 1; ``--quick`` keeps its tier-0 ``8 8 8 16`` c64
 meaning, and neither ever turns into a heavy run silently.
 
+``--ledger-export {none,csv,excel,both}`` additionally writes the
+reference-compatible ledger the informal ``test_kunpeng_all.py`` driver owns -
+its 100-column CSV and/or its 21-sheet workbook - under
+``<run root>/ledger/``.  ``reports/rows.csv`` keeps its 30-column
+``ROW_FIELDS`` semantics and is never replaced; ``--mode list`` and
+``--mode validate`` are rejected (a plan has no status, and validate's rows
+were produced by solve).
+
+Multi-rank: one logical row
+---------------------------
+``mpirun -np 32``/``drun`` runs this command on 32 processes of the same row.
+A full mode therefore behaves as **one** logical row: every rank executes and
+reports through the per-row allgather
+(:func:`pyqcu.test.common.gather_rank_outcome`), the row keeps the worst outcome
+any rank reported, and only rank 0 (:func:`pyqcu.test.common.ledger_owner`)
+writes ``rows/<run_id>.json``, ``reports/<run_id>.json``, the CSV, the solution
+copies, stdout and the ``--json``/``--outdir`` payload.  Replica ranks print one
+stderr line and nothing else, so 32 processes produce one report and one CSV
+line per row instead of 32 racing writers.  The gathered verdict is identical on
+every rank, which is what keeps ``--fail-fast`` from leaving 31 ranks inside a
+collective.
+
 ``pyqcu.test.io``/``cache``/``native``/``torch_matrix``/``driver`` are wired
 lazily: ``--list`` only checks that they exist (``find_spec``), nothing heavy
 is imported before a mode actually needs it, and a present-but-raising module
@@ -73,6 +95,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import sys
 import time
 from dataclasses import dataclass, field, replace
@@ -80,17 +103,27 @@ from pathlib import Path
 from typing import Any, Callable, Sequence
 
 from .. import __version__
-from . import matrix, policy, profiles
+from . import ledger_export, l48, matrix, policy, profiles
 from .common import (CASE_MODE, FULL_MODE_TIER, LATTICE_PRESETS, MODES,
                      FullModeOptions, ModePaths, Result, Test, TestReport,
                      UsageError, build_rows, grid_product, json_safe,
-                     module_availability, mpi_info, probe_env, run_mode,
-                     summarize, write_json_atomic)
+                     ledger_owner, module_availability, mpi_info, probe_env,
+                     run_mode, summarize, write_json_atomic)
 
 __all__ = ["build_parser", "main"]
 
 #: ``--json -`` writes the report to stdout instead of a file.
 JSON_STDOUT = "-"
+
+#: Full modes that run through :func:`_run_mode` and therefore reach the export
+#: hook: ``--mode list`` is a plan emitted by :func:`_emit_listing` and never
+#: exports, and a plain case run has no row ledger at all.
+#: ``PYQCU_TEST_LEDGER_EXPORT`` is validated for every mode listed here, so a
+#: typo is the documented usage error instead of a late failure.  ``validate``
+#: belongs to the list even though the *flag* is rejected for it (its rows were
+#: produced by solve): the hook still runs and still reads the variable.
+_EXPORT_HOOK_MODES: tuple[str, ...] = ("prepare", "prewarm", "solve", "merge",
+                                       "validate", "run")
 
 _EPILOG = """\
 examples:
@@ -115,8 +148,11 @@ full modes (work ledger; explicit, tier 1):
   python -m pyqcu.test --mode prewarm --gauge-file data/gauge_l24.h5
   python -m pyqcu.test --mode solve --resume --skip-failed --run-label cold
   python -m pyqcu.test --mode merge --csv runs/l24/reports/rows.csv
+  python -m pyqcu.test --mode merge --outdir runs/l24 --ledger-export both
   python -m pyqcu.test --mode validate
   python -m pyqcu.test --mode run --lattice-preset L24 --ranks 16 --shm
+  python -m pyqcu.test --mode solve --native solve --lattice-preset L48 \\
+      --gauge-file data/gauge_l48_c64.h5 --source-file data/source_l48_c64.h5
 """
 
 
@@ -159,10 +195,18 @@ class _Config:
     #: Raw ``--sweep``/``--matrix`` chunks (validated by :mod:`pyqcu.test.matrix`
     #: before a listing or a run); empty for a single-configuration run.
     sweep: tuple[str, ...] = ()
+    #: ``--native`` case kinds appended to the matrix for a full mode.
+    native: tuple[str, ...] = ()
+    #: ``--l48-two-node``: append the tier-1 L48 two-node matrix.
+    l48_two_node: bool = False
     #: Effective full mode (``None`` for the plain "run the cases once" path).
     mode: str | None = None
     #: Full-mode configuration: work-ledger paths, ranks/shm/inputs/resume.
     full: FullModeOptions = field(default_factory=FullModeOptions)
+    #: ``--ledger-export`` selection of the reference CSV/workbook export
+    #: (``None`` when the flag was not given: ``PYQCU_TEST_LEDGER_EXPORT`` then
+    #: decides, and unset means "no export").
+    ledger_export: str | None = None
 
 
 @dataclass(frozen=True)
@@ -240,16 +284,32 @@ def build_parser() -> argparse.ArgumentParser:
              "validate the ledger; selects tier 1 unless --quick/--tier")
     parser.add_argument(
         "--lattice-preset", type=lambda text: str(text).strip().upper(),
-        choices=tuple(LATTICE_PRESETS), default=None, metavar="{L24,L32}",
+        choices=tuple(LATTICE_PRESETS), default=None, metavar="{L24,L32,L48}",
         help="release-acceptance lattice preset: L24 = 24 24 24 64, "
-             "L32 = 32 32 32 64 (default: none; cannot be combined with "
-             "--lattice-size/--lattice or --quick)")
+             "L32 = 32 32 32 64, L48 = 48 48 48 96 (default: none; cannot be "
+             "combined with --lattice-size/--lattice or --quick)")
     parser.add_argument(
         "--quick", action="store_true",
         help="lock tier 0, lattice 8 8 8 16, dtype c64, seed 42, repeat 1")
     parser.add_argument(
         "--tier", type=_tier_value, default=None, metavar="{0,1,all}",
         help="run cases with tier <= N (default: all declared tiers)")
+    parser.add_argument(
+        "--native", nargs="+", default=None,
+        choices=("dslash", "solve", "mg"), metavar="{dslash,solve,mg}",
+        help="full modes: also plan native rows (pyqcu.test.native, tag "
+             "<backend>/native/<kind>) for these case kinds on every selected "
+             "native backend; those rows are driven by pyqcu.test.driver and "
+             "consume --gauge-file/--source-file as real inputs (default: "
+             "none = only the tier-0 matrix)")
+    parser.add_argument(
+        "--l48-two-node", dest="l48_two_node", action="store_true",
+        help="also plan the tier-1 L48 two-node matrix (48 48 48 96, "
+             "2x2x2x4, 32 ranks / 2 nodes): BiCGStab c64+c128, Legacy-MG "
+             "c64+c128 (UNVERIFIED at 32 ranks), input/IO + independent "
+             "residual; no Strict-MG and no CG (the L48 CG group is retired). "
+             "Tier 1, so --quick still selects only the 19 tier-0 cases; "
+             "needs a full mode (--mode list is enough) or --list")
     parser.add_argument(
         "--only", nargs="+", action="extend", default=None, metavar="TAG",
         help="run only these tags: a full tag (torch/dslash/wilson), a "
@@ -391,6 +451,16 @@ def build_parser() -> argparse.ArgumentParser:
              "<outdir>/caches); an existing artifact is probed with "
              "pyqcu.test.cache, never rebuilt here")
     parser.add_argument(
+        "--ledger-export", default=None,
+        choices=ledger_export.EXPORT_SELECTIONS,
+        metavar="{none,csv,excel,both}",
+        help="full modes: also write the reference-compatible ledger export "
+             "(the 100-column CSV and/or the 21-sheet workbook) under "
+             "<run root>/ledger/, atomically; reports/rows.csv keeps its "
+             "30-column pyqcu.test semantics and is never replaced "
+             "(default: none; PYQCU_TEST_LEDGER_EXPORT is honoured when the "
+             "flag is not given, --mode list/validate are rejected)")
+    parser.add_argument(
         "--run-label", default="", metavar="LABEL",
         help="suffix appended to every run_id (full modes): keeps cold/warm or "
              "before/after runs of one configuration apart")
@@ -432,7 +502,8 @@ def build_parser() -> argparse.ArgumentParser:
         help="print per-case metrics and failed gates to stderr")
     parser.add_argument(
         "--check", action="store_true",
-        help="run the pyqcu.test self-check (import/packaging/policy) and exit")
+        help="run the pyqcu.test self-check (import/packaging/policy/3.10 "
+             "syntax) and exit")
     return parser
 
 
@@ -445,12 +516,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                 or args.outdir is not None or args.mode is not None \
                 or args.rows is not None or args.reports is not None \
                 or args.solutions is not None or args.cache_dir is not None \
-                or args.resume or args.skip_failed or args.validate:
+                or args.resume or args.skip_failed or args.validate \
+                or args.native or args.l48_two_node \
+                or args.ledger_export is not None:
             print("pyqcu.test: error: --check runs no numerics and cannot be "
-                  "combined with --list/--sweep/--profile/--mode/--rows/"
-                  "--reports/--solutions/--cache-dir/--resume/--skip-failed/"
-                  "--validate/--junit/--csv/--markdown/--outdir",
-                  file=sys.stderr)
+                  "combined with --list/--sweep/--profile/--mode/--native/"
+                  "--l48-two-node/--rows/--reports/--solutions/--cache-dir/"
+                  "--resume/--skip-failed/--validate/--junit/--csv/--markdown/"
+                  "--ledger-export/--outdir", file=sys.stderr)
             return policy.EXIT_CODES["usage"]
         from . import selfcheck
 
@@ -617,6 +690,72 @@ def _parse_sweep(values: Any) -> tuple[str, ...]:
     return chunks
 
 
+def _ledger_export_environment() -> str:
+    """The validated ``PYQCU_TEST_LEDGER_EXPORT`` value (``""`` when unset).
+
+    The environment variable is the second gate of the reference-ledger export,
+    next to ``--ledger-export``, and
+    :func:`pyqcu.test.ledger_export.export_formats` raises :class:`ValueError` on
+    a value it does not know.  Validating it here turns a typo into the
+    documented usage error (exit code 2) *before* the mode runs, instead of a
+    traceback from inside the exporter after the work is done.
+    """
+    value = os.environ.get(ledger_export.EXPORT_ENVIRONMENT, "")
+    if not str(value).strip():
+        return ""
+    try:
+        ledger_export.export_formats(value)
+    except ValueError as error:
+        raise UsageError(str(error)) from error
+    return str(value).strip()
+
+
+def _ledger_export_selection(args: argparse.Namespace,
+                             mode: str | None) -> str | None:
+    """Validated ``--ledger-export`` value (``None`` when the flag is absent).
+
+    The flag selects the reference-compatible CSV/workbook export of a *full
+    mode*.  It is rejected - not ignored - without ``--mode`` (a plain case run
+    has no row ledger to export), with ``--mode list`` (a plan has no status
+    and the reference vocabulary has no "planned" phase) and with ``--mode
+    validate`` (its rows were produced by solve; ``--mode merge``/``run``
+    rebuild the same table without mislabelling the phase).
+
+    Without the flag the environment variable decides, so it is validated here
+    for every mode that reaches the export hook
+    (:func:`_ledger_export_environment`): a typo is a usage error either way,
+    never a traceback.  A mode that does not export (``list``, a plain case
+    run) does not consult it, and an explicit ``--ledger-export none`` keeps
+    overriding it.
+    """
+    choice = getattr(args, "ledger_export", None)
+    if choice is None:
+        if mode in _EXPORT_HOOK_MODES:
+            _ledger_export_environment()
+        return None
+    text = str(choice).strip().lower()
+    if text not in ledger_export.EXPORT_SELECTIONS:
+        raise UsageError(
+            f"--ledger-export must be one of "
+            f"{', '.join(ledger_export.EXPORT_SELECTIONS)}, got {choice!r}")
+    if mode is None:
+        raise UsageError(
+            "--ledger-export writes the reference CSV/workbook of a full "
+            "mode; add --mode solve|run|merge|prepare|prewarm "
+            "(a plain case run has no row ledger)")
+    if mode == "list":
+        raise UsageError(
+            "--ledger-export needs executed or merged rows; --mode list is a "
+            "plan without a status (export the row files with --mode merge)")
+    if mode == "validate":
+        raise UsageError(
+            "--ledger-export does not export a --mode validate document: its "
+            "rows were produced by solve, and labelling them phase=validate "
+            "would misstate their provenance; use --mode merge, which rebuilds "
+            "the same table from the row files")
+    return text
+
+
 def _resolve_config(args: argparse.Namespace) -> _Config:
     """Validate the namespace and resolve the effective run configuration."""
     values, explicit, profile_names = _resolve_profile_values(args)
@@ -707,6 +846,23 @@ def _resolve_config(args: argparse.Namespace) -> _Config:
     mode = args.mode or ("validate" if args.validate else None)
     if mode is not None and not quick and tier is None:
         tier = FULL_MODE_TIER
+    ledger_export_choice = _ledger_export_selection(args, mode)
+    native_kinds = tuple(str(item).strip().lower() for item in (args.native or ()))
+    if native_kinds and mode is None:
+        raise UsageError(
+            "--native plans native rows and needs a full mode (--mode "
+            "list|prepare|prewarm|solve|merge|run); a plain case run uses the "
+            "tier-0 matrix")
+    l48_two_node = bool(getattr(args, "l48_two_node", False))
+    if l48_two_node and mode is None and not args.list:
+        raise UsageError(
+            "--l48-two-node plans the L48 two-node ledger rows and needs a "
+            "full mode (--mode list is enough) or --list; a plain case run "
+            "would execute L48 at the wrong rank count")
+    if l48_two_node and sweep:
+        raise UsageError(
+            "--l48-two-node declares each case's dtype and geometry, so it "
+            "cannot be combined with --sweep/--matrix")
 
     if int(seed) < 0:
         raise UsageError(f"--seed must be >= 0, got {seed}")
@@ -773,6 +929,12 @@ def _resolve_config(args: argparse.Namespace) -> _Config:
             source_file=args.source_file,
             validate=bool(args.validate),
             lattice_preset=preset,
+            # Only an *explicit* ``--lattice-grid`` (or one a profile sets) is
+            # forwarded: ``None`` means "no grid was requested", which the
+            # native rows translate into a grid derived from ``--ranks``.
+            # Passing the resolved default here would turn every multi-rank
+            # run into a ``SKIP(mpi_grid)``.
+            lattice_grid=lattice_grid,
             tier=(FULL_MODE_TIER if tier is None else int(tier)),
             repeat=int(repeat),
             warmup=int(warmup),
@@ -822,14 +984,65 @@ def _resolve_config(args: argparse.Namespace) -> _Config:
         device_id=_int_flag(args.device_id, "--device-id", minimum=0),
         profiles=profile_names,
         sweep=sweep,
+        native=native_kinds,
+        l48_two_node=l48_two_node,
         mode=mode,
         full=full,
+        ledger_export=ledger_export_choice,
     )
+
+
+def _native_cases(config: _Config) -> tuple[Any, ...]:
+    """Native full-mode cases requested by ``--native`` (full modes only).
+
+    ``pyqcu.test.native`` is imported lazily, and only when ``--native`` asked
+    for native rows, so a plain ``--list``/``--quick`` never imports it and the
+    tier-0 matrix is untouched.  The cases are tagged ``<backend>/native/<kind>``
+    (which is exactly what :func:`pyqcu.test.driver.run_row` claims) and are
+    declared tier 0 so ``--quick --mode solve --native solve`` stays a cheap
+    8x8x8x16 smoke instead of silently selecting nothing.
+
+    A request that matches no selected native backend is a usage error: a run
+    that silently planned fewer rows than asked for is indistinguishable from a
+    clean one.
+    """
+    kinds = tuple(config.native)
+    if not kinds:
+        return ()
+    from . import native
+
+    backends = (tuple(native.BACKENDS) if "all" in config.backends
+                else tuple(name for name in config.backends
+                           if name in native.BACKENDS))
+    if not backends:
+        raise UsageError(
+            f"--native needs a native backend ({'/'.join(native.BACKENDS)}); "
+            f"the selection has none ({', '.join(config.backends) or 'none'})")
+    try:
+        return tuple(
+            native.case(
+                kind, backend=backend, tier=0, lattice=config.lattice,
+                dtype=config.dtype, mass=config.mass, kappa=config.kappa,
+                csw=config.csw, threads=config.threads, shm=config.full.shm,
+                max_iter=config.max_iter, device=config.device,
+                lattice_grid=config.lattice_grid)
+            for backend in backends
+            for kind in kinds
+        )
+    except ValueError as error:
+        raise UsageError(f"--native: {error}") from error
 
 
 def _build_test(config: _Config) -> Test:
     """Select the cases for ``config`` (raises ``UsageError`` when hopeless)."""
-    test = Test.default().select(
+    base = Test.default()
+    cases = base.cases + _native_cases(config)
+    if config.l48_two_node:
+        # Tier 1: ``--quick`` (tier 0) filters them out again, so the tier-0
+        # 19-case matrix is unchanged.  The cases are ``pinned``: their L48
+        # geometry and per-case dtype survive --lattice-size/--dtype.
+        cases += l48.cases()
+    test = replace(base, cases=cases).select(
         backends=config.backends,
         tags=config.tags,
         tier=config.tier,
@@ -980,6 +1193,12 @@ def _listing_payload(config: _Config, test: Test,
     }
     payload.update(test.config())
     payload["cases"] = [case.as_dict() for case in test.cases]
+    if config.l48_two_node:
+        payload["l48_two_node"] = l48.plan_payload()
+    if config.l48_two_node or l48.is_l48_lattice(test.lattice):
+        # The retirement is part of the reported policy, not only of the docs:
+        # a reader of --list --json must see that L48 has no CG group.
+        payload["retired_groups"] = [dict(l48.RETIREMENT)]
     payload["mode"] = config.mode or CASE_MODE
     payload["paths"] = config.full.paths.as_dict()
     payload["modules"] = module_availability()
@@ -1051,7 +1270,12 @@ def _format_plan_row(row: dict[str, Any]) -> str:
 
 def _emit_listing(config: _Config, test: Test, args: argparse.Namespace,
                   plan: Sequence[_SweepRun] = ()) -> int:
-    """Print or write the matrix and return ``0`` (no backend import)."""
+    """Print or write the matrix and return ``0`` (no backend import).
+
+    Only rank 0 prints or writes the listing: a 32-process ``--mode list`` must
+    not emit 32 copies of the same plan (and ``--json -`` stays one document).
+    """
+    owner = ledger_owner()
     payload = _listing_payload(config, test, plan)
     rows: list[dict[str, Any]] = []
     if config.mode == "list":
@@ -1061,7 +1285,10 @@ def _emit_listing(config: _Config, test: Test, args: argparse.Namespace,
     if plan:
         payload.update(_sweep_listing_payload(config, test, plan))
     if args.json == JSON_STDOUT:
-        print(json.dumps(json_safe(payload), indent=2, sort_keys=True))
+        if owner:
+            print(json.dumps(json_safe(payload), indent=2, sort_keys=True))
+        return 0
+    if not owner:
         return 0
     if args.json is not None:
         print(f"wrote {_write_json(args.json, payload)}", file=sys.stderr)
@@ -1096,6 +1323,17 @@ def _emit_listing(config: _Config, test: Test, args: argparse.Namespace,
             if args.verbose:
                 for key, spec in case.expect.items():
                     print(f"    expect {key}: {dict(spec)}", file=sys.stderr)
+    if config.l48_two_node:
+        manifest = payload["l48_two_node"]
+        print(f"l48-two-node: lattice={_lattice_text(manifest['lattice'])} "
+              f"ranks={manifest['ranks']} nodes={manifest['nodes']} "
+              f"grid={_lattice_text(manifest['grid'])} tier={manifest['tier']} "
+              f"status={manifest['status']}")
+        for group in manifest["groups"]:
+            tags = ",".join(case["tag"] for case in group["cases"]) or "-"
+            print(f"  {group['name']:<13} {group['kind']:<8} "
+                  f"evidence={group['evidence']:<10} {tags}")
+        print("  retired: l48/cg (the tier-0 CG cases stay on 8 8 8 16)")
     if args.verbose:
         print(f"mode: {payload['mode']} rows={payload['rows']['count']} "
               f"dir={payload['rows']['dir']}", file=sys.stderr)
@@ -1342,10 +1580,53 @@ def _write_exports(payload: Any, exports: Sequence[tuple[str, str]], *,
         print(f"wrote {written} ({fmt})", file=sys.stderr)
 
 
+def _rank_fields() -> dict[str, Any]:
+    """``mpi`` block of every report payload: who wrote it, and in what world.
+
+    A 32-process ``--mode solve`` is **one logical row**: every rank executes and
+    reports through the per-row allgather
+    (:func:`pyqcu.test.common.gather_rank_outcome`), while rank 0 alone writes
+    ``rows/``, ``reports/``, the CSV and this payload.  Recording it makes the
+    report reproducible and tells a reader whether a document came from a
+    single process or from the owning rank of an MPI world.
+    """
+    size, rank = mpi_info()
+    return {
+        "size": size,
+        "rank": rank,
+        "ledger_writer": ledger_owner(rank=rank),
+        "row_reduction": "allgather",
+    }
+
+
+def _print_rank_note() -> None:
+    """One stderr line when this process is a replica of an MPI world.
+
+    stdout is the report stream (``--json -`` is one JSON document), so the
+    notice goes to stderr and a replica rank prints nothing else: 32 processes
+    must not produce 32 reports or 32 summaries.
+    """
+    size, rank = mpi_info()
+    if size <= 1:
+        return
+    print(f"pyqcu.test: rank {rank}/{size}: one logical row - every rank "
+          "computes and reports through the per-row allgather, rank 0 owns "
+          "rows/reports/CSV, stdout and the report payload",
+          file=sys.stderr)
+
+
 def _emit_payload(payload: Any, args: argparse.Namespace, *,
                   to_stdout: bool,
                   exports: Sequence[tuple[str, str]] | None = None) -> None:
-    """Emit ``--json``, ``--outdir`` and the extra formats for one run."""
+    """Emit ``--json``, ``--outdir`` and the extra formats for one run.
+
+    Only the ledger owner (rank 0) emits: a replica rank of a 32-process run
+    would otherwise write the same ``--json``/``--outdir``/``--junit`` target 31
+    more times, and ``--json -`` would print 32 documents that no parser
+    accepts.
+    """
+    if not ledger_owner():
+        return
     if to_stdout:
         print(json.dumps(json_safe(payload), indent=2, sort_keys=True))
     elif args.json is not None:
@@ -1375,16 +1656,23 @@ def _mode_fields(config: _Config, rows: int) -> dict[str, Any]:
             "csv": str(config.full.paths.csv),
         },
         "full_mode": document,
+        "mpi": _rank_fields(),
         "modules": module_availability(),
     }
 
 
 def _run_single(config: _Config, test: Test, args: argparse.Namespace,
                 argv: Sequence[str] | None) -> int:
-    """Execute one configuration and emit its report."""
+    """Execute one configuration and emit its report.
+
+    In a multi-process launch only rank 0 prints and writes; the other ranks
+    still run every case (they are the MPI peers the native calls need) but
+    stay silent, so 32 processes produce one report, not 32.
+    """
     mpi_size, _ = mpi_info()
+    owner = ledger_owner()
     grid_size = grid_product(config.lattice_grid)
-    if grid_size != mpi_size and any(
+    if owner and grid_size != mpi_size and any(
             case.backend in ("kupl", "cuda") for case in test.cases):
         print(f"note: lattice_grid {list(config.lattice_grid)} "
               f"(product {grid_size}) does not match MPI size {mpi_size}; "
@@ -1394,6 +1682,8 @@ def _run_single(config: _Config, test: Test, args: argparse.Namespace,
     stream = sys.stderr if to_stdout else sys.stdout
 
     def on_result(result: Result) -> None:
+        if not owner:
+            return
         print(_format_result(result), file=stream, flush=True)
         if args.verbose:
             _print_detail(result)
@@ -1426,7 +1716,8 @@ def _run_single(config: _Config, test: Test, args: argparse.Namespace,
     payload.update(fields)
 
     _emit_payload(payload, args, to_stdout=to_stdout)
-    _print_summary(report, config, stream=sys.stderr if to_stdout else None)
+    if owner:
+        _print_summary(report, config, stream=sys.stderr if to_stdout else None)
     return report.exit_code()
 
 
@@ -1491,8 +1782,9 @@ def _run_sweep(config: _Config, test: Test, plan: Sequence[_SweepRun],
     instead of being dropped (no fake rows, no fabricated PASS).
     """
     mpi_size, mpi_rank = mpi_info()
+    owner = ledger_owner()
     grid_size = grid_product(config.lattice_grid)
-    if grid_size != mpi_size and any(
+    if owner and grid_size != mpi_size and any(
             case.backend in ("kupl", "cuda")
             for run in plan for case in run.test.cases):
         print(f"note: lattice_grid {list(config.lattice_grid)} "
@@ -1511,7 +1803,8 @@ def _run_sweep(config: _Config, test: Test, plan: Sequence[_SweepRun],
         if not run.test.cases:
             reason = (f"sweep configuration "
                       f"{matrix.format_spec(run.combination)} selects no case")
-            print(f"{run.label} SKIP {reason}", file=stream, flush=True)
+            if owner:
+                print(f"{run.label} SKIP {reason}", file=stream, flush=True)
             skipped.append({
                 "index": run.index,
                 "configuration": json_safe(run.combination),
@@ -1519,10 +1812,13 @@ def _run_sweep(config: _Config, test: Test, plan: Sequence[_SweepRun],
                 "reason": reason,
             })
             continue
-        print(f"{run.label} {matrix.format_spec(run.combination)} "
-              f"({len(run.test.cases)} case(s))", file=stream, flush=True)
+        if owner:
+            print(f"{run.label} {matrix.format_spec(run.combination)} "
+                  f"({len(run.test.cases)} case(s))", file=stream, flush=True)
 
         def on_result(result: Result, label: str = run.label) -> None:
+            if not owner:
+                return
             print(f"{label} {_format_result(result)}", file=stream, flush=True)
             if args.verbose:
                 _print_detail(result)
@@ -1550,8 +1846,10 @@ def _run_sweep(config: _Config, test: Test, plan: Sequence[_SweepRun],
         if args.fail_fast and row.exit_code() != policy.EXIT_CODES["pass"]:
             stopped = True
             remaining = len(plan) - run.index
-            print(f"{run.label} stop: --fail-fast after {row.status}; "
-                  f"{remaining} combination(s) not started", file=sys.stderr)
+            if owner:
+                print(f"{run.label} stop: --fail-fast after {row.status}; "
+                      f"{remaining} combination(s) not started",
+                      file=sys.stderr)
             break
 
     duration = time.perf_counter() - started
@@ -1585,6 +1883,10 @@ def _run_sweep(config: _Config, test: Test, plan: Sequence[_SweepRun],
     payload.update(_mode_fields(config, len(results)))
 
     _emit_payload(payload, args, to_stdout=to_stdout)
+    if not owner:
+        # A replica rank prints nothing: the sweep report and the summary
+        # belong to rank 0 (see pyqcu.test.common.ledger_owner).
+        return report.exit_code()
 
     print(f"summary: {len(results)} case run(s), "
           f"{counts['PASS']} pass, {counts['SKIP']} skip, "
@@ -1652,15 +1954,44 @@ def _format_mode_entry(entry: dict[str, Any]) -> str:
     return f"{status:<7} {role:<8} {_one_line(path, 56):<56} {detail}"
 
 
+def _export_reference_ledger(config: _Config, test: Test,
+                             payload: dict[str, Any]) -> str | None:
+    """Write the reference CSV/workbook when ``--ledger-export`` asks for it.
+
+    Delegates to :func:`pyqcu.test.ledger_export.export_from_payload`, which is
+    inert unless the flag or ``PYQCU_TEST_LEDGER_EXPORT`` selects a format, and
+    which writes into ``<run root>/ledger/`` - never over ``reports/rows.csv``
+    (the 30-column :data:`pyqcu.test.common.ROW_FIELDS` table keeps its
+    semantics).  The outcome is recorded in the document under
+    ``ledger_export`` so a ``--json`` report states what was written; a failure
+    is returned to the caller and turned into exit code 2 after the normal
+    summary instead of being swallowed or raised as a traceback.
+    """
+    result = ledger_export.export_from_payload(
+        payload, run_options=test.config(),
+        selection=config.ledger_export, stream=sys.stderr)
+    if result is None:
+        return None
+    payload["ledger_export"] = result.as_dict()
+    return result.error
+
+
 def _run_mode(config: _Config, test: Test, plan: Sequence[_SweepRun],
               args: argparse.Namespace, argv: Sequence[str] | None) -> int:
-    """Execute one full mode, emit its document and return its exit code."""
+    """Execute one full mode, emit its document and return its exit code.
+
+    One logical row over N processes: every rank runs the mode and reports
+    through the per-row allgather, and only rank 0 prints, writes the ledger and
+    emits the report payload (:func:`pyqcu.test.common.ledger_owner`).  The exit
+    code is the gathered verdict, so all ranks agree on it.
+    """
+    owner = ledger_owner()
     rows = _mode_rows(config, test, plan)
     to_stdout = args.json == JSON_STDOUT
     stream = sys.stderr if to_stdout else sys.stdout
     exports = _report_exports(args, include_csv=False)
     _validate_export_targets(args, json_to_stdout=to_stdout, exports=exports)
-    if config.mode in ("solve", "run") and not config.quick:
+    if owner and config.mode in ("solve", "run") and not config.quick:
         # Explicit, never silent: this is the tier-1 shape of the run.
         print(f"note: --mode {config.mode} is an explicit tier-{config.full.tier} "
               f"run at {_lattice_text(config.lattice)} {config.dtype} "
@@ -1668,6 +1999,8 @@ def _run_mode(config: _Config, test: Test, plan: Sequence[_SweepRun],
               "--quick for the tier-0 8x8x8x16 gate", file=sys.stderr)
 
     def on_entry(entry: dict[str, Any]) -> None:
+        if not owner:
+            return
         print(_format_mode_entry(entry), file=stream, flush=True)
         if args.verbose:
             print(f"  entry: {json.dumps(json_safe(entry), sort_keys=True)}",
@@ -1678,7 +2011,14 @@ def _run_mode(config: _Config, test: Test, plan: Sequence[_SweepRun],
         execute=_mode_executor(config, test), on_entry=on_entry,
         argv=list(sys.argv[1:] if argv is None else argv))
     payload["quick"] = config.quick
+    payload["mpi"] = _rank_fields()
+    export_error = (_export_reference_ledger(config, test, payload)
+                    if owner else None)
     _emit_payload(payload, args, to_stdout=to_stdout, exports=exports)
+    if not owner:
+        # A replica rank writes nothing, so it must not raise on an export the
+        # owner already reported either: rank 0's exit code is the run's.
+        return code
 
     counts = payload.get("counts") or {}
     rows_summary = payload.get("rows") or {}
@@ -1698,6 +2038,8 @@ def _run_mode(config: _Config, test: Test, plan: Sequence[_SweepRun],
     if config.quick and config.repeat <= 1:
         print("note: --quick makes no performance claim "
               "(single sample, no median)", file=sys.stderr)
+    if export_error:
+        raise UsageError(f"--ledger-export: {export_error}")
     return code
 
 
@@ -1706,11 +2048,16 @@ def _run(args: argparse.Namespace, argv: Sequence[str] | None) -> int:
     config = _resolve_config(args)
     test = _build_test(config)
     plan = _sweep_plan(config, test) if config.sweep else ()
+    _print_rank_note()
     if args.list or config.mode == "list":
         if _report_exports(args):
             raise UsageError(
                 "--list does not execute cases; --junit/--csv/--markdown need "
                 "a run (drop --list or the export flag)")
+        if config.ledger_export is not None:
+            raise UsageError(
+                "--list does not execute a full mode; --ledger-export needs "
+                "--mode solve|run|merge (drop --list or --ledger-export)")
         return _emit_listing(config, test, args, plan)
     if config.mode is not None:
         return _run_mode(config, test, plan, args, argv)

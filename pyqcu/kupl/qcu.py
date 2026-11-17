@@ -248,13 +248,19 @@ def applyInitQcu(set_ptrs, params, argv) -> None:
 
     Select an ordinary slot in ``[0:30)`` before calling. Keep that index fixed
     through the operation and any getters, then release it with
-    :func:`applyEndQcu` before selecting the next slot.
+    :func:`applyEndQcu` before selecting the next slot. The backend bounds the
+    index itself: anything outside ``[0, _SET_PTRS_COARSE_BASE_)`` is rejected
+    and aborts, because the slots from 30 up belong to the multigrid asset
+    protocols.
     """
     _LIBRARY.applyInitQcu(_pointer(set_ptrs), _pointer(params), _pointer(argv))
 
 
 def applyEndQcu(set_ptrs, params) -> None:
-    """Release the backend resource at the current ``_SET_INDEX_`` slot."""
+    """Release the backend resource at the current ``_SET_INDEX_`` slot.
+
+    Like :func:`applyInitQcu` this only accepts the ordinary ``[0:30)`` slots.
+    """
     _LIBRARY.applyEndQcu(_pointer(set_ptrs), _pointer(params))
 
 

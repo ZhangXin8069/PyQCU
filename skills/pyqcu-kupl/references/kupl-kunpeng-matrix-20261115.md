@@ -331,6 +331,14 @@ number)`，且 traceback 行是 `source_local = _read_local_slab(...)`——失�
   `coarse_max_iter`/`restart`/`deflate`（设计正确：这些不改变 cache 内容）。
   `change identity` 就会重建，禁止按文件名或文件大小复用。
 - `--mode prepare` 只处理 `mg2` 行；`bistabcg` 不需要 cache。
+- **L48（2026-11-17）**：只有 **16 rank** 的 Legacy-MG cache（`E=2`、`1.276 GiB`）
+  可用，且只能被**同 identity 的 16 rank 行**复用；`32 rank`/两节点**没有 identity
+  匹配的 cache → 暂缓（DEFERRED），不重建**。判据与本节 identity 字段完全一致：
+  不按文件名/路径/大小复用，`verify_status` 必须为 `0`。权威记录见
+  [`docs/pyqcu_test_l48_remote.md`](../../../docs/pyqcu_test_l48_remote.md) §0.1。
+- **L48 的 CG 组已退役**：没有 CG harness，不再排 CG 行；不要为了“补齐矩阵”新增
+  L48 CG 用例。L48 的 c64 BiCGStab 32 rank `1.6646 s`（`2152757`）与 16 rank
+  共享节点 `183.0 s`（病态，不作基线）见 `kupl-history-2026.md` 同日条目。
 
 ## 9. 复现与审计入口
 

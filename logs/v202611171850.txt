@@ -1,0 +1,25 @@
+# L48 MG32 — DEFERRED / CACHE-MISSING
+
+Timestamp: 2026-11-17T18:50+08:00
+Scope: L48 48x48x48x96, c64/c128 Legacy-MG (levels=2, restart=5, mg_grid 2 2 2 2, dof 12 2)
+Policy: single-node first; no two-node submission until all single-node work is terminal; reuse matching MG cache only.
+
+## Decision
+
+MG32 is **DEFERRED / CACHE-MISSING**. Do not rebuild a 32r/two-node MG cache and do not run this group from a fresh `--write-coarse-cache`.
+
+Only matching cache: 16r c64 `data/l48_validation_20261117/caches/l48_16r_mg_l2r5` (1.276 GiB, 16 ranks, grid 2x2x2x2). It must not be used for 32r or two-node rows.
+
+## Job evidence
+
+- `2152970` (32r one-node MG32): FAILED at 2026-11-17 17:48:28, never started.
+- `2153889` (replacement): FAILED at 2026-11-17 18:20:34, never started.
+- `2154119` (replacement): cancel requested; FAILED at 2026-11-17 18:48:14, never started.
+- `2153005` (c128 single-node): still PENDING; kept under the single-node-first policy.
+- No active job with nnodes=2.
+
+## Agent
+
+`bg-32` (L48 MG32 C64 C128) was stopped at the user's request; its partial report `l48_mg32.md` is UNVERIFIED, not a PASS.
+
+No new release, push, or tag.
