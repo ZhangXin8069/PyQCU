@@ -51,16 +51,39 @@ R6  CLI / syntax / KUPL C++ / tag-chain                           PASS (tag-chai
     - tag-chain: FAIL only on historical bug45 [BLOCK], 0 safe repair
       candidates; accepted as the documented historical exception, no rewrite.
 
-R7  Freeze / commit                                               PENDING at write time
-R8  Sdist build / release_check / twine                            PENDING at write time
-R9  Clean install / installed smoke                               PENDING at write time
-R10 Final independent audit / go-no-go                            PENDING at write time
+R7  Freeze / commit                                               PASS
+    - commit 6782d103 (82 files, 20,522 insertions, 396 deletions)
+    - cached diff check clean; form-large-files PASS (82 checked)
+    - deferred table in docs/pyqcu_test_l48_remote.md sec. 0.1.8
+
+R8  Sdist build / release_check / twine                           PASS
+    - dist/pyqcu-0.1.18.tar.gz, 1,031,540 B
+    - sha256 bfdc7be8fbec9e3cbb0346497d1c0fe56731fecc92e505f3879a66b7ba166cae
+    - release_check --offline: 13/13 PASS
+    - sdist: 279 members, 22 pyqcu/test modules, 0 pyqcu/testing, 0 .so,
+      0 home path; twine check PASSED
+    - docs examples 30 ok / 8 skipped / 0 failed; Sphinx en+zh exit 0
+
+R9  Clean install / installed smoke                               PASS
+    - venv from 0.1.18 sdist with PYQCU_SKIP_NATIVE_BUILD=1
+    - installed pyqcu 0.1.18; PYTHONPATH unset
+    - installed python -m pyqcu.test --check: 20 checks, 18 passed,
+      2 skipped (no native extension), overall PASS
+    - pip check: No broken requirements found
+
+R10 Final independent audit / go-no-go                            PASS
+    - PyPI 0.1.18 absent (HTTP 404); 0.1.17/test37 remain immutable
+    - tag-chain has only the documented historical bug45 [BLOCK], 0 safe
+      repair candidates; no rewrite
+    - final release decision: GO for sdist-only upload, tag test38 follows
+      test37, push origin+gitee; no wheel
 
 Evidence commands / files:
 - /tmp/r2_check.out, /tmp/r2_list.json
 - /tmp/r4_quick.out
 - /tmp/r5_python.out
 - /tmp/r6_syntax.out, /tmp/r6_ctest.out, /tmp/r6_tagchain.out
+- /tmp/r8_release_check.out, /tmp/r9_installed_check.out
 - docs/pyqcu_test_l48_remote.md sec. 0.1.8 (deferred table)
 - docs/pyqcu_test_l48_remote.md sec. 0.1.6/0.1.7 (harness evidence)
 
