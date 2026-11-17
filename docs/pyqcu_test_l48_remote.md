@@ -47,7 +47,7 @@
 | 14 | L48 生产 `solve/mg` 行 | **TODO** | 工作区并发实现已加入 `L48` preset（未提交），但 `--mode list --lattice-preset L48` 仍只展开 17 个 tier-0 case（CG 退役后 19−2；§2.4.7、§9.5） |
 | 15 | CSV 100 列 / Excel 21 sheet parity | **验证中（未通过）** | `ledger_csv.py`/`ledger_excel.py` 仍未接线，`--csv` 仍写 30 列 `ROW_FIELDS`；驱动侧自报 `--check` 19/19、`--quick` 19 个 case、87 个测试通过（**转述，本轮未独立复跑**）。**parity 是硬性要求**，未通过前不得声称已替换旧驱动（§2.4.6） |
 | 16 | 审计 P0/P1 | **未修复（NOT FIXED）** | 见 [`pyqcu_test_audit_risk_20261117.md`](pyqcu_test_audit_risk_20261117.md)；本文不把任何 P0/P1 写成已修复 |
-| 17 | 版本 / 标签 | **0.1.18 发布准备** | 历史发布 `0.1.17` / `test37` 保持不可覆盖；本轮按用户指令提升到 `0.1.18` / `test38`（`follow test37`）。十轮复查通过后才 upload/push/tag；`bug45` 历史 tag-chain 例外不重写（§9.6）。 |
+| 17 | 版本 / 标签 | **已发布 0.1.18 / test38** | `0.1.17` / `test37` 保持不可覆盖；`0.1.18` sdist 已上传 PyPI，`test38`（`follow test37`）已推送 origin/Gitee。`bug45` 历史 tag-chain 例外保留、不重写（§9.6）。 |
 | 18 | KUPL harness 两节点 c64 | **已验证：PASS** | job `2155536`（`cn[19544,19546]`，32 rank，`drun -mpi pmix`，rankfile）；报告 `status=PASS`、11 it、真残差 `7.12609e-05`、solve wall `1.1778 s`。**这是 harness，不是 `pyqcu.test --l48-two-node` 矩阵行**；正式矩阵仍为 `UNVERIFIED`，SSH 直接 shell 也仍不可用（§0.1.6） |
 | 19 | KUPL harness 两节点变体（c128 / c64） | **已验证：4 PASS（harness）** | job `2155785`（c128 32r）、`2155830`（c64 16r）、`2155868`（c64 64r）、`2155888`（c64 Legacy-MG 16r cache-load）；全部 `status=PASS` 且独立真残差 `< 1e-4`（§0.1.7）。**MG 粗修正未生效**（cache-load 路径）；远端覆盖树无 `--l48-two-node`，正式矩阵仍 `UNVERIFIED` |
 

@@ -89,3 +89,25 @@ Evidence commands / files:
 
 Release policy: only sdist; do not overwrite 0.1.17/test37; next tag test38
 follows test37; publish only after R7-R10 pass.  No wheel upload.
+
+POST-RELEASE (2026-11-18)
+-------------------------
+- PyPI: pyqcu-0.1.18.tar.gz uploaded successfully.
+  - https://pypi.org/project/pyqcu/0.1.18/
+  - size 1,031,572 B
+  - sha256 51eb269daad9b05b03ec76256fc229fe0db3daeb64f276a8268a918a1b9779d2
+  - PyPI JSON/simple index HTTP 200, version 0.1.18 present.
+- PyPI clean venv install: pyqcu 0.1.18, --check 20 checks
+  (18 passed / 2 skipped, no native extension), pip check clean.
+- release_check --online: 20/20 PASS (including RTD en/zh-cn latest).
+  Initial RTD poll was pending; after the documented build delay both pages
+  contained 0.1.18 and the gate passed.
+- GitLab origin/main and Gitee main: 122b8d6445a267ad54a79cfc5afaebba885b5e6b.
+- test38 annotated tag: object 46b755abfa14637df906f80fc0fb897cb7d67128,
+  peeled commit 122b8d6445a267ad54a79cfc5afaebba885b5e6b.
+- tag-chain still has the documented historical bug45 [BLOCK]; 0 safe repair
+  candidates; no tag was rewritten or moved.  This is not reported as a green
+  tag-chain gate.
+- DEFERRED items in docs/pyqcu_test_l48_remote.md sec. 0.1.8 remain unchanged:
+  formal two-node pyqcu.test execution, formal c128/16/64 matrix rows,
+  32-rank/two-node Legacy-MG, CSV F1/F2, and the 2155899 diagnostic.
