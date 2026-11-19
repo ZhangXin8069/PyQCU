@@ -38,9 +38,11 @@ CLI_TIMEOUT_SECONDS = 600
 RANK_ENV = ("OMPI_COMM_WORLD_RANK", "OMPI_COMM_WORLD_SIZE")
 
 #: Every launcher variable :func:`pyqcu.test.common.mpi_info` reads.
-RANK_VARIABLES = RANK_ENV + ("PMI_RANK", "PMI_SIZE", "SLURM_PROCID",
-                             "SLURM_NTASKS", "I_MPI_RANK", "I_MPI_SIZE",
-                             "MV2_COMM_WORLD_RANK", "MV2_COMM_WORLD_SIZE")
+RANK_VARIABLES = RANK_ENV + ("PMI_RANK", "PMI_SIZE", "PMIX_RANK", "PMIX_SIZE",
+                             "CCS_TASK_INDEX", "CCS_TASK_REPLICA",
+                             "SLURM_PROCID", "SLURM_NTASKS", "I_MPI_RANK",
+                             "I_MPI_SIZE", "MV2_COMM_WORLD_RANK",
+                             "MV2_COMM_WORLD_SIZE")
 
 try:
     from pyqcu.test import common, driver

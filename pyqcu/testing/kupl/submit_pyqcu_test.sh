@@ -32,8 +32,9 @@
 #   * Serial, single job: one dsub allocation, one task, one 32-rank launch.
 #     The rows run one after another inside it.  Do not submit sharded copies -
 #     two exclusive 2-node requests cannot be placed at the same time.
-#   * The rank grid is the L48 production shape `2 2 2 4` (48^3 x 96, 24^3 x 24
-#     per rank).  `pyqcu.test.launch` re-checks prod(grid)==ranks and the even
+#   * The rank grid defaults to the L48 production shape `2 2 2 4` (48^3 x 96,
+#     24^3 x 24 per rank); use `--grid "2 2 4 4"` for the 64-rank shape.
+#     `pyqcu.test.launch` re-checks prod(grid)==ranks and the even
 #     rank-local extents, so a `--ranks` that does not fit is refused instead of
 #     being launched at the wrong size.
 #   * This script never decides PASS/FAIL and runs nothing locally: without
@@ -62,6 +63,7 @@ TAG=""
 NODES=2
 RANKS_PER_NODE=16
 RANKS=32
+GRID="2 2 2 4"
 THREADS=18
 CORES_PER_RANK=18
 ONLY="kupl/l48"
@@ -80,6 +82,7 @@ Usage: submit_pyqcu_test.sh [options]
   --nodes N             compute nodes (default 2)
   --ranks-per-node N    ranks per node (default 16)
   --ranks N             total ranks (default 32; must equal nodes*ranks-per-node)
+  --grid "X Y Z T"       MPI rank grid (default "2 2 2 4"; product must equal ranks)
   --threads N           OpenMP threads per rank (default 18)
   --cores-per-rank N    physical cores per rank in the rankfile (default 18)
   --only PATTERN        --only value of the formal command (default kupl/l48)
@@ -109,6 +112,7 @@ while [ $# -gt 0 ]; do
     --nodes) NODES="$2"; shift 2 ;;
     --ranks-per-node) RANKS_PER_NODE="$2"; shift 2 ;;
     --ranks) RANKS="$2"; shift 2 ;;
+    --grid) GRID="$2"; shift 2 ;;
     --threads) THREADS="$2"; shift 2 ;;
     --cores-per-rank) CORES_PER_RANK="$2"; shift 2 ;;
     --only) ONLY="$2"; shift 2 ;;
@@ -212,14 +216,14 @@ JOB="$OUTDIR/jobs/$TAG.sh"
   echo "python3 -B -m pyqcu.test.launch rankfile --alloc-file \"\$CCS_ALLOC_FILE\" \\"
   echo "  --rankfile \"\$RANKFILE\" --job-id \"\$JOBID\" \\"
   echo "  --nodes $NODES --ranks-per-node $RANKS_PER_NODE --ranks $RANKS \\"
-  echo "  --cores-per-rank $CORES_PER_RANK --grid 2 2 2 4 --lattice 48 48 48 96 \\"
+  echo "  --cores-per-rank $CORES_PER_RANK --grid $GRID --lattice 48 48 48 96 \\"
   echo '  || { echo "[launch] rankfile refused; not launching" >&2; exit 2; }'
   echo '# Render the launcher argv: one argument per line, no eval.'
   echo "python3 -B -m pyqcu.test.launch argv --launcher $LAUNCHER \\"
   echo "  --drun '$DRUN' \\"
   echo "  --alloc-file \"\$CCS_ALLOC_FILE\" --rankfile \"\$RANKFILE\" --job-id \"\$JOBID\" \\"
   echo "  --nodes $NODES --ranks-per-node $RANKS_PER_NODE --ranks $RANKS \\"
-  echo "  --cores-per-rank $CORES_PER_RANK --grid 2 2 2 4 --lattice 48 48 48 96 \\"
+  echo "  --cores-per-rank $CORES_PER_RANK --grid $GRID --lattice 48 48 48 96 \\"
   echo "  --only '$ONLY' --threads $THREADS --outdir '$OUTDIR' \\"
   echo "  > \"\$ARGVFILE\" || { echo \"[launch] plan refused; not launching\" >&2; exit 2; }"
   echo 'mapfile -t LAUNCH_ARGV < "$ARGVFILE"'
@@ -244,7 +248,7 @@ echo "job_script=$JOB"
 echo "tag=$TAG nodes=$NODES ranks=$RANKS rpn=$RANKS_PER_NODE threads=$THREADS"
 echo "launcher=$LAUNCHER only=$ONLY node=${NODE:-auto} walltime=$WALLTIME"
 echo "formal: python3 -B -m pyqcu.test --mode solve --l48-two-node" \
-     "--only '$ONLY' --ranks $RANKS --lattice-grid 2 2 2 4 --threads $THREADS"
+     "--only '$ONLY' --ranks $RANKS --lattice-grid $GRID --threads $THREADS"
 echo "(the exact launcher argv is rendered inside the job: see the job script)"
 
 if [ "$DRY_RUN" = "1" ]; then

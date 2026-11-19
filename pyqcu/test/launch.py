@@ -394,6 +394,45 @@ class RankfileRow:
         }
 
 
+#: Site topology used by the LX2 allocation: 16 NUMA domains of 38 logical
+#: slots, with the last slot of each domain reserved (37 usable).  The verified
+#: kupl_multigrid rankfiles use this geometry; contiguous ``0..N-1`` ranges
+#: cross slot 37 and are rejected by drun.
+SITE_NUMA_COUNT = 16
+SITE_NUMA_STRIDE = 38
+SITE_NUMA_USABLE = 37
+SITE_SLOT_COUNT = SITE_NUMA_COUNT * SITE_NUMA_STRIDE
+
+
+def _site_slots(local_rank: int, width: int) -> tuple[int, int]:
+    """Physical slots of one rank on its node, avoiding reserved NUMA slot 37.
+
+    Ranks are packed ``37 // width`` per NUMA domain.  For the production
+    widths this yields the site's rankfile: 18 cores -> 0-17, 18-35, 38-55,
+    ...; 36 cores -> 0-35, 38-73, ...; 9 cores -> 0-8, 9-17, 18-26, 27-35,
+    38-46, ... .  A width that cannot fit in one NUMA domain is refused
+    instead of silently including a reserved core.
+    """
+    per_numa = SITE_NUMA_USABLE // int(width)
+    if per_numa < 1:
+        raise LaunchError(
+            f"cores_per_rank {width} exceeds the {SITE_NUMA_USABLE} usable "
+            "cores of one NUMA domain")
+    numa = int(local_rank) // per_numa
+    offset = int(local_rank) % per_numa
+    if numa >= SITE_NUMA_COUNT:
+        raise LaunchError(
+            f"rank {local_rank} needs NUMA domain {numa}, but the site has "
+            f"only {SITE_NUMA_COUNT}")
+    first = numa * SITE_NUMA_STRIDE + offset * int(width)
+    last = first + int(width) - 1
+    if last >= numa * SITE_NUMA_STRIDE + SITE_NUMA_USABLE:
+        raise LaunchError(
+            f"rank {local_rank} slots {first}-{last} cross the reserved "
+            f"NUMA slot {numa * SITE_NUMA_STRIDE + SITE_NUMA_USABLE}")
+    return first, last
+
+
 def _resolve_cores_per_rank(allocations: Sequence[Allocation],
                             cores_per_rank: Any) -> int:
     """Per-rank core width, checked against every node's allocation."""
@@ -426,10 +465,10 @@ def rankfile_rows(
     """The rankfile rows of one allocation, with disjoint physical slots.
 
     Rank ``node_index * ranks_per_node + local`` runs on ``host`` and owns the
-    physical slots ``local * width`` .. ``(local + 1) * width - 1``.  That is
-    the documented ``total_cores / rank_count`` width (18 for 288/16), so the
-    16 ranks of a node cover ``0-287`` and never overlap; the leftover cores of
-    a larger allocation stay unused instead of being handed to a rank twice.
+    site's physical slots for that local rank: ranks are packed ``37 // width``
+    per NUMA domain, and the reserved last slot of every domain (37/75/...) is
+    never included.  The old contiguous ``local * width`` formula is wrong for
+    the LX2 topology; ``drun`` rejects a rank whose range crosses slot 37.
     """
     nodes = tuple(allocations)
     if not nodes:
@@ -455,12 +494,11 @@ def rankfile_rows(
     slots: dict[str, list[tuple[int, int, int]]] = {}
     for index, node in enumerate(nodes):
         for local in range(per_node):
-            first = local * width
-            last = first + width - 1
-            if last >= node.total_cores:
+            first, last = _site_slots(local, width)
+            if last >= SITE_SLOT_COUNT:
                 raise LaunchError(
                     f"{node.host}: rank {local} needs slots {first}-{last} but "
-                    f"only {node.total_cores} cores were allocated")
+                    f"the site has only {SITE_SLOT_COUNT} slots")
             rank = index * per_node + local
             rows.append(RankfileRow(rank, node.host, first, last))
             slots.setdefault(node.host, []).append((first, last, rank))

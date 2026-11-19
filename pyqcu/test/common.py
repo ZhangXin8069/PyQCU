@@ -554,9 +554,11 @@ def relative_residual(matvec: Callable[[Any], Any], x: Any, b: Any) -> float:
 # ---------------------------------------------------------------------------
 # process/environment probes (no heavy imports)
 # ---------------------------------------------------------------------------
-_RANK_VARIABLES = ("OMPI_COMM_WORLD_RANK", "PMI_RANK", "I_MPI_RANK",
-                   "MV2_COMM_WORLD_RANK", "SLURM_PROCID")
-_SIZE_VARIABLES = ("OMPI_COMM_WORLD_SIZE", "PMI_SIZE", "I_MPI_SIZE",
+_RANK_VARIABLES = ("PMIX_RANK", "OMPI_COMM_WORLD_RANK", "PMI_RANK",
+                   "CCS_TASK_INDEX", "I_MPI_RANK", "MV2_COMM_WORLD_RANK",
+                   "SLURM_PROCID")
+_SIZE_VARIABLES = ("CCS_TASK_REPLICA", "PMIX_SIZE", "OMPI_COMM_WORLD_SIZE",
+                   "PMI_SIZE", "I_MPI_SIZE",
                    "MV2_COMM_WORLD_SIZE", "SLURM_NTASKS")
 
 

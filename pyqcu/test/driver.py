@@ -711,9 +711,14 @@ def _native_failure(observations: dict[str, Any], started: float, *,
         kwargs["source_file"] = str(data["source_file"])
     cache_dir = layout.get("cache") or settings.get("cache_dir")
     if cache_dir and kind == "mg":
-        # Keep a Legacy-MG cache the run publishes inside the run's own work
-        # directory instead of whatever the module's default location is.
-        kwargs["cache_directory"] = str(cache_dir)
+        # A ranked Legacy-MG artifact is a single HDF5 root with a sidecar
+        # manifest and a `<root>.d/` rank directory; pass it as ``cache``.
+        # A directory remains a cache *directory* for a future publish.
+        candidate = Path(str(cache_dir))
+        if candidate.is_file():
+            kwargs["cache"] = str(candidate)
+        else:
+            kwargs["cache_directory"] = str(candidate)
     try:
         result = native.run_case(kind, **kwargs)
     except Skip as error:

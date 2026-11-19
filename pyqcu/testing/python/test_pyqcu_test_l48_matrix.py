@@ -266,7 +266,7 @@ def test_launcher_plan_becomes_a_real_drun_plan_with_an_allocation(
     assert plan["rankfile"].endswith("2155536-rankfile")
     assert len(plan["rankfile_rows"]) == 32
     assert plan["rankfile_text"].splitlines()[0] == "rank 0=cn19544 slot=0-17"
-    assert plan["rankfile_text"].splitlines()[-1] == "rank 31=cn19546 slot=270-287"
+    assert plan["rankfile_text"].splitlines()[-1] == "rank 31=cn19546 slot=284-301"
     assert plan["environment"][launch.RANKFILE_ENV] == plan["rankfile"]
 
     command = plan["command"]

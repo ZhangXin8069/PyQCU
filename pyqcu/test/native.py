@@ -310,13 +310,21 @@ def mpi_rank() -> int:
 
 
 def _bound_mpi() -> tuple[int, int]:
+    environment = mpi_info()
     module = sys.modules.get("pyqcu.cuda.define")
     if module is not None:
         size = getattr(module, "size", None)
         rank = getattr(module, "rank", None)
         if isinstance(size, int) and isinstance(rank, int) and size > 0:
-            return int(size), int(rank)
-    return mpi_info()
+            # ``pyqcu.test`` deliberately does not import mpi4py.  A stale
+            # ``define`` imported before the launcher initialised PMIx keeps
+            # its module defaults (size=1), while ``drun -mpi pmix`` exports
+            # PMIX_RANK/PMIX_SIZE.  Prefer the live launcher environment when
+            # it says this is a multi-rank world; real mpi4py-derived values
+            # still win when they agree or when no launcher size is present.
+            if size > 1 or environment[0] <= 1:
+                return int(size), int(rank)
+    return environment
 
 
 def _int4(values: Any, name: str) -> tuple[int, int, int, int]:
@@ -587,7 +595,7 @@ def shm_available(*, size: int | None = None, backend: str = "kupl",
         return False, f"shared-memory windows need Linux, this is {system}"
     local = _first_int_environment((
         "OMPI_COMM_WORLD_LOCAL_SIZE", "MV2_COMM_WORLD_LOCAL_SIZE",
-        "SLURM_NTASKS_PER_NODE", "I_MPI_LOCAL_SIZE"))
+        "SLURM_NTASKS_PER_NODE", "I_MPI_LOCAL_SIZE", "PMIX_LOCAL_SIZE"))
     if local is not None and local < world:
         return False, (f"{world} ranks span at least two nodes "
                        f"(local size {local}); the shared window only covers "
@@ -3202,18 +3210,16 @@ def _run_native(option: NativeCase) -> dict[str, Any]:
             reason="the native dslash comparison needs the whole lattice for "
                    "its full-lattice reference")
     elif option.kind == "mg":
-        # The coarse assets are built per rank by the *local* 33-stencil
-        # builder, which is a serial geometry: it cannot represent the coarse
-        # couplings across a rank boundary (the production driver builds the
-        # stencils on a serial overlap patch or reads a ranked cache, neither of
-        # which this port writes).  A multi-rank Legacy-MG case would therefore
-        # run with a wrong coarse operator, so it is refused instead of
-        # reported as a pass.
-        _require_single_rank(
-            size=size,
-            reason="the Legacy-MG coarse assets are built per rank by the "
-                   "serial local 33-stencil builder, which cannot represent "
-                   "coarse couplings across a rank boundary")
+        # A ranked cache (the production 16-rank/two-node format) supplies each
+        # rank's coarse slab, so multi-rank MG is valid there.  Without one,
+        # the serial local 33-stencil builder cannot represent coarse
+        # couplings across a rank boundary; keep the old fail-closed guard.
+        if _ranked_mg_cache_path(option) is None:
+            _require_single_rank(
+                size=size,
+                reason="the Legacy-MG coarse assets are built per rank by the "
+                       "serial local 33-stencil builder, which cannot represent "
+                       "coarse couplings across a rank boundary")
     # Decide the shared halo before any import so an unusable request is a SKIP
     # and not a half-initialised backend.
     resolve_shm(option.shm, size=size, backend=declared)
@@ -3533,6 +3539,125 @@ def _mg_identity(option: NativeCase, controls: _Controls, gauge: Any,
         mpi_size=int(controls.probe.size))
 
 
+def _ranked_mg_cache_path(option: NativeCase) -> Path | None:
+    """Return ``option.cache`` when it is a production ranked MG cache root."""
+    if option.cache is None:
+        return None
+    path = Path(option.cache)
+    if not path.is_file():
+        return None
+    try:
+        from pyqcu.tools._legacy_mg_cache import is_legacy_mg_ranked_cache
+        return path if is_legacy_mg_ranked_cache(path) else None
+    except Exception:  # noqa: BLE001 - an unreadable cache is not a path hit
+        return None
+
+
+def _load_ranked_mg_assets(
+        option: NativeCase, controls: _Controls, torch: Any,
+        grid: Sequence[int], path: Path,
+        ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    """Load coarse tensors from a ranked Legacy-MG cache.
+
+    The cached tensors describe the global coarse operator; the process grid
+    and local slabs that published them are only storage metadata.  Each live
+    rank therefore computes its own coarse window from the live grid and reads
+    the covering slabs.  This permits a cache built by 16 ranks to serve 32 or
+    64 ranks when the cache identity (gauge, lattice, dtype, mass, csw,
+    ``mg_grid``, seed) still matches.  A single-file cache or a rebuilt serial
+    stencil is never used as a fallback; an identity mismatch is an ERROR.
+    """
+    from pyqcu.tools._legacy_mg_cache import (
+        canonical_dtype, file_sha256, legacy_mg_geometry,
+        legacy_mg_local_shapes, load_legacy_mg_cache_slab,
+        read_legacy_mg_ranked_manifest,
+    )
+
+    manifest = read_legacy_mg_ranked_manifest(path)
+    identity = manifest["identity"]
+    expected = {
+        "lattice": list(option.lattice),
+        "dtype": str(canonical_dtype(option.dtype)),
+        "mass": float(option.mass),
+        "csw": float(option.csw),
+        "mg_grid": list(option.mg_grid),
+        "seed": int(option.seed),
+    }
+    actual = {
+        "lattice": list(identity.get("lattice", [])),
+        "dtype": str(canonical_dtype(identity.get("dtype"))),
+        "mass": float(identity.get("mass", 0.0)),
+        "csw": float(identity.get("csw", 0.0)),
+        "mg_grid": list(identity.get("mg_grid", [])),
+        "seed": int(identity.get("seed", -1)),
+    }
+    if actual != expected:
+        raise ValueError(
+            "ranked Legacy-MG cache identity does not match this case: "
+            f"{actual} != {expected}")
+    if option.gauge_file is not None and identity.get("gauge_file_sha256"):
+        digest = file_sha256(option.gauge_file)
+        if digest != identity["gauge_file_sha256"]:
+            raise ValueError(
+                "ranked Legacy-MG cache gauge_file_sha256 does not match "
+                f"--gauge-file {option.gauge_file}")
+    # The cached tensors describe the global coarse operator, not the rank
+    # partition that happened to publish them.  A live grid may therefore read
+    # its own coarse window from a cache built by another process grid, as long
+    # as the global geometry and identity match.
+    _, coarse = legacy_mg_geometry(option.lattice, option.mg_grid)
+    if list(manifest.get("global_coarse", [])) != list(coarse):
+        raise ValueError(
+            "ranked Legacy-MG cache global_coarse "
+            f"{manifest.get('global_coarse')} != live coarse {list(coarse)}")
+    live_grid = tuple(int(value) for value in grid)
+    if any(coarse[axis] % live_grid[axis] for axis in range(4)):
+        raise ValueError(
+            f"coarse geometry {coarse} is not divisible by live grid {live_grid}")
+    local_coarse = tuple(
+        coarse[axis] // live_grid[axis] for axis in range(4))
+    rank = int(controls.probe.rank)
+    if math.prod(live_grid) != int(controls.probe.size):
+        raise ValueError(
+            f"live grid {live_grid} does not match MPI size {controls.probe.size}")
+    coordinates = [0, 0, 0, 0]
+    remainder = rank
+    for axis in range(3, -1, -1):
+        coordinates[axis] = remainder % live_grid[axis]
+        remainder //= live_grid[axis]
+    starts = tuple(
+        coordinates[axis] * local_coarse[axis] for axis in range(4))
+    values = load_legacy_mg_cache_slab(
+        path, option.dtype, starts=starts, local_shape=local_coarse,
+        names=("lonv", "hnn", "hdg", "sit"))
+    assets = {
+        name: _device_tensor(torch, values[name], controls.probe,
+                             controls.torch_dtype)
+        for name in ("lonv", "hnn", "hdg", "sit")
+    }
+    local_shapes = legacy_mg_local_shapes(
+        manifest["global_shapes"], local_coarse)
+    repartitioned = (
+        list(manifest.get("process_grid", [])) != list(live_grid)
+        or int(len(manifest.get("ranks", []))) != int(controls.probe.size))
+    notes = [
+        ("ranked Legacy-MG cache repartitioned to live process grid"
+         if repartitioned else "ranked Legacy-MG cache loaded; no coarse rebuild")
+    ]
+    entry = {
+        "cache_reused": True,
+        "cache_seconds": None,
+        "cache_notes": notes,
+        "cache_shapes": local_shapes,
+        "cache_identity": identity,
+        "cache_manifest": str(path),
+        "cache_rank": rank,
+        "cache_starts": list(starts),
+        "cache_local_coarse": list(local_coarse),
+    }
+    return assets, entry, dict(entry)
+
+
 def _resolve_mg_assets(option: NativeCase, controls: _Controls, gauge: Any,
                        terms: Sequence[Any], inverses: Sequence[Any],
                        torch: Any, grid: Sequence[int]
@@ -3546,6 +3671,9 @@ def _resolve_mg_assets(option: NativeCase, controls: _Controls, gauge: Any,
     cross-identity hit.
     """
     identity = _mg_identity(option, controls, gauge, torch, grid)
+    ranked = _ranked_mg_cache_path(option)
+    if ranked is not None:
+        return _load_ranked_mg_assets(option, controls, torch, grid, ranked)
     shapes = cache_module.asset_shapes(identity)
     notes: list[str] = []
     path = (option.cache if option.cache is not None
@@ -3754,7 +3882,9 @@ def _mg_case(option: NativeCase, probe: BackendProbe, grid: Sequence[int],
             max_iter=option.max_iter, grid=grid, lattice=local),
     )
     if cache_entry is not None:
-        observations.update(cache_entry.as_dict())
+        observations.update(cache_entry.as_dict()
+                            if hasattr(cache_entry, "as_dict")
+                            else dict(cache_entry))
     return _finish(observations, controls, global_before, samples, {
         "gauge_unchanged": bool(torch.equal(gauge["compact"], gauge_before)),
         "source_unchanged": bool(torch.equal(source["compact"], source_before)),

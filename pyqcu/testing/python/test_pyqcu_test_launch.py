@@ -156,22 +156,28 @@ def test_rankfile_has_32_rows_with_disjoint_physical_slots() -> None:
     assert len(rows) == 32, "one row per rank, never fewer"
     assert [row.rank for row in rows] == list(range(32))
     assert all(row.width == 18 for row in rows), "288 / 16 = 18, not 36"
-    # Ranks 0-15 on the first node, 16-31 on the second, 0-287 on each node.
+    # Ranks 0-15 on the first node, 16-31 on the second.  The site reserves
+    # the last slot of every 38-slot NUMA domain, so the last usable slot is
+    # 301, not 287.
     assert {row.host for row in rows[:16]} == {"cn19544"}
     assert {row.host for row in rows[16:]} == {"cn19546"}
     assert (rows[0].first_slot, rows[0].last_slot) == (0, 17)
-    assert (rows[15].first_slot, rows[15].last_slot) == (270, 287)
+    assert (rows[15].first_slot, rows[15].last_slot) == (284, 301)
     assert (rows[16].first_slot, rows[16].last_slot) == (0, 17)
-    assert (rows[31].first_slot, rows[31].last_slot) == (270, 287)
+    assert (rows[31].first_slot, rows[31].last_slot) == (284, 301)
 
     for host in ("cn19544", "cn19546"):
         ranges = sorted((row.first_slot, row.last_slot) for row in rows
                         if row.host == host)
         assert len(ranges) == 16
-        assert ranges[0][0] == 0 and ranges[-1][1] == 287
+        assert ranges[0][0] == 0 and ranges[-1][1] == 301
         for previous, current in zip(ranges, ranges[1:]):
-            assert current[0] == previous[1] + 1, "slots must be contiguous"
             assert current[0] > previous[1], "slots must not overlap"
+        reserved = {numa * launch.SITE_NUMA_STRIDE + launch.SITE_NUMA_USABLE
+                    for numa in range(launch.SITE_NUMA_COUNT)}
+        for row in rows:
+            assert not reserved.intersection(
+                range(row.first_slot, row.last_slot + 1))
 
 
 def test_rankfile_generalises_to_another_node_count() -> None:
@@ -183,7 +189,7 @@ def test_rankfile_generalises_to_another_node_count() -> None:
     assert [node.host for node in allocations] == sorted(
         {row.host for row in rows})
     assert all(row.width == 19 for row in rows)  # 152 / 8
-    assert rows[-1].rank == 31 and rows[-1].last_slot == 151
+    assert rows[-1].rank == 31 and rows[-1].last_slot == 284
 
 
 #: The documented L48 rank counts: 16 ranks on one node (``2x2x2x2``), the
@@ -216,14 +222,19 @@ def test_rankfile_scales_over_16_32_and_64_ranks(
     for index, node in enumerate(allocations):
         block = rows[index * 16:(index + 1) * 16]
         assert {row.host for row in block} == {node.host}
-        assert [row.first_slot for row in block] == [
-            18 * step for step in range(16)]
+        expected = [launch._site_slots(local, 18) for local in range(16)]
+        assert [(row.first_slot, row.last_slot) for row in block] == expected
         assert (block[0].first_slot, block[0].last_slot) == (0, 17)
-        assert (block[-1].first_slot, block[-1].last_slot) == (270, 287)
-        # Every rank's slots are disjoint and together they cover the node.
+        assert (block[-1].first_slot, block[-1].last_slot) == (284, 301)
+        # Every rank's slots are disjoint; the 16 reserved NUMA slots stay
+        # unused, so the covered set is 288 slots, not range(288).
         covered = sorted(slot for row in block
                          for slot in range(row.first_slot, row.last_slot + 1))
-        assert covered == list(range(node.total_cores))
+        assert len(covered) == 16 * 18
+        assert len(set(covered)) == len(covered)
+        assert not set(covered).intersection(
+            {numa * launch.SITE_NUMA_STRIDE + launch.SITE_NUMA_USABLE
+             for numa in range(launch.SITE_NUMA_COUNT)})
     text = launch.render_rankfile(rows)
     assert text.count("\n") == ranks
     assert text.splitlines()[0].startswith("rank 0=cn0 ")
@@ -287,8 +298,9 @@ def test_two_node_variants_scale_ranks_and_width(
     assert rows[0].rank == 0 and rows[-1].rank == ranks - 1
     assert all(row.width == width for row in rows)
     assert (rows[0].first_slot, rows[0].last_slot) == (0, width - 1)
+    last = launch._site_slots(ranks_per_node - 1, width)
     assert (rows[ranks_per_node - 1].first_slot,
-            rows[ranks_per_node - 1].last_slot) == (288 - width, 287)
+            rows[ranks_per_node - 1].last_slot) == last
 
     plan = launch.build_plan(
         launch.formal_payload(only="kupl/l48", ranks=ranks, grid=grid),
@@ -305,18 +317,18 @@ def test_two_node_variants_scale_ranks_and_width(
 
 
 def test_rankfile_width_follows_the_allocation_not_the_l48_default() -> None:
-    """``total_cores / rank_count`` is the width: 608 / 16 = 38, not 18."""
-    allocations = launch.parse_allocation("cn1 608 16\ncn2 608 16\n")
-    rows = launch.rankfile_rows(allocations, ranks=32, ranks_per_node=16,
-                                grid=l48.GRID, lattice=l48.LATTICE)
-    assert all(row.width == 38 for row in rows)
-    assert (rows[0].first_slot, rows[0].last_slot) == (0, 37)
-    assert (rows[15].first_slot, rows[15].last_slot) == (570, 607)
-    assert (rows[31].first_slot, rows[31].last_slot) == (570, 607)
+    """``total_cores / rank_count`` is the width: 288 / 8 = 36, not 18."""
+    allocations = launch.parse_allocation("cn1 288 8\ncn2 288 8\n")
+    rows = launch.rankfile_rows(allocations, ranks=16, ranks_per_node=8,
+                                grid=(2, 2, 2, 2), lattice=l48.LATTICE)
+    assert all(row.width == 36 for row in rows)
+    assert (rows[0].first_slot, rows[0].last_slot) == (0, 35)
+    assert (rows[7].first_slot, rows[7].last_slot) == (266, 301)
+    assert (rows[15].first_slot, rows[15].last_slot) == (266, 301)
     # An explicit width the node cannot hold is refused, not truncated.
-    with pytest.raises(launch.LaunchError, match="exceeds the allocated 608"):
-        launch.rankfile_rows(allocations, ranks=32, ranks_per_node=16,
-                             cores_per_rank=39, grid=l48.GRID,
+    with pytest.raises(launch.LaunchError, match="exceeds the allocated 288"):
+        launch.rankfile_rows(allocations, ranks=16, ranks_per_node=8,
+                             cores_per_rank=37, grid=(2, 2, 2, 2),
                              lattice=l48.LATTICE)
     # Per-node widths that disagree cannot be averaged into one rankfile.
     with pytest.raises(launch.LaunchError, match="different per-rank widths"):
@@ -330,7 +342,7 @@ def test_rankfile_row_text_matches_the_vendor_template() -> None:
         launch.parse_allocation(ALLOCATION), grid=l48.GRID,
         lattice=l48.LATTICE)
     assert rows[0].as_line() == "rank 0=cn19544 slot=0-17"
-    assert rows[-1].as_line() == "rank 31=cn19546 slot=270-287"
+    assert rows[-1].as_line() == "rank 31=cn19546 slot=284-301"
     text = launch.render_rankfile(rows)
     assert text.count("\n") == 32 and text.endswith("\n")
     assert text.splitlines()[1] == "rank 1=cn19544 slot=18-35"
@@ -698,8 +710,8 @@ def test_submit_script_job_body_launches_through_the_rankfile(
         f"{completed.stderr[-2000:]}")
     rankfile = tmp_path / "logs" / f"{tag}-rankfile"
     assert len(rankfile.read_text(encoding="utf-8").splitlines()) == 32
-    assert "rank 31=cn19546 slot=270-287" in completed.stdout or \
-        "slot=270-287" in rankfile.read_text(encoding="utf-8")
+    assert "rank 31=cn19546 slot=284-301" in completed.stdout or \
+        "slot=284-301" in rankfile.read_text(encoding="utf-8")
     assert "FAKE-DRUN -mpi pmix -nn 2 -rpn 16 -R core=18 -v --" in \
         completed.stdout
     assert "pyqcu.test --mode solve --l48-two-node --only kupl/l48" in \
