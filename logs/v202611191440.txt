@@ -1,0 +1,44 @@
+2026-11-19 14:39 +08:00  formal pyqcu.test KUPL Legacy-MG2, 16 ranks / 2 nodes, L48 c64
+=====================================================================================
+
+FINAL RESULT: PASS
+  job_id        2175522
+  execNodes     cn[12118,12139] (2 nodes)
+  mpi_size      16 (8 ranks/node, 36 cores/rank, rankfile slots 0-35,38-73,...,266-301)
+  lattice       48x48x48x96, grid 2x2x2x2, local 24x24x24x48
+  dtype         c64 (complex64), mass -0.277, csw 1.160920226
+  solver        Legacy-MG levels=2, restart=5, applyCloverMultigridQcu
+  cache         data/l48_validation_20261117/caches/l48_16r_mg_l2r5
+  cache_reused  true, asset_source=cache, cache_rank=0
+  mpi_rank      0 (report owner)
+  residual      relative_residual=7.941582482721049e-06
+  residual_verified true, converged true
+  solver        2.9444185509346426 s
+  case          170.31715596583672 s
+  job           181.59 s, exitCode=0
+  report        data/l48_mg2_formal_20261119/run/reports/43afa1b7d04cfecc-2n16r_mg2.json
+
+This is a formal native `pyqcu.test` row (`kupl/native/mg`), not the
+`kupl_multigrid.py` harness and not the L48 matrix `legacy-mg` row.
+`iterations=0` is the normal Legacy-MG observation, not a failure.
+
+Debug chain (all fixed in the working tree):
+1. Rankfile slots were contiguous `0-35,36-71,...` and crossed the reserved
+   core 37 of each NUMA domain; `drun` rejected rank 9.  Use the site geometry:
+   `0-35,38-73,76-111,...,266-301`.
+2. `drun -mpi pmix` exposes PMIX/CCS differently on rank 0.  `common.mpi_info`
+   now recognizes PMIX and CCS; rank priority is PMIX/OMPI first, CCS only as
+   fallback (CCS_TASK_INDEX was 0 on every rank).  `native._bound_mpi` does not
+   let a stale `pyqcu.cuda.define.size=1` override a live 16-rank launcher.
+3. Formal native only accepted a single-file cache.  It now recognizes the
+   ranked cache root and loads each rank's slab from the manifest
+   (`starts/local_coarse`); `c64` and manifest `complex64` are normalized.
+4. `asset_source` was supplied twice (cache_info and explicit observations);
+   only the explicit `asset_source=cache` remains.
+5. Rank-0 ownership was wrong while every process saw `CCS_TASK_INDEX=0`;
+   after the rank fix only rank 0 writes the report (`mpi_rank=0`,
+   `cache_rank=0`).
+
+Boundary: 16r/2n, one sample, cache-load path.  Do not claim 32r/2-node MG,
+formal L48 matrix rows, or scaling.  No release/push/tag was performed for this
+post-0.1.18 change; `test38` remains immutable.

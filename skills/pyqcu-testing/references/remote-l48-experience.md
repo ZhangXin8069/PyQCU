@@ -262,6 +262,48 @@ export CCS_DRUN_RANK_FILE=$OUT/logs/$JOBTAG-rankfile
 - 上报三件套：`djob -l` 的 `jobExitCode=0` + report `status=PASS` + 独立真残差
   `< 1e-4`。v4b 诊断 `2155899` 归档时仍 PENDING，不作结果。
 
+### 8.2 正式 `pyqcu.test` native MG2 16r/2n（2026-11-19）
+
+- 作业 `2175522`、`cn[12118,12139]`：**formal native** `kupl/native/mg`，16r/2n、
+  grid `2×2×2×2`、local `24×24×24×48`、c64、levels=2/restart=5，ranked cache
+  `l48_16r_mg_l2r5`；`cache_reused=true`、`mpi_rank=0/cache_rank=0`。
+- 数值：`relative_residual=7.941582482721049e-06`、`residual_verified=true`、
+  `converged=true`、`status=PASS`；solver `2.9444 s`，job `181.59 s`。
+- 关键修复：rankfile 必须用站点 NUMA 槽 `0-35,38-73,...,266-301`（不能连续跨
+  37）；rank 优先 PMIX/OMPI、CCS 仅 fallback；ranked cache 按 manifest slab 读；
+  `c64`/`complex64` 归一化；`asset_source` 只保留一个。
+- 边界：16r/2n 单样本 cache-load；不是 L48 矩阵行、不是 32r MG、不是 scaling。
+  `iterations=0` 是 Legacy-MG 正常观测。
+
+### 8.3 32r/64r MG2：同 mg_grid cache repartition（2026-11-19，PASS）
+
+- 32r formal job `2176880`（`cn[12068,12071]`，grid `2 2 2 4`，local
+  `24^3×24`）PASS：`relative_residual=7.942248513387823e-06`，
+  `cache_reused=true`，cache local coarse `[12,12,12,6]`。
+- 64r formal job `2177086`（`cn[12071,12072]`，grid `2 2 4 4`，local
+  `24×24×12×24`）PASS：`relative_residual=7.941747295216055e-06`，
+  `cache_reused=true`，cache local coarse `[12,12,6,6]`。
+- 两者都复用 **16r cache** `l48_16r_mg_l2r5`，`cache_notes` 记录
+  `ranked Legacy-MG cache repartitioned to live process grid`；levels=2、
+  restart=5、deflate。32r cache `l48_32r_mg_l2r5` 也 PASS，但本批次最终数值
+  没有使用它。
+- 复用规则：同 identity（含 gauge、lattice、dtype、mass、csw、`mg_grid`、
+  seed）时，达的是**全局 coarse 张量**；不同 `process_grid/local_coarse`
+  （16r `12^4`、32r `12^3×6`、64r `12^2×6^2`）必须按 live grid 重算窗口并读
+  覆盖 slab，不能把 rank_00000 直接当另一个 rank 的 slab。
+- 这两条都是正式 `pyqcu.test` native `kupl/native/mg` 单样本行
+  （`repeat=1,warmup=1`），不是 L48 `legacy-mg` 矩阵行，也不是 scaling 曲线。
+  16r/2n formal PASS（job `2175522`）仍独立有效。
+- **计时异常**：`row.seconds` 是 native solve median；16r/32r/64r 为
+  `2.9444 / 102.4651 / 92.8595 s`（`case_seconds=147/342/396 s`），不是 I/O
+  计时。C++ `LegacyCloverMultigrid` 已加每层 `bicgstab_chunk` 计数并输出
+  `PYQCU::KUPL::MG_LEVEL_ITERS`：32r/64r 都是
+  `level0=18 level1=4 total=18 accepted_corrections=4 fallback_fine=0`，
+  即 **true-MG、无 fine fallback**；层级迭代数相同，不能解释 ~100 s 与 2.9 s，
+  差异在每次 fine/coarse apply 与 coarse correction 的实际成本
+  （16r 36 threads，32/64r 18 threads；local t 不同）。16r 旧报告无层级计数，
+  新 16r 记录作业未到 MG；不要用 32r/64r `seconds` 做性能/scaling 声明。
+
 ## 9. 发布与证据纪律
 
 - 已发布 `0.1.17` / `test37`，**不得覆盖**；下一版 `0.1.18` / `test38` 只在十轮

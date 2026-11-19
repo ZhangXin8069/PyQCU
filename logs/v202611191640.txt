@@ -1,0 +1,45 @@
+2026-11-19 16:40 +08:00  L48 c64 KUPL MG2 rank32/rank64 status
+======================================================================
+STATUS: SUPERSEDED by logs/v202611191705.txt (32r/64r PASS, 2026-11-19 17:05).
+The blocked observations below are retained as history, not final status.
+
+KEEP: 16r/2n formal native PASS
+  job 2175522, cn[12118,12139]
+  relative_residual=7.941582482721049e-06, residual_verified=true,
+  cache=l48_16r_mg_l2r5, status=PASS.
+
+32r cache:
+  job 2176278, cn[12099,12104]
+  l48_32r_mg_l2r5 status=PASS
+  rank_count=32, process_grid=[2,2,2,4],
+  global_coarse=[24,24,24,24], local_coarse=[12,12,12,6].
+  The job itself was terminated after the cache was complete because rank
+  validation hung; do not infer cache invalidity from the job state.
+
+32r formal attempts:
+  2176392  ERROR  missing --lattice-size -> 8^4 gauge rejected.
+  2176404  ERROR  default mass/csw 0.17/1.0 != cache -0.277/1.160920226.
+  2176470  BLOCKED 32r MG entered, no result after ~10 min, totalUtime flat;
+                   terminated.
+  2176707  BLOCKED 16r cache + native repartition, same MG stall; terminated.
+  2176761  BLOCKED repeat=1/warmup=1; no MG result.
+  2176786  BLOCKED repeat=1/warmup=1/mg-levels=1; no MG result.
+  No 32r numerical PASS.
+
+64r:
+  not submitted. 32r formal is unfinished; no 64r PASS and no 64r numerical
+  claim.
+
+Reuse work:
+  pyqcu/test/native.py now computes the live coarse window and reads covering
+  slabs from a ranked cache, so cache reuse is no longer rejected solely on a
+  different process_grid/rank_count.  The 16r and 32r caches share
+  global_coarse and mg_grid; local_coarse differs (12^4 vs 12^3x6), so direct
+  same-rank slab reads are still wrong.  The repartition path is implemented
+  but has not produced a complete 32r/64r formal PASS; treat it as UNVERIFIED.
+
+Boundary:
+  - 32r/64r formal native MG2: BLOCKED, no PASS.
+  - 16r/2n formal native MG2: PASS, unchanged.
+  - Local focused tests: 133 passed before the final remote experiments.
+  - No commit, release, push, or tag.

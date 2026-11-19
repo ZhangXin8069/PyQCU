@@ -1,0 +1,30 @@
+2026-11-19 15:30 +08:00  L48 c64 KUPL MG2 rank32/rank64 cache preparation BLOCKED
+============================================================================
+
+16r/2n formal native result (unchanged):
+  job 2175522, cn[12118,12139], PASS, relative_residual 7.941582482721049e-06.
+
+32r cache-build attempt:
+  job 2175874, cn[12087,12098], 32 ranks, grid 2x2x2x4, local 24x24x24x24.
+  command: kupl_multigrid.py --levels 2 --restart 5 --dof 12 2 \
+           --mg-grid 2 2 2 2 --nv-iters 2 \
+           --write-coarse-cache .../caches/l48_32r_mg_l2r5
+  result: FAILED after 462 s, jobExitCode=255.
+  error: FileNotFoundError: Legacy MG cache not found:
+         .../caches/l48_32r_mg_l2r5
+  location: export_ranked_coarse_cache -> validate_legacy_mg_cache
+  artifact: cache root and .d rank directory were not present after failure.
+  drun also reported tree-fence timeout at the end; that is a consequence of
+  the rank failures, not evidence of a solver result.
+
+64r:
+  not submitted. It depends on a valid 32r cache build path; no cache build
+  implementation is available for a different rank partition, and no fake
+  result is claimed.
+
+Boundary:
+  - 32r/64r MG2 remain BLOCKED / no formal pyqcu.test PASS.
+  - 16r/2n formal native MG2 PASS remains valid and is not invalidated.
+  - No release, commit, push, or tag was performed for this attempt.
+  - Next action: debug the ranked-cache publisher/rank0/FS visibility path,
+    then build 32r cache and run formal 32r; only then 64r.

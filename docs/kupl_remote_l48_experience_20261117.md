@@ -602,6 +602,55 @@ PASS 规则未放宽：报告 `status == "PASS"` **且** `final_true_residual < 
 - **诊断作业** `2155899`（变体 4 + `KUPL_REQUIRE_MG_CORRECTION=1`）归档时仍
   `PENDING`，无 `execNodes`、无数值，不作为结果。
 
+### 7.7 正式 `pyqcu.test` native MG2 16r/2n PASS（2026-11-19）
+
+job `2175522`（`cn[12118,12139]`）通过 formal `pyqcu.test` native row
+（`kupl/native/mg`），不是 harness、也不是 L48 矩阵 `legacy-mg`：
+
+- 16 ranks / 2 nodes / 8 per node / 36 cores；grid `2×2×2×2`，local
+  `24×24×24×48`，c64，mass `-0.277`，csw `1.160920226`，levels=2/restart=5；
+- ranked cache `l48_16r_mg_l2r5`，`cache_reused=true`，`asset_source=cache`；
+  `mpi_size=16`、`mpi_rank=0`、`cache_rank=0`；
+- `relative_residual=7.941582482721049e-06`、`residual_verified=true`、
+  `converged=true`、`status=PASS`，solver `2.9444 s`，job `181.59 s`。
+
+调试链：
+
+1. 连续 slot rankfile 跨过 NUMA 保留核 37 → `drun` 拒绝；改用站点
+   `0-35,38-73,...,266-301`。
+2. `drun -mpi pmix` 的 rank0 环境与其它 rank 不同；只把 CCS 当 fallback，
+   rank 优先 PMIX/OMPI，size 可用 `CCS_TASK_REPLICA`。
+3. formal native 只认单文件 cache；新增 ranked cache manifest/rank slab 读取，
+   并把 `c64` 与 `complex64` 归一化。
+4. cache observations 的 `asset_source` 重复；保留显式 `asset_source=cache`。
+5. 修正后 rank0 单独写 report，`mpi_rank=0/cache_rank=0`；早先 16 份输出是
+   `CCS_TASK_INDEX=0` 全 rank 同值造成的 owner 误判。
+
+边界：16r/2n、单样本、cache-load；不声明 32r/两节点 MG、L48 矩阵行或 scaling
+通过。`iterations=0` 是 Legacy-MG 的正常观测，不是失败。
+
+### 7.8 正式 native MG2 32r/64r PASS：同 mg_grid cache 复用（2026-11-19）
+
+两条正式 `pyqcu.test` native row 都复用 **16r cache**，没有为 64r 重建 cache：
+
+- **32r** job `2176880`（`cn[12068,12071]`），grid `2 2 2 4`，local
+  `24×24×24×24`，cache local coarse `[12,12,12,6]`；
+  `relative_residual=7.942248513387823e-06`，PASS，case `342.07 s`。
+- **64r** job `2177086`（`cn[12071,12072]`），grid `2 2 4 4`，local
+  `24×24×12×24`，cache local coarse `[12,12,6,6]`；
+  `relative_residual=7.941747295216055e-06`，PASS，case `396.17 s`。
+- 两条都 `cache_reused=true`、`asset_source=cache`，`cache_notes` 记录
+  `ranked Legacy-MG cache repartitioned to live process grid`；levels=2/restart=5。
+- 关键：同 identity + 同 `mg_grid` 时复用的是**全局 coarse 张量**；ranked
+  cache 的 `process_grid/local_coarse` 可以不同，但必须按 live grid 重新计算
+  coarse 窗口并读取覆盖 slab。直接拿 16r 的 rank_00000 当 32r rank_00000 会错。
+- 32r cache `l48_32r_mg_l2r5` 本身也 PASS（job `2176278`），但本批次没有用于
+  最终 32r/64r 数值；两者都复用 16r cache。
+
+边界：这是单样本 `repeat=1, warmup=1` 的正式 native 行，不是稳定性能曲线；
+不是 L48 矩阵 `legacy-mg` 行；也不证明 scaling（32r 和 64r 的启动/读输入成本
+不同）。`iterations=0` 仍是 Legacy-MG 正常观测。
+
 ## 8. 发布与过程纪律（对应经验 8）
 
 ### 8.1 不允许假 PASS

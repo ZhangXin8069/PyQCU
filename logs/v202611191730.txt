@@ -1,0 +1,48 @@
+2026-11-19 17:30 +08:00  L48 c64 native MG2 timing investigation
+================================================================
+STATUS: per-level counts added later; see logs/v202611191800.txt.
+32r/64r were true MG (level0=18, level1=4, accepted=4, fallback=0), not
+fine fallback.  The text below records the earlier hypothesis and UCX limits.
+
+Question: why are 32r/64r native MG2 times anomalous?
+
+Raw values (formal native kupl/native/mg, repeat=1, warmup=1):
+  rank  row.seconds  case_seconds  driver_seconds  reference_seconds
+  16    2.9444       147.4609      181.5290        45.8864
+  32    102.4651     342.0681      383.6451        28.9317
+  64    92.8595      396.1738      477.7106        16.8580
+
+Meaning:
+  pyqcu/test/native.py::_finish sets seconds=median(samples); samples are
+  time_samples(solve_once) around applyCloverMultigridQcu.  It does NOT include
+  gauge/source read or cache repartition.  Therefore 16r -> 32r/64r solve time
+  grows ~35x, while case_seconds (which includes setup) grows much less.
+
+Geometry:
+  16r coarse local [12,12,12,12], next [6,6,6,6]  (all even)
+  32r coarse local [12,12,12,6],  next [6,6,6,3]  (one odd dim)
+  64r coarse local [12,12,6,6],   next [6,6,3,3]  (two odd dims)
+  The 32r/64r MG warnings print exactly these next-level extents.
+
+Direct true-MG checks attempted:
+  job 2177362  KUPL_REQUIRE_MG_CORRECTION=1:
+    aborted in UCX ud_ep.c timeout during MPI; no MG verdict.
+  job 2177487  PYQCU_KUPL_MG_PROFILE=1 only:
+    aborted in applyCloversQcu with the same UCX timeout; no MG_PROFILE.
+  No report and no fallback confirmation; do not claim either true-MG or
+  fine-BiCG fallback for 32r/64r from these runs.
+
+Other differences:
+  - 16r uses 36 threads/rank; 32r/64r use 18 threads/rank (same total cores,
+    different per-rank parallelism).
+  - 32r/64r are single-sample repeat=1/warmup=1.
+  - 32r/64r reuse the 16r cache by repartition; 32r cache exists but was not
+    used by the final numerical rows.
+
+Conclusion:
+  The 32r/64r PASS rows are numerical PASS only; their seconds must not be
+  used as scaling, MG speedup, or a 16r-vs-32r-vs-64r performance comparison.
+  Next diagnostic must stabilize UCX, then obtain MG_PROFILE/require-correction
+  or run a levels=1 geometry control.
+
+No commit, release, push, or tag.

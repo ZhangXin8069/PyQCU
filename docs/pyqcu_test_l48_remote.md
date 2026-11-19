@@ -42,7 +42,7 @@
 | 9 | `gauge_..._c64.h5` 的真实 dtype | **已验证：实际 complex128** | `6,115,301,376 B`，**文件名误标**；source 侧为 complex64（§2.4.4） |
 | 10 | L48 c64 cast 与 `io.describe` 回读 | **已验证（按实际求解使用）** | c64 行已真实求解（§0.1 第 1–3 行）；`io.describe` 回读的原始 stdout 仍未归档 → 该条证据只能标 C 级（§2.4.4） |
 | 11 | `dsub -nn 2` 两节点（`2152277`、`2153008`） | **PENDING / 未通过** | `2152277` 为 `No available node can fit ... execution nodes preference`；`2153008` 请求语法正确但卡在队列/限额；两次都没有 `execNodes`，**不证明两节点可跑**（§2.4.5、§0.1.4） |
-| 12 | L48 solve / MG | **部分已验证（c64 单节点 + harness 两节点变体）** | c64 BiCGStab 32 rank 独占节点 `1.6646 s`/11 it/`7.126e-5`（`2152757`）；c64 Legacy-MG 16 rank wall `110.35 s` + builder `1741.88 s`；c64 harness 两节点 `1.1778 s`/11 it/`7.126e-5`（`2155536`，§0.1.6）；harness 变体 c128 32r / c64 16r / c64 64r / c64 Legacy-MG 16r 见 §0.1.7。**正式端口 c128 行仍 PENDING**（`2153005`），CG 无 harness、32r dslash/clover 挂起（§0.1） |
+| 12 | L48 solve / MG | **已验证（c64 正式 native 16/32/64r）** | c64 BiCGStab 32 rank 独占节点 `1.6646 s`/11 it/`7.126e-5`（`2152757`）；c64 Legacy-MG 16 rank wall `110.35 s` + builder `1741.88 s`；c64 harness 两节点 `1.1778 s`/11 it/`7.126e-5`（`2155536`，§0.1.6）；harness 变体 c128 32r / c64 16r / c64 64r / c64 Legacy-MG 16r 见 §0.1.7。**正式 native `kupl/native/mg` 16r/32r/64r 均 PASS**（16r §0.1.9；32r/64r 复用 16r cache §0.1.10）。**正式端口 c128 行仍 PENDING**（`2153005`），CG 无 harness、32r dslash/clover 挂起（§0.1） |
 | 13 | 跨节点 launcher / rankfile | **TODO / 未实现** | 正式端口与 `pyqcu/testing/simple/mpi` 都没有 `--hostfile`/`--rankfile`/`CCS_ALLOC_FILE` 解析；历史两节点作业在 `mpirun` 阶段 `RC=255`（§5.3） |
 | 14 | L48 生产 `solve/mg` 行 | **TODO** | 工作区并发实现已加入 `L48` preset（未提交），但 `--mode list --lattice-preset L48` 仍只展开 17 个 tier-0 case（CG 退役后 19−2；§2.4.7、§9.5） |
 | 15 | CSV 100 列 / Excel 21 sheet parity | **验证中（未通过）** | `ledger_csv.py`/`ledger_excel.py` 仍未接线，`--csv` 仍写 30 列 `ROW_FIELDS`；驱动侧自报 `--check` 19/19、`--quick` 19 个 case、87 个测试通过（**转述，本轮未独立复跑**）。**parity 是硬性要求**，未通过前不得声称已替换旧驱动（§2.4.6） |
@@ -54,9 +54,11 @@
 **结论**：远端基线可复跑；单节点 **c64** 的 L48 BiCGStab 与 Legacy-MG、**KUPL
 harness 两节点 c64（job `2155536`）**，以及 23:30 归档的四个 harness 变体（**c128
 两节点**、c64 16r/64r、c64 Legacy-MG 16r cache-load，§0.1.7）已有实测结果（§0.1、
-§0.1.6）。但 **正式端口 `pyqcu.test --l48-two-node` 的两节点矩阵行、正式 c128 行、
-两节点 MG 加速、CG、32 rank dslash/clover 仍无有效结果**，CSV/Excel parity 仍在
-验证中。任何“L48 已全部求解”“正式端口两节点已跑通”的表述都与本表冲突。
+§0.1.6）。正式 native `kupl/native/mg` 16r/32r/64r 的 c64 MG2 也已 PASS
+（§0.1.9、§0.1.10）。但 **正式端口 `pyqcu.test --l48-two-node` 的 L48 矩阵行、
+正式 c128 行、两节点 MG 加速、CG、32 rank dslash/clover 仍无有效结果**，
+CSV/Excel parity 仍在验证中。任何“L48 已全部求解”“正式端口两节点已跑通”的
+表述都与本表冲突。
 
 ### 0.1 L48 首批结果、cache/CG 策略与阻塞（2026-11-17 归档）
 
@@ -259,15 +261,106 @@ PASS 规则（未放宽）：报告 `status == "PASS"` **且** `final_true_resid
 
 | 项目 | 当前状态 | 原因 / 下次入口 |
 |---|---|---|
-| 正式 `pyqcu.test --l48-two-node` 两节点执行 | **DEFERRED / UNVERIFIED** | 远端 overlay 缺 `--l48-two-node`；本地 launcher/ledger/native 代码已有，但没有在真实 32-rank 作业中用正式端口跑出 PASS。需同步 overlay 后重跑。 |
+| 正式 `pyqcu.test --l48-two-node` 矩阵行 | **DEFERRED / UNVERIFIED（矩阵行）** | formal native `kupl/native/mg` 16r/32r/64r 已 PASS（§0.1.9、§0.1.10），但 L48 矩阵的 `legacy-mg` 行仍未执行；不要把 native 行填进矩阵证据。 |
 | 正式 L48 矩阵的 c128 / 16 / 64 rank 变体 | **DEFERRED** | §0.1.7 的四个 PASS 全部是 **KUPL harness**，不是正式矩阵行；不得把 harness 结果填进矩阵 `evidence`。 |
-| 32 rank / 两节点 Legacy-MG | **DEFERRED / CACHE-MISSING** | 没有 identity 匹配的 32r cache；本轮不重建。16r cache-load PASS 的粗修正未激活，不能当 MG 加速证据。 |
+| 32 rank / 两节点 Legacy-MG | **PASS（formal native，§0.1.10）** | 32r 和 64r 都复用 16r cache 的全局 coarse 张量；按 live grid repartition 后 PASS。不是 L48 矩阵 `legacy-mg` 行，也不是 scaling 证据。 |
 | CSV F1/F2 | **DEFERRED** | 100 列 CSV / 21 sheet 导出已端到端验证过，但 `--mode run` 的重复 `run_id`（F1）与 `PYQCU_TEST_LEDGER_EXPORT` typo 的 usage error（F2）尚未修复；本次不把它们写成 parity 完成。 |
 | `2155899` MG fallback 诊断 | **PENDING** | 无 `execNodes`/报告，不作为结果；下次批次再判。 |
-| 正式端口多 rank `/tmp` 实跑与独立残差 | **DEFERRED** | 只完成了单元/小格点测试，未完成真实两节点正式端口作业。 |
+| 正式端口多 rank 正式矩阵行与独立残差 | **DEFERRED（矩阵行）** | formal native `kupl/native/mg` 16r/32r/64r 已 PASS（§0.1.9、§0.1.10）；`--l48-two-node` 的 `legacy-mg` 矩阵行仍未执行，32r/64r 的矩阵证据仍为空。 |
 
 本次发布只声明：基于已提交的代码与 sdist 的门禁、打包、安装和已验证的 harness
 结果；不声明上表项目通过。
+
+### 0.1.9 正式 native KUPL MG2 16r/2n PASS（2026-11-19 14:39）
+
+这是一条**正式 `pyqcu.test` native row**（`kupl/native/mg`），不是 L48 矩阵的
+`legacy-mg` 行，也不是 `kupl_multigrid.py` harness：
+
+| 项目 | 值 | 状态 |
+|---|---|---|
+| 作业 / 节点 | `2175522`，`cn[12118,12139]`，`SUCCEEDED` | **VERIFIED** |
+| 资源 | 16 ranks / 2 nodes（8/node）/ 36 cores/rank；rankfile `0-35,38-73,...,266-301` | **VERIFIED** |
+| 几何 | L48 `48×48×48×96`，grid `2×2×2×2`，local `24×24×24×48` | **VERIFIED** |
+| 参数 | c64，mass `-0.277`，csw `1.160920226`，Legacy-MG levels=2/restart=5 | **VERIFIED** |
+| cache | `data/l48_validation_20261117/caches/l48_16r_mg_l2r5`，`cache_reused=true`，`asset_source=cache` | **VERIFIED** |
+| 数值 | `relative_residual=7.941582482721049e-06`，`residual_verified=true`，`converged=true`，`status=PASS` | **VERIFIED** |
+| 时钟 | solver `2.9444185509346426 s`；case `170.317 s`；job `181.59 s` | **VERIFIED** |
+| 报告 | `data/l48_mg2_formal_20261119/run/reports/43afa1b7d04cfecc-2n16r_mg2.json` | **VERIFIED** |
+
+本轮修出的三个真正 bug（都已落地并有测试）：
+
+1. **rankfile 物理槽位**：连续 `local*width` 会跨过每 NUMA 的保留核 37；
+   `drun` 对 rank 9 报 `os reserved cores [37] are not permitted`。改为站点
+   16×38、每 NUMA 37 可用核的 packed slots（36 core/rank → `0-35,38-73,...`）。
+2. **launcher rank/size 环境**：`drun -mpi pmix` 在 rank 0 / 16 上导出的
+   `PMIX/CCS` 组合与 OMPI 变量不一致；formal `common.mpi_info` 增加 PMIX/CCS
+   fallback，并且 **rank 优先 PMIX/OMPI，CCS 只 fallback**（避免所有 rank
+   读成 `CCS_TASK_INDEX=0`）。
+3. **ranked cache 接口**：formal native 现在识别 ranked cache root，按 manifest
+   的 `starts/local_coarse` 读取每 rank 的四个 coarse tensor；dtype 统一为
+   canonical `complex64`，不再把 `c64` 与 manifest 的 `complex64` 字符串比较；
+   `asset_source` 不再重复传入。
+
+边界：这是 16r/2n、单样本、cache-load 路径；不证明 formal L48 **matrix**
+`legacy-mg` 行已通过，也不证明 32r/两节点 MG 或 scaling。`iterations=0` 是
+Legacy-MG 入口不暴露迭代计数的正常观测，不作 BiCGStab 迭代解释。
+
+### 0.1.10 32r/64r formal native MG2 PASS：同 mg_grid cache 复用（2026-11-19）
+
+32r 和 64r 都通过正式 `pyqcu.test` native `kupl/native/mg` 行，复用 **16r cache**，
+没有为 64r 重建 cache：
+
+| 项目 | 32r | 64r |
+|---|---|---|
+| 作业 / 节点 | `2176880`，`cn[12068,12071]`，`SUCCEEDED` | `2177086`，`cn[12071,12072]`，`SUCCEEDED` |
+| MPI / grid | 32 ranks，`2×2×2×4` | 64 ranks，`2×2×4×4` |
+| local lattice | `24×24×24×24` | `24×24×12×24` |
+| cache | `l48_16r_mg_l2r5`，`cache_reused=true` | 同左，`cache_reused=true` |
+| cache local coarse | `[12,12,12,6]`，`starts=[0,0,0,0]` | `[12,12,6,6]`，`starts=[0,0,0,0]` |
+| MG | levels=2，restart=5，deflate | levels=2，restart=5，deflate |
+| 残差 | `7.942248513387823e-06`，`residual_verified=true` | `7.941747295216055e-06`，`residual_verified=true` |
+| 结果 | `converged=true`，PASS | `converged=true`，PASS |
+| 报告 | `data/l48_mg2_formal_32r_reuse16_l2_once/report.json` | `data/l48_mg2_formal_64r_reuse16/report.json` |
+| 行 / 计时 | `e90bc3b6f34df7a6`，case `342.07 s`，overall `383.70 s` | `4ff086c52e8745d1`，case `396.17 s`，overall `477.76 s` |
+
+关键结论：
+
+- **同 identity + 同 `mg_grid` 时，ranked cache 的全局 coarse 张量可以跨
+  process grid 复用**。16r cache 的全局布局是 `global_coarse=[24,24,24,24]`；
+  32r/64r 只是本地 coarse 窗口不同（`12³×6` / `12²×6²`），不能按旧 rank slab
+  直接读，但可以由 `pyqcu/test/native.py` 按 live grid 计算窗口并读取覆盖 slab。
+- `pyqcu/test/native.py` 已实现上述 repartition；两条正式报告都记录
+  `cache_notes=['ranked Legacy-MG cache repartitioned to live process grid']`。
+- 32r cache `l48_32r_mg_l2r5` 本身也已构建并 `PASS`（job `2176278`，
+  `local_coarse=[12,12,12,6]`），但本批次正式 32r/64r 都复用 16r cache；
+  32r cache 只作为独立准备产物，不参与最终数值声明。
+- 16r/2n formal PASS（§0.1.9）仍独立有效；这里的三条行都是
+  `kupl/native/mg` 正式 native 行，不是 L48 `legacy-mg` 矩阵行，也不证明
+  scaling。
+- 启动/读输入仍很重：32r/64r 各 rank 读取全局 gauge/source，64r 的 overall
+  比 32r 更长；这两条是单样本 `repeat=1, warmup=1`，不是稳定性能曲线。
+
+**计时异常与层级迭代（2026-11-19 18:00 排查）**：`row.seconds` 是 native solve 的
+`time_samples` median，不含 gauge/source/cache I/O。三行分别为
+16r `2.9444 s`、32r `102.4651 s`、64r `92.8595 s`；而 `case_seconds` 分别为
+`147.46 / 342.07 / 396.17 s`，`driver_seconds` 为 `181.53 / 383.65 / 477.71 s`。
+异常发生在 solve 调用，不是读文件或 repartition 计时被重复计入。
+
+C++ `LegacyCloverMultigrid` 新增 per-level 计数（每次 `bicgstab_chunk(level)`
+累加实际迭代；rank0 输出 `PYQCU::KUPL::MG_LEVEL_ITERS`）：
+
+| 配置 | level0 (fine) | level1 (coarse) | total | accepted corrections | fallback |
+|---|---:|---:|---:|---:|---:|
+| 32r | 18 | 4 | 18 | 4 | 0 |
+| 64r | 18 | 4 | 18 | 4 | 0 |
+
+因此 32r/64r **确实执行 true-MG，没有 fine-BiCG fallback**；`level0=18` 和
+`level1=4` 相同，**迭代次数本身不能解释 102 s/93 s 与 16r 2.9 s 的差异**。差异
+位于每次 fine/coarse 应用和 coarse correction 的实际成本（16r 36 threads、
+32/64r 18 threads，且 local t 分别为 `24×24×24×48`、`24×24×24×24`、
+`24×24×12×24`）。16r 旧报告没有层级计数；本轮 16r 新库记录作业在 MG 前停止，
+未得到同级对比。当前 32r/64r `seconds` 只能作为异常诊断，不能用于
+scaling、MG 加速比或与 16r 的性能比较。
 
 ## 1. 目标与非目标
 
@@ -869,20 +962,23 @@ launcher: {kind, mpirun, rankfile, nodes, ranks_per_node}
 
 > **22:15 更新**：`2155536` 是 KUPL harness 两节点 c64 PASS（`1.1778 s`、11 it、
 > 真残差 `7.12609e-05`）；**23:30 更新**：§0.1.7 又归档 c128 32r、c64 16r、c64 64r
-> 与 c64 Legacy-MG 16r cache-load 四个 harness PASS。它们都不改变正式端口 L48 矩阵
-> 的 `UNVERIFIED` 状态：正式 c128 行仍 `UNVERIFIED`，两节点 MG 只走 cache-load 路径
-> （粗修正未生效），也没有 c128 正式行或两节点 MG 加速证据。
+> 与 c64 Legacy-MG 16r cache-load 四个 harness PASS。**2026-11-19 更新**：§0.1.9/
+> §0.1.10 的正式 native `kupl/native/mg` 16r/32r/64r 也 PASS（32r/64r 复用 16r
+> cache 并 repartition）。这些都不改变正式端口 L48 矩阵的 `UNVERIFIED` 状态：
+> 正式 c128 行仍 `UNVERIFIED`，矩阵 `legacy-mg` 行仍未执行，也没有 c128 正式行或
+> 两节点 MG 加速证据。
 
 - [x] 单节点 c64 已收敛：BiCGStab 32 rank 独占节点 `1.6646 s`/11 it/`7.126e-5`、
-      Legacy-MG 16 rank 残差 `7.126e-5`（§0.1）。**两节点**只有 KUPL harness 证据
+      Legacy-MG 16 rank 残差 `7.126e-5`（§0.1）。**两节点**有 KUPL harness 证据
       （c64 32r §0.1.6；c128 32r / c64 16r / c64 64r / c64 Legacy-MG 16r §0.1.7），
-      正式端口 `solve`/`mg` 行仍未验证。
-- [ ] L48 **c128** BiCGStab（`2153005` PENDING）与**两节点** `solve`/`mg` 是否收敛。
+      以及正式 native `kupl/native/mg` 16r/32r/64r PASS（§0.1.9、§0.1.10）；
+      正式矩阵 `legacy-mg` 行仍未验证。
+- [ ] L48 **c128** BiCGStab（`2153005` PENDING）与**两节点** `solve`/`mg` 矩阵行是否收敛。
       **KUPL harness** 侧已有 c128 两节点 32r PASS（`2155785`，§0.1.7）和 c64
-      Legacy-MG 16r cache-load PASS（`2155888`，粗修正未生效）；但**正式端口**的
-      c128 行与两节点 `solve`/`mg` 行仍无有效结果。
-- [ ] L48 Legacy-MG cache 在两节点/32 rank 下能否构建和复用；历史 L48 cache 是
-      4-rank DCU 证据，不是 LX2 两节点证据。
+      Legacy-MG 16r cache-load PASS（`2155888`，粗修正未生效）；formal native
+      c64 MG2 32r/64r 已 PASS，但正式矩阵行仍无有效结果。
+- [x] L48 Legacy-MG cache 在两节点/32 rank 下能否构建和复用；16r cache 已按
+      live grid repartition 复用于 32r/64r（§0.1.10），32r cache 也独立 PASS。
 - [ ] 独立真残差在 L48 上需要多大的 host 内存；`native.py` 的全格点 torch 参考
       是否会在 565 GiB 节点内完成，还是需要分块/流式残差。
 - [ ] `--shm` 跨节点 `SKIP(shm_unavailable)` 的实际触发路径；共享 halo 在单节点

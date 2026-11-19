@@ -1,0 +1,41 @@
+2026-11-19 17:05 +08:00  L48 c64 KUPL native MG2 32r/64r PASS
+================================================================
+
+32r formal native MG2:
+  job      2176880, cn[12068,12071], SUCCEEDED
+  grid     2 2 2 4, 32 ranks, local 24x24x24x24
+  cache    l48_16r_mg_l2r5, cache_reused=true, asset_source=cache
+  coarse   local [12,12,12,6], starts [0,0,0,0]
+  levels   2, restart 5, deflate true
+  residual 7.942248513387823e-06, residual_verified=true, converged=true
+  status   PASS, case 342.07 s, overall 383.70 s
+  report   data/l48_mg2_formal_32r_reuse16_l2_once/report.json
+  row      e90bc3b6f34df7a6
+
+64r formal native MG2:
+  job      2177086, cn[12071,12072], SUCCEEDED
+  grid     2 2 4 4, 64 ranks, local 24x24x12x24
+  cache    l48_16r_mg_l2r5, cache_reused=true, asset_source=cache
+  coarse   local [12,12,6,6], starts [0,0,0,0]
+  levels   2, restart 5, deflate true
+  residual 7.941747295216055e-06, residual_verified=true, converged=true
+  status   PASS, case 396.17 s, overall 477.76 s
+  report   data/l48_mg2_formal_64r_reuse16/report.json
+  row      4ff086c52e8745d1
+
+Cache reuse:
+  Both rows report
+    cache_notes=['ranked Legacy-MG cache repartitioned to live process grid'].
+  The 16r cache global coarse is [24,24,24,24]; 32r and 64r read their own
+  live coarse windows from it.  Direct same-rank slab reuse is still invalid.
+  32r cache l48_32r_mg_l2r5 is PASS (job 2176278) but was not used by these
+  two final rows.
+
+Scope:
+  - Formal pyqcu.test native kupl/native/mg rows, not the L48 legacy-mg matrix.
+  - Single sample repeat=1/warmup=1; not a scaling or performance curve.
+  - TIMING: see logs/v202611191730.txt. row.seconds is the native solve median
+    (16r/32r/64r = 2.944/102.465/92.860 s), not I/O. 32r/64r solve times are
+    under investigation and must not be used as performance/scaling evidence.
+  - 16r/2n PASS (job 2175522) remains valid and independent.
+  - No commit, release, push, or tag.

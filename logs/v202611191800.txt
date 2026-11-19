@@ -1,0 +1,41 @@
+2026-11-19 18:00 +08:00  L48 c64 native MG2 per-level iterations
+================================================================
+
+Instrumentation:
+  cpp/kupl/qcu/src/lattice_clover_multigrid.cpp now counts every
+  bicgstab_chunk(level, ...) actual iteration in level_iterations_[level].
+  Rank 0 prints:
+    PYQCU::KUPL::MG_LEVEL_ITERS:
+     level0=... level1=... total=... accepted_corrections=... fallback_fine=...
+
+Results (formal native kupl/native/mg, repeat=1, warmup=1, levels=2):
+  32r job 2177790, grid 2 2 2 4, PASS:
+    MG_LEVEL_ITERS level0=18 level1=4 total=18
+    accepted_corrections=4 fallback_fine=0
+    seconds=102.12925571086816
+    case=339.0117936921306 driver=382.933544
+    residual=7.942248513387823e-06 verified=true
+  64r job 2178034, grid 2 2 4 4, PASS:
+    MG_LEVEL_ITERS level0=18 level1=4 total=18
+    accepted_corrections=4 fallback_fine=0
+    seconds=92.52230430510826
+    case=380.78124284907244 driver=459.600656
+    residual=7.941747295216055e-06 verified=true
+
+Interpretation:
+  - 32r/64r are true Legacy-MG: four coarse corrections accepted, no fine
+    fallback; this refutes the earlier fallback hypothesis.
+  - level0/level1 iteration counts are identical for 32r and 64r, so the
+    ~100 s solve time is not explained by iteration count or fallback.
+  - The anomaly is per-application cost. Differences that need profiling:
+    16r uses 36 threads/rank; 32r/64r use 18 threads/rank. Local time extents
+    differ (24x24x24x48 vs 24x24x24x24 vs 24x24x12x24). The 16r old report has
+    no level counters; the new 16r run did not reach MG and was cancelled.
+  - Therefore 32r/64r seconds remain diagnostic only; do not use as scaling,
+    MG speedup, or 16r-vs-32r-vs-64r performance evidence.
+
+Build:
+  Local KUPL build succeeded; remote KUPL was rebuilt from the updated source.
+  The 32r/64r reports above are PASS with independent residual verification.
+
+No commit, release, push, or tag.
