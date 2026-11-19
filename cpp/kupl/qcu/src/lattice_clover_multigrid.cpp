@@ -307,6 +307,7 @@ public:
     canonical_output_.resize(canonical_input_.size());
     profile_ = mg_env_enabled("PYQCU_KUPL_MG_PROFILE");
     require_correction_ = mg_env_enabled("KUPL_REQUIRE_MG_CORRECTION");
+    level_iterations_.assign(static_cast<std::size_t>(num_levels_), 0);
   }
 
   void solve(void *fermion_out, bool keep_initial) {
@@ -344,6 +345,10 @@ public:
     if (rhs_norm == Real(0)) {
       std::fill(levels_[0].x.begin(), levels_[0].x.end(), Complex<Real>(0));
       store_solution(fermion_out);
+      last_total_iterations_ = 0;
+      last_accepted_corrections_ = 0;
+      last_fallback_to_fine_ = false;
+      print_level_iterations();
       print_profile(profile_start);
       return;
     }
@@ -449,6 +454,10 @@ public:
             "relative=accepted-by-fine-fallback fallback=fine_bicgstab\n",
             total_iterations);
       }
+      last_total_iterations_ = total_iterations;
+      last_accepted_corrections_ = accepted_corrections;
+      last_fallback_to_fine_ = true;
+      print_level_iterations();
       print_profile(profile_start);
       return;
     }
@@ -466,6 +475,9 @@ public:
       throw std::runtime_error(
           "legacy Clover-MG did not reach the full true residual");
     }
+    last_total_iterations_ = total_iterations;
+    last_accepted_corrections_ = accepted_corrections;
+    last_fallback_to_fine_ = false;
     if (require_correction_ && accepted_corrections == 0) {
       throw std::runtime_error(
           "KUPL_REQUIRE_MG_CORRECTION=1 completed without an accepted coarse "
@@ -501,6 +513,7 @@ public:
             "legacy Clover-MG full true residual exceeds tolerance");
       }
     }
+    print_level_iterations();
     print_profile(profile_start);
   }
 
@@ -767,6 +780,16 @@ private:
     LegacyMgLevel<Real> &state = levels_[level];
     last_chunk_iterations_ = 0;
     last_chunk_converged_ = false;
+    struct IterationRecorder {
+      std::vector<long long> &counts;
+      int level;
+      int &iterations;
+      ~IterationRecorder() {
+        if (level >= 0 && static_cast<std::size_t>(level) < counts.size()) {
+          counts[static_cast<std::size_t>(level)] += iterations;
+        }
+      }
+    } iteration_recorder{level_iterations_, level, last_chunk_iterations_};
     const int64_t count = static_cast<int64_t>(state.x.size());
     const int64_t chunk = omp_chunk<Real>(count);
     const C zero(0);
@@ -1027,6 +1050,22 @@ private:
     return std::sqrt(mg_norm2(state.r, distributed_));
   }
 
+  void print_level_iterations() const {
+    if (params_[kNodeRank] != 0) {
+      return;
+    }
+    std::fprintf(stderr, "PYQCU::KUPL::MG_LEVEL_ITERS:\n");
+    for (std::size_t level = 0; level < level_iterations_.size(); ++level) {
+      std::fprintf(stderr, " level%zu=%lld", level,
+                   static_cast<long long>(level_iterations_[level]));
+    }
+    std::fprintf(
+        stderr,
+        " total=%lld accepted_corrections=%d fallback_fine=%d\n",
+        static_cast<long long>(last_total_iterations_),
+        last_accepted_corrections_, last_fallback_to_fine_ ? 1 : 0);
+  }
+
   void print_profile(MgProfileClock::time_point start) const {
     if (!profile_ || params_[kNodeRank] != 0) {
       return;
@@ -1055,6 +1094,10 @@ private:
   LatticeSetBase &set_;
   int last_chunk_iterations_ = 0;
   bool last_chunk_converged_ = false;
+  std::vector<long long> level_iterations_;
+  long long last_total_iterations_ = 0;
+  int last_accepted_corrections_ = 0;
+  bool last_fallback_to_fine_ = false;
   const void *gauge_ = nullptr;
   const void *clover_even_ = nullptr;
   const void *clover_odd_ = nullptr;
