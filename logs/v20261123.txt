@@ -1,0 +1,64 @@
+2026-11-23  L48 MG 断崖排查 + L64 输入准备 + fabric 失效
+================================================================
+
+1. L48 c64 native MG2 已测事实（pyqcu.test, kupl/native/mg）
+   16r / grid 2 2 2 2 / 36 threads / local 24x24x24x48 : solve 2.9444 s, case 147.46 s
+   32r / grid 2 2 2 4 / 18 threads / local 24x24x24x24 : solve 102.4651 s, case 342.07 s
+   64r / grid 2 2 4 4 / 18 threads / local 24x24x12x24 : solve 92.8595 s, case 396.17 s
+   Per-level counters (32r and 64r, identical):
+     MG_LEVEL_ITERS level0=18 level1=4 total=18 accepted_corrections=4 fallback_fine=0
+   => iteration count and fine-BiCG fallback are ruled out as the cliff cause.
+   => 16r and 32r use the same node count and the same total cores
+      (8x36 = 16x18 = 288 cores/node); the difference tracks rank count.
+
+2. Source-level candidates (not yet confirmed by profile)
+   a. Coarse halo is re-packed and re-exchanged on every coarse apply for all 32
+      directions with max_face-sized buffers (lattice_multigrid.cpp:
+      ensure_coarse_halo / exchange_coarse_halo / pack_coarse_direction).
+      ~64 messages and ~10.1 MB posted per coarse apply at 32r, ~19 applies/solve.
+   b. MG reductions use MPI_COMM_WORLD instead of geometry_.comm
+      (lattice_clover_multigrid.cpp mg_dot/mg_norm2/mg_dot_pair).
+   c. Each timed sample includes applyInitQcu NUMA/topology collectives and the
+      full verifyCloverMultigridQcu (pyqcu/test/native.py solve_once).
+
+3. Fabric status on 2026-11-23 (blocking)
+   All compute jobs fail with UCX ud_ep.c:287 unhandled timeout, rc=255:
+     2230693 16r 2-node MG2 (yesterday this config PASSed at 2.944 s)
+     2230694 32r 2-node MG1
+     2230474 32r 1-node MG2
+   Pure MPI probe (numpy float64, not PyQCU code):
+     2231089  2 ranks / 1 node : PROBE_OK ar8=10us ar1024=31us ar65536=136us ring4096=45us
+     2231110  2/4/8/16/32 ranks: 2 ranks OK, HANGS from 4 ranks on
+   => 2-rank collectives are healthy; the break is a 4-rank site fabric hang,
+      before any PyQCU code runs.
+   => Today's failures are a site fabric problem, not a PyQCU code path.
+   => No A/B can separate candidates a/b/c while this persists.
+
+4. L64 input preparation (completed)
+   python pyqcu/testing/simple/prepare_case.py --lime
+     /home/share/nsls_yangyb/data/beta6.20_mu-0.2825_ms-0.2310_L64x128_cfg_1020.lime
+     --lat 64 64 64 128 --mass -0.2825 --csw 1.160587196249 --seed 42
+     --out-dir data/l64_canonical_20261123
+   Outputs (data/l64_canonical_20261123):
+     gauge_64x64x64x128_c64.h5   19,327,358,976 B  (dataset dtype complex128)
+     source_64x64x64x128_c64.h5   3,221,231,616 B
+     case_manifest.json + prepare.log
+   The gauge file name says c64 but the dataset is complex128, the same known
+   mislabeling as the L48 canonical asset (docs/pyqcu_test_l48_remote.md item 9).
+   NOTE: prepare_case.py has no c128 option; a c128 pair must be produced by an
+   explicit cast from this file and verified, not assumed.
+
+5. L64 grid feasibility for 16 compute nodes (64^3 x 128, all local extents even)
+   128 ranks (8/node) : 2 2 2 16 -> 32x32x32x8 ; 4 4 2 4 -> 16x16x32x32
+   256 ranks (16/node): 4 4 4 4  -> 16x16x16x32
+   512 ranks (32/node): 4 4 4 8  -> 16x16x16x16
+   Every candidate satisfies the KUPL "all local dimensions even" rule
+   (cpp/kupl/qcu/src/lattice_geometry.cpp:44).
+
+6. Matrix status
+   {c64, c128} x {bistabcg, mg-2}: NOT RUN. No result is claimed.
+   mg-2 additionally requires a per-identity coarse cache; none exists for L64.
+
+7. Release
+   No commit, release, PyPI/RTD publication, push, or tag was performed for this
+   task because the fabric outage prevents the required verification.

@@ -303,6 +303,13 @@ export CCS_DRUN_RANK_FILE=$OUT/logs/$JOBTAG-rankfile
   差异在每次 fine/coarse apply 与 coarse correction 的实际成本
   （16r 36 threads，32/64r 18 threads；local t 不同）。16r 旧报告无层级计数，
   新 16r 记录作业未到 MG；不要用 32r/64r `seconds` 做性能/scaling 声明。
+- **2026-11-23 fabric 失效**：连昨天的 16r/2n PASS 配置当天也无法复现，所有计算
+  作业与纯 MPI 探针都在集体操作阶段报 `ud_ep.c:287 unhandled timeout`、`rc=255`
+  （`2230693`、`2230694`、`2230474`、`2230852`/`2230901`/`2230941`）。这是站点
+  UCX/IB 问题，不是 PyQCU 路径；此时不要启动断崖 A/B，也不要把失败写成回退。
+- 断崖候选与待测分项见
+  [`docs/kupl_l48_mg_cliff_20261123.md`](../../../docs/kupl_l48_mg_cliff_20261123.md)；
+  L64 输入已备好：`data/l64_canonical_20261123/`（c64 名、dataset 实为 complex128）。
 
 ## 9. 发布与证据纪律
 

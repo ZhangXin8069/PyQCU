@@ -5,7 +5,7 @@ PyQCU 参考文档。
 > 2026-09-27 迁移：顶层 `examples/` 已迁入 `pyqcu/testing/`。本目录旧报告中若
 > 出现 `examples/...`，应映射为 `pyqcu/testing/...`；现行文档已统一使用新路径。
 
-当前 `docs/` 顶层共有 **58 份 Markdown 文档（含本索引）**。下表只维护文件职责；
+当前 `docs/` 顶层共有 **59 份 Markdown 文档（含本索引）**。下表只维护文件职责；
 权威级别、唯一主责技能和提取边界见
 [`skills/pyqcu-docs/references/project-docs-map.md`](../skills/pyqcu-docs/references/project-docs-map.md)。
 
@@ -81,6 +81,7 @@ PyQCU 参考文档。
 | `qcu_quda_solver_dcu_l32_20261029.md` | L32 distributed cache 的 1--32-rank 恢复尝试、超时/参数门/共享 I/O 阻塞及无性能结果的状态记录 |
 | `qcu_quda_solver_dcu_l48_20261029.md` | L48 容量门、真实 Legacy cache shape/payload 预算、用户暂停状态和恢复条件 |
 | `pyqcu_test_l48_remote.md` | 2026-11-17 `pyqcu.test` L48 双节点正式端口设计（P）：目标/非目标、分层、输入契约、执行模型、`driver.run_row` 契约、验收门与开放问题；§0 状态表区分已验证/TODO，§0.1 首批结果（c64 BiCGStab 32 rank 独占节点 `1.6646 s`/11 it/`7.126e-5`（`2152757`）、16 rank 共享节点 `183.0 s` 属病态不作基线、c64 Legacy-MG 16 rank wall `110.35 s`+builder `1741.88 s`/cache `1.276 GiB`、c128 `2153005` 与两节点 `2153008` PENDING、32r dslash/clover UNVERIFIED、CG 组退役、Strict-MG 排除、cache 只认同 identity 且 32r 不重建），§2.4 远端基线（`login02`、非 git 的 0.1.15 快照 + 0.1.17 Python 覆盖、`--check` 18/18、HMPI 单 rank、L48 转换 41 s、`dsub` 两节点 PENDING）；设计未实现，未打 tag |
+| `kupl_l48_mg_cliff_20261123.md` | 2026-11-23 KUPL Legacy-MG 两节点性能断崖排查（C）：16r `2.9444 s` / 32r `102.4651 s` / 64r `92.8595 s`、层级迭代同为 `level0=18 level1=4 accepted=4 fallback=0`（迭代数与 fallback 已排除）、三个源码候选（粗层 32 方向整面 halo、MG 归约走 `MPI_COMM_WORLD`、每样本 init+verify）、以及当天 4 rank 起纯 MPI 探针即挂住（`PROBE_OK` 仅 2 rank）证明是站点 fabric 失效而非 PyQCU 路径；断崖未修复，无回归证据 |
 | `pyqcu_test_l48_two_node_matrix.md` | 2026-11-17 L48 两节点 tier-1 矩阵（P，只有定义）：5 个正式 case（`kupl/l48/bicgstab/{c64,c128}`、`kupl/l48/legacy-mg/{c64,c128}`、`kupl/l48/io-residual/c64`）+ 2 个 dslash/clover harness 入口，`2x2x2x4` / 32 ranks / 2 nodes，全部 `evidence=UNVERIFIED`；CG 退役、Strict-MG 排除；`launch_plan()` 只返回数据结构，不启动进程 |
 | `pyqcu_test_audit_risk_20261117.md` | 2026-11-17 `pyqcu.test`/L48 远端 P0/P1 风险登记：无文件驱动原生 solve、无 `driver.run_row`、无跨节点 launcher、CUDA rank-grid 仅 SKIP、MPI abort/死锁与 `_SET_INDEX_` 游标风险、KUPL 驱动无 L48、`submit_kunpeng_all.sh` 写死 `-nn 1`/`mem=8G`、CSV/Excel parity 未验证；全部标“未修复”，不声称 L48 solve 或两节点 PASS；C 级时点证据，未打 tag |
 | `kupl_remote_l48_experience_20261117.md` | 2026-11-17 L48/LX2 远端会话经验（C）：访问/运行时（`login02`、0.1.15 非 git 快照 + 0.1.17 Python 覆盖、`--check` 远端 18/18 与本机 20/20（17:55；17:47 为 19/19）、HPCKit 26.1.RC1、Python 3.10.9）、3.10 语法门（PEP 646 `source[*tuple]` 与 `ast.parse(feature_version)` 的缺口）、L48 LIME→HDF5 41 s 与 c64 dtype 误标/bit-exact cast/SHA、HDF5 384 B 基本读与 3.56× 放大、`dtfs` 33–36 s 停顿、32r `1.6646 s` vs 16r 病态 `183 s`、16r “MG” 实为 fine BiCGStab fallback、cache identity/约 24 次 break-even、两节点 request/rankfile/`CCS_DRUN_RANK_FILE`、发布红线（0.1.17/test37、十轮、`bug45` 历史例外）；未验证项显式标注；未打 tag |

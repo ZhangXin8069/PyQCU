@@ -1,6 +1,6 @@
 # PyQCU `docs/**` 来源映射
 
-本表覆盖当前 `docs/` 顶层的 58 份 Markdown 文档。`docs/AGENTS.md` 是文件索引；
+本表覆盖当前 `docs/` 顶层的 59 份 Markdown 文档。`docs/AGENTS.md` 是文件索引；
 需要判断“原文应保留在哪里”时先读该文件和 `docs/ORGANIZATION.md`。
 
 ## 权威级别
@@ -70,6 +70,7 @@
 | [`docs/qcu_quda_solver_dcu_l32_20261029.md`](../../../docs/qcu_quda_solver_dcu_l32_20261029.md) | C | `pyqcu-benchmark` | `pyqcu-testing-dcu`, `pyqcu-solver` | L32 cache 从 4 到 32 rank 的恢复尝试均未发布认证 cache；timeout、batch 参数门、共享 HDF5 I/O 和用户取消必须保持 BLOCKED-CACHE。 |
 | [`docs/qcu_quda_solver_dcu_l48_20261029.md`](../../../docs/qcu_quda_solver_dcu_l48_20261029.md) | C | `pyqcu-benchmark` | `pyqcu-testing-dcu`, `pyqcu-solver` | L48 用户暂停；当前 Legacy cache 逻辑 payload 为 18,728,091,648 B，任何历史 A100 cache/solve 数字都不得替代本轮 blocked 结果。 |
 | [`docs/pyqcu_test_l48_remote.md`](../../../docs/pyqcu_test_l48_remote.md) | P | `pyqcu-testing` | `pyqcu-kupl`, `pyqcu-testing-data`, `pyqcu-benchmark`, `pyqcu-docs` | `pyqcu.test` 的 L48 双节点正式端口设计与远端基线：§0 状态表区分已验证/TODO（`login02` 访问、0.1.15 非 git 快照 + 0.1.17 Python 覆盖、`--check` 18/18、HMPI 单 rank、L48 转换 41 s 已验证；c64 未确认、两节点 PENDING、L48 solve 未运行、CSV/Excel parity 未通过）；设计未实现，引用时必须标 P 级与“未实现”。 |
+| [`docs/kupl_l48_mg_cliff_20261123.md`](../../../docs/kupl_l48_mg_cliff_20261123.md) | C | `pyqcu-kupl` | `pyqcu-solver`, `pyqcu-benchmark`, `pyqcu-testing` | 2026-11-23 Legacy-MG 两节点断崖：16r/32r/64r solve `2.9444/102.4651/92.8595 s`，层级迭代与 accepted correction 完全相同（迭代数/fallback 已排除）；三个候选（32 方向整面粗层 halo、`MPI_COMM_WORLD` 归约、每样本 init+verify）与当天 4 rank 纯 MPI 探针挂起（2 rank `PROBE_OK`）的 fabric 阻塞；断崖未修复。 |
 | [`docs/pyqcu_test_l48_two_node_matrix.md`](../../../docs/pyqcu_test_l48_two_node_matrix.md) | P | `pyqcu-testing` | `pyqcu-kupl`, `pyqcu-testing-data`, `pyqcu-benchmark` | 2026-11-17 L48 两节点 tier-1 矩阵，只有定义、无 PASS：5 个正式 case（BiCGStab c64/c128、Legacy-MG c64/c128、input_io c64）全部 `evidence=UNVERIFIED`，`2x2x2x4` / 32 ranks / 2 nodes；CG 退役、Strict-MG 排除；`launch_plan()` 不启动进程。引用时必须标 P 级与“未验证”。 |
 | [`docs/pyqcu_test_audit_risk_20261117.md`](../../../docs/pyqcu_test_audit_risk_20261117.md) | C | `pyqcu-testing` | `pyqcu-kupl`, `pyqcu-testing-data`, `pyqcu-benchmark`, `pyqcu-docs` | `pyqcu.test`/L48 远端 P0/P1 风险登记（全部未修复）：无文件驱动原生 solve、无 `driver.run_row`、无跨节点 launcher、CUDA rank-grid 仅 SKIP、MPI abort/死锁与 `_SET_INDEX_` 游标风险、KUPL 驱动无 L48、`submit_kunpeng_all.sh` 写死 `-nn 1`/`mem=8G`、CSV/Excel parity 未验证；不声称 L48 solve 或两节点 PASS。 |
 | [`docs/kupl_remote_l48_experience_20261117.md`](../../../docs/kupl_remote_l48_experience_20261117.md) | C | `pyqcu-testing` | `pyqcu-kupl`, `pyqcu-testing-data`, `pyqcu-benchmark`, `pyqcu-docs` | 2026-11-17 L48/LX2 远端会话经验：访问/运行时（0.1.17 覆盖树 18/18、本机 20/20（17:55；17:47 为 19/19）、HPCKit 26.1.RC1、Python 3.10.9）、3.10 PEP 646 语法门、L48 LIME→HDF5 与 c64 dtype/SHA、HDF5 384 B/3.56× 放大与 `dtfs` 33–36 s 停顿、32r `1.6646 s` 与 16r 病态 `183 s`、16r “MG” fallback、cache identity/约 24 次 break-even、两节点 rankfile/launcher、发布红线；未验证项显式标注。 |
