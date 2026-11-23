@@ -1487,3 +1487,38 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
     Lesson applied: read the existing docs/skills before designing an
     experiment; three of this session's five "discoveries" (NUMA binding cost,
     HDF5 mpio slab reads, restart tuning) were already documented here.
+
+90. The Case fix is NOT sufficient: the row still records 10000.0
+    Re-run sweep (2238436), rows written at 01:40 and 01:44:
+      r5_c1e4  restart 5  coarse_tol_factor 10000.0  seconds 4.4148
+      r5_c1e2  restart 5  coarse_tol_factor 10000.0  seconds 4.2564
+    The r5_c1e2 point requested coarse_tol_factor 1e2 and the row still says
+    1e4.  So the value is still dropped somewhere AFTER `native.case()`: the
+    local unit test only proved that `Case` carries the attribute and that
+    `_options(case)` reads it back.  The production runner evidently builds its
+    options through another path (the ledger/driver reconstructs the option
+    from the Case metadata), so there is a second drop point that the unit test
+    does not cover.
+
+    This is exactly the user's new rule in action - reuse prior knowledge, but
+    the CURRENT measurement decides.  My passing test does not outvote the
+    cluster row.
+
+    Consequence: sweep 2238436 is invalid for coarse_tol_factor as well, and
+    the unit test alone must not be treated as proof that the knob reaches the
+    solver.  Before any further sweep, trace `driver.run_row` -> runner and
+    find where the option object is rebuilt, and make that path carry the
+    values; the test must then assert through the SAME path the job uses, not
+    through `_options(case)` directly.
+
+91. Precedence rule recorded (user instruction)
+    Reuse the repo's comments/docs/logs/skills as prior knowledge, but the
+    current measured result is authoritative.  Practical form: an existing doc
+    suggests what to try; only a run whose row records the requested
+    configuration, an independent residual and a verified PASS may settle it.
+    Two concrete cases in this session:
+      - the old L24 restart table (1.55-1.77x at restart 10..50) is a hint for
+        the next L48 experiment, not a result for L48;
+      - the old "MG 7.9% slower" entry and the old "MG faster" entry are
+        different configurations and neither may be used to dismiss or confirm
+        today's measurement.
