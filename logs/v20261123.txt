@@ -1522,3 +1522,48 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
       - the old "MG 7.9% slower" entry and the old "MG faster" entry are
         different configurations and neither may be used to dismiss or confirm
         today's measurement.
+
+92. MG sweep finished - all six points prove B2 (knobs never applied)
+    Job 2238436 SUCCEEDED, six points, every row recorded the DEFAULTS:
+
+      point    restart recorded  coarse_tol_factor recorded  seconds
+      r5_c1e4          5                10000.0             4.4148
+      r5_c1e2          5                10000.0             4.2564
+      r5_c1e1          5                10000.0             4.3181
+      r1_c1e2          5                10000.0             4.2969
+      r2_c1e2          5                10000.0             4.4660
+      r1_c1e1          5                10000.0             4.1749
+
+    Requested values (1e2, 1e1, restart 1 and 2) never appear.  The spread of
+    4.17-4.47 s is run-to-run noise, so the six points are the same experiment
+    run six times.  This confirms the audit's BLOCKER B2 empirically: the drop
+    point is downstream of `Case`, in `common._invoke_runner`/`Options`, which
+    have no such field.  No MG tuning conclusion can come from this job.
+
+    (The 4.2-4.5 s here is also ~2x the 1.98 s of the earlier sweep run at the
+    same nominal shape; since the knobs did not move, the difference is
+    machine/queue state, not a configuration effect.  Not interpreted.)
+
+93. L64 16-rank SINGLE-NODE cell: SKIP(reference_workspace) - preflight, as predicted
+    Row de3c33aa3def728a (data/l64_16r_single_20261123/rows/):
+      status  SKIP
+      reason  "the independent residual cannot run at this size: the
+               distributed independent reference needs about 7.50 GiB per
+               rank, above the declared 4.00 GiB budget; the whole-lattice
+               gather would need 120.00 GiB and its Clover term 36.00 GiB.
+               Raise reference_budget only with a matching memory plan"
+      geometry mpi_size 16, local 32x32x32x64, lattice_grid 2 2 2 2
+
+    Two things this establishes:
+      + the single-node 16-rank LAUNCH works (rankfile, drun, geometry all
+        correct - it reached the preflight and refused for a documented
+        reason rather than failing on placement);
+      - the cell cannot be a verified PASS at the default budget.  My earlier
+        estimate (4 GiB budget vs ~9.7 GB local Clover) was right in kind and
+        the port's own estimate is 7.50 GiB per rank.
+
+    To finish this cell: expose `--reference-budget` on the CLI (it exists as a
+    case option, `_resolve_reference_budget`, but has no flag) and run with
+    >= 8 GiB plus a matching memory plan.  Note it is subject to the same
+    Options/Test plumbing gap as `coarse_tol_factor` (B2), so the flag must be
+    added to `Options`/`Test` as well or it will be dropped the same way.
