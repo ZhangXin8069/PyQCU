@@ -4171,6 +4171,15 @@ def _default_requires(kind: str, backend: str) -> tuple[str, ...]:
     return tuple(tokens)
 
 
+#: Runner options a ``Case`` has to carry explicitly: ``Case`` only declares
+#: the cross-runner fields, so anything else would be validated by ``_options``
+#: and then discarded, making the runner fall back to its own default.
+_CARRIED_OPTIONS: tuple[str, ...] = (
+    "restart", "mg_levels", "mg_grid", "coarse_tol_factor", "coarse_max_iter",
+    "nv_iters", "dof", "deflate", "verify", "cache", "cache_policy",
+)
+
+
 def case(kind: str, *, backend: Any = DEFAULT_BACKEND, tag: str | None = None,
          tier: int = 1, expect: Mapping[str, Mapping[str, Any]] | None = None,
          timeout: float | None = 600.0, **options: Any) -> Any:
@@ -4192,7 +4201,7 @@ def case(kind: str, *, backend: Any = DEFAULT_BACKEND, tag: str | None = None,
 
     resolved = _resolve_backend(backend)
     option = _options(None, kind=kind, backend=resolved, **options)
-    return Case(
+    built = Case(
         tag=tag or f"{resolved}/native/{kind}",
         backend=resolved,
         kind=str(kind).strip().lower(),
@@ -4205,3 +4214,18 @@ def case(kind: str, *, backend: Any = DEFAULT_BACKEND, tag: str | None = None,
         else expect,
         timeout=timeout,
     )
+    # ``Case`` carries only the cross-runner fields, so a runner-specific knob
+    # passed here would be validated and then dropped: the runner would fall
+    # back to its own default and a parameter sweep would silently run the same
+    # point N times (2026-11-24, every MG sweep row recorded restart=5/1e4
+    # whatever the command line said).  Attach what the caller actually set;
+    # ``_options`` reads it back through getattr.
+    for name in _CARRIED_OPTIONS:
+        value = options.get(name)
+        if value is None:
+            continue
+        try:
+            setattr(built, name, value)
+        except AttributeError:  # frozen Case
+            object.__setattr__(built, name, value)
+    return built

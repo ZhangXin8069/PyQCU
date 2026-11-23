@@ -1356,3 +1356,29 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
 
     Until that lands, no MG tuning claim is possible and the C++ kernel must
     not be touched.
+
+86. MG knob plumbing FIXED and gated; mg-3 does not exist yet
+    `native.case()` now attaches the runner options it validated
+    (_CARRIED_OPTIONS: restart, mg_levels, mg_grid, coarse_tol_factor,
+    coarse_max_iter, nv_iters, dof, deflate, verify, cache, cache_policy) to
+    the Case, and `_options(case)` reads them back through getattr.  Verified:
+
+      native.case("mg", restart=1, coarse_tol_factor=100)
+        case.restart = 1, case.coarse_tol_factor = 100.0
+        _options(case).restart = 1, .coarse_tol_factor = 100.0
+
+    New gate `test_pyqcu_test_mg_options.py` (9 cases) pins the boundary that
+    was broken, including "an unset knob keeps the runner default" so nobody
+    reintroduces an explicit None override.
+
+    IMPORTANT limit discovered by that gate: `mg_levels` must be 1 or 2 -
+    "the Legacy-MG port drives one coarse transition".  So mg-3 and mg-**
+    CANNOT be measured with this backend at all; they need a deeper hierarchy
+    implemented first.  The user's request for mg-3/mg-* speedup is therefore
+    not a tuning question but a missing feature, and no sweep can produce it.
+
+    Validation: focused pytest 88 passed, `pyqcu.test --quick` 19/19 PASS.
+
+    Next: sync native.py to the remote and re-run the six-point sweep.  Only
+    now can restart/coarse_tol_factor be judged, because the row will record
+    the requested value.
