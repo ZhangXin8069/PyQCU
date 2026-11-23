@@ -1567,3 +1567,32 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
     >= 8 GiB plus a matching memory plan.  Note it is subject to the same
     Options/Test plumbing gap as `coarse_tol_factor` (B2), so the flag must be
     added to `Options`/`Test` as well or it will be dropped the same way.
+
+94. L64 c64 coarse cache is VALID despite drun rc=255
+    Job 2237727 ran 00:45:32 -> 02:10:09 and exited 255, but the failure is in
+    the closing fence, not the work:
+      drun: failed in tree fence, fenceID=3 ... err:timed out (300 seconds) to
+            wait treeFenceService receive message done ... stepID: 0
+    Everything the cache needs was already written and validated:
+      l64_128r_mg_l2.json      status PASS, schema pyqcu.legacy-mg-cache.v1
+      rank_count 128, rank_directory with 128 files,
+      every rank_*.h5 exactly 33,830,912 B (identical size, no truncation)
+      identity: lattice [64,64,64,128], dtype complex64, mass -0.2825,
+                csw 1.160587196249, dof [12,2], mg_grid [2,2,2,2],
+                nv_iters 2, seed 42
+      local_shapes lonv/hnn/hdg/sit recorded; global_coarse [32,32,32,32]
+      setup_validation: mpi_size 128, grid [2,2,2,16], local_lattice
+        [32,32,32,8], local_coarse [16,16,16,2],
+        builder kupl-qcu-cxx-local-stencil-patch,
+        lonv_source distributed-null-vector,
+        patch_galerkin_error 3.617e-07
+      timings: null_vector 8.4 s, lonv_patch 4.7 s, gauge_patch 3110.3 s,
+               stencil 570.2 s, manifest 12.3 s, total setup 3709.6 s
+    So the cache is usable; the exit code reflects the harness fence timeout.
+    This is the same class as the earlier "rc=255 that is not a fabric error":
+    read the artifact, not the exit code.
+
+    Caveat for reuse: local_coarse is [16,16,16,2] for grid [2,2,2,16], so a
+    run at a different rank grid must repartition the ranked cache (the L48
+    16r->32r/64r path already does this); the identity must match on lattice,
+    dtype, mass, csw, mg_grid, nv_iters and seed.
