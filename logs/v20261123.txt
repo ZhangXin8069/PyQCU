@@ -1638,3 +1638,17 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
       {c128}     x mg-2      x 128r  : needs its own coarse cache (identity
                                         carries dtype), not started
       64/32/16-single/16-dual rank columns: bistabcg not yet run at L64
+
+97. Two more matrix jobs submitted (auto mode)
+    2239296  L64 c128 coarse cache build, 16 nodes / 128 ranks.
+             Derived from sh/l64_build_cache.sh with dtype c128, the original
+             complex128 gauge (gauge_..._c64.h5) and the cast complex128 source;
+             cache path .../caches/l64_128r_mg_l2_c128.  Needed because the
+             cache identity carries the dtype, so the c64 cache cannot serve
+             the c128 mg-2 cell.  Expected ~62 min (the c64 build took 3709 s,
+             dominated by gauge_patch 3110 s; c128 doubles the gauge bytes).
+    2239297  L64 c64 bistabcg at 64 ranks (4 nodes, grid 2 2 2 8, 16 ranks per
+             node x 18 threads = 288 cores/node, NUMA-bound).
+             This is the first non-128-rank cell of the expanded matrix.
+    Both run concurrently (16 + 4 nodes).  Nothing is claimed about either
+    until a row exists with residual_verified=true.
