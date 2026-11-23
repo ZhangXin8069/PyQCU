@@ -1261,3 +1261,33 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
     iteration count to drop below 18 for a configuration to count as working.
     No solver kernel change will be made before that sweep shows which knob
     actually moves the iteration count.
+
+81. Silent MG-flag drop found and fixed before the sweep
+    `_native_cases` called `native.case(...)` without restart, mg_levels,
+    mg_grid or coarse_tol_factor, so EVERY native run used the NativeCase
+    defaults (restart=5, mg_levels=2, mg_grid DEFAULT, coarse_tol_factor=1e4)
+    no matter what the command line said.  A parameter sweep would have run
+    six identical points.
+
+    Fixed: `--coarse-tol-factor F` added to the CLI (level-1 atol is
+    atol*F*3^(level-1); default 1e4 = a 1e-1 coarse target at atol=1e-5),
+    `_Config.coarse_tol_factor`, and `_native_mg_overrides()` forwards only
+    the knobs the caller actually set.  `--list` accepts the flag; focused
+    pytest 85 passed.
+
+82. MG sweep submitted (job 2238157), six points on L48 c64 32 ranks
+    Target to beat: plain BiCGStab 18 iterations / 2.350 s (job 2237987).
+      r5_c1e4  restart 5  coarse_tol_factor 1e4   (current defaults)
+      r5_c1e2  restart 5  1e2
+      r5_c1e1  restart 5  1e1
+      r1_c1e2  restart 1  1e2
+      r2_c1e2  restart 2  1e2
+      r1_c1e1  restart 1  1e1
+    Each point runs with PYQCU_KUPL_MG_PROFILE=1 and its own outdir.
+    The acceptance rule is unchanged: a point "works" only if its fine
+    iteration count is below 18.  At 01:18 the job is still on the first
+    point, which is expected (case phase ~145 s per point plus the solve).
+
+83. Other jobs
+    2237727 L64 c64 coarse cache: still RUNNING (pure null-vector compute).
+    2237986 L64 16-rank single node: still PENDING in the queue.
