@@ -62,3 +62,408 @@
 7. Release
    No commit, release, PyPI/RTD publication, push, or tag was performed for this
    task because the fabric outage prevents the required verification.
+
+8. Fabric re-check 2026-11-23 16:43-16:47 (job 2231484, 1 node, 8 ranks max)
+   ranks=2 : PROBE_OK ar8=8us ar1024=25us ar65536=102us ring4096=32us  rc=0
+   ranks=4 : timeout (rc=137 after the 90 s gate)
+   ranks=8 : timeout (rc=137 after the 90 s gate)
+   => Fabric still degraded. The 4-rank break persists.
+   => Per the agreed gate, no solver job and no L64 matrix cell was submitted.
+   => Loop 5f548751 re-checks every 15 minutes.
+
+9. Fabric re-check #2, 2026-11-23 16:47-16:51 (job 2231614, 1 node, 8 ranks max)
+   ranks=2 : PROBE_OK ar8=8us ar1024=24us ar65536=102us ring4096=37us  rc=0
+   ranks=4 : timeout (rc=137 after the 90 s gate)
+   ranks=8 : timeout (rc=137 after the 90 s gate)
+   => Still degraded; identical signature to job 2231484.
+   => No solver job submitted; no L64 matrix cell run.
+
+10. Fabric re-check #3 + transport/rankfile probes, 17:00-17:15
+    Gate 2231906 (1 node, no rankfile):
+      ranks=2 : PROBE_OK ar65536=135us ring4096=46us  rc=0
+      ranks=4 : timeout rc=137
+      ranks=8 : timeout rc=137
+    Transport probe 2232027 (4 and 8 ranks, 1 node):
+      base4  (default)            rc=137
+      rc4    (UCX_TLS=rc,sm,self) rc=137
+      rcib4  (UCX_TLS=rc_x,rc...) rc=137
+      ob1_4  (pml=ob1, btl=tcp)   rc=137
+      rc8                          rc=141
+      ob1_8                        rc=255
+      => Not a transport-selection problem: every UCT and the non-UCX ob1/tcp
+         path fail at >=4 ranks.
+    Rankfile probe 2232187/2232208 (1 node, CCS_DRUN_RANK_FILE):
+      2232187 used 144 cores/rank for 2 ranks, which violates the site rule
+      (<=36 usable cores per NUMA); rc=255 for all three sizes. That run is
+      invalid as fabric evidence and is my own configuration error.
+      2232208 capped cores/rank at 36:
+        ranks=2 : rc=137
+        ranks=4 : rc=141
+        ranks=8 : rc=255
+      => With a rankfile even 2 ranks failed, while 2 ranks without a rankfile
+         passed in the same window. Cannot attribute this to the fabric alone;
+         the rankfile path also needs checking before it is used as a gate.
+
+    Net: fabric still cannot run >=4-rank MPI; no solver job and no L64 matrix
+    cell was submitted. Next round re-runs the no-rankfile gate first, then
+    checks whether the rankfile failure is independent of the fabric.
+
+11. CORRECTION 17:25: my MPI gate probe was buggy; the "4-rank hang" is invalid
+    Stage probe 2232373 (1 node, correct typed buffers) shows:
+      ranks=2: barrier, allgather, allreduce-small, allreduce-large,
+               sendrecv-ring, sendrecv-small -> STAGE_OK rc=0
+      ranks=4: init, processor, barrier, allgather-ok n=4,
+               allreduce-small, allreduce-large -> then timeout rc=137 at
+               the next stage, which is sendrecv-ring.
+    Root cause of that timeout is the probe, not the fabric:
+      sh/mpi_probe.py and sh/mpi_stage_probe.py used peer=(rank+1)%size and
+      then comm.Sendrecv(dest=peer, source=peer). Rank i sends to i+1 but
+      waits for a message from i+1, while i+1 sends to i+2. That is a
+      one-way ring and deadlocks for size >= 3; it only matches at size == 2.
+    Therefore:
+      - "2 rank OK, >=4 rank hangs" is an artifact of my probe.
+      - All fabric-gate verdicts built on this probe (2231089 partially,
+        2231110, 2231484, 2231614, 2231906, 2232027, 2232271) are INVALID
+        as fabric evidence and must not be cited as such.
+      - The rankfile probe 2232208 used the same broken Sendrecv, so its
+        2/4/8 rc values are equally invalid, and the earlier note "with a
+        rankfile even 2 ranks failed" was measuring nothing.
+    Correct ring: send to (rank+1)%size, receive from (rank-1+size)%size.
+    Still-standing independent evidence of a real problem: the actual PyQCU
+    jobs 2230693 / 2230694 / 2230474 aborted with UCX ud_ep.c:287 unhandled
+    timeout inside PyQCU's own collectives, and 2-rank Allreduce worked in
+    the same window, so those failures are not explained by this probe bug.
+    Next: fix the probe, re-gate, and only then decide whether the fabric is
+    actually degraded.
+
+12. Corrected probe result, job 2232404 (1 node cn19655, 2/4/8/16 ranks)
+    Ring fixed: send -> (rank+1)%size, recv from (rank-1+size)%size.
+      ranks=2  : all stages incl. sendrecv/allgather -> STAGE_OK, rc=0
+      ranks=4  : all stages incl. STAGE_OK printed, but rc=137 (timeout)
+      ranks=8  : init, processor, barrier, allgather(n=8), allreduce-small
+                 -> then timeout rc=137
+      ranks=16 : init, processor, barrier, allgather(n=16), allreduce-small
+                 -> then timeout rc=137
+    Read-out:
+      - The Allreduce failure at 8/16 ranks is NOT caused by the ring bug:
+        Allreduce does not use the neighbour ring at all. 8/16 ranks hang on a
+        single node at the first small Allreduce.
+      - 4 ranks complete every stage and still time out, which points at
+        MPI teardown/finalize rather than a mid-solve collective.
+    Standing evidence of a real site problem is therefore unchanged: yesterday's
+    passing 16-rank/2-node PyQCU jobs and today's PyQCU aborts plus this
+    stage-timed MPI hang all agree that collective traffic is broken today.
+    Invalid evidence to ignore: 2231110, 2231484, 2231614, 2231906, 2232027,
+    2232271 (my buggy probe), and 2232208 (same bug plus rankfile).
+    Still no solver job and no L64 matrix cell submitted.
+
+13. Fabric gate round 5, job 2232468 (1 node, corrected ring probe)
+      ranks=2  : STAGE_OK rc=0
+      ranks=4  : STAGE_OK then rc=137 (teardown)
+      ranks=8  : rc=137
+      ranks=16 : rc=137
+    Same signature as 2232404 on a different node. Reproducible across nodes.
+    => No solver job, no L64 matrix cell. Loop continues.
+
+    Probe hygiene (to avoid repeating my bug):
+      correct neighbour ring = send to (rank+1)%size,
+                               receive from (rank-1+size)%size
+      never use the same peer for dest and source in Sendrecv for size >= 3
+
+14. Fabric gate round 6, job 2232620 (1 node, corrected probe)
+      ranks=2  : STAGE_OK rc=0
+      ranks=4  : STAGE_OK, rc=137 (teardown)
+      ranks=8  : rc=137
+      ranks=16 : rc=137
+    Third identical result on a third node. The site cannot currently run
+    >=8-rank collectives and cannot cleanly tear down 4 ranks.
+    => No solver job, no L64 matrix cell, no code change.
+
+15. Fabric gate round 7, job 2232776 (1 node cn12053, corrected probe)
+      ranks=2  : STAGE_OK rc=0
+      ranks=4  : STAGE_OK, rc=137 (teardown)
+      ranks=8  : rc=137
+      ranks=16 : rc=137
+    Fourth consecutive identical result on a fourth node (cn19655, cn12053,
+    and two earlier nodes). The outage is site-wide and stable.
+    => No solver job, no L64 matrix cell, no code change.
+    Loop 5f548751 keeps re-checking; the gate is 8-rank Allreduce passing.
+
+16. Fabric gate round 8, job 2233004 (1 node, corrected probe)
+      ranks=2  : STAGE_OK rc=0
+      ranks=4  : STAGE_OK, rc=137 (teardown)
+      ranks=8  : rc=137
+      ranks=16 : rc=137
+    Fifth identical result (nodes so far: cn19655, cn12053, and three more).
+    => No solver job, no L64 matrix cell, no code change.
+
+    Loop status: 5f548751 has now run 8 gate rounds with no change. Each round
+    costs one 8-rank probe job (~3 min). If the site stays down, consider
+    widening the cadence to hourly or stopping the loop with cron_delete.
+
+17. Fabric gate round 9, job 2233157 (1 node cn12043, corrected probe)
+      ranks=2  : STAGE_OK rc=0
+      ranks=4  : STAGE_OK, rc=137 (teardown)
+      ranks=8  : rc=137
+      ranks=16 : rc=137
+    Sixth identical result (cn19655, cn12053, cn12043, +3 earlier nodes).
+    The 16-rank stage then left the wrapper alive past the probe timeout, so I
+    force-terminated the job to avoid holding a node; no results were lost.
+    => No solver job, no L64 matrix cell, no code change.
+
+18. Fabric gate round 10, job 2233441 (1 node, corrected probe)
+      ranks=2  : rc=0
+      ranks=4  : rc=137 (STAGE_OK then teardown timeout)
+      ranks=8  : rc=137
+      ranks=16 : rc=137
+    Seventh identical result. Two and a half hours of 15-minute re-checks with
+    no state change: the site still cannot run >=8-rank MPI on one node.
+    => No solver job, no L64 matrix cell, no code change.
+
+19. Fabric gate round 11, job 2233623 (1 node, corrected probe)
+      ranks=2 rc=0; ranks=4/8/16 rc=137
+    Eighth identical result. No solver job, no L64 matrix cell, no code change.
+
+20. Transport diagnosis (17:15-20:00). ROOT CAUSE NARROWED to the IB/RoCE path.
+
+Node health (job 2233781/2233786, host cn12245 / cn19468 / cn12082):
+  RDMA  roceroh0..7 all state=4 ACTIVE, rate=200 Gb/sec (4X HDR)
+  memlock unlimited; /dev/shm 283G with 1% used; 565G RAM; Toomany hugepages=0
+  cpuset  0-36,38-74,76-112,114-146 (144 cpus = 8 ranks x 18 cores, correct)
+
+Single node (1 node, N ranks, -R core=18, no rankfile):
+  2 ranks : rc=0
+  4 ranks : rc=137
+  8 ranks : rc=137
+  same sizes with -R core=4 : 4 and 8 ranks rc=0
+  Reason: contiguous -R core=18 places rank 2 on 36-53, crossing the reserved
+  core 37 that the cpuset never grants (0-36,38-74,...). 2 ranks stay in 0-35.
+  Verified by arithmetic over the cpuset; --core=4 avoids the crossing.
+
+Transport matrix (job 2234031/2234048/2234158, single node, 8 ranks x18):
+  default (UCX picks ud/sm/rc)  rc=137
+  UCX_TLS=sysv,self             rc=0
+  UCX_TLS=posix,self            rc=0
+  UCX_TLS=sysv,self,rc          rc=137
+  UCX_TLS=rc,sm,self            rc=137
+  UCX_TLS=cma,self              rc=141
+  UCX_TLS=^ud                   rc=137
+  => Any configuration that includes the IB/RoCE transport (rc / ud / ib)
+     hangs; pure shared-memory (sysv or posix) always succeeds.
+
+Two nodes (job 2234089, rankfile 2 ranks/node inside 0-17,18-35):
+  default                       rc=0
+  UCX_TLS=rc,self               rc=0
+  UCX_TLS=rc,ud,self            rc=0
+  UCX_TLS=rc,self + NET_DEVICES=roceroh0:1  rc=0
+
+Two nodes, 16 ranks (job 2234227, no rankfile):
+  UCX_TLS=sysv,self              rc=0   <-- caveat: without a rankfile drun may
+                                            place all 16 ranks on one node, so
+                                            this is NOT proof of cross-node
+                                            shared-memory MPI
+  UCX_TLS=sysv,self,rc           rc=137
+  default                        rc=137
+  (jobs 2234172/2234211 with hand-written rankfiles were rejected by drun with
+   "required core list ... not totally contained in applied core list" because
+   the allocation granted only 36 (resp. 288) cores per node but the rankfile
+   asked for more; those two runs are configuration errors, not fabric data.)
+
+Conclusion: the 2026-11-23 outage is in the IB/RoCE transport path. PyQCU's
+MG/BiCGStab collectives all traverse it, so any rank count that forces a
+cross-NUMA or cross-node rendezvous through rc/ud hangs. 2-rank and
+shared-memory-only runs succeed, which is why the earlier "2 OK, >=4 hangs"
+looked like a rank cliff.
+
+Still open: whether a pinned "sysv,self,rc" works when the rank placement is
+provably cross-node. The two-node 16-rank test needs a rankfile that drun
+accepts (width <= granted cores/rank) AND UCX pinned, which has not yet been
+run successfully.
+
+21. CAUSAL RESULT: cross-NUMA rank placement is the trigger (job 2234428)
+
+Same node pair (cn12055, cn12071), 2 ranks/node, 4 ranks total, cpuset
+0-36,38-72, drun accepted both rankfiles:
+
+  A2  both ranks inside NUMA0 per node (slot 0-17 / 18-35), default  rc=0
+  B2  one rank in NUMA0, one in NUMA1 per node (0-17 / 38-55),
+      default                                                     rc=137
+  B2  same placement, UCX_TLS=sysv,self                            rc=137
+
+A2 and B2 differ ONLY in whether the second rank sits at 18-35 or 38-55.
+Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
+=> The trigger is CROSS-NUMA rank placement on one node, not the node count
+   and not the rank count per se.
+
+22. ob1 bypass attempt (job 2234444), same split-NUMA rankfile
+  OMPI_MCA_pml=ob1 OMPI_MCA_btl=self,vader,tcp   rc=137  (killed by signal 15)
+  OMPI_MCA_pml=ob1 OMPI_MCA_btl=self,vader       rc=141
+  UCX_TLS=ib,self / cma,self                     rc=2 (drun socket lost after
+                                                  the first two failures; not
+                                                  transport data)
+=> Even a complete UCX bypass (ob1/tcp) hangs on the same split-NUMA layout.
+   So this is not a UCX TLS selection problem; the shared-memory/interconnect
+   rendezvous itself fails between NUMA domains.
+
+23. Why yesterday's 16r/2n PASSed and today it cannot: both used ranks spread
+    across all 8-16 NUMA domains, so the same mechanism would have applied.
+    The difference is therefore time (site state), not configuration. A site
+    reboot/firmware/numa or shared-memory tuning change between 2026-11-19 and
+    2026-11-23 is the leading hypothesis and cannot be tested from a job.
+
+24. Status: 断崖 root cause narrowed to "cross-NUMA rendezvous fails", but NOT
+    fixed and NOT worked around. No solver PASS, no L64 matrix cell, no code
+    change. Recommended action: report to site operations with the exact A2/B2
+    control above; it reproduces in ~1 minute and needs no PyQCU.
+
+25. REPRODUCIBILITY CONFIRMED (job 2234648, nodes cn12052/cn12057,
+    cpuset 0-36,38-72, 4 ranks over 2 nodes, drun-accepted rankfiles)
+
+    Placement per node                        tries   result
+    A  0-17 + 18-35   (both in NUMA0)         3/3     rc=0
+    H  0-13 + 14-27   (both in NUMA0, w=14)   3/3     rc=0
+    B  0-17 + 38-55   (NUMA0 + NUMA1)         3/3     rc=137
+
+    9/9 deterministic. A and H share NUMA; B differs only by putting the second
+    rank in the next NUMA domain. Width (14 vs 18), rank count (4), node count
+    (2), and UCX transport (default / sysv,self / rc / ob1-tcp all tested) are
+    all held constant or shown irrelevant.
+
+26. ROOT CAUSE (established): on 2026-11-23 this site cannot complete an MPI
+    rendezvous between two ranks placed in DIFFERENT NUMA domains of the same
+    node. It is not a PyQCU defect, not a UCX TLS choice, and not the node
+    count.
+
+    Earlier apparent "2 ranks OK, >=4 hangs" was an artifact of drun's default
+    contiguous packing: 2 ranks x 18 cores lands in NUMA0 only, while >=3 ranks
+    cross into the next domain. The reserved-core-37 observation in entry 20 is
+    a real drun rule but was not the trigger.
+
+27. CONSEQUENCE for this task
+    - Usable cores per node today = one NUMA domain (36), so at 18 cores/rank
+      only 2 ranks/node => 4 ranks over 2 nodes. 16/32/64 rank runs all require
+      cross-NUMA placement and therefore cannot run.
+    - L48 MG2 32r/64r re-measurement, the MG_PROFILE cliff split, and the L64
+      matrix ({c64,c128} x {bistabcg,mg-2}) are all IMPOSSIBLE until the site
+      fixes cross-NUMA MPI. Status stays 0/4.
+    - No PyQCU code change can work around this: the failure is inside MPI's
+      own intra-node rendezvous, reproduced with a 20-line mpi4py script that
+      never imports pyqcu.
+
+28. Handover to site operations (minimal reproducer, ~1 minute, no PyQCU):
+    allocate 2 nodes x 2 ranks x 36 cores on q_hpcapp, write a rankfile
+      rank 0=<n1> slot=0-17
+      rank 1=<n1> slot=38-55
+      rank 2=<n2> slot=0-17
+      rank 3=<n2> slot=38-55
+    export CCS_DRUN_RANK_FILE=<that file>; drun -mpi pmix -nn 2 -rpn 2 \
+      -R core=36 -- python3 -c 'from mpi4py import MPI; MPI.COMM_WORLD.Barrier();
+      print(MPI.COMM_WORLD.Get_rank())'
+    Change slot 38-55 to 18-35 and it passes. That is the whole bug.
+
+29. Loop status: 5f548751 continues to re-check the 8-rank gate, but the gate
+    as written (drun default packing, cross-NUMA) cannot pass until the site is
+    fixed. No solver job, no L64 cell, no code change, nothing committed.
+
+30. FURTHER DEGRADATION (jobs 2234769, 2234805, 2234863; 20:46-20:53)
+
+    The symptom moved again. Current capability envelope, measured on
+    cn12048/cn12049 and cn12044/cn12048:
+
+      one rank, one node                     rc=0    (works)
+      two ranks, same node (0-17 + 18-35)    rc=0    (works)
+      two ranks, one per node (cross-node)   rc=137  (FAILS)
+      four ranks, 2/node same-NUMA           rc=137  (FAILS, 3/3 tries)
+      four ranks, 2/node cross-NUMA          rc=137  (FAILS)
+      16 ranks, 8/node default packing       rc=255  (FAILS)
+
+    So between 20:33 and 20:46 the site lost cross-NODE MPI as well. At 20:33
+    on cn12052/cn12057 the same-NUMA 4-rank test was 3/3 rc=0 and cross-NUMA
+    was 3/3 rc=137; at 20:48 the same-NUMA 4-rank test on cn12048/cn12049 is
+    3/3 rc=137.
+
+    Revised statement of the outage (supersedes entries 25-26):
+      - EARLIER (<= 20:33): cross-NUMA intra-node rendezvous fails.
+      - NOW (>= 20:46): cross-node rendezvous fails too; only single-node,
+        <= 2 ranks survives.
+    The one invariant across both phases is that MPI rendezvous between
+    distinct NUMA domains or distinct hosts is broken; the blast radius is
+    growing.
+
+31. CONSEQUENCE
+    The only configurations that run right now are 1 rank and 2 ranks on one
+    node. Every L48 MG2 measurement (16/32/64 ranks), every MG_PROFILE split,
+    and every L64 matrix cell needs cross-node MPI and therefore cannot run.
+    Task status unchanged: cliff not fixed, L64 0/4, no code change.
+
+32. Gate replaced
+    sh/l48_recovery_gate.sh now measures the three decisive cases in order:
+      G2 two ranks same node  (must stay rc=0; a control)
+      G1 two ranks cross node (the recovery signal)
+      G3 16 ranks default     (full capability)
+    G1 rc=0 is the condition to resume the L48/L64 chain. Until then the loop
+    only records the envelope and does not submit solver jobs.
+
+33. Recovery gate run 1, job 2235004 (cn12135 / cn19711, cpuset 0-36,38-72)
+      G2 same-NUMA 4 ranks (2/node)     rc=0    <- works again
+      G1 cross-NUMA 4 ranks (2/node)    rc=137
+      G3 16 ranks 8/node default        rc=255
+    Two-node placement is confirmed (cn12135 + cn19711, 2 ranks each), so G2
+    really is a cross-node, same-NUMA-offset case and it passed. G1 differs
+    only by the second rank's slot (38-55 vs 18-35) and it hangs.
+
+    Interpretation: the site partially recovered between 20:48 (same-NUMA 4
+    ranks failed 3/3) and 21:01 (same-NUMA 4 ranks pass). The cross-NUMA
+    rendezvous is still broken, so the >=8-rank capability and every L48/L64
+    production configuration remain unavailable.
+
+    Gate verdict: cross-node 2 ranks now WORK, cross-NUMA still fails.
+    Ladder is being extended to separate "2 ranks on one node" from "2 ranks
+    over two nodes" from "cross-NUMA", so the loop reports exactly which
+    capability came back.
+
+34. Capability ladder, job 2235035 (cn19639 / cn19653, cpuset 0-36,38-72)
+      L1  one node, 2 ranks same NUMA         rc=0
+      L2  two nodes, 1 rank each same NUMA    rc=0
+      L3  two nodes, 2 ranks, 2nd at 38-55    rc=137
+      L4  16 ranks, 8/node, default packing   rc=255
+
+    L3 is the only failing rung and it is the exact production requirement
+    (more than one rank per node, spread over NUMA domains). L2 passing means
+    cross-node MPI itself is healthy again; the residual defect is
+    intra-node cross-NUMA rendezvous.
+
+    Ladder is now the loop's instrument: L3 rc=0 is the single resume
+    condition, and L4 tells us whether full 8-ranks/node capability is back.
+
+35. Current honest status
+      - L48 MG2 16/32/64 ranks: cannot run (needs L3/L4)
+      - MG_PROFILE cliff split: cannot run
+      - L64 matrix {c64,c128} x {bistabcg,mg-2}: 0/4
+      - no solver PASS, no code change, nothing committed/pushed/released
+    Loop 5f548751 keeps running the ladder every 15 minutes.
+
+36. Ladder run 2, job 2235199 (cn12244 / cn12247)
+      L1 one node 2 ranks same NUMA     rc=0
+      L2 two nodes 1 rank each          rc=137   <- regressed again
+      L3 (measured 2 ranks, see below)  rc=137
+      L4 16 ranks                       rc=255
+
+    NOTE (my bug): the L3 helper `one 0-17 rf 38-55` writes only two rows, both
+    on N1, and the smoke printed placement={'cn12244': 2}. So L3 in this run
+    was a single-node 2-rank test with a cross-NUMA pair, not the intended
+    4-rank two-node layout. It is still a valid cross-NUMA datapoint (rc=137)
+    but it is not comparable with L1 the way the ladder claims. Fixed: L3 now
+    writes 4 rows (2 per node, 0-17 / 38-55).
+
+    L2 regressed from rc=0 (21:03) to rc=137 (21:16) on a different node pair.
+    Combined with 20:46 -> 21:01 -> 21:16 this is an intermittent site-wide
+    MPI failure, not a stable per-node property. Any single sample is weak
+    evidence; the ladder must be repeated to claim recovery.
+
+37. Loop policy adjustment
+    Because the site is intermittently failing rather than consistently down,
+    a single ladder sample cannot gate the chain. From now on a rung counts as
+    "recovered" only after 3 consecutive rc=0 samples in the same job, and the
+    L48/L64 chain resumes only on L3 (4-rank cross-NUMA) meeting that bar.
+    No solver job was submitted this round; L64 remains 0/4.
