@@ -861,3 +861,41 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
     size and sha256 of each, plus a note explaining the original mislabel and
     which pair to use for which case. The single case-level "dtype" key that
     said complex64 for a complex128 gauge is gone.
+
+62. Real scaling defect found while watching the L64 case phase
+    Each rank reads the WHOLE gauge file, not its slab:
+
+      pyqcu/test/native.py:1434
+        array = np.ascontiguousarray(io.load_gauge(path))
+        ...
+        full = _rank_block(global_full, geometry, compact=False, rank=rank)
+
+    `io.load_gauge` returns the complete global array (`pyqcu/test/io.py:935`),
+    and `_rank_block` slices the rank's block out of it afterwards. So an
+    N-rank run performs N x the file size of I/O and holds N x the file size
+    of RSS before the slice.
+
+    Observed on job 2236885 (L64x128 c64, 128 ranks, 16 nodes):
+      gauge file            9,663,682,560 B
+      RSS per node          76-78 GB  ->  ~9.5 GB per rank  (>= the file size)
+      redundant I/O         128 x 9.66 GB = 1.24 TB
+      case phase            > 900 s and still running, cpu ~745%, stime >> utime
+
+    The L48 numbers fit the same model: 3.06 GB gauge x 32 ranks = 98 GB,
+    case 377 s.
+
+    This is the same antipattern AGENTS.md already records for the QUDA
+    comparison benchmark, where `_load_h5_local_array` uses h5py mpio to read
+    only the rank slab. `pyqcu.test` never got that treatment.
+
+    Consequence for task 2: L64 works but wastes ~1.24 TB of reads and ~9.5 GB
+    RSS per rank; L128 would need ~4x that in both, which is why "L64-128 at
+    scale" is not practically solved even though the numerics are fine.
+
+    Fix (not applied yet, would change the shipped pyqcu.test path):
+      read the rank's hyperslab directly from the HDF5 file - the gauge layout
+      puts the four spatial axes last, so the slab is a simple 4-D selection -
+      and keep the full read only for the single-rank reference path. That
+      drops per-rank I/O to 75 MB and per-rank RSS to the slab size.
+    A correctness test must pin the slab read against the current
+    read-then-slice result bit-for-bit before the old path is removed.
