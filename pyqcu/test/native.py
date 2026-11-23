@@ -3161,6 +3161,10 @@ def _input_observations(gauge: Mapping[str, Any] | None,
             # ``bytes`` is the payload size; an HDF5 input also reports its
             # real ``st_size``, which is what a "file_bytes" key promises.
             f"{role}_file_bytes": built.get("file_bytes", built.get("bytes")),
+            # Which reader produced the block: "mpio", "slab" or "full".
+            # Without this a per-rank full read and a rank-slab read cannot be
+            # told apart in the ledger (2026-11-23, 1.24 TB vs 9.66 GB).
+            f"{role}_read_mode": built.get("read_mode"),
         })
     return observations
 

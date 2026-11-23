@@ -993,3 +993,40 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
     monitors: m6d1o47d (watching L64 job 2236885), running
     remote jobs: 2236885 RUNNING (39 min, still in the case phase)
     scheduled loop: 5f548751, every 15 min
+
+67. L64 full-read baseline stopped after 42 minutes of case phase
+    Job 2236885 at 00:30 (2509 s wall, still no row):
+      RSS 80-82 GB per node (~10 GB per rank), cpu ~780/800,
+      utime ~1050 s but stime ~19000 s -> it is I/O, not compute.
+    That is the per-rank full-gauge-read model exactly: 128 ranks x 9.66 GB
+    = 1.24 TB, plus the same again for the source.  The measurement needed
+    from it (RSS per rank, I/O-bound profile, no row after 42 min) is already
+    recorded in section 62, so the job was killed to free the 16 nodes and
+    re-run with the slab read instead of waiting hours for a number that the
+    fix is meant to make obsolete.
+
+68. FIRST REAL L64 RESULT, and the slab read is 10x on the case phase
+    Job 2237535, cell c64 (row f7d9806034eea091), 128 ranks, grid 2 2 2 16,
+    local 32x32x32x8, 36 threads/rank, NUMA-bound:
+      status              PASS
+      seconds (solve)     1.8795026591978967
+      case_seconds        247.10      (full-read run: >2500 s and unfinished)
+      iterations          18
+      relative_residual   7.427385990241716e-07
+      residual_verified   true
+      converged           true
+      binding_environment {KUPL_HUGEPAGE:1, KUPL_MEMORY_NODE:local+16,
+                           KUPL_NUMA_BIND:1}
+    RSS during the case phase: 4-12 GB per node, against 80-82 GB with the
+    per-rank full read.  The whole c64 cell finished in ~7 minutes.
+    That is the A-route fix working on the real file, not just on the fixture.
+
+69. read_mode now reaches the ledger
+    `_input_observations` only forwarded origin/path/sha256/layout/dtype/
+    file_bytes, so the new `read_mode` was dropped.  Added
+    `gauge_read_mode` / `source_read_mode`, matching the column names the
+    informal kunpeng driver already uses.
+
+70. c128 cell started at 00:36 in the same job
+    "64x64x64x128 c128 (ranks=128)" note is in the log; the row file above is
+    the c64 cell's.  A second row will appear when c128 finishes.
