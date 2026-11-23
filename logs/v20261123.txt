@@ -899,3 +899,51 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
       drops per-rank I/O to 75 MB and per-rank RSS to the slab size.
     A correctness test must pin the slab read against the current
     read-then-slice result bit-for-bit before the old path is removed.
+
+63. Correction to section 62: the library DOES have parallel-HDF5 slab reads
+    My sentence "pyqcu.test never got that treatment" was right only for the
+    shipped test module; I wrongly let it stand as a statement about the
+    project.  PyQCU already supports parallel HDF5 and per-rank slab reads:
+
+      pyqcu/tools/_define.py:99      probe_mpi_support(): h5py.get_config().mpi
+                                     with a live `driver='mpio'` fallback test
+      pyqcu/tools/_io.py:112-128     HAS_MPI_SUPPORT branch opens
+                                     h5py.File(..., driver='mpio', comm=comm)
+                                     and selects exactly the rank's 4-D block
+                                     from give_grid_index()*grid_lat_*
+      pyqcu/tools/_io.py:159         serial path is an explicit fallback
+      pyqcu/testing/simple/kupl_multigrid.py:95
+                                     _hdf5_mpio_read_enabled(comm): allgathers
+                                     the opt-in and refuses when any rank's
+                                     h5py lacks MPI
+      pyqcu/testing/kupl/test_kunpeng_all.py:1127
+                                     records gauge_read_mode / source_read_mode
+                                     / hdf5_mpio_read in the ledger, and emits
+                                     the exact note when mpio is unavailable
+
+    So the capability, the opt-in protocol and the reporting all exist.  The
+    gap is narrower than I wrote: `pyqcu/test/native.py` (the shipped tier-1
+    harness) calls `pyqcu.test.io.load_gauge` / `load_source`, a separate
+    serial reader with no slab selection, and that is the path every L64 cell
+    uses.
+
+    Site fact measured now, which is why the existing mpio path is not active
+    in these runs:
+      /work_ssd/.../anaconda3/2023.3/bin/python3
+        h5py 3.7.0, HDF5 1.10.6, h5py.get_config().mpi = False
+      /usr/bin/python3 -> no h5py
+    i.e. the only h5py on this account is built against serial HDF5.  That is
+    exactly the condition `_hdf5_mpio_read_enabled` is designed to detect and
+    fall back from.
+
+    Revised answer to "does a parallel h5py build fix L64-128 at scale":
+      - building it is necessary for the mpio path to be usable here;
+      - it is NOT sufficient on its own, because pyqcu.test does not call the
+        mpio reader at all;
+      - and a serial hyperslab read would already remove the 128x redundancy,
+        so the build should be paired with the wiring, not done instead of it.
+    Order: (1) build parallel h5py against the same HMPI drun uses and confirm
+    get_config().mpi, (2) route native.py's gauge/source reads through the
+    existing slab selection with the same opt-in + fallback contract,
+    (3) bitwise test serial-slab vs mpio-slab vs read-then-slice, (4) re-run
+    L64 and compare case time / RSS / gauge_read_mode.
