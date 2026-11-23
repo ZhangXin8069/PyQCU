@@ -1716,3 +1716,49 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
     region (it won at restart 10..50).  This is an honest negative result for
     the DEFAULT configuration, NOT a verdict on MG, because B2 means the
     restart/coarse_tol_factor knobs still do not reach the solver.
+
+100. bg-6 hit its turn limit; B1 landed, B2 finished by hand
+     bg-6-b1c0c430 reached 100 turns / 3199 s and stopped with "output may be
+     incomplete".  What it did land is real and correct: `_mpi_comm` now does
+     `from mpi4py import MPI` + `from pyqcu.tools import HAS_MPI_SUPPORT`,
+     catches only ImportError, and returns None for size <= 1.  Verified by
+     reading the file, not by the agent's claim.
+
+     B2 was untouched (`grep coarse_tol_factor pyqcu/test/common.py` -> empty),
+     so I finished it.  Root cause confirmed: `Options` is the contract for
+     runner kwargs and had no such field, so the Case attribute was discarded.
+
+     Changes (pyqcu/test/common.py):
+       CONFIG_FIELDS        + "coarse_tol_factor"
+       Options              + coarse_tol_factor: float | None = None
+       Options.as_kwargs    + "coarse_tol_factor": self.coarse_tol_factor
+       Test                 + coarse_tol_factor field, select() param and
+                              pass-through, and run() -> Options
+     (pyqcu/test/__main__.py)
+       _build_test replaces the Test with coarse_tol_factor when the CLI set it
+       (Options.as_kwargs drops None, so this is the only path that reaches a
+       runner).
+
+     Verified through the REAL dispatch, not a direct native call:
+       build_parser -> _resolve_config -> _build_test -> Options.as_kwargs
+       --coarse-tol-factor 100 --restart 1
+         config 100.0 / 1   kwargs {'coarse_tol_factor': 100.0, 'restart': 1}
+     A regression test now drives exactly that chain
+     (test_coarse_tol_factor_reaches_the_harness_options), so the previous
+     "test passes while the feature is broken" gap is closed.
+
+101. M1 fixed: --no-numa-bind now produces a usable unbound control
+     submit_pyqcu_test.sh emits `export PYQCU_ALLOW_UNBOUND_KUPL=1` in the
+     unbound branch.  Without it the job hit the hard refusal and produced an
+     ERROR instead of a measurement - the escape hatch was advertised but
+     unusable.  Dry-run confirms the export line is emitted.
+
+102. Validation after B1/B2/M1
+     pytest -k "pyqcu_test or slab or mg or cli": 259 passed
+     python -m pyqcu.test --quick: 19 cases, 19 pass, overall PASS
+
+     Still open from the audit: B3 (no --reference-budget flag, so the L64
+     16-rank single-node cell can only SKIP at 7.50 GiB/rank), M2 (docs/env.md
+     and kupl_kunpeng_guide.md still say KUPL_NUMA_BIND=0 is the safe default),
+     M3 (gauge_read_mode vocabulary), M4/M5 (the two weak tests - partially
+     addressed by the new real-path test).

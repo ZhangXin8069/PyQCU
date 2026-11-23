@@ -212,8 +212,13 @@ JOB="$OUTDIR/jobs/$TAG.sh"
   echo "export OMP_NUM_THREADS=$THREADS KUPL_OMP_THREADS=$THREADS"
   echo 'export KUPL_SHM_HALO=0 OMPI_MCA_rmaps_base_oversubscribe=1'
   if [ "$NUMA_BIND" = "1" ]; then
-    echo '# Measured configuration: without these three the same run is 90x slower.'
+    echo '# Measured configuration: without these three the same run is 90-95x'
+    echo '# slower (two unbound controls: 186.08 s and 196.00 s vs 2.06 s).'
     echo 'export KUPL_NUMA_BIND=1 KUPL_MEMORY_NODE=local+16 KUPL_HUGEPAGE=1'
+  else
+    echo '# Unbound control: pyqcu.test refuses a multi-rank KUPL run without'
+    echo '# KUPL_NUMA_BIND, so the explicit opt-in must accompany --no-numa-bind.'
+    echo 'export PYQCU_ALLOW_UNBOUND_KUPL=1'
   fi
   echo "cd $REPO"
   echo ''

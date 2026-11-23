@@ -47,20 +47,85 @@ def test_mg_grid_and_levels_reach_the_option():
     assert resolved.mg_levels == 2
 
 
-def test_the_port_refuses_more_levels_than_it_can_wire():
-    """mg-3 is a PORT gap, not a solver limit - and it must not be silent.
+def test_mg_3_is_wired_when_the_lattice_holds_the_hierarchy():
+    """mg-3 is a real hierarchy now, not a refusal.
 
     The KUPL Legacy-MG accepts 1..5 levels and builds the hierarchy in a loop
     (``num_levels_ < 1 || num_levels_ > 5`` in lattice_clover_multigrid.cpp),
-    so higher levels are the normal case for large lattices, not an exotic
-    request.  This port only wires one coarse transition (one asset set), so it
-    refuses mg-3 instead of feeding the solver repeated copies of the same
-    block shape.  Pinning the refusal keeps a sweep from "measuring" a level
-    count the port never used, and the assertion text records where the real
-    capability lives.
+    and this port wires one asset set per transition
+    (``native._configure_legacy_mg``: params block ``19 + 8*(level-1)``,
+    ``set_ptrs`` quartet ``30 + 4*(level-1)``, ``argv`` tolerance
+    ``3 + (level-1)``).  ``8x8x8x16`` has room for two levels only - the level-1
+    coarse box is 4^4 and halves to 2^4 - so the depth that must be accepted is
+    a lattice that fits three.
     """
-    with pytest.raises(ValueError, match="supports up to 5"):
-        native.case("mg", backend="kupl", lattice=LATTICE, mg_levels=3)
+    deep = (16, 16, 16, 32)
+    built = native.case("mg", backend="kupl", lattice=deep, mg_levels=3,
+                        dof=(12, 12, 12))
+    assert getattr(built, "mg_levels", None) == 3
+    resolved = native._options(built, kind="mg", backend="kupl")
+    assert resolved.mg_levels == 3
+    chain = native._mg_level_chain(deep, resolved.mg_grid, 3, resolved.dof)
+    assert [tuple(level["dims"]) for level in chain] == [
+        (16, 16, 16, 16), (8, 8, 8, 8), (4, 4, 4, 4)]
+    assert [level["E"] for level in chain] == [12, 12, 12]
+
+
+def test_the_port_rejects_a_depth_the_lattice_cannot_hold():
+    """An unrepresentable depth must name the level and the extent.
+
+    The C++ builds every level in one constructor and validates that each coarse
+    extent divides its parent (lattice_clover_multigrid.cpp:238-244), so a
+    truncated hierarchy would leave the solver reading default ``params`` blocks
+    for levels that were never wired.
+    """
+    with pytest.raises(
+            ValueError,
+            match=r"level 2 \(axis 0\) would have extent 2, below the "
+                  r"coarsest extent 4"):
+        native.case("mg", backend="kupl", lattice=LATTICE, mg_levels=3,
+                    dof=(12, 12, 12))
+
+
+def test_mg_3_needs_one_component_count_per_level():
+    """``dof`` is per level; a shorter tuple cannot describe level 2."""
+    with pytest.raises(ValueError, match="one dof component count per level"):
+        native.case("mg", backend="kupl", lattice=(16, 16, 16, 32),
+                    mg_levels=3)
+
+
+def test_the_port_keeps_the_solver_level_limit():
+    """1..5 is the solver's own limit - it must stay a usage error above it."""
+    with pytest.raises(ValueError, match="accepts 1..5 levels"):
+        native.case("mg", backend="kupl", lattice=(16, 16, 16, 32),
+                    mg_levels=6, dof=(12, 12, 12, 12, 12, 12))
+
+
+def test_coarse_tol_factor_reaches_the_harness_options():
+    """The boundary that actually broke: Test -> Options -> runner kwargs.
+
+    ``native.case`` carrying the attribute is not enough - the harness builds
+    runner kwargs from ``Options``, so a value that stops at the Case is
+    silently replaced by the runner default.  Six sweep points recorded 1e4
+    while the CLI asked for 1e2 and 1e1 because of exactly this.
+    """
+    from pyqcu.test import common
+    from pyqcu.test.__main__ import _build_test, _resolve_config, build_parser
+
+    argv = ["--mode", "solve", "--native", "mg", "--dtype", "c64",
+            "--lattice-size", "8", "8", "8", "16",
+            "--lattice-grid", "2", "2", "2", "2", "--ranks", "8",
+            "--coarse-tol-factor", "100", "--restart", "1"]
+    config = _resolve_config(build_parser().parse_args(argv))
+    test = _build_test(config)
+    assert test.coarse_tol_factor == pytest.approx(100.0)
+    options = common.Options(lattice=(8, 8, 8, 16),
+                            lattice_grid=(2, 2, 2, 2),
+                            coarse_tol_factor=test.coarse_tol_factor,
+                            restart=test.restart)
+    kwargs = options.as_kwargs()
+    assert kwargs.get("coarse_tol_factor") == pytest.approx(100.0)
+    assert kwargs.get("restart") == 1
 
 
 def test_unset_knobs_keep_the_runner_default():

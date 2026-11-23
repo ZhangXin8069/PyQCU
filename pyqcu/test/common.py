@@ -1117,7 +1117,7 @@ CONFIG_FIELDS: tuple[str, ...] = (
     "lattice", "lattice_grid", "mg_grid", "dtype", "seed", "source", "gauge",
     "gauge_sigma", "mass", "kappa", "csw", "solver", "dslash", "device",
     "max_iter", "restart", "mg_levels", "mg_nu_pre", "mg_nu_post", "threads",
-    "device_id", "atol",
+    "device_id", "atol", "coarse_tol_factor",
 )
 
 
@@ -1283,6 +1283,11 @@ class Options:
     mg_nu_post: int | None = None
     threads: int | None = None
     device_id: int | None = None
+    # Legacy-MG coarse-level tolerance multiplier.  A runner option, not a
+    # cross-runner field: without this the value only lived on the Case and
+    # the harness silently ran the default (2026-11-24, six sweep points
+    # all recorded 1e4 while the CLI asked for 1e2 and 1e1).
+    coarse_tol_factor: float | None = None
 
     def __post_init__(self) -> None:
         _normalize_run_fields(self)
@@ -1333,6 +1338,7 @@ class Options:
             "mg_nu_post": self.mg_nu_post,
             "threads": self.threads,
             "device_id": self.device_id,
+            "coarse_tol_factor": self.coarse_tol_factor,
         }
         for key, value in optional.items():
             if value is not None:
@@ -1635,6 +1641,7 @@ class Test:
     mg_nu_post: int | None = None
     threads: int | None = None
     device_id: int | None = None
+    coarse_tol_factor: float | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "cases", tuple(self.cases))
@@ -1685,7 +1692,8 @@ class Test:
                restart: int | None = None, mg_levels: int | None = None,
                mg_nu_pre: int | None = None, mg_nu_post: int | None = None,
                threads: int | None = None,
-               device_id: int | None = None) -> "Test":
+               device_id: int | None = None,
+               coarse_tol_factor: float | None = None) -> "Test":
         """Return a filtered, re-configured ``Test`` (never mutates ``self``).
 
         ``backends`` accepts a name or a sequence (``"all"`` clears the
@@ -1801,6 +1809,9 @@ class Test:
             mg_nu_post=self.mg_nu_post if mg_nu_post is None else mg_nu_post,
             threads=self.threads if threads is None else threads,
             device_id=self.device_id if device_id is None else device_id,
+            coarse_tol_factor=(self.coarse_tol_factor
+                               if coarse_tol_factor is None
+                               else coarse_tol_factor),
         )
 
     @staticmethod
@@ -1889,6 +1900,7 @@ class Test:
                 mg_nu_post=self.mg_nu_post,
                 threads=self.threads,
                 device_id=self.device_id,
+                coarse_tol_factor=self.coarse_tol_factor,
             )
             result = run_case(case, options, mpi_size=mpi_size)
             results.append(result)

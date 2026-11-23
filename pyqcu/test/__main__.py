@@ -987,6 +987,8 @@ def _resolve_config(args: argparse.Namespace) -> _Config:
         coarse_tol_factor=_float_flag(args.coarse_tol_factor,
                                      "--coarse-tol-factor",
                                      exclusive=True),
+        # Also hand it to the Test so Options carries it into the runner;
+        # _native_mg_overrides alone only reached the Case and was dropped.
         mg_nu_pre=_int_flag(args.mg_nu_pre, "--mg-nu-pre"),
         mg_nu_post=_int_flag(args.mg_nu_post, "--mg-nu-post"),
         threads=threads,
@@ -1095,6 +1097,11 @@ def _build_test(config: _Config) -> Test:
     )
     if config.atol is not None:
         test = replace(test, atol=config.atol)
+    if config.coarse_tol_factor is not None:
+        # Options.as_kwargs only forwards non-None values, so this is the
+        # only way the Legacy-MG coarse tolerance reaches a runner.  The
+        # Case attribute alone was dropped by the harness.
+        test = replace(test, coarse_tol_factor=config.coarse_tol_factor)
     return test
 
 
