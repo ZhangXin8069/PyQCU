@@ -220,6 +220,10 @@ PLACEMENT_VARIABLES: tuple[str, ...] = (
 #: them cannot be compared with one that has them.
 BINDING_VARIABLES: tuple[str, ...] = (
     "KUPL_NUMA_BIND", "KUPL_MEMORY_NODE", "KUPL_HUGEPAGE")
+#: Escape hatch for a deliberate bound-vs-unbound A/B.  A real Kunpeng
+#: multi-rank run must never take it by accident: an unbound run is ~95x slower
+#: and its numbers are not comparable with anything else.
+ALLOW_UNBOUND_VARIABLE = "PYQCU_ALLOW_UNBOUND_KUPL"
 #: ``PYQCU_*`` variables the runners read (and, for the process grid, neutralise).
 PYQCU_VARIABLES: tuple[str, ...] = (
     "PYQCU_KUPL_LIB", "PYQCU_KUPL_PROFILE", "PYQCU_PROCESS_GRID",
@@ -677,7 +681,14 @@ def apply_environment(*, threads: Any = None, shm: Any = None,
     world = mpi_size() if size is None else int(size)
     thread_count = resolve_threads(threads)
     shared = resolve_shm(shm, size=world, backend=backend)
+    _require_kunpeng_binding(backend, world)
     notes: list[str] = []
+    if (str(backend) == "kupl" and world > 1
+            and not _environment_enabled("KUPL_NUMA_BIND")):
+        notes.append(
+            f"running unbound because {ALLOW_UNBOUND_VARIABLE} is set: these "
+            "timings are ~95x slower than a NUMA-bound run and are not "
+            "comparable with one")
     values: dict[str, str] = {
         "OMP_NUM_THREADS": str(thread_count),
         "KUPL_OMP_THREADS": str(thread_count),
@@ -728,6 +739,34 @@ def _environment_enabled(name: str) -> bool:
     """True when ``name`` is set to a truthy non-empty spelling."""
     raw = os.environ.get(name)
     return raw is not None and raw.strip().lower() in _SHM_TRUE
+
+
+def _require_kunpeng_binding(backend: str, world: int) -> None:
+    """Refuse a multi-rank KUPL run that is not NUMA-bound on Kunpeng.
+
+    NUMA binding plus hugepages is not an optimisation on the Kunpeng nodes, it
+    is part of the measured configuration: the identical L48 c64 16-rank solve
+    took 196.00 s unbound and 2.06 s bound (2026-11-23, jobs 2236451 vs
+    2236485), i.e. 95x.  A run that silently loses the binding produces a
+    number that cannot be compared with any correctly configured result, so it
+    is refused instead of being recorded.
+
+    Single-rank runs and non-KUPL backends are untouched: the tier-0 gate runs
+    one rank on ordinary hardware.  ``PYQCU_ALLOW_UNBOUND_KUPL=1`` exists only
+    for a deliberate bound-vs-unbound A/B and is reported in the row notes.
+    """
+    if str(backend) != "kupl" or int(world) <= 1:
+        return
+    if _environment_enabled("KUPL_NUMA_BIND"):
+        return
+    if _environment_enabled(ALLOW_UNBOUND_VARIABLE):
+        return
+    raise RuntimeError(
+        "a multi-rank KUPL run must set KUPL_NUMA_BIND=1 with "
+        "KUPL_MEMORY_NODE=local+16 and KUPL_HUGEPAGE=1 on the Kunpeng nodes: "
+        "the same configuration measured 196.00 s without the binding and "
+        "2.06 s with it (95x, 2026-11-23). Set "
+        f"{ALLOW_UNBOUND_VARIABLE}=1 only for a deliberate unbound control.")
 
 
 # ---------------------------------------------------------------------------

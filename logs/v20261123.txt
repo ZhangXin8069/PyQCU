@@ -761,3 +761,36 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
       and manifest, and the source is complex64. No L64 solve was submitted.
     - Task 3 (pyqcu.test): the quick gate passes 19/19 after the change; the
       L64 matrix is not yet runnable.
+
+53. Hard requirement recorded: the real Kunpeng environment must NUMA-bind
+    User ruling: 真实的鲲鹏计算环境下必须进行 NUMA 绑定. Treated as a hard
+    configuration requirement, not an optimisation, and enforced in code:
+      - pyqcu/test/native.py refuses any KUPL run with mpi_size > 1 that does
+        not have KUPL_NUMA_BIND set (error text cites the 196.00 vs 2.06 s
+        measurement). Single rank and other backends are untouched so the
+        tier-0 gate still runs on ordinary hardware.
+      - PYQCU_ALLOW_UNBOUND_KUPL=1 is the only escape hatch, and taking it
+        writes a note into the row saying the timings are ~95x slower and not
+        comparable.
+      - submit_pyqcu_test.sh already exports the three variables by default.
+    Validation: focused pytest 98 passed; python -m pyqcu.test --quick 19/19
+    PASS with the refusal in place.
+
+54. 32r re-measured with the fixed launcher: the cliff is gone there too
+    Job 2236599, data/l48_prof32_bound, 32 ranks, grid 2 2 2 4,
+    16 ranks/node x 18 threads, same 16r cache, binding env recorded in the
+    report as binding_environment={KUPL_HUGEPAGE:1, KUPL_MEMORY_NODE:local+16,
+    KUPL_NUMA_BIND:1}:
+      row.seconds = 3.04056982207112   (was 102.4651 unbound)
+      residual_verified = true, relative_residual = 7.942248513387823e-06
+      cache_reused = true
+    So the corrected two-point comparison is 16r 2.06 s / 32r 3.04 s: the
+    32-rank configuration is 1.5x slower, which is the expected cost of
+    halving the local volume while doubling the ranks, not a cliff.
+    The 34x drop (102.47 -> 3.04) is the launcher fix alone.
+
+55. L64 dtype conversion running
+    Job 2236595 (cn12068) is casting gauge complex128 -> complex64 and source
+    complex64 -> complex128 via sh/l64_convert_dtype.py, with a per-file
+    dtype/shape verification and sha256 in the log. Gauge cast was ~4.8 GB of
+    9.66 GB at 23:27. No L64 solve has been submitted yet.
