@@ -467,3 +467,22 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
     "recovered" only after 3 consecutive rc=0 samples in the same job, and the
     L48/L64 chain resumes only on L3 (4-rank cross-NUMA) meeting that bar.
     No solver job was submitted this round; L64 remains 0/4.
+
+38. Ladder run 3, job 2235459 (cn12127 / cn12132), L3 now a true 4-rank test
+      L1  one node 2 ranks same NUMA        rc=0
+      L2  two nodes, 1 rank each            rc=137
+      L3  two nodes, 2 ranks 0-17/38-55     rc=137
+      L4  16 ranks 8/node                   rc=255
+
+    L2 has now failed in runs 2 and 3 (21:16, 21:36) after passing in run 1
+    (21:03), on three different node pairs. Cross-node MPI is intermittent at
+    best; single-node 2 ranks is the only reliable configuration.
+
+    Capability envelope as of 21:37:
+      single node, <=2 ranks, one NUMA domain   reliable
+      cross-node 1 rank each                    intermittent (1 of 3)
+      any cross-NUMA placement                  consistently fails
+      >=8 ranks/node                            consistently fails
+
+    Consequence unchanged: L48 MG2 16/32/64, the MG_PROFILE cliff split and the
+    L64 matrix all need the failing rungs. No solver job submitted; L64 0/4.
