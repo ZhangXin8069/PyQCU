@@ -486,3 +486,35 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
 
     Consequence unchanged: L48 MG2 16/32/64, the MG_PROFILE cliff split and the
     L64 matrix all need the failing rungs. No solver job submitted; L64 0/4.
+
+39. Ladder run 4, job 2235571 (cn12135 / cn12188)
+      L1 rc=0   L2 rc=137   L3 rc=137   L4 rc=255
+
+    L2 sequence across runs: 21:03 rc=0, 21:16 rc=137, 21:36 rc=137,
+    21:47 rc=137. Cross-node MPI has now failed 3 consecutive rounds on 3
+    different node pairs. Working configuration remains single node, <=2 ranks,
+    one NUMA domain.
+
+    Counting the whole session, no configuration above L1 has produced two
+    consecutive successes. Task status unchanged: cliff not fixed, L64 0/4,
+    no code change, working tree carries only this log.
+
+40. Ladder run 5, job 2235763 (cn12127 / cn12132)
+      L1 rc=255   L2 rc=137   L3 rc=137   L4 rc=255
+
+    L1 (single node, 2 ranks, 36 cores/rank, no rankfile) failed for the first
+    time this session, with rc=255 and no drun error line in the log. Two
+    readings are possible and the log cannot distinguish them:
+      (a) the site degraded further, so even 2 ranks on one node is unstable;
+      (b) a transient drun/PMIx setup failure on this particular job.
+    Because rc=255 is the drun "failed to handle status msg" class rather than a
+    timeout, and because every timeout rung (L2/L3 rc=137) still behaves the
+    same as the previous three rounds, (b) is the more likely explanation, but
+    I record it as unresolved rather than dismissing it.
+
+    Next round will repeat L1 three times inside a single job so a transient
+    setup failure is distinguishable from a real loss of the floor.
+
+41. Status unchanged: no configuration above L1 has succeeded twice in a row;
+    L48 MG2 16/32/64, MG_PROFILE split and L64 0/4 all remain blocked; no code
+    change, nothing committed this round.
