@@ -1220,3 +1220,44 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
     (2237727) because it needs only one node.  Watch it for a possible
     SKIP(reference_workspace): at 16 ranks the local Clover term is ~9.7 GB
     against the 4 GiB per-rank reference budget.
+
+80. MG defect CONFIRMED by measurement: no iteration reduction at all
+    Job 2237987 (plain Clover BiCGStab, L48 c64, 32 ranks, grid 2 2 2 4,
+    18 threads, NUMA-bound, repeat 3):
+      iterations 18, samples [2.3500, 2.3454, 2.3685] s, median 2.3500 s,
+      relative_residual 6.554e-07, residual_verified true, atol 1e-6
+    Job 2236599 (mg-2, identical shape, same cache):
+      level0=18 fine iterations + 4 accepted coarse corrections,
+      solve 3.0406 s, relative_residual 7.942e-06
+
+    Same fine iteration count (18), 29% more wall time:
+      2.3500 s BiCGStab  vs  3.0406 s mg-2   ->  mg-2 is 1.29x SLOWER
+    The coarse correction reduces the fine iteration count by ZERO.  That is
+    the defect the user suspected, now quantified rather than argued.
+
+    Note the tolerance caveat: the BiCGStab row reports atol 1e-6 while the
+    mg row used 1e-5, so BiCGStab was solving a TIGHTER problem and still
+    needed the same 18 iterations.  The comparison therefore understates the
+    problem: under identical tolerance mg-2 has strictly less room to win.
+
+    Candidate tunables (all already reachable from the CLI except where noted):
+      --restart N            coarse-correction interval (currently 5)
+      coarse_tol_factor      case option, default 1.0e4 -> level-1 atol
+                             = atol * 1e4 * 3^0 = 1e-1, i.e. a very loose
+                             coarse solve; NOT exposed as a CLI flag today
+      --mg-levels N          deeper hierarchy, needs a deeper cache
+      --mg-grid X Y Z T      coarser grid per level
+      deflate                _MG_USE_DEFLATE_, on by default
+    Most likely culprits, in order:
+      1. coarse_tol_factor 1e4 makes each correction carry a ~10% error, so a
+         single coarse iteration cannot move the fine residual;
+      2. correction every 5 iterations with only 4 corrections over 18
+         iterations - too sparse to change the convergence rate;
+      3. the correction is additive rather than inside the BiCGStab
+         preconditioner, so the fine recurrence can re-introduce what the
+         coarse step removed.
+    Next step is a parameter sweep on the SAME L48 32r shape (cheap, ~3 min per
+    run) varying restart, coarse_tol_factor and mg_grid, and requiring the fine
+    iteration count to drop below 18 for a configuration to count as working.
+    No solver kernel change will be made before that sweep shows which knob
+    actually moves the iteration count.
