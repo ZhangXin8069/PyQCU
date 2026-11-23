@@ -1652,3 +1652,26 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
              This is the first non-128-rank cell of the expanded matrix.
     Both run concurrently (16 + 4 nodes).  Nothing is claimed about either
     until a row exists with residual_verified=true.
+
+98. c128 coarse cache built; 64-rank bistabcg PASS; two more cells submitted
+    2239296 c128 cache: SUCCEEDED.  Manifest status PASS, rank_count 128,
+      identity dtype complex128, 128 rank files of 67,647,488 B each
+      (exactly double the c64 cache's 33,830,912 B, as complex128 should be).
+      The fence-timeout failure mode of the c64 build did not recur here.
+    2239297 L64 c64 bistabcg @ 64 ranks: PASS
+      row 1458c69e7bc46f95, 4 nodes, grid 2 2 2 8, local 32x32x32x16,
+      16 ranks/node x 18 threads, NUMA-bound
+      seconds 6.3425, iterations 18, relative_residual 7.429148271200836e-07,
+      residual_verified true, case_seconds 360.84
+
+    Scale picture for L64x128 c64 bistabcg, all verified, all NUMA-bound:
+      128 ranks  1.8795 s   (row f7d9806034ee, 16 nodes, local 32x32x32x8)
+       64 ranks  6.3425 s   (row 1458c69e7bc46f95, 4 nodes, local 32x32x32x16)
+    Halving the rank count here means 2x the local volume AND 4x fewer nodes,
+    so 3.4x slower is the expected direction; it is not evidence of a cliff,
+    and the two are not a thread-scaling series (16 vs 8 ranks/node).
+
+    2239489 c128 mg-2 @128 ranks submitted (c128 cache, original complex128
+            gauge, cast c128 source; same 16-node shape as the c64 cell).
+    2239491 c64 bistabcg @32 ranks submitted (2 nodes, grid 2 2 2 4).
+    Nothing claimed for either until a row with residual_verified=true exists.
