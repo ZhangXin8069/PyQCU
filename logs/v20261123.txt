@@ -842,3 +842,22 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
     + cast source.  No result yet at the time of this entry; the row file
     present in rows/ is the failed 2236871 attempt and must not be read as a
     result.
+
+60. L64 c64 cell still in the case phase at 23:56 (job 2236885)
+    All 128 ranks started at 23:48. Resource counters at 23:56:
+      wallclock 469 s, cpu util ~712% of 288 threads, RSS 76-78 GB per node.
+    The log has produced no line since 23:48 because the case phase (read the
+    9.66 GB gauge slab, build the four Clover parity-Schur terms, read the
+    source) writes nothing until it finishes. RSS growth from 53 GB to 78 GB
+    per node confirms it is building the Clover terms rather than stalled on
+    I/O. No row, no error, no OOM.
+    The previous L48 32r case took 377 s for a 3 GB gauge; this gauge is 3.2x
+    larger with 4x the ranks, so several hundred more seconds are expected.
+    Recorded so the next round does not mistake "no output" for a hang.
+
+61. L64 manifest dtype corrected
+    data/l64_canonical_20261123/case_manifest.json now carries per-file fields
+    (gauge_c64, gauge_c128, source_c64, source_c128) with the actual dtype,
+    size and sha256 of each, plus a note explaining the original mislabel and
+    which pair to use for which case. The single case-level "dtype" key that
+    said complex64 for a complex128 gauge is gone.
