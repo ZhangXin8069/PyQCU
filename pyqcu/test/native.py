@@ -1366,30 +1366,83 @@ def _hdf5_identity(role: str, path: Path, lattice: Sequence[int],
     }
 
 
-def _rank_block(value: Any, geometry: LocalGeometry, *, compact: bool,
-                rank: int) -> Any:
-    """Slice the rank-local block out of a *global* field.
+def _mpi_comm() -> Any:
+    """The MPI communicator for a collective HDF5 read, or ``None``.
 
-    ``value`` is a full ``[..., X, Y, Z, T]`` field or, with ``compact=True``,
-    the parity-compact ``[2, ..., X, Y, Z, T/2]`` one; the last four axes are
-    the lattice.  Every local extent is even (``LocalGeometry`` guarantees it),
-    so every rank origin is even, the local checkerboard parity equals the
-    global one and a compact ``t`` range maps to the contiguous compact indices
-    ``[coord_t * Lt/2, (coord_t+1) * Lt/2)``.  A single-rank geometry returns
-    ``value`` untouched.
+    ``pyqcu.tools`` already owns the capability probe (``h5py.get_config().mpi``
+    plus a live ``driver='mpio'`` open), so this only reuses it.  The decision is
+    allgathered: one rank entering a collective open while another reads
+    independently would hang, so every rank must agree before any of them opens
+    the file.  ``None`` means "read independently", never "skip the read".
     """
-    if not geometry.partitioned:
-        return value
+    try:
+        from pyqcu.tools import HAS_MPI_SUPPORT, MPI
+    except Exception:  # noqa: BLE001 - no mpi4py is a normal single-node case
+        return None
+    try:
+        comm = MPI.COMM_WORLD
+        size = int(comm.Get_size())
+    except Exception:  # noqa: BLE001 - MPI present but unusable in this process
+        return None
+    if size <= 1:
+        # Nothing to coordinate; a one-rank case may still use the mpio driver
+        # when the build supports it, and the recorded mode stays truthful.
+        return comm if HAS_MPI_SUPPORT else None
+    votes = comm.allgather(1 if HAS_MPI_SUPPORT else 0)
+    if len(set(votes)) != 1:
+        raise RuntimeError(
+            "h5py MPI support differs between ranks; a collective HDF5 read "
+            "must be uniform, so refusing instead of risking a hang")
+    return comm if votes[0] else None
+
+
+def _read_block(path: Path, *, geometry: LocalGeometry, rank: int,
+                compact: bool, dtype: str) -> tuple[Any, str]:
+    """Read **only this rank's lattice block** from a field artifact.
+
+    ``io.load_gauge``/``io.load_source`` return the whole global field, and the
+    caller then slices the rank's block out of it.  On N ranks that reads N
+    times the file: the L64x128 c64 gauge is 9.66 GB, so 128 ranks moved 1.24 TB
+    and held ~9.5 GB RSS each (job 2236885, 2026-11-23).
+
+    This reads the block directly as an HDF5 hyperslab.  The lattice axes are
+    the last four in both layouts - ``[3,3,4,X,Y,Z,T]`` / ``[4,3,X,Y,Z,T]`` and
+    the parity-compact ``[2,3,3,4,X,Y,Z,T/2]`` / ``[2,4,3,X,Y,Z,T/2]`` - so the
+    selection is one slice per axis and the byte count becomes the block size
+    (75 MB for the case above) instead of the file size.
+
+    With a parallel HDF5 the open is collective (``driver='mpio'``, world
+    communicator): the ranks' slabs tile the file exactly once, which lets
+    MPI-IO coalesce 128 interleaved regular selections into large sequential
+    reads.  That matters here because the artifacts are stored **contiguously**
+    (``chunks=None``), so one rank's slab is ~1.18e6 short runs along ``t`` and
+    an independent serial read of it is far worse than a collective one.
+
+    Returns ``(array, mode)`` with ``mode`` one of ``"mpio"``, ``"slab"`` or
+    ``"full"`` so the report records which path produced the numbers.
+    """
+    import h5py
+    import numpy as np
+
     coordinate = rank_coordinate(rank, geometry.grid)
-    selection: list[Any] = [slice(None)] * (value.ndim - _SPACE)
-    for axis in range(_SPACE):
-        # The parity-compact field halves the *last* (t) axis only.
-        extent = geometry.local[axis]
-        if compact and axis == _SPACE - 1:
-            extent //= 2
-        start = coordinate[axis] * extent
-        selection.append(slice(start, start + extent))
-    return value[tuple(selection)]
+    comm = _mpi_comm()
+    mode = "mpio" if comm is not None else "slab"
+    with (h5py.File(path, "r", driver="mpio", comm=comm)
+          if comm is not None else h5py.File(path, "r")) as h:
+        dataset = h["data"]
+        selection = [slice(None)] * (dataset.ndim - _SPACE)
+        for axis in range(_SPACE):
+            extent = geometry.local[axis]
+            if compact and axis == _SPACE - 1:
+                extent //= 2
+            start = coordinate[axis] * extent
+            selection.append(slice(start, start + extent))
+        block = dataset[tuple(selection)]
+    array = np.ascontiguousarray(block)
+    wanted = np.complex128 if str(dtype) == "c128" else np.complex64
+    if array.dtype != wanted:
+        array = array.astype(wanted)
+    return array, mode
 
 
 def _build_gauge(case: "NativeCase", torch: Any, dtype: Any,
@@ -1425,29 +1478,22 @@ def _build_gauge(case: "NativeCase", torch: Any, dtype: Any,
                          else list(local)),
     }
     if case.gauge_file is not None:
-        import numpy as np
-
         path = Path(case.gauge_file).expanduser()
         identity = _hdf5_identity("gauge", path, geometry.lattice, case.dtype)
         from . import io
 
-        array = np.ascontiguousarray(io.load_gauge(path))
+        array, read_mode = _read_block(
+            path, geometry=geometry, rank=rank,
+            compact=bool(identity["file_compact"]), dtype=str(case.dtype))
         if identity["file_compact"]:
             # ``[2, 3, 3, 4, X, Y, Z, T/2]`` is the ABI layout already; the
-            # full field is only needed by the MG cache identity and the
-            # residual reference, which slice the same block.
-            global_compact = torch.from_numpy(array).to(dtype).contiguous()
+            # block read above is exactly this rank's slice of it.
+            compact_gauge = torch.from_numpy(array).to(dtype).contiguous()
             array = None
-            compact_gauge = _rank_block(
-                global_compact, geometry, compact=True, rank=rank).contiguous()
-            global_compact = None
             full = tools.poooxyzt2oooxyzt(compact_gauge).contiguous()
         else:
-            global_full = torch.from_numpy(array).to(dtype).contiguous()
+            full = torch.from_numpy(array).to(dtype).contiguous()
             array = None
-            full = _rank_block(global_full, geometry, compact=False,
-                               rank=rank).contiguous()
-            global_full = None
             compact_gauge = tools.oooxyzt2poooxyzt(full).contiguous()
         expected = _gauge_shape(local)
         if tuple(compact_gauge.shape) != expected:
@@ -1461,6 +1507,7 @@ def _build_gauge(case: "NativeCase", torch: Any, dtype: Any,
             "su3": _su3_flag(full),
             "sigma": None,
             "seed": None,
+            "read_mode": read_mode,
             **identity,
             **cut,
         }
@@ -1540,25 +1587,19 @@ def _build_source(case: "NativeCase", torch: Any, dtype: Any,
     site = [int(value) for value in case.source_site]
     parity = sum(site) % 2
     if case.source_file is not None:
-        import numpy as np
-
         path = Path(case.source_file).expanduser()
         identity = _hdf5_identity("source", path, geometry.lattice, case.dtype)
         from . import io
 
-        array = np.ascontiguousarray(io.load_source(path))
+        array, read_mode = _read_block(
+            path, geometry=geometry, rank=rank,
+            compact=bool(identity["file_compact"]), dtype=str(case.dtype))
         if identity["file_compact"]:
-            global_compact = torch.from_numpy(array).to(dtype).contiguous()
+            source = torch.from_numpy(array).to(dtype).contiguous()
             array = None
-            source = _rank_block(global_compact, geometry, compact=True,
-                                 rank=rank).contiguous()
-            global_compact = None
         else:
-            global_full = torch.from_numpy(array).to(dtype).contiguous()
+            full = torch.from_numpy(array).to(dtype).contiguous()
             array = None
-            full = _rank_block(global_full, geometry, compact=False,
-                               rank=rank).contiguous()
-            global_full = None
             source = tools.oooxyzt2poooxyzt(full).contiguous()
             full = None
         if tuple(source.shape) != shape:
@@ -1572,6 +1613,7 @@ def _build_source(case: "NativeCase", torch: Any, dtype: Any,
             "spin": int(case.source_spin),
             "color": int(case.source_color),
             "seed": None,
+            "read_mode": read_mode,
             **identity,
             **cut,
         }
