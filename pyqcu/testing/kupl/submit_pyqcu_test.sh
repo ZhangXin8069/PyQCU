@@ -64,6 +64,7 @@ NODES=2
 RANKS_PER_NODE=16
 RANKS=32
 GRID="2 2 2 4"
+LATTICE="48 48 48 96"
 THREADS=18
 CORES_PER_RANK=18
 ONLY="kupl/l48"
@@ -89,6 +90,8 @@ Usage: submit_pyqcu_test.sh [options]
   --ranks-per-node N    ranks per node (default 16)
   --ranks N             total ranks (default 32; must equal nodes*ranks-per-node)
   --grid "X Y Z T"       MPI rank grid (default "2 2 2 4"; product must equal ranks)
+  --lattice "X Y Z T"    global lattice the rankfile is validated against
+                        (default "48 48 48 96"; use "64 64 64 128" for L64)
   --threads N           OpenMP threads per rank (default 18)
   --cores-per-rank N    physical cores per rank in the rankfile (default 18)
   --only PATTERN        --only value of the formal command (default kupl/l48)
@@ -121,6 +124,7 @@ while [ $# -gt 0 ]; do
     --ranks-per-node) RANKS_PER_NODE="$2"; shift 2 ;;
     --ranks) RANKS="$2"; shift 2 ;;
     --grid) GRID="$2"; shift 2 ;;
+    --lattice) LATTICE="$2"; shift 2 ;;
     --threads) THREADS="$2"; shift 2 ;;
     --cores-per-rank) CORES_PER_RANK="$2"; shift 2 ;;
     --only) ONLY="$2"; shift 2 ;;
@@ -229,14 +233,14 @@ JOB="$OUTDIR/jobs/$TAG.sh"
   echo "python3 -B -m pyqcu.test.launch rankfile --alloc-file \"\$CCS_ALLOC_FILE\" \\"
   echo "  --rankfile \"\$RANKFILE\" --job-id \"\$JOBID\" \\"
   echo "  --nodes $NODES --ranks-per-node $RANKS_PER_NODE --ranks $RANKS \\"
-  echo "  --cores-per-rank $CORES_PER_RANK --grid $GRID --lattice 48 48 48 96 \\"
+  echo "  --cores-per-rank $CORES_PER_RANK --grid $GRID --lattice $LATTICE \\"
   echo '  || { echo "[launch] rankfile refused; not launching" >&2; exit 2; }'
   echo '# Render the launcher argv: one argument per line, no eval.'
   echo "python3 -B -m pyqcu.test.launch argv --launcher $LAUNCHER \\"
   echo "  --drun '$DRUN' \\"
   echo "  --alloc-file \"\$CCS_ALLOC_FILE\" --rankfile \"\$RANKFILE\" --job-id \"\$JOBID\" \\"
   echo "  --nodes $NODES --ranks-per-node $RANKS_PER_NODE --ranks $RANKS \\"
-  echo "  --cores-per-rank $CORES_PER_RANK --grid $GRID --lattice 48 48 48 96 \\"
+  echo "  --cores-per-rank $CORES_PER_RANK --grid $GRID --lattice $LATTICE \\"
   echo "  --only '$ONLY' --threads $THREADS --outdir '$OUTDIR' \\"
   echo "  > \"\$ARGVFILE\" || { echo \"[launch] plan refused; not launching\" >&2; exit 2; }"
   echo 'mapfile -t LAUNCH_ARGV < "$ARGVFILE"'
