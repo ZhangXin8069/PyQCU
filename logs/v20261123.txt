@@ -1320,3 +1320,39 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
     Next: prove the plumbing with one run that passes restart=1 and asserts
     the row says 1, then re-run the sweep.  Do not touch the solver until the
     knob demonstrably moves.
+
+85. ROOT CAUSE of the inert MG knobs: Case does not carry them
+    Proven on the remote with the patched module loaded:
+
+      build_parser().parse_args(['--restart','1','--coarse-tol-factor','100',...])
+        ns.restart = 1, ns.coarse_tol_factor = 100.0        (CLI is fine)
+      _resolve_config(ns)
+        cfg.restart = 1, cfg.coarse_tol_factor = 100.0      (config is fine)
+      _native_mg_overrides(cfg)
+        {'restart': 1, 'mg_levels': 2, 'mg_grid': (2,2,2,2),
+         'coarse_tol_factor': 100.0}                        (overrides are fine)
+      _native_cases(cfg) -> Case(tag='kupl/native/mg')
+        case.restart = None                                 (LOST HERE)
+
+    `native.case()` validates the extra options through `_options()` but builds
+    a `pyqcu.test.common.Case`, which has no `restart`/`mg_levels`/`mg_grid`/
+    `coarse_tol_factor` fields, so the values are discarded.  The runner
+    (`native:run_mg`) then re-derives a `NativeCase` from the Case metadata and
+    falls back to the NativeCase defaults - exactly the 5 / 1e4 seen in every
+    sweep row.
+
+    This also explains every historical "MG tolerance semantics" observation:
+    no CLI MG flag has ever reached the solver through this path.  The
+    dev143 note that a 1e-6 vs 1e-4 atol changed the behaviour must have come
+    from a different entry point (kupl_multigrid.py), not from pyqcu.test.
+
+    Fix required (not applied):
+      - give `Case` (or a per-runner option mapping) a place for the MG knobs;
+      - have `run_mg` read them instead of the NativeCase defaults;
+      - assert in the row builder that the recorded restart/coarse_tol_factor
+        equal the requested ones, so this class of silent drop cannot recur;
+      - then re-run the sweep, and only then judge whether the additive coarse
+        correction reduces the fine iteration count.
+
+    Until that lands, no MG tuning claim is possible and the C++ kernel must
+    not be touched.
