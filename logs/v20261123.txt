@@ -794,3 +794,51 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
     complex64 -> complex128 via sh/l64_convert_dtype.py, with a per-file
     dtype/shape verification and sha256 in the log. Gauge cast was ~4.8 GB of
     9.66 GB at 23:27. No L64 solve has been submitted yet.
+
+56. L64 dtype repair: gauge done, source retried
+    Job 2236717 (cn12068) cast the gauge and verified it:
+      dst   data/l64_canonical_20261123/gauge_64x64x64x128_c64_cast.h5
+      dtype complex64, shape [3,3,4,64,64,64,128],
+      chunks [3,3,4,64,64,64,4],
+      sha256 30ea3714b16f7b7a11de621e415226f6fac0b41eca20227caa50a30725bc1b1b
+      size 9,663,682,560 B  (= 33,554,432 * 36 * 8 + HDF5 overhead)
+    The first attempt (job 2236595) had stalled at 7.25 GB: h5py's automatic
+    chunking on a 7-D 1.2e9-element dataset produced a near-whole-file chunk,
+    so each partial write rewrote gigabytes. The rewrite uses an explicit
+    chunk equal to the written slab and finished in 8 minutes.
+
+    The source step in the same job failed with IndexError: the source is
+    6-D (4,3,64,64,64,128) and `--axis 6` is out of range. Rerun as job
+    2236832 with `--axis -1` (slab 8). This was my CLI mistake, not a data
+    problem.
+
+    Still no L64 solve. The c64 bistabcg cell needs only the finished gauge
+    and the existing c64 source; the c128 cell additionally needs the c128
+    source now being written.
+
+57. L64 bistabcg first attempt failed on my launcher wiring
+    Job 2236871: the job body generated a valid 128-row rankfile and exported
+    CCS_DRUN_RANK_FILE, but launched `python3 -m pyqcu.test` directly instead
+    of through drun, and had no non-root guard. Every one of the 128 replicas
+    therefore ran the whole script, and pyqcu.test correctly refused:
+      "the backend reports MPI size 1 but the launcher environment says 128"
+    Good failure: the size check caught a real misconfiguration instead of
+    producing a bogus row.  Fixed by adding the CCS_TASK_INDEX guard and
+    launching through `/opt/batch/agent/tools/drun -mpi pmix -nn 16 -rpn 8`.
+
+58. L64 data repaired (both directions verified)
+    gauge_64x64x64x128_c64_cast.h5  complex64  (3,3,4,64,64,64,128)
+      chunks (3,3,4,64,64,64,4)
+      sha256 30ea3714b16f7b7a11de621e415226f6fac0b41eca20227caa50a30725bc1b1b
+    source_64x64x64x128_c128.h5     complex128 (4,3,64,64,64,128)
+      chunks (4,3,64,64,64,8)
+      sha256 2a4ce02e917e6e81ea4e241f767dffeea427afb5fa47925faf66d9cb368c30df
+    Both were re-read and checked for dtype, shape and chunk shape after the
+    write; the manifest still needs updating to per-file dtypes (open item).
+
+59. L64 bistabcg (both dtypes) submitted as job 2236885
+    16 nodes, 128 ranks (2 2 2 16), 8 ranks/node x 36 threads, NUMA-bound.
+    Cells: c64 with the cast gauge + c64 source; c128 with the original gauge
+    + cast source.  No result yet at the time of this entry; the row file
+    present in rows/ is the failed 2236871 attempt and must not be read as a
+    result.
