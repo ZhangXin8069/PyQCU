@@ -1422,3 +1422,27 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
       4  verify against the independent residual at each level, as before.
     That is a feature, not a parameter, and it is the prerequisite for any
     mg-3 measurement.
+
+88. Confirmed: QCU-MG supports up to 5 levels in BOTH backends
+      KUPL   lattice_clover_multigrid.cpp:195
+             num_levels_ < 1 || num_levels_ > 5 -> throw
+             hierarchy built in loops over level (231) and parent (523)
+      CUDA   apply_multigrid_strict.cu:3182
+             num_levels_ < 2 || num_levels_ > 5 -> throw
+    The cap is an ABI-layout fact, not an algorithm limit: the level atols live
+    in argv slots 3..7 (five coarse levels) and each level owns an 8-slot
+    params block starting at kMgLevel1E = 19 (E/X/Y/Z/T/max_iter/dtype/restart).
+    So mg-3, mg-4 and mg-5 are all first-class solver configurations today.
+
+    The ONLY blocker is the pyqcu.test port: `_configure_legacy_mg` loops over
+    levels but reads one asset set per level, so it would hand the solver the
+    same block shape repeatedly instead of a real coarsening chain.  That is why
+    it refuses >2 - a port gap, now labelled as such in the error text (§87).
+
+    To deliver mg-3..mg-5 the port needs:
+      1  per-level coarse assets (operator + restrict/prolong per level) and a
+         cache that stores the chain rather than a single transition;
+      2  params blocks at 19 + 8*(level-1) and set_ptrs quartets at
+         30 + 4*(level-1) - both layouts already reserved;
+      3  argv atol per level at slot 3 + (level-1), already written by the port;
+      4  an independent residual per level before any level count is quoted.
