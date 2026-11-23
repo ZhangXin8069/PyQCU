@@ -1291,3 +1291,32 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
 83. Other jobs
     2237727 L64 c64 coarse cache: still RUNNING (pure null-vector compute).
     2237986 L64 16-rank single node: still PENDING in the queue.
+
+84. Sweep invalidated: the CLI knobs still do not reach the case
+    All four completed points report the SAME recorded configuration:
+      r5_c1e4, r5_c1e2, r5_c1e1, r1_c1e2
+        restart 5, coarse_tol_factor 10000.0, mg_levels 2   (every row)
+    and the same MG_PROFILE shape: fine_calls=48, coarse_calls=8,
+    restrict_calls=4, prolong_calls=4, coarse_correction_calls=4,
+    total ~1.98 s.
+
+    So `restart=1` did not produce more than 4 corrections, and
+    `coarse_tol_factor 1e1` changed nothing.  The row is the proof: the value
+    the runner used is 5 / 1e4, i.e. the NativeCase defaults, not the command
+    line.  My `_native_mg_overrides` patch did not take effect on the remote
+    run - either the module was not the one imported, or `_native_cases` is
+    not the builder that produced these rows.
+
+    Consequence: NO conclusion about restart or coarse_tol_factor can be drawn
+    from this sweep, and none will be.  The remaining two points would be two
+    more identical rows, so the job was stopped.
+
+    Lesson recorded: before interpreting any parameter sweep, assert that the
+    recorded configuration equals the requested one.  The row already carries
+    `restart`/`coarse_tol_factor`, which is exactly the field that caught this
+    - the same discipline that caught the unbound 95x and the L4
+    oversubscription earlier in this session.
+
+    Next: prove the plumbing with one run that passes restart=1 and asserts
+    the row says 1, then re-run the sweep.  Do not touch the solver until the
+    knob demonstrably moves.
