@@ -1382,3 +1382,43 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
     Next: sync native.py to the remote and re-run the six-point sweep.  Only
     now can restart/coarse_tol_factor be judged, because the row will record
     the requested value.
+
+87. CORRECTION: "mg_levels must be 1 or 2" was my port's limit, not the solver's
+    User objection is right: for large lattices a deeper hierarchy is the
+    normal case, and a two-level cap cannot be a property of a real MG.
+
+    What the solver actually supports
+      cpp/kupl/qcu/src/lattice_clover_multigrid.cpp:195
+        if (num_levels_ < 1 || num_levels_ > 5) { ... }
+      and the hierarchy is built in a loop
+        for (int level = 1; level < num_levels_; ++level)   (line 231)
+        for (int parent = 0; parent + 1 < num_levels_; ++parent)  (line 523)
+      with an explicit depth warning only for the pathological case
+        if (num_levels_ > 2 || too_small || no_next)        (line 292)
+    So KUPL Legacy-MG drives 1..5 levels today.  My earlier statement in
+    section 86 ("mg-3 does not exist yet") was wrong when read as a statement
+    about the backend.
+
+    What is actually missing is only in the pyqcu.test PORT
+      pyqcu/test/native.py:_configure_legacy_mg loops
+        for level in range(1, mg_levels)
+      but reads ONE asset set (`assets["lonv"].shape`) for every level, so
+      mg-3 would hand the solver the same block shape three times instead of a
+      real coarsening chain.  `_resolve_mg_assets` likewise builds a single
+      coarse transition (one ranked cache with four tensors).
+
+    Corrected behaviour: the refusal at mg_levels > 2 stays, but it now says
+    the truth - "pyqcu.test wires one coarse transition ... the KUPL Legacy-MG
+    itself supports up to 5" - and the gate pins that text so the port gap is
+    never again mistaken for a solver limit.
+
+    To deliver mg-3/mg-** the work is:
+      1  build per-level coarse assets (operator + transfers per level) instead
+         of a single set, and a cache format that stores them;
+      2  pass one params block per level (`_MG_LEVEL_BASE + i*stride` already
+         exists) and one set_ptrs quartet per level (slot 30 + 4*(level-1) is
+         already reserved);
+      3  extend the cache identity to carry the full level chain;
+      4  verify against the independent residual at each level, as before.
+    That is a feature, not a parameter, and it is the prerequisite for any
+    mg-3 measurement.

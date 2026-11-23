@@ -3039,9 +3039,17 @@ def _options(case: Any = None, *, kind: str = "solve", **explicit: Any
         raise ValueError(f"mg_grid extents must be positive, got {mg_grid}")
     mg_levels = _resolve_int(_get("mg_levels", 2), "mg_levels", minimum=1)
     if mg_levels > 2:
+        # NOT a solver limit: the KUPL Legacy-MG accepts 1..5 levels and builds
+        # its hierarchy in a loop (cpp/kupl/qcu/src/lattice_clover_multigrid.cpp,
+        # `num_levels_ < 1 || num_levels_ > 5` and the per-level coarsening).
+        # This port only wires ONE coarse transition (a single asset set in
+        # `_configure_legacy_mg`), so mg-3+ would be given repeated copies of
+        # the same block shape instead of a real hierarchy.  Refusing is the
+        # honest answer until the per-level assets exist.
         raise ValueError(
-            f"the Legacy-MG port drives one coarse transition, so mg_levels "
-            f"must be 1 or 2, got {mg_levels}")
+            f"pyqcu.test wires one coarse transition, so mg_levels must be 1 "
+            f"or 2; the KUPL Legacy-MG itself supports up to 5, got "
+            f"{mg_levels}")
     dof_value = _get("dof", DEFAULT_DOF)
     dof = tuple(_resolve_int(value, "dof", minimum=1) for value in dof_value)
     if len(dof) < 2 or dof[0] != 12:

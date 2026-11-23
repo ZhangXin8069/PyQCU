@@ -47,15 +47,19 @@ def test_mg_grid_and_levels_reach_the_option():
     assert resolved.mg_levels == 2
 
 
-def test_only_two_levels_are_supported_today():
-    """mg-3 and deeper are refused, not silently downgraded.
+def test_the_port_refuses_more_levels_than_it_can_wire():
+    """mg-3 is a PORT gap, not a solver limit - and it must not be silent.
 
-    The Legacy-MG port drives exactly one coarse transition, so ``mg-3``/
-    ``mg-**`` cannot exist until a deeper hierarchy is implemented.  Pinning
-    the refusal keeps a sweep from "measuring" a level count that was never
-    used.
+    The KUPL Legacy-MG accepts 1..5 levels and builds the hierarchy in a loop
+    (``num_levels_ < 1 || num_levels_ > 5`` in lattice_clover_multigrid.cpp),
+    so higher levels are the normal case for large lattices, not an exotic
+    request.  This port only wires one coarse transition (one asset set), so it
+    refuses mg-3 instead of feeding the solver repeated copies of the same
+    block shape.  Pinning the refusal keeps a sweep from "measuring" a level
+    count the port never used, and the assertion text records where the real
+    capability lives.
     """
-    with pytest.raises(ValueError, match="mg_levels"):
+    with pytest.raises(ValueError, match="supports up to 5"):
         native.case("mg", backend="kupl", lattice=LATTICE, mg_levels=3)
 
 
