@@ -1030,3 +1030,21 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
 70. c128 cell started at 00:36 in the same job
     "64x64x64x128 c128 (ranks=128)" note is in the log; the row file above is
     the c64 cell's.  A second row will appear when c128 finishes.
+
+71. L64 bistabcg matrix: 2/4 cells PASS on 16 nodes (job 2237535)
+    Both cells: 128 ranks, grid 2 2 2 16, local 32x32x32x8, 36 threads/rank,
+    NUMA-bound, slab reads.
+
+      c64  (row f7d9806034ee)  PASS  solve 1.8795 s  case 247.10 s
+           iterations 18  relative_residual 7.427385990241716e-07  verified
+      c128 (row 9222a5a2c974)  PASS  solve 4.9473 s  case 344.26 s
+           iterations 35  relative_residual 6.504797745268498e-12  verified
+
+    The c128 cell needs twice the iterations (35 vs 18) and 2.6x the solve
+    time at the same geometry, which is the expected c64->c128 behaviour, not
+    a pathology.  case_seconds 247/344 s replace a full-read case phase that
+    had not finished after 2500 s.
+
+    Matrix status for task 4 with L64x128 / 16 nodes:
+      {c64,c128} x bistabcg   : 2/2 done
+      {c64,c128} x mg-2       : 0/2, needs an L64 coarse cache first
