@@ -1112,3 +1112,32 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
       5. re-run mg-2 at the smaller rank counts against the same caches
     Steps 2 and 3 reuse the cache where the identity allows, and every row must
     be checked for cache_reused/cache_notes rather than assumed.
+
+74. Matrix spec corrected again: 16-rank means BOTH placements
+    Final target
+      {c64, c128} x {bistabcg, mg-2}
+        x {16 single node, 16 dual node, 32, 64, 128, ...}
+    so the 16-rank column splits into two rows with different shapes:
+
+      16r single node : 1 node, 16 ranks/node, 608/16 = 38 cores available
+                        -> rankfile must use 2 ranks per NUMA domain,
+                           cores-per-rank 18, threads 18 (16 x 18 = 288 cores)
+      16r dual node   : 2 nodes, 8 ranks/node, cores-per-rank 36, threads 36
+                        (this is the shape already measured: 2.06 s bound)
+
+    Those two are NOT comparable as a thread-count experiment: 18 vs 36
+    threads per rank with the same total 288 cores per node.  Every row must
+    carry `threads` and the rankfile width, which it does.
+
+    Rankfile feasibility for the single-node cell: `pyqcu.test.launch rankfile`
+    derives rpn_numa = int(37 / cores_per_rank) = 2 at 18 cores, and needs
+    16/2 = 8 NUMA domains, which is exactly what a node has.  So the
+    generator can express it; no new tooling is needed.
+
+    Memory for the single-node cell is the concern: 184 GB of operands on a
+    565 GiB node leaves room, but the independent residual budget (4 GiB/rank
+    default) may skip at 16 ranks as noted in section 73.
+
+75. Cache build still computing at 00:55 (10 min, utime 3936 vs stime 456)
+    cpu 832% of 799, RSS ~11 GB/node -> null-vector compute, slab reads.
+    No CACHE_BUILD_RC yet, cache dir still empty; nothing to verify so far.
