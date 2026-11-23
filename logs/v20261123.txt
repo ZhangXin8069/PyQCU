@@ -1446,3 +1446,44 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
          30 + 4*(level-1) - both layouts already reserved;
       3  argv atol per level at slot 3 + (level-1), already written by the port;
       4  an independent residual per level before any level count is quoted.
+
+89. REUSE CHECK PAYS OFF: the repo already answered the MG-speedup question
+    Searching the existing docs instead of sweeping blind found
+    `docs/kupl_kunpeng_progress_20261110.md` section 6.1 - a same-window A/B of
+    true-MG against BiCGStab on L24 (24^3x64 c64, 16 ranks x 8 threads,
+    grid 1 1 1 16, atol 1e-4, max_iter 50, E4 cache, mg-grid 2 2 2 1):
+
+      restart   BiCGStab     true-MG     ratio    evidence
+           10   1.3972428    0.7897558   1.7692x  fine=32 coarse=19
+           20   1.2307832    0.7051457   1.7454x  fine=29 coarse=9
+           50   1.0918661    0.7042408   1.5504x  fine=29 coarse=9
+            1   -            7.5281816   -        fine_calls=49 coarse_calls=168
+
+    So MG DOES accelerate - by 1.55-1.77x - when `restart` is 10..50, and the
+    same document already warns that restart=50 runs ONE coarse correction and
+    must be described as "initial deflation + fine BiCGStab", not a periodic
+    V-cycle.  The document also records the earlier negative result
+    (BiCGStab 1.2545952 vs true-MG 1.3541084, MG 7.9% slower) and states
+    explicitly that the two are NOT the same configuration and must not be
+    merged.
+
+    That reframes this session's finding.  Our L48 32-rank A/B used
+    restart=5 (the NativeCase default), which sits between the "no help"
+    regime and the measured-good one, and my sweep was pointed at restart
+    1/2/5 - i.e. in the wrong direction.  restart=1 is the worst point on the
+    curve (fine_calls 49, coarse_calls 168, 7.53 s).
+
+    Consequence:
+      - the current sweep (2238436) still has value as the PLUMBING check
+        (does the row now record the requested restart?) but its restart=1/2
+        points are not a speedup search;
+      - the real experiment is restart in {10, 20, 50} on the L48 32-rank
+        shape, at the same tolerance, compared against the 18-iteration /
+        2.350 s BiCGStab baseline;
+      - the tolerance must match too: the L24 table used atol 1e-4, while the
+        L48 baseline rows recorded 1e-6/1e-5, so a mixed-tolerance comparison
+        is exactly the mistake kupl_kunpeng_matrix_20261115.md:652 warns about.
+
+    Lesson applied: read the existing docs/skills before designing an
+    experiment; three of this session's five "discoveries" (NUMA binding cost,
+    HDF5 mpio slab reads, restart tuning) were already documented here.
