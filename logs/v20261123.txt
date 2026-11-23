@@ -1067,3 +1067,48 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
     dtype and the two cells read different gauge files, so one cache cannot
     serve both.  Do not assume reuse - check cache_notes, as the L48 32r/64r
     work established.
+
+73. Matrix spec expanded by the user (2026-11-24)
+    Target is now
+      {complex64, complex128} x {bistabcg, mg-2}
+        x {16-rank single node, 32/64/128-rank multi node, ...}
+    i.e. at least 16 cells on L64x128, with the 16-rank cell explicitly
+    SINGLE NODE (the earlier 16r measurement was 8 ranks on each of 2 nodes,
+    so it does not satisfy the new spec).
+
+    Node capacity measured with `dnode`: 608 CPUs, 578,560 MB (565 GiB) per
+    node.  Grant used so far: 8 ranks/node x 36 threads, mem=24G per rank.
+
+    Per-cell memory estimate on L64x128 (33,554,432 sites), c64:
+      gauge slab        288 B/site
+      source            96 B/site
+      four Clover terms 4608 B/site   <- dominates
+      work vectors      ~480 B/site
+      16 ranks (1 node) : 2,097,152 sites/rank -> ~11.5 GB/rank, ~184 GB/node
+      32 ranks (2 nodes): 1,048,576 sites/rank -> ~5.9 GB/rank
+      64 ranks (4 nodes): 524,288 sites/rank   -> ~3.1 GB/rank
+      128 ranks (16 nodes, 8/node): 262,144 -> ~1.6 GB/rank
+    565 GiB per node leaves room even at 16 ranks, so the single-node cell is
+    feasible on memory.  It is compute that will be slow: 16 ranks x 36
+    threads = 576 threads on 608 CPUs, but each rank owns 8x the volume of the
+    128-rank cell whose solve took 1.88 s.
+
+    Open constraint found while planning: the independent residual has a
+    default budget of 4 GiB per rank (`REFERENCE_BUDGET_BYTES`).  On L64 the
+    local Clover term alone is 4608 B/site, i.e. 9.7 GB at 16 ranks and
+    4.8 GB at 32 ranks, so those two cells may report
+    SKIP(reference_workspace) instead of a verified PASS.  The distributed
+    reference may slice under the budget (L48 32r reported
+    distributed_peak_bytes 1.27 GB with tiled_slabs 16), but that has to be
+    measured, not assumed.  There is no `--reference-budget` CLI flag today;
+    it is a case option only (`_resolve_reference_budget`).  If the 16/32-rank
+    cells SKIP, the fix is to expose the flag, not to lower the acceptance.
+
+    Execution order chosen so each result is informative on its own:
+      1. finish the c64 coarse cache (job 2237727, running)
+      2. c64 mg-2 at 128 ranks (validates cache reuse on L64)
+      3. c128 coarse cache, then c128 mg-2 at 128 ranks
+      4. bistabcg at 64, 32, 16 ranks (16 = single node)
+      5. re-run mg-2 at the smaller rank counts against the same caches
+    Steps 2 and 3 reuse the cache where the identity allows, and every row must
+    be checked for cache_reused/cache_notes rather than assumed.
