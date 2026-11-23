@@ -307,9 +307,40 @@ export CCS_DRUN_RANK_FILE=$OUT/logs/$JOBTAG-rankfile
   作业与纯 MPI 探针都在集体操作阶段报 `ud_ep.c:287 unhandled timeout`、`rc=255`
   （`2230693`、`2230694`、`2230474`、`2230852`/`2230901`/`2230941`）。这是站点
   UCX/IB 问题，不是 PyQCU 路径；此时不要启动断崖 A/B，也不要把失败写成回退。
+  该故障在 **22:54 已恢复**（`2236344` 四级阶梯全 `rc=0`），而当时的纯 MPI 探针
+  判读另有 §8.4 记录的配置 bug；恢复判定必须按 §8.4 重做，不要沿用旧 gate 结论。
 - 断崖候选与待测分项见
   [`docs/kupl_l48_mg_cliff_20261123.md`](../../../docs/kupl_l48_mg_cliff_20261123.md)；
   L64 输入已备好：`data/l64_canonical_20261123/`（c64 名、dataset 实为 complex128）。
+
+### 8.4 探针结论必须先用资源配置自检（2026-11-23）
+
+- **先算核，再判网**：`ranks_per_node × cores_per_rank` 必须 ≤ 本节点授予核数。
+  `drun -rpn 8 -R core=18` 在 `core=36 × 2 replica`（72 core/节点，cpuset
+  `0-36,38-72`）的分配上等于 144 core/节点，`drun` 直接拒绝、MPI 从未启动，
+  症状却只是普通 `rc=255`。授予的 cpuset 只看
+  `/proc/self/status` 的 `Cpus_allowed_list` 和 `CCS_ALLOC_FILE`；2026-11-23 的
+  L4 `rc=255` 全部属于这一类，不是 fabric。改成 `core=9`（8 × 9 = 72）即 `rc=0`。
+- **`Sendrecv` 不能用同一个 peer**：`dest=source=(rank+1)%size` 是单向环，
+  `size >= 3` 结构性死锁，只有 `size == 2` 恰好成立。正确写法：
+
+  ```python
+  dest = (rank + 1) % size
+  src = (rank - 1 + size) % size
+  comm.Sendrecv(sendbuf, dest=dest, recvbuf, source=src)
+  ```
+
+  `sh/mpi_probe.py` 2026-11-23 就是这个 bug，“2 rank OK、≥4 rank 挂住” 是探针
+  伪影，不得当 fabric 证据；该判读后的 gate 结论全部作废。
+- **用四级能力阶梯做 gate**，每级记 `rc` 与 smoke `size`：
+  1. 单节点 2 rank（同 NUMA）；
+  2. 跨节点，每节点 1 rank；
+  3. 跨节点 × 跨 NUMA，每节点 2 rank（`0-17` / `38-55`）；
+  4. 16 rank，每节点 8 rank（8 × 9 core）。
+- **恢复要重复样本**：单次全绿不算恢复。2026-11-23 的 L2 在 21:03 `rc=0`、
+  21:16/21:36/21:47 三个不同节点对 `rc=137`，是间歇失败；至少 3 次连续干净样本
+  （含 L3）再解除阻塞，恢复后用一次真实 solver 作业复核。明细见
+  [`docs/kupl_l48_mg_cliff_20261123.md`](../../../docs/kupl_l48_mg_cliff_20261123.md) §3。
 
 ## 9. 发布与证据纪律
 

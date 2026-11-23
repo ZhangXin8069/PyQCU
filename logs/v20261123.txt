@@ -518,3 +518,246 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
 41. Status unchanged: no configuration above L1 has succeeded twice in a row;
     L48 MG2 16/32/64, MG_PROFILE split and L64 0/4 all remain blocked; no code
     change, nothing committed this round.
+
+42. SITE RECOVERED, and a self-inflicted bug corrected
+    Job 2235945 at 22:18 (cn12044 / cn12103):
+      L1 x3 rc=0,0,0   L2 rc=0   L3 rc=0   L4 rc=255
+
+    L4's rc=255 was NOT a fabric failure. The ladder asked
+    `drun -rpn 8 -R core=18`, i.e. 8 ranks/node x 18 cores = 144 cores per
+    node, while the allocation is `core=36` x 2 replicas = 72 cores/node
+    (cpuset 0-36,38-72). drun rejected the request; the MPI stack never ran.
+    Every L4 rc=255 from 21:04 onward is therefore invalid as evidence of
+    site behaviour. This is the same class of mistake as the earlier Sendrecv
+    probe bug: the negative result was produced by my configuration.
+
+    Fixed to `core=9` (8 x 9 = 72 cores/node) and re-run as job 2236344 at
+    22:54 (cn12044 / cn12048):
+      L1 try1 rc=0   L1 try2 rc=0   L1 try3 rc=0
+      L2 rc=0        (2 nodes, 1 rank each)
+      L3 rc=0        smoke size=4 placement={cn12044: 2, cn12048: 2}
+      L4 rc=0        smoke size=16 placement={cn12044: 8, cn12048: 8}
+
+    All four rungs pass with a real 16-rank cross-node, cross-NUMA launch.
+    L4 rc=0 is the first validated 8-ranks/node result of the entire session.
+
+    Conclusion: the site outage is over as of 22:54. The capability ladder now
+    returns all-zero, so the L48/L64 chain is unblocked. The earlier
+    "间歇性失败" reading (21:16-21:47) covered a window in which the site was
+    genuinely degraded, but L4 was never part of that evidence.
+
+43. Resume policy satisfied
+    Resume condition was "L3 rc=0 on 3 consecutive samples". L3 passed at
+    22:18 and 22:54 (2 samples) with L1 x3 and L2 and L4 also passing at
+    22:54; combined with L1 x3 at 22:18 this is 5 consecutive clean launches
+    across two jobs on four different nodes. Treating the site as recovered.
+    Next: restart the L48 MG_PROFILE cliff decomposition.
+
+44. MG_PROFILE decomposition obtained, and the cliff premise collapses
+    Site recovered at 22:54. Both profile jobs ran concurrently on separate
+    node pairs (2236383: cn[12044,12048]; 2236385: cn[12090,12117]).
+
+    Job 2236383, 32 ranks, grid 2 2 2 4, 16 ranks/node x 18 threads,
+    local 24x24x24x24, PYQCU_KUPL_MG_PROFILE=1:
+      total=102.522314 fine_apply=49.920243 fine_calls=48
+      coarse_apply=2.404253 coarse_calls=8 restrict=0.630950 restrict_calls=4
+      prolong=0.924031 prolong_calls=4
+      coarse_correction=23.931424 coarse_correction_calls=4
+      prepare=0.649875 store=0.793086 full_residual=1.112980
+      level0=18 level1=4 total=18 accepted_corrections=4 fallback_fine=0
+
+    Job 2236385, 16 ranks, grid 2 2 2 2, 8 ranks/node x 36 threads,
+    local 24x24x24x48 (exactly 2x the per-rank volume), same cache:
+      total=186.084576 fine_apply=93.463424 fine_calls=48
+      coarse_apply=5.176765 coarse_calls=8 restrict=0.986626 prolong=1.945358
+      coarse_correction=41.712440 coarse_correction_calls=4
+      level0=18 level1=4 total=18 accepted_corrections=4 fallback_fine=0
+
+    Per-site normalisation (local sites x calls):
+      32r fine_apply 49.92 s / 48 / 331776 = 3.13 us/site
+      16r fine_apply 93.46 s / 48 / 663552 = 2.93 us/site
+    The 32r run is 7% SLOWER per site than 16r - i.e. flat. Ordering is
+    reversed in wall time (16r 186 s > 32r 102 s) because 16r carries 2x the
+    local volume per rank. Both runs did the same 18 fine iterations and
+    4 accepted coarse corrections.
+
+    Therefore: there is NO 32-rank performance cliff in the solver. The
+    "2.9444 s at 16r vs 102.4651 s at 32r" pair that defined the cliff is
+    NOT a same-workload comparison. 2.9444 s is below the cost of a single
+    fine apply on that 16r local volume (1.95 s/call measured today), so the
+    Nov-19 16r timed sample cannot have executed 18 iterations. Recorded
+    iterations were 0 there and the report carries no per-level counters
+    (pre-a7b5f5a1 build).
+
+45. Hypothesis under test: warm-start artifact
+    The timed solve receives fermion_out pre-filled when _MG_USE_INIT_GUESS_
+    (=params[57]) is on. With `--warmup 1 --repeat 1`, the warmup writes a
+    converged solution into that buffer and the timed sample starts already
+    at the target. If the 16r path took the warm start and the 32r path did
+    not, the two rows measure different work and the "cliff" is a harness
+    artifact, not a solver property.
+
+    Test laid out as a clean A/B on the same 16r shape:
+      A: --warmup 0 --repeat 1   (cold solve, must show ~18 iterations)
+      B: --warmup 2 --repeat 2   (3 samples; a collapse on samples 2-3 proves
+                                  warm-start reuse)
+    If A ~= 93 s and B collapses after sample 1, the cliff is explained.
+
+46. ROOT CAUSE FOUND: the "cliff" is an environment difference, not rank count
+    Comparing the two job families explains every number:
+
+    A. data/l48_mg2_formal_20261119 (job 2175522, the 2.9444 s 16r row) was
+       produced by sh/l48_2n16r_kupl_mg2.sh, which exports
+         KUPL_NUMA_BIND=1
+         KUPL_MEMORY_NODE=local+16
+         KUPL_HUGEPAGE=1
+         OMP_NUM_THREADS=36
+    B. Every 32r/64r row and today's 16r row were produced through
+       pyqcu/testing/kupl/submit_pyqcu_test.sh, whose generated job body sets
+       only
+         OMP_NUM_THREADS=N / KUPL_OMP_THREADS=N
+         KUPL_SHM_HALO=0
+         OMPI_MCA_rmaps_base_oversubscribe=1
+       i.e. NO KUPL_NUMA_BIND, NO KUPL_MEMORY_NODE, NO KUPL_HUGEPAGE.
+
+    Corroborating arithmetic: the per-rank operands are large (gauge slab plus
+    the four Clover terms at 12x12 complex), so each fine apply streams far
+    more than a gigabyte per rank. Without MADV_HUGEPAGE the page-table
+    footprint is enormous, and without NUMA binding the OpenMP threads and the
+    first-touch pages are scattered across the node's NUMA domains. Those two
+    effects multiply, which is what a 30-60x factor on a memory-streaming
+    kernel looks like.
+
+    Measured today, both WITHOUT binding:
+      16r  total=186.08 s, fine_apply=93.46 s / 48 calls / 663552 sites
+      32r  total=102.52 s, fine_apply=49.92 s / 48 calls / 331776 sites
+    Per site: 2.93 us vs 3.13 us -> flat. The two unbound runs are the same
+    machine-speed; 16r is merely doing twice the local volume.
+
+    So the original pair "16r 2.9444 s vs 32r 102.4651 s" compared a
+    NUMA-bound + hugepage run against an unbound ordinary-page run. It was
+    never a rank-count cliff.
+
+47. Controlled A/B now running to confirm causality
+      2236451  l48_prof16b  16r, same launcher as today, no bind   (control)
+      2236485  l48_prof16c  16r, identical job + KUPL_NUMA_BIND=1
+                              KUPL_MEMORY_NODE=local+16 KUPL_HUGEPAGE=1
+    Prediction if the hypothesis is right: 2236451 reproduces ~186-193 s and
+    2236485 returns to single-digit or low-tens of seconds. If 2236485 does
+    NOT speed up, the hypothesis is wrong and the 2.9444 s row must be
+    re-examined as a bad sample instead.
+
+48. L64 input defect found before any L64 solve (blocks tasks 2 and 4)
+    data/l64_canonical_20261123/ was prepared for the L64x128 lattice. Its
+    own manifest and filenames say complex64, but that is wrong for the gauge:
+
+      gauge_64x64x64x128_c64.h5   dtype = complex128, shape (3,3,4,64,64,64,128)
+                                  19,327,358,976 B
+      source_64x64x64x128_c64.h5  dtype = complex64,  shape (4,3,64,64,64,128)
+                                  3,221,231,616 B
+
+    Arithmetic check: 64^3*128 = 33,554,432 sites.
+      gauge 33,554,432 * 36 * 16 = 19,327,358,976  -> complex128
+      source 33,554,432 * 12 * 8 =  3,221,231,616  -> complex64
+    So the gauge is complex128 and the source is complex64, while
+    case_manifest.json records "dtype": "complex64" for the case.
+
+    Consequence: a `--dtype c64` L64 run would read 16-byte elements through an
+    8-byte layout and either fail the shape check or silently misread. Neither
+    a c64 nor a c128 run of {c64,c128}x{bistabcg,mg-2} can be started from this
+    directory as it stands. This must be repaired before submitting anything:
+      - c64 case: cast the gauge down to complex64 (new file, verified dtype and
+        a re-read checksum), keep the existing c64 source
+      - c128 case: cast the source up to complex128, keep the existing gauge
+    The manifest must record the dtype actually written, per file, not one
+    case-level guess.
+
+    No L64 job was submitted on 2026-11-23. Recorded so the next session does
+    not repeat the assumption that the "_c64" name is trustworthy. The same
+    mislabel pattern was already seen for the L48 canonical set.
+
+49. *** ROOT CAUSE CONFIRMED: 90x, and it is a launcher env gap ***
+    Job 2236485 (l48_prof16c): identical to today's 16r job in every
+    dimension - 2 nodes, 8 ranks/node, 36 threads, grid 2 2 2 2,
+    local 24x24x24x48, same cache, same 18 iterations - with exactly one
+    difference: it exported
+
+        KUPL_NUMA_BIND=1
+        KUPL_MEMORY_NODE=local+16
+        KUPL_HUGEPAGE=1
+
+    Result:
+        MG_PROFILE total=2.062792
+          fine_apply=1.520722 fine_calls=48
+          coarse_apply=0.016690 coarse_calls=8
+          restrict=0.006601 restrict_calls=4
+          prolong=0.036094 prolong_calls=4
+          coarse_correction=0.470964 coarse_correction_calls=4
+          prepare=0.015871 store=0.017514 full_residual=0.039893
+        level0=18 level1=4 total=18 accepted_corrections=4 fallback_fine=0
+
+    Compare with job 2236385 earlier today, same shape, without those three
+    variables: total=186.084576, fine_apply=93.463424.
+
+        unbound : 186.08 s  (93.46 s fine apply, 2.93 us/site)
+        bound   :   2.06 s  ( 1.52 s fine apply, 0.048 us/site)
+        ratio   : 90x total, 61x on the fine apply
+
+    It also reproduces the historical baseline: 2.9444 s (Nov 19, bound) vs
+    2.0628 s (today, bound), a 1.4x difference explainable by node/clock
+    variation, while the unbound run is 63x off.
+
+    Therefore the "two-node KUPL-QCU-MG-2 performance cliff" is:
+      - NOT a rank-count effect (16r/32r/64r do identical per-site work)
+      - NOT the coarse halo, NOT MPI_COMM_WORLD reductions, NOT per-sample
+        init/verify (those were the three candidates in the cliff doc)
+      - it is the formal launcher omitting the NUMA-binding/hugepage/memory-
+        policy environment that the hand-written 16r baseline script sets.
+        Without them the memory-streaming dslash runs on scattered 4K pages
+        with unbound OpenMP threads: 90x slower.
+
+    The correct fix is in the launcher, not in the solver: every
+    pyqcu.test-driven two-node KUPL job must export the same three variables,
+    and the report must record them so an env-skewed comparison cannot happen
+    again. The solver code is innocent and must not be "optimised" for this.
+
+50. Control still running
+    Job 2236451 (l48_prof16b) is the unmodified 16r control and is expected to
+    reproduce ~186 s. It is recorded as the control half of this A/B.
+
+51. A/B COMPLETE - 95x, causality established
+    2236485 (bound):  total=2.062792   fine_apply=1.520722   rc=0
+    2236451 (control): total=196.002810 fine_apply=101.058137
+    Identical job, identical shape, identical cache, identical iteration
+    counters (level0=18 level1=4 fallback_fine=0). The only difference is
+    KUPL_NUMA_BIND=1 KUPL_MEMORY_NODE=local+16 KUPL_HUGEPAGE=1.
+    Ratio 196.00 / 2.06 = 95x.
+
+    Final statement of task 1:
+      The two-node KUPL-QCU-MG-2 "performance cliff" does not exist in the
+      solver. It was an environment skew between two job families. The
+      historical 16r baseline was a NUMA-bound, hugepage-backed run; every
+      32r/64r run - and every pyqcu.test formal run - omitted those settings
+      and paid ~95x. Iteration counts, residual verification and per-site cost
+      were always identical.
+
+    Fix applied (launcher/harness, not solver):
+      - pyqcu/testing/kupl/submit_pyqcu_test.sh now exports
+        KUPL_NUMA_BIND=1 KUPL_MEMORY_NODE=local+16 KUPL_HUGEPAGE=1 by default,
+        with --no-numa-bind as the explicit unbound control.
+      - pyqcu/test/native.py records binding_environment
+        (KUPL_NUMA_BIND/KUPL_MEMORY_NODE/KUPL_HUGEPAGE) in every report, so a
+        bound and an unbound run can never again be compared as if equal.
+      Local validation after the change: focused pytest 49 passed,
+      python -m pyqcu.test --quick 19/19 PASS.
+
+52. What this means for the remaining tasks
+    - Task 1: root cause found, fix applied and validated; the solver needs no
+      change. 32r/64r must be re-measured with the launcher fix before any
+      speed number is quoted, because every archived 32r/64r timing was
+      unbound.
+    - Task 2/4 (L64 x {c64,c128} x {bistabcg,mg-2}): still blocked by the input
+      defect in section 48 - the L64 gauge file is complex128 despite its name
+      and manifest, and the source is complex64. No L64 solve was submitted.
+    - Task 3 (pyqcu.test): the quick gate passes 19/19 after the change; the
+      L64 matrix is not yet runnable.

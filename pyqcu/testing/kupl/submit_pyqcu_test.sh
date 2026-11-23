@@ -73,6 +73,12 @@ LAUNCHER="drun"
 EXTRA=""
 DRY_RUN=0
 EXCLUSIVE=1
+# NUMA binding + hugepages are worth 90x on the Kunpeng nodes and are part of
+# the measured configuration, not an optimisation to be left out: the same L48
+# c64 16-rank solve took 186.08 s without them and 2.06 s with them
+# (2026-11-23, jobs 2236385 vs 2236485, identical in every other dimension).
+# Turn them off only for an explicit unbound A/B with --no-numa-bind.
+NUMA_BIND=1
 
 usage() {
   cat <<'EOF'
@@ -96,6 +102,8 @@ Usage: submit_pyqcu_test.sh [options]
   --launcher drun|mpirun  rankfile launcher (default drun: the verified route;
                         mpirun needs a working PLM, which this account has not)
   --shared              omit -x job (allow a partially used node)
+  --no-numa-bind        do NOT export KUPL_NUMA_BIND/KUPL_MEMORY_NODE/
+                        KUPL_HUGEPAGE (unbound control runs only; 90x slower)
   --extra "ARGS"        appended to the rendered formal pyqcu.test command
   --dry-run             write the job script and print it, do not submit
   -h, --help            this help
@@ -123,6 +131,7 @@ while [ $# -gt 0 ]; do
     --drun) DRUN="$2"; shift 2 ;;
     --launcher) LAUNCHER="$2"; shift 2 ;;
     --shared) EXCLUSIVE=0; shift ;;
+    --no-numa-bind) NUMA_BIND=0; shift ;;
     --extra) EXTRA="$2"; shift 2 ;;
     --dry-run) DRY_RUN=1; shift ;;
     -h|--help) usage; exit 0 ;;
@@ -198,6 +207,10 @@ JOB="$OUTDIR/jobs/$TAG.sh"
   echo "export PYTHONPATH=$REPO:\${PYTHONPATH-}"
   echo "export OMP_NUM_THREADS=$THREADS KUPL_OMP_THREADS=$THREADS"
   echo 'export KUPL_SHM_HALO=0 OMPI_MCA_rmaps_base_oversubscribe=1'
+  if [ "$NUMA_BIND" = "1" ]; then
+    echo '# Measured configuration: without these three the same run is 90x slower.'
+    echo 'export KUPL_NUMA_BIND=1 KUPL_MEMORY_NODE=local+16 KUPL_HUGEPAGE=1'
+  fi
   echo "cd $REPO"
   echo ''
   echo "TAG=$TAG"

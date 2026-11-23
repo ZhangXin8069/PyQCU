@@ -214,6 +214,12 @@ SHM_VARIABLE = "KUPL_SHM_HALO"
 #: OpenMP placement variables that conflict with the library's own binding.
 PLACEMENT_VARIABLES: tuple[str, ...] = (
     "OMP_PROC_BIND", "OMP_PLACES", "GOMP_CPU_AFFINITY", "KMP_AFFINITY")
+#: Binding/hugepage variables the runner does not set but must record.  On the
+#: Kunpeng nodes the same configuration measured 186.08 s without these and
+#: 2.06 s with them (2026-11-23, L48 c64, 16 ranks), so a report that omits
+#: them cannot be compared with one that has them.
+BINDING_VARIABLES: tuple[str, ...] = (
+    "KUPL_NUMA_BIND", "KUPL_MEMORY_NODE", "KUPL_HUGEPAGE")
 #: ``PYQCU_*`` variables the runners read (and, for the process grid, neutralise).
 PYQCU_VARIABLES: tuple[str, ...] = (
     "PYQCU_KUPL_LIB", "PYQCU_KUPL_PROFILE", "PYQCU_PROCESS_GRID",
@@ -636,6 +642,7 @@ class NativeEnvironment:
     previous: Mapping[str, str | None] = field(default_factory=dict)
     removed: tuple[str, ...] = ()
     notes: tuple[str, ...] = ()
+    binding: Mapping[str, str] = field(default_factory=dict)
 
     def as_dict(self) -> dict[str, Any]:
         """JSON-safe report of the applied environment."""
@@ -647,6 +654,7 @@ class NativeEnvironment:
                 name: value for name, value in self.previous.items()},
             "environment_removed": list(self.removed),
             "environment_notes": list(self.notes),
+            "binding_environment": dict(self.binding),
         }
 
 
@@ -677,6 +685,8 @@ def apply_environment(*, threads: Any = None, shm: Any = None,
         SHM_VARIABLE: "1" if shared else "0",
     }
     removed: list[str] = []
+    binding = {name: os.environ[name] for name in BINDING_VARIABLES
+               if os.environ.get(name) not in (None, "")}
     if _environment_enabled("KUPL_NUMA_BIND"):
         conflicting = [name for name in PLACEMENT_VARIABLES
                        if os.environ.get(name) not in (None, "")]
@@ -703,7 +713,8 @@ def apply_environment(*, threads: Any = None, shm: Any = None,
             previous[name] = os.environ.pop(name, None)
         environment = NativeEnvironment(
             threads=thread_count, shm=shared, values=dict(values),
-            previous=previous, removed=tuple(removed), notes=tuple(notes))
+            previous=previous, removed=tuple(removed), notes=tuple(notes),
+            binding=binding)
         yield environment
     finally:
         for name, value in previous.items():

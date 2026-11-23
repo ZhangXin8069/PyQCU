@@ -35,31 +35,87 @@
    `verifyCloverMultigridQcu` 的完整校验（又一次 MG 资产构造与 6 次 apply）。
    这部分对 16r/32r 都同样存在，单独不足以解释 35×，但会放大 fabric 抖动。
 
-## 3. 本轮 fabric 状态（关键约束）
+三个候选**都还没有 profile 确认**：`data/l48_prof16`、`data/l48_prof32`、
+`data/l48_mg2_profile32`（`PYQCU_KUPL_MG_PROFILE=1`）三次 profile 作业都落在故障
+窗口内、全部 `rc=255`，没有一条有效 `MG_PROFILE` 行。站点已恢复，必须先重跑这三条
+再决定改哪个候选。
 
-2026-11-23 当天，**连昨天已经 PASS 的 16r/2n 配置也无法复现**：
+## 3. 本轮 fabric 状态（关键约束，2026-11-23 收尾）
 
-| 作业 | 配置 | 结果 |
+站点故障是**真实且间歇**的，不是一直全挂：20:46–21:47 之间，跨节点与跨 NUMA 的
+MPI 启动在**三个不同节点对**上都以 `rc=137`（超时）失败，而单节点 2 rank 一直
+可用。22:18 起逐步转好，**22:54 恢复**：作业 `2236344`（`cn[12044,12048]`）一次
+通过四级能力阶梯，全部 `rc=0`。
+
+| 阶梯 | 配置 | `2236344` 结果 |
 |---|---|---|
-| `2230693` | 16r / `2 2 2 2` / 36 threads / MG2 | UCX `ud_ep.c:287 unhandled timeout`，`rc=255` |
-| `2230694` | 32r / `2 2 2 4` / 18 threads / MG1 | 同上 |
-| `2230474` | 32r 单节点 / 18 threads / MG2 | 同上 |
-| `2231089` | 纯 MPI 探针，2 rank，1 节点 | **`PROBE_OK`**：`ar8=10 µs`、`ar1024=31 µs`、`ar65536=136 µs`、`ring4096=45 µs` |
-| `2231110` | 同探针，2→4→8→16→32 rank | 2 rank `PROBE_OK`；**4 rank 起挂住**，未返回 |
+| L1 ×3 | 单节点 2 rank，同 NUMA | `rc=0, 0, 0` |
+| L2 | 2 节点，每节点 1 rank | `rc=0` |
+| L3 | 2 节点，每节点 2 rank（`0-17` / `38-55`） | `rc=0`，smoke `size=4` |
+| L4 | 2 节点，每节点 8 rank（共 16 rank） | `rc=0`，smoke `size=16`，`{cn12044: 8, cn12048: 8}` |
 
-结论：**断点位于 4 rank 的纯 MPI 集体/点对点操作，早于任何 PyQCU 代码**。
-2 rank 的 Allreduce 延迟（10–136 µs）完全正常，说明不是带宽或算法问题；4 rank
-起直接挂起，是本轮站点 fabric/UCX 状态。在这种状态下无法用 A/B 区分 §2 的三个
-候选，也不能把任何新数字当作断崖修复证据。
+故障期最硬的证据是 PyQCU 自己的作业，而不是探针：`2230693` / `2230694` /
+`2230474` 都在 PyQCU 的集体操作里报 UCX `ud_ep.c:287 unhandled timeout`
+（`rc=255`）；同一窗口 2 rank Allreduce 正常。
 
-## 4. 下一步（必须按顺序）
+### 3.1 更正：早先所有 L4 `rc=255` 都不是 fabric 失败
 
-1. 等 fabric 恢复后，重跑 16r/2n 与 32r/2n 的**同节点数**对照，确认 2.94 s 基线
-   可复现；不可复现则断崖结论作废。
-2. 用 `PYQCU_KUPL_MG_PROFILE=1`（`MG_PROFILE` 行）拿到
-   `fine_apply/coarse_apply/restrict/prolong/coarse_correction/total` 分项。
-   - `total − Σparts` 大 → 归约（候选 2）；
-   - `coarse_apply` 大 → 粗层 halo（候选 1）；
-   - `total` 正常但 `row.seconds` 大 → 初始化/verify（候选 3）。
-3. 只有分项定位后才改代码；候选 1 的最小改动是**按方向真实面尺寸分配/发送**，
-   候选 2 的最小改动是把 MG 归约换到 `geometry_.comm`。
+21:04 之后每一次 L4 `rc=255` 都是**请求超配**，不是网络：
+
+- 探针请求 `drun -rpn 8 -R core=18` → 8 rank/节点 × 18 core = **144 core/节点**；
+- 实际分配是 `core=36` × 2 replica = **72 core/节点**（cpuset `0-36,38-72`）；
+- `drun` 直接拒绝该请求，MPI 从未启动；改成 `core=9`（8 × 9 = 72）后即 `rc=0`。
+
+**教训：负向 gate 结果在归因给网络之前，必须先做资源配置自检**——
+`ranks_per_node × cores_per_rank` 不得超过授予的每节点核数；granted cpuset 见
+`/proc/self/status` 的 `Cpus_allowed_list` 与 `CCS_ALLOC_FILE`。
+
+同一类错误还有更早的探针 bug：`sh/mpi_probe.py` 的 `Sendrecv` 用同一个 peer
+同时当 dest 和 source，`size >= 3` 结构性死锁（只有 `size == 2` 恰好成立）；
+正确写法是 `dest=(rank+1)%size`、`source=(rank-1)%size`。所以“2 rank 正常、
+≥4 rank 挂起” 这类由该探针得出的 fabric 判读一律作废。
+
+结论：故障期不能做 A/B，也不能把任何新数字当作断崖修复证据；阶梯恢复后按 §4
+拿到了 profile 分项并完成 A/B。
+
+## 4. 结论（2026-11-23 23:20 已确证）：断崖不存在，差异在启动环境
+
+`PYQCU_KUPL_MG_PROFILE=1` 的分项已拿到，并有同形状 A/B 对照（唯一变量是
+NUMA/hugepage 绑定）：
+
+| 作业 | 绑定 | `total` | `fine_apply` | 每站点 |
+|---|---|---:|---:|---:|
+| `2236385` 16r | 无 | 186.08 s | 93.46 s | 2.93 µs |
+| `2236485` 16r | 有 | **2.06 s** | **1.52 s** | **0.048 µs** |
+| `2236451` 16r | 无（对照） | 196.00 s | 101.06 s | 3.04 µs |
+| `2236383` 32r | 无 | 102.52 s | 49.92 s | 3.13 µs |
+
+- 两个未绑定运行（16r 与 32r）**每站点代价相同**（2.93 vs 3.13 µs），
+  18 次 fine 迭代、4 次 coarse correction 完全一致。**没有 rank 数断崖。**
+- 绑定后同一形状从 196.00 s 降到 2.06 s，**95x**；这正是历史基线
+  `2.9444 s` 的量级。
+- 历史 16r 基线来自 `sh/l48_2n16r_kupl_mg2.sh`，它导出
+  `KUPL_NUMA_BIND=1 KUPL_MEMORY_NODE=local+16 KUPL_HUGEPAGE=1`；
+  而所有 32r/64r 与 `pyqcu.test` 正式作业来自
+  `pyqcu/testing/kupl/submit_pyqcu_test.sh`，此前**不导出这三个变量**。
+  断崖 = 两个作业族的启动环境差异。
+
+机制：每个 rank 的 fine 算子要流式读取 gauge slab 与四个 Clover 项（12×12 复数），
+没有 `MADV_HUGEPAGE` 时页表足迹巨大，没有 NUMA 绑定则 OpenMP 线程与
+first-touch 页跨 NUMA 散布，两者相乘，在内存流式内核上就是 30–95x。
+
+### 4.1 已修复（改启动器，不改求解器）
+
+- `pyqcu/testing/kupl/submit_pyqcu_test.sh` 默认导出
+  `KUPL_NUMA_BIND=1 KUPL_MEMORY_NODE=local+16 KUPL_HUGEPAGE=1`，
+  并新增 `--no-numa-bind` 作为显式无绑定对照。
+- `pyqcu/test/native.py` 在每个报告里记录 `binding_environment`
+  （三个变量），使绑定运行与未绑定运行不可能再被当成等价比较。
+- 求解器代码**未改动**：§2 的三个候选（粗层 halo、`MPI_COMM_WORLD` 归约、
+  每次采样含 init/verify）都被这组数据排除，不应据此改内核。
+
+### 4.2 后续
+
+1. 所有历史 32r/64r 计时都是未绑定测量，**引用前必须用修复后的启动器重测**。
+2. L64 矩阵仍被输入缺陷阻塞（见 `logs/v20261123.txt` §48：L64 gauge 实际是
+   complex128、source 是 complex64，与文件名和 manifest 不符）。
