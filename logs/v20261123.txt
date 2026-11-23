@@ -947,3 +947,49 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
     existing slab selection with the same opt-in + fallback contract,
     (3) bitwise test serial-slab vs mpio-slab vs read-then-slice, (4) re-run
     L64 and compare case time / RSS / gauge_read_mode.
+
+64. Option A implemented: mpio slab read, with a bitwise gate
+    Commit dda7e25c.  `pyqcu/test/native.py` no longer calls the whole-file
+    readers for the file-backed gauge/source:
+
+      _read_block(path, geometry=..., rank=..., compact=..., dtype=...)
+        opens h5py with driver='mpio' + the world communicator when the build
+        supports it, otherwise plain 'r'
+        selects [slice(None)] * header + one slice per lattice axis
+        (last axis halved for the parity-compact layouts)
+        returns (block, mode) with mode in {"mpio","slab"}
+
+    The mpio decision is allgathered BEFORE any rank opens the file, so a
+    mixed-capability launch cannot deadlock a collective open.  `read_mode`
+    is now returned by both builders and therefore lands in the row, next to
+    the binding and thread fields, so the read path is auditable.
+
+    `_rank_block` became dead and was removed, along with the two now-unused
+    `import numpy as np` statements in the file branches.
+
+    New gate `pyqcu/testing/python/test_pyqcu_test_slab_read.py` (6 cases)
+    pins the slab read bit-for-bit against the old read-then-slice answer:
+      - gauge and source, full layout, every rank of a 2x2x1x2 grid
+      - gauge and source, parity-compact layout (t/2), every rank
+      - the reported mode matches the capability
+      - a one-rank geometry still reads exactly the file
+    It runs the mpio branch automatically wherever h5py has MPI.
+
+    Validation: focused pytest 133 passed; `python -m pyqcu.test --quick`
+    19/19 PASS with the new read path.
+
+65. Site prerequisite still missing for the mpio branch
+    The only h5py on this account is serial:
+      /work_ssd/.../anaconda3/2023.3/bin/python3
+        h5py 3.7.0 / HDF5 1.10.6 / get_config().mpi = False
+    so the code takes the serial slab path today: that already removes the
+    128x byte redundancy (1.24 TB -> 9.66 GB) but keeps the ~1.18e6 short t-runs
+    per rank that only MPI-IO can coalesce.  Building a parallel h5py against
+    the same HMPI drun uses is the remaining step for branch A; it must go into
+    a separate environment so the system anaconda tree is not modified.
+
+66. Agent status at 00:26
+    background subagents: none
+    monitors: m6d1o47d (watching L64 job 2236885), running
+    remote jobs: 2236885 RUNNING (39 min, still in the case phase)
+    scheduled loop: 5f548751, every 15 min
