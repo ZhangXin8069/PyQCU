@@ -1675,3 +1675,44 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
             gauge, cast c128 source; same 16-node shape as the c64 cell).
     2239491 c64 bistabcg @32 ranks submitted (2 nodes, grid 2 2 2 4).
     Nothing claimed for either until a row with residual_verified=true exists.
+
+99. Matrix cells 4 and 5: c128 mg-2 @128r, c64 bistabcg @32r - both PASS
+    2239489 c128 mg-2 @128 ranks, row 740e557959033c40:
+      PASS, seconds 9.3189, cache_reused TRUE
+      ('ranked Legacy-MG cache loaded; no coarse rebuild'), case 483.99 s
+      relative_residual 6.909200962229374e-10, residual_verified true
+      MG_LEVEL_ITERS level0=38 level1=64 total=38 accepted_corrections=8
+                     fallback_fine=0
+      MG_PROFILE total=7.231539 fine_apply=5.110531 fine_calls=100
+        coarse_apply=0.202827 coarse_calls=120 restrict_calls=8
+        prolong_calls=8 coarse_correction=1.508496 coarse_correction_calls=8
+
+      NOTE the shape change against the c64 cell: 38 fine iterations and EIGHT
+      coarse corrections (c64 mg-2 had 20 and 4), and level1=64 coarse
+      iterations exceeds level0=38.  two_level restarts 8 times because the
+      coarse solve needs 64 iterations at c128 tolerance.  So c128 mg-2 spends
+      1.51 s of 7.23 s (21%) in coarse corrections and 5.11 s in fine applies.
+      Not interpreted as a defect; recorded because it is the opposite balance
+      from c64 (0.357 s of 2.24 s).
+
+    2239491 c64 bistabcg @32 ranks, row b76097fb57d31560:
+      PASS, seconds 11.7240, iterations 18, case 578.92 s
+      local 32x32x32x32, 2 nodes, grid 2 2 2 4, 16 ranks/node x 18 threads
+      relative_residual 7.429748048510015e-07, residual_verified true
+
+    L64x128 c64 bistabcg scaling so far (all verified, NUMA-bound, 18 iters):
+      32 ranks  11.7240 s  (2 nodes,  local 32x32x32x32)
+      64 ranks   6.3425 s  (4 nodes,  local 32x32x32x16)
+      128 ranks  1.8795 s  (16 nodes, local 32x32x32x8)
+    Monotone, roughly 1.9-3.4x per halving of the rank count, with the node
+    count also changing; no cliff anywhere on this axis.
+
+    mg-2 vs bistabcg at 128 ranks, both verified:
+      c64  : bistabcg 1.8795 s / 18 iters   mg-2 3.0256 s / 20 fine iters
+             -> mg-2 1.61x slower
+      c128 : bistabcg 4.9473 s / 35 iters   mg-2 9.3189 s / 38 fine iters
+             -> mg-2 1.88x slower
+    Both at restart=5, which the repo's own L24 table places in the losing
+    region (it won at restart 10..50).  This is an honest negative result for
+    the DEFAULT configuration, NOT a verdict on MG, because B2 means the
+    restart/coarse_tol_factor knobs still do not reach the solver.
