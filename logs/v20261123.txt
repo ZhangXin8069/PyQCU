@@ -1141,3 +1141,19 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
 75. Cache build still computing at 00:55 (10 min, utime 3936 vs stime 456)
     cpu 832% of 799, RSS ~11 GB/node -> null-vector compute, slab reads.
     No CACHE_BUILD_RC yet, cache dir still empty; nothing to verify so far.
+
+76. Single-node 16-rank shape validated without an allocation
+    `pyqcu.test.launch rankfile` against a fabricated one-node alloc
+    (`cn-fake-01 608 16`) produces exactly the intended layout:
+
+      rankfile rows=16 hosts=cn-fake-01 ranks=16 cores_per_rank=18
+      rank 0=cn-fake-01 slot=0-17
+      rank 1=cn-fake-01 slot=18-35
+      rank 2=cn-fake-01 slot=38-55      (38-55 skips the 36/37 NUMA guard)
+      ...
+    i.e. 2 ranks per NUMA domain over 8 domains, 16 x 18 = 288 cores.
+    Grid for that cell is 2 2 2 2, the same as the dual-node 16r cell, so the
+    only differences between the two 16-rank rows are placement (1 vs 2 nodes)
+    and threads per rank (18 vs 36).
+    The submitter's dry run also renders the right job body (--nodes 1
+    --ranks-per-node 16 --cores-per-rank 18 --threads 18, NUMA env present).
