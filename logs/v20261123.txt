@@ -1596,3 +1596,45 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
     run at a different rank grid must repartition the ranked cache (the L48
     16r->32r/64r path already does this); the identity must match on lattice,
     dtype, mass, csw, mg_grid, nv_iters and seed.
+
+95. L64 mg-2 @128 ranks: PASS with cache reuse (matrix cell 3 of 14+)
+    Job 2239023, row afb8f1b496845676, 16 nodes / 128 ranks / grid 2 2 2 16,
+    local 32x32x32x8, 36 threads, NUMA-bound:
+      status PASS          seconds 3.0256
+      iterations 0 (getter not wired for Legacy-MG, same as the other MG rows)
+      relative_residual 7.859409452855968e-06   residual_verified true
+      cache_reused TRUE    cache_notes ['ranked Legacy-MG cache loaded; no
+                            coarse rebuild']    asset_source 'cache'
+      case_seconds 325.57
+      mg_level_parameters level 1 E=2 coarse [16,16,16,2] restart 5 slot 30
+      MG_LEVEL_ITERS level0=20 level1=4 total=20 accepted_corrections=4
+                     fallback_fine=0
+      MG_PROFILE total=2.241309 fine_apply=1.272441 fine_calls=52
+        coarse_apply=0.012063 coarse_calls=8 restrict=0.002473 restrict_calls=4
+        prolong=0.014242 prolong_calls=4
+        coarse_correction=0.357479 coarse_correction_calls=4
+        prepare=0.011449 store=0.012033 full_residual=0.028942
+    So the L64 coarse cache built by 2237727 is genuinely reusable: the run
+    reports cache_reused=true with the ranked cache loaded and no rebuild, and
+    it lands a verified PASS in 3.03 s of solve time.
+
+    128-rank comparison on the same lattice, c64, NUMA-bound, verified:
+      bistabcg  2.3500 s (job 2237987 is L48; the L64 c64 row f7d9806034ee is
+                1.8795 s) with 18 iterations
+      mg-2      3.0256 s with 20 fine iterations + 4 coarse corrections
+    On L64 at 128 ranks mg-2 is 1.61x SLOWER than plain BiCGStab (3.03 vs
+    1.88 s) and needs MORE fine iterations (20 vs 18).  Same shape of negative
+    result as L48.  This is consistent with the repo's own L24 finding that MG
+    only wins in a specific restart window (10..50 gave 1.55-1.77x) and loses
+    at restart=1; here restart=5 sits in the losing region.
+
+    Open: the bin/restart window must be tested at L64 with the knobs actually
+    plumbed (B2 unfixed), which is why this row uses restart=5 and the next
+    experiment must wait for bg-6.
+
+96. Matrix status after cell 3
+      {c64,c128} x bistabcg  x 128r  : 2/2 PASS
+      {c64}      x mg-2      x 128r  : 1/2 PASS (this row)
+      {c128}     x mg-2      x 128r  : needs its own coarse cache (identity
+                                        carries dtype), not started
+      64/32/16-single/16-dual rank columns: bistabcg not yet run at L64
