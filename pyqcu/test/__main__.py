@@ -185,6 +185,7 @@ class _Config:
     max_iter: int | None
     restart: int | None
     mg_levels: int | None
+    coarse_tol_factor: float | None
     mg_nu_pre: int | None
     mg_nu_post: int | None
     threads: int | None
@@ -400,6 +401,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--restart", type=int, default=None, metavar="N",
         help="Krylov restart length forwarded to the runners")
+    parser.add_argument(
+        "--coarse-tol-factor", type=float, default=None, metavar="F",
+        help="Legacy-MG coarse-level tolerance multiplier: the level-1"
+             " atol is atol*F*3^(level-1) (default 1e4, i.e. a very"
+             " loose 1e-1 coarse target at atol=1e-5)")
     parser.add_argument(
         "--mg-levels", type=int, default=None, metavar="N",
         help="multigrid level count forwarded to the runners")
@@ -978,6 +984,9 @@ def _resolve_config(args: argparse.Namespace) -> _Config:
         max_iter=_int_flag(args.max_iter, "--max-iter"),
         restart=_int_flag(args.restart, "--restart"),
         mg_levels=_int_flag(args.mg_levels, "--mg-levels"),
+        coarse_tol_factor=_float_flag(args.coarse_tol_factor,
+                                     "--coarse-tol-factor",
+                                     exclusive=True),
         mg_nu_pre=_int_flag(args.mg_nu_pre, "--mg-nu-pre"),
         mg_nu_post=_int_flag(args.mg_nu_post, "--mg-nu-post"),
         threads=threads,
@@ -990,6 +999,16 @@ def _resolve_config(args: argparse.Namespace) -> _Config:
         full=full,
         ledger_export=ledger_export_choice,
     )
+
+
+def _native_mg_overrides(config: _Config) -> dict[str, Any]:
+    """Only the MG knobs the caller actually set, for ``native.case``."""
+    overrides: dict[str, Any] = {}
+    for field in ("restart", "mg_levels", "mg_grid", "coarse_tol_factor"):
+        value = getattr(config, field, None)
+        if value is not None:
+            overrides[field] = value
+    return overrides
 
 
 def _native_cases(config: _Config) -> tuple[Any, ...]:
@@ -1025,7 +1044,12 @@ def _native_cases(config: _Config) -> tuple[Any, ...]:
                 dtype=config.dtype, mass=config.mass, kappa=config.kappa,
                 csw=config.csw, threads=config.threads, shm=config.full.shm,
                 max_iter=config.max_iter, device=config.device,
-                lattice_grid=config.lattice_grid)
+                lattice_grid=config.lattice_grid,
+                # These were silently dropped before 2026-11-24: every
+                # native run used the NativeCase defaults whatever the
+                # command line said, which made an MG parameter sweep
+                # impossible (all points identical).
+                **_native_mg_overrides(config))
             for backend in backends
             for kind in kinds
         )
