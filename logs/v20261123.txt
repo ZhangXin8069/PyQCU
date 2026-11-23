@@ -1048,3 +1048,22 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
     Matrix status for task 4 with L64x128 / 16 nodes:
       {c64,c128} x bistabcg   : 2/2 done
       {c64,c128} x mg-2       : 0/2, needs an L64 coarse cache first
+
+72. L64 coarse cache build submitted (job 2237727)
+    16 nodes / 128 ranks, grid 2 2 2 16, 8 ranks/node x 36 threads, NUMA-bound,
+    slab reads.  Command mirrors the verified L48 32r build:
+      kupl_multigrid.py --lat 64 64 64 128 --grid 2 2 2 16
+        --mass -0.2825 --csw 1.160587196249 --dtype c64
+        --levels 2 --restart 5 --max-iter 50 --atol 1e-4 --strict-acceptance
+        --dof 12 2 --mg-grid 2 2 2 2 --nv-iters 2
+        --write-coarse-cache data/l64_matrix_slab_20261123/caches/l64_128r_mg_l2
+        --gauge gauge_..._c64_cast.h5 --source source_..._c64.h5
+    At 00:49 (109 s wall): cpu 901% of 800, utime 1064 vs stime 456, RSS
+    ~11 GB/node, cache dir still empty -> it is computing null vectors, and the
+    memory profile confirms the slab read is in use (the full-read variant sat
+    at 80-82 GB/node).
+
+    A c128 cache is a SEPARATE build later: the cache identity carries the
+    dtype and the two cells read different gauge files, so one cache cannot
+    serve both.  Do not assume reuse - check cache_notes, as the L48 32r/64r
+    work established.
