@@ -2349,3 +2349,26 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      Nothing is published.  Matrix 6 of >=14 verified cells, MG speedup not
      established, and a launch harness that needs a dedicated fix before more
      cluster experiments are worth running.
+
+124. Three more jobs FAILED; the diagnostic path is exhausted
+     2247200, 2247255 (MG four-quantity diagnostics, restart=20) and 2247208
+     (template validation) all FAILED with no rows; only 2247291 still runs.
+     So bg-15's diagnostics never produced the `restrict/galerkin/coarse/align`
+     numbers, and bg-13's template did not validate either.  bg-13 has since
+     completed without solving the launch problem.
+
+     Where that leaves the session, stated plainly:
+       - the L48 cliff is fixed and enforced (the one headline success);
+       - the L64 matrix has 6 verified cells;
+       - the MG correction is measured to be a no-op (0.36% vs ~45%);
+       - the MG speedup the user asked for is NOT achieved, and the reason is
+         two-layered: the additive correction is structurally too weak
+         (quantified), and the cluster launch path will not reliably produce
+         runs for the shapes needed to iterate on it (15 agents and I all hit
+         it, while a single-point control job still passes).
+       - nothing is published: 6 of >=14 verified cells, no established MG
+         speedup, and a launch harness that needs a dedicated fix.
+
+     If work resumes, the first task is not the solver: it is one job shape
+     that reliably writes a row, proven on three consecutive submissions,
+     before any further MG iteration.  Everything else queues behind that.
