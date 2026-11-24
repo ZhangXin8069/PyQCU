@@ -1855,3 +1855,38 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      Remaining points (20, 50, and 20+1e2) are still running; no conclusion
      until all four land, and even then the honest statement will be about
      THIS shape, not about MG in general.
+
+107. Sweep complete with the knobs actually applied - restart window matters
+     Job 2244994, all four points, every row recording the REQUESTED values
+     (first time in this session) and every row residual_verified=true:
+
+       point      restart  coarse_tol  MG_PROFILE total  fine_calls  corr  row secs
+       r10_c1e4        10       1e4          3.0366          58        3    3.7099
+       r20_c1e4        20       1e4          1.9092          36        1    2.6398
+       r50_c1e4        50       1e4          1.9459          36        1    2.5828
+       r20_c1e2        20       1e2            -             -         -    2.6111
+
+     relative_residual 6.1e-06 .. 7.0e-06 on all four.
+
+     The structure is now visible and it is the one the repo's L24 note
+     described: at restart 20-50 the Legacy-MG degenerates to ONE coarse
+     correction - "initial deflation + fine BiCGStab", not a periodic cycle -
+     and the fine work drops from 58 applies (restart 10) to 36 (18
+     iterations).  At restart 10 it is the worst point of the four.
+
+     IMPORTANT - the comparison is NOT yet fair, and I will not claim a speedup
+     from it:
+       BiCGStab baseline (job 2237987)  2.3500 s  is the MEDIAN of 3 samples
+                                        and the row records atol 1e-6
+       these mg rows                    2.58-3.71 s  are single samples at
+                                        atol 1e-5
+     Per fine apply: mg 1.2673/36 = 35.2 ms vs BiCGStab 2.350/36 = 65.3 ms.
+     A 1.85x difference in the cost of the SAME operator means the two runs are
+     not measuring the same thing - tolerance and sample count both differ.
+
+     So the honest statement today is: on L48 c64 32 ranks the coarse
+     correction count collapses from 4 to 1 as restart goes 5 -> 20, and the
+     solver time follows (3.71 -> 2.64 s), but whether that beats plain
+     BiCGStab is UNRESOLVED until both are run with the same atol and the same
+     repeat count.  That matched run is the next experiment; no speedup claim
+     before it.
