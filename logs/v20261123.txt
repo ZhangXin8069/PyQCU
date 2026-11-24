@@ -2321,3 +2321,31 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      structural finding in section 121 stands on its own and is the more useful
      result: the coarse correction removes 0.36% of the residual against ~45%
      per fine iteration, so it cannot accelerate at any restart value.
+
+123. bg-11's first experiment also produced no data
+     Job 2246474 (`l48_mgc1`) SUCCEEDED, but
+     `data/l48_mgc1_20261124/logs/solver_c1.log` contains no `ratio=` and no
+     `level0=`, and `mg_r20_c1/rows/` has no json.  So the run again produced
+     nothing measurable - the same void-run pattern that has now hit me seven
+     times and the agents several more.
+
+     Honest reading of the day: the remote launch/log plumbing (drun + rankfile
+     + PMIx) is producing empty or rc=255 runs often enough that experiments
+     cannot be trusted to have executed at all.  Four attempts at the same
+     alternating A/B, five at the MG trace, and now bg-11's first attempt all
+     landed in that hole.  That is not a solver problem and not a site fabric
+     problem - the control job passes - it is something about how these
+     particular scripts launch.
+
+     What remains established and useful, independent of that plumbing:
+       - L48 cliff: root cause found, fixed, enforced, documented (95x).
+       - L64 matrix: 6 cells PASS with independent residuals.
+       - MG: the ONE trace that did land (data/l48_mgdbg22_20261124) is
+         decisive - the coarse correction removes 0.36% of the residual where a
+         fine iteration removes ~45%, so the additive correction cannot
+         accelerate at any restart.  That is a structural finding with numbers,
+         and it is the most valuable MG result of the session.
+
+     Nothing is published.  Matrix 6 of >=14 verified cells, MG speedup not
+     established, and a launch harness that needs a dedicated fix before more
+     cluster experiments are worth running.
