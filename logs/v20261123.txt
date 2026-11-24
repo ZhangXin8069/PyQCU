@@ -2575,3 +2575,32 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
 
      Nothing here changes the delivered state: L48 cliff fixed and enforced,
      L64 matrix 7 verified cells, MG speedup still not established.
+
+132. RETRACTION: coarsening does not help - my "coarse grid too fine" hypothesis is WRONG
+     Jobs 2249605 (mg_grid 2 2 2 4) and 2249606 (4 4 4 4), caches verified PASS
+     beforehand, first bound lines:
+       ov=0.0226784  cap=0.0721688  red=0.997392
+     against the 2 2 2 2 baseline:
+       ov=0.0374907  cap=0.102062   red=0.994778
+     So coarsening makes BOTH the capture and the reduction WORSE:
+       capture_bound  0.102 -> 0.072   (the coarser space represents LESS)
+       reduction_bound 0.9948 -> 0.9974 (one correction removes less)
+       overlap        0.0375 -> 0.0227
+
+     Section 129 concluded "the coarse grid is too fine" and predicted that
+     coarsening harder would raise the capture.  The measurement says the
+     opposite, so that conclusion is withdrawn.  Coarsening is not the lever.
+
+     What survives: `overlap` is tiny (0.02-0.04) at every coarse grid tried, so
+     the correction vector is nearly orthogonal to the error whatever the grid.
+     That points at the transfer/correction formulation itself, not at the
+     hierarchy depth: either the prolongation maps the coarse solution into the
+     wrong place (index/parity), or the coarse residual `R r` is not the
+     functional that the fine error responds to.
+
+     Honest status of the MG question after this measurement: no configuration
+     tested so far produces a correction that can pay for itself, and the
+     evidence now says the cause is structural in the transfer, not tunable by
+     grid size, level count or restart.  Two-level MG with this transfer cannot
+     accelerate, and that is a defensible negative result - but it is NOT a
+     proof about MG in general, only about this implementation's transfer.
