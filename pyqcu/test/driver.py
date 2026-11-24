@@ -724,6 +724,17 @@ def _native_failure(observations: dict[str, Any], started: float, *,
     # that is the 9ed2a6b8 mistake that silently dropped ``restart``.
     if settings.get("atol") is not None:
         kwargs["atol"] = settings["atol"]
+    # ``reference_budget`` is the per-rank workspace budget of the independent
+    # residual, planned *before* the native call
+    # (``native._preflight_reference``): a reference that does not fit skips the
+    # row with ``reference_workspace``.  Only ``solve``/``mg`` build one - a
+    # dslash row compares an operator and has no reference workspace, so it is
+    # not offered a budget.  Ungated by ``declaration`` for the reason above: the
+    # matrix declares no budget, and an unset value must stay unset so the
+    # runner keeps ``native.REFERENCE_BUDGET_BYTES``.
+    if kind in ("solve", "mg") \
+            and settings.get("reference_budget") is not None:
+        kwargs["reference_budget"] = settings["reference_budget"]
     for name in ("mass", "kappa", "csw"):
         if observations.get(name) is not None:
             kwargs[name] = observations[name]

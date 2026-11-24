@@ -186,6 +186,10 @@ class _Config:
     restart: int | None
     mg_levels: int | None
     coarse_tol_factor: float | None
+    #: ``--reference-budget`` in **bytes** (already resolved from ``8GiB``/
+    #: ``8e9``/a plain int by :func:`_budget_flag`), or ``None`` for the runner's
+    #: own :data:`pyqcu.test.native.REFERENCE_BUDGET_BYTES` default.
+    reference_budget: int | None
     mg_nu_pre: int | None
     mg_nu_post: int | None
     threads: int | None
@@ -407,6 +411,14 @@ def build_parser() -> argparse.ArgumentParser:
              " atol is atol*F*3^(level-1) (default 1e4, i.e. a very"
              " loose 1e-1 coarse target at atol=1e-5)")
     parser.add_argument(
+        "--reference-budget", dest="reference_budget", type=str, default=None,
+        metavar="BYTES",
+        help="per-rank workspace budget of the independent residual reference, "
+             "as a byte count with an optional unit: 8589934592, 8GiB, 8e9 "
+             "(default: the runner's own 4GiB). The reference SKIPs with "
+             "reference_workspace when its plan does not fit, so raise this "
+             "only together with a matching memory plan")
+    parser.add_argument(
         "--mg-levels", type=int, default=None, metavar="N",
         help="multigrid level count forwarded to the runners")
     parser.add_argument(
@@ -614,6 +626,27 @@ def _float_flag(value: float | None, flag: str, *,
             raise UsageError(
                 f"{flag} must be {comparison} {minimum:g}, got {value!r}")
     return float(value)
+
+
+def _budget_flag(value: Any, flag: str) -> int | None:
+    """Parse ``--reference-budget`` into bytes (``None`` when not given).
+
+    The accepted spellings are exactly the ones
+    :func:`pyqcu.test.native._resolve_reference_budget` documents - ``8589934592``,
+    ``"8GiB"``, ``"8e9"`` - so the CLI cannot drift from the runner: the flag
+    hands the raw text to that parser and keeps its error text.  The module is
+    imported lazily (it is stdlib-only, but ``--list`` must stay import-free) and
+    a bad value is the documented usage error, never a late ``ValueError`` from
+    inside a case.
+    """
+    if value is None:
+        return None
+    from . import native
+
+    try:
+        return int(native._resolve_reference_budget(value))
+    except ValueError as error:
+        raise UsageError(f"{flag}: {error}") from error
 
 
 def _option_values(args: argparse.Namespace) -> dict[str, Any]:
@@ -918,6 +951,10 @@ def _resolve_config(args: argparse.Namespace) -> _Config:
             "--csv - writes a report to stdout and cannot hold the full-mode "
             "row ledger; point --csv at a file (or drop it and use "
             "<reports>/rows.csv)")
+    # Parsed once: the same value goes to the run options (FullModeOptions, the
+    # mapping driver.run_row reads) and to the Test (so --list --json and the
+    # report show the budget a row was planned against).
+    reference_budget = _budget_flag(args.reference_budget, "--reference-budget")
     try:
         full = FullModeOptions(
             mode=mode,
@@ -948,6 +985,11 @@ def _resolve_config(args: argparse.Namespace) -> _Config:
             coarse_tol_factor=_float_flag(args.coarse_tol_factor,
                                           "--coarse-tol-factor",
                                           exclusive=True),
+            # The independent residual's per-rank workspace budget.  It is a
+            # *run* option (every native solve/MG row plans the reference
+            # against it), so it travels through FullModeOptions.as_dict() into
+            # driver.run_row exactly like the MG knobs above.
+            reference_budget=reference_budget,
             # ``args.atol`` and not ``config.atol``: the config is resolved
             # below, after this construction.  An unset flag stays ``None`` so
             # the native runner keeps its own per-kind default.
@@ -998,6 +1040,7 @@ def _resolve_config(args: argparse.Namespace) -> _Config:
         coarse_tol_factor=_float_flag(args.coarse_tol_factor,
                                      "--coarse-tol-factor",
                                      exclusive=True),
+        reference_budget=reference_budget,
         # Also hand it to the Test so Options carries it into the runner;
         # _native_mg_overrides alone only reached the Case and was dropped.
         mg_nu_pre=_int_flag(args.mg_nu_pre, "--mg-nu-pre"),
@@ -1113,6 +1156,12 @@ def _build_test(config: _Config) -> Test:
         # only way the Legacy-MG coarse tolerance reaches a runner.  The
         # Case attribute alone was dropped by the harness.
         test = replace(test, coarse_tol_factor=config.coarse_tol_factor)
+    if config.reference_budget is not None:
+        # Same hop as coarse_tol_factor, for the same reason: the value must
+        # survive ``select()`` so ``--list --json``/the report show the budget
+        # the row was planned against (a full-mode native row reads it from
+        # FullModeOptions.as_dict() in driver.run_row).
+        test = replace(test, reference_budget=config.reference_budget)
     return test
 
 

@@ -1117,7 +1117,7 @@ CONFIG_FIELDS: tuple[str, ...] = (
     "lattice", "lattice_grid", "mg_grid", "dtype", "seed", "source", "gauge",
     "gauge_sigma", "mass", "kappa", "csw", "solver", "dslash", "device",
     "max_iter", "restart", "mg_levels", "mg_nu_pre", "mg_nu_post", "threads",
-    "device_id", "atol", "coarse_tol_factor",
+    "device_id", "atol", "coarse_tol_factor", "reference_budget",
 )
 
 
@@ -1288,6 +1288,13 @@ class Options:
     # the harness silently ran the default (2026-11-24, six sweep points
     # all recorded 1e4 while the CLI asked for 1e2 and 1e1).
     coarse_tol_factor: float | None = None
+    # Per-rank workspace budget of the independent residual reference, in
+    # bytes.  ``None`` keeps the native default
+    # (``native.REFERENCE_BUDGET_BYTES`` = 4 GiB); a value is what the
+    # reference preflight plans against, so a field that needs more than the
+    # default must be able to declare it or the row can only SKIP with
+    # ``reference_workspace`` (2026-11-24, L64 16-rank cells: 7.50 GiB).
+    reference_budget: int | None = None
 
     def __post_init__(self) -> None:
         _normalize_run_fields(self)
@@ -1299,6 +1306,11 @@ class Options:
             raise ValueError(f"warmup must be >= 1, got {self.warmup!r}")
         if self.atol is not None and float(self.atol) <= 0.0:
             raise ValueError(f"atol must be > 0, got {self.atol!r}")
+        if self.reference_budget is not None \
+                and int(self.reference_budget) <= 0:
+            raise ValueError(
+                "reference_budget must be a positive byte count, got "
+                f"{self.reference_budget!r}")
         if self.timeout is not None and float(self.timeout) <= 0.0:
             raise ValueError(f"timeout must be > 0, got {self.timeout!r}")
 
@@ -1339,6 +1351,7 @@ class Options:
             "threads": self.threads,
             "device_id": self.device_id,
             "coarse_tol_factor": self.coarse_tol_factor,
+            "reference_budget": self.reference_budget,
         }
         for key, value in optional.items():
             if value is not None:
@@ -1642,6 +1655,11 @@ class Test:
     threads: int | None = None
     device_id: int | None = None
     coarse_tol_factor: float | None = None
+    #: ``--reference-budget`` in bytes (``None`` = the native default).  It is
+    #: part of :data:`CONFIG_FIELDS` so ``--list --json`` and the report show
+    #: the budget a row was planned against, and ``run()`` forwards it into
+    #: every :class:`Options` the way it does for the other shared fields.
+    reference_budget: int | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "cases", tuple(self.cases))
@@ -1652,6 +1670,11 @@ class Test:
             raise ValueError(f"seed must be a non-negative int, got {self.seed!r}")
         if self.atol is not None and float(self.atol) <= 0.0:
             raise ValueError(f"atol must be > 0, got {self.atol!r}")
+        if self.reference_budget is not None \
+                and int(self.reference_budget) <= 0:
+            raise ValueError(
+                "reference_budget must be a positive byte count, got "
+                f"{self.reference_budget!r}")
         # The L48 CG group is retired: an L48 plan never carries a CG case.
         # The tier-0 CG cases stay untouched on the 8x8x8x16 quick lattice.
         object.__setattr__(self, "cases",
@@ -1693,7 +1716,8 @@ class Test:
                mg_nu_pre: int | None = None, mg_nu_post: int | None = None,
                threads: int | None = None,
                device_id: int | None = None,
-               coarse_tol_factor: float | None = None) -> "Test":
+               coarse_tol_factor: float | None = None,
+               reference_budget: int | None = None) -> "Test":
         """Return a filtered, re-configured ``Test`` (never mutates ``self``).
 
         ``backends`` accepts a name or a sequence (``"all"`` clears the
@@ -1812,6 +1836,9 @@ class Test:
             coarse_tol_factor=(self.coarse_tol_factor
                                if coarse_tol_factor is None
                                else coarse_tol_factor),
+            reference_budget=(self.reference_budget
+                              if reference_budget is None
+                              else reference_budget),
         )
 
     @staticmethod
@@ -1901,6 +1928,7 @@ class Test:
                 threads=self.threads,
                 device_id=self.device_id,
                 coarse_tol_factor=self.coarse_tol_factor,
+                reference_budget=self.reference_budget,
             )
             result = run_case(case, options, mpi_size=mpi_size)
             results.append(result)
@@ -2145,6 +2173,10 @@ class FullModeOptions:
     #: dropped ``--atol`` and two runs that looked matched solved to a decade
     #: apart (2026-11-24, rows 2245167 vs 2245127).
     atol: float | None = None
+    #: ``--reference-budget`` in bytes (``None`` = the native default).  A
+    #: *run* option: ``driver.run_row`` receives ``as_dict()`` and hands it to
+    #: ``native.run_case``, which plans the independent residual against it.
+    reference_budget: int | None = None
     allow_all_skipped: bool = False
     fail_fast: bool = False
 
@@ -2170,6 +2202,11 @@ class FullModeOptions:
                 f"mode tier must be one of {policy.TIERS}, got {self.tier!r}")
         if self.atol is not None and float(self.atol) <= 0.0:
             raise ValueError(f"atol must be > 0, got {self.atol!r}")
+        if self.reference_budget is not None \
+                and int(self.reference_budget) <= 0:
+            raise ValueError(
+                "reference_budget must be a positive byte count, got "
+                f"{self.reference_budget!r}")
         object.__setattr__(self, "run_label", label)
         object.__setattr__(self, "ranks", int(self.ranks))
         object.__setattr__(self, "tier", int(self.tier))
@@ -2217,6 +2254,7 @@ class FullModeOptions:
                         else [int(v) for v in self.mg_grid]),
             "coarse_tol_factor": self.coarse_tol_factor,
             "atol": self.atol,
+            "reference_budget": self.reference_budget,
             "allow_all_skipped": self.allow_all_skipped,
             "fail_fast": self.fail_fast,
         }
