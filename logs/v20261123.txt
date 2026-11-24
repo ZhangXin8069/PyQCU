@@ -2254,3 +2254,46 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
        16-rank cells    SKIP(reference_workspace), budget flag pending
        MG speedup       NOT established; A/B harness blocked at bc1
        publish          NO
+
+121. MG CORRECTION IS A NO-OP: measured ratio 0.9964 against 0.55 per fine iteration
+     bg-9 captured the trace (`data/l48_mgdbg22_20261124`, KUPL_MG_DEBUG=1,
+     restart=20, L48 c64 32 ranks):
+
+       PYQCU::KUPL::MG_CORRECTION_DEBUG:
+        level=0 damping=1 before=12899.6 candidate=12852.6 ratio=0.996356
+       PYQCU::KUPL::MG_CHUNK_DEBUG:
+        chunk=20 completed=17 total=17 residual=0.10605 relative=8.22117e-06
+        since_correction=17
+       MG_LEVEL_ITERS: level0=17 level1=1 total=17 accepted_corrections=1
+                       fallback_fine=0
+       MG_PROFILE: total=1.554576 fine_apply=1.276383 fine_calls=36
+        coarse_apply=0.003999 coarse_calls=2 restrict=1 prolong=1
+        coarse_correction=0.065037 coarse_correction_calls=1
+
+     The arithmetic that settles it:
+       - one coarse correction multiplies the residual by 0.9964, i.e. removes
+         0.36% of it, once, for 0.065 s of coarse work;
+       - the fine Krylov goes from ~1.0 to 8.22e-06 in 17 iterations, i.e.
+         ~0.55 per iteration, removing ~45% EACH iteration.
+     So a correction is roughly two orders of magnitude weaker than a single
+     fine iteration while costing extra work.  It cannot reduce the iteration
+     count at any restart value, which is exactly what every measurement
+     showed (18 fine iterations with or without corrections).
+
+     This is a structural defect, not a tuning problem.  The correction vector
+     is essentially orthogonal to the error.  Candidates, in order:
+       1 the restrict/prolong pair does not match the fine operator (the
+         coarse operator is built from a local stencil patch with
+         patch_galerkin_error 3.6e-07, but a 0.36% effect suggests the transfer
+         is near-trivial rather than slightly inaccurate);
+       2 the correction is applied to a vector other than the fine error (for
+         example to x while the residual used for the ratio is computed before
+         the update);
+       3 damping/acceptance accepts a correction that barely moves the residual.
+     Next step is to read the restrict/prolong implementation against
+     cpp/cuda/qcu/src/apply_clover_multigrid.cu and prove which of the three it
+     is - with the ratio as the before/after gate (a working two-level MG
+     should give a ratio well below 0.55 on its first correction).
+
+     Note: this row's `total=1.5546 s` must NOT be compared with the 1.8185 s
+     BiCGStab baseline - different allocations (section 114).
