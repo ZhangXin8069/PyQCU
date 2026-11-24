@@ -941,6 +941,13 @@ def _resolve_config(args: argparse.Namespace) -> _Config:
             # Passing the resolved default here would turn every multi-rank
             # run into a ``SKIP(mpi_grid)``.
             lattice_grid=lattice_grid,
+            # Run-level solver knobs, so a full-mode row can vary them.
+            restart=_int_flag(args.restart, "--restart"),
+            mg_levels=_int_flag(args.mg_levels, "--mg-levels"),
+            mg_grid=mg_grid,
+            coarse_tol_factor=_float_flag(args.coarse_tol_factor,
+                                          "--coarse-tol-factor",
+                                          exclusive=True),
             tier=(FULL_MODE_TIER if tier is None else int(tier)),
             repeat=int(repeat),
             warmup=int(warmup),

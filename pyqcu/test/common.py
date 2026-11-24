@@ -2132,6 +2132,12 @@ class FullModeOptions:
     repeat: int = policy.DEFAULT_REPEAT
     warmup: int = policy.DEFAULT_WARMUP
     timeout: float | None = None
+    # Solver knobs a full-mode row must be able to vary; absent means the
+    # matrix declaration still supplies the reproducible default.
+    restart: int | None = None
+    mg_levels: int | None = None
+    mg_grid: tuple[int, int, int, int] | None = None
+    coarse_tol_factor: float | None = None
     allow_all_skipped: bool = False
     fail_fast: bool = False
 
@@ -2196,6 +2202,11 @@ class FullModeOptions:
             "repeat": self.repeat,
             "warmup": self.warmup,
             "timeout": self.timeout,
+            "restart": self.restart,
+            "mg_levels": self.mg_levels,
+            "mg_grid": (None if self.mg_grid is None
+                        else [int(v) for v in self.mg_grid]),
+            "coarse_tol_factor": self.coarse_tol_factor,
             "allow_all_skipped": self.allow_all_skipped,
             "fail_fast": self.fail_fast,
         }

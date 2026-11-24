@@ -1792,3 +1792,35 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      that appears once is a real signal and must be reproduced before any
      release claim.  It ran while several cluster jobs and other agents were
      active, so contention is the leading hypothesis, but unproven.
+
+105. FOURTH drop point: full mode never carried the knobs at all
+     The row still recorded restart=5 after the driver fix, because
+     `--mode solve` does not use `common.Options`: `driver.run_row` receives
+     `options=FullModeOptions.as_dict()`, and that dict had no restart,
+     mg_levels, mg_grid or coarse_tol_factor.  So `settings.get("restart")` was
+     always None, `setdefault` filled in the L48 declaration (5), and the whole
+     Case -> Options -> __main__ chain I had fixed three times was never on the
+     path the sweep actually used.
+
+     Also: my earlier `setdefault` was itself wrong - `kwargs` never contained
+     the key, so setdefault always installed the declaration value.  Two
+     mistakes compounding into "four fixes, no effect".
+
+     Fixed:
+       common.FullModeOptions        + restart, mg_levels, mg_grid,
+                                       coarse_tol_factor fields and as_dict
+                                       entries
+       __main__ FullModeOptions(...) + from --restart/--mg-levels/--mg-grid/
+                                       --coarse-tol-factor (args, since config
+                                       is resolved later in that function)
+       driver._native_failure        settings value wins; declaration is the
+                                       fallback; mg_grid/coarse_tol_factor are
+                                       taken from settings only (the matrix
+                                       declares neither)
+     Verified: FullModeOptions.as_dict() with --restart 10 --coarse-tol-factor
+     100 yields settings restart 10 / coarse_tol_factor 100.0.
+     pytest -k "driver or pyqcu_test or ledger": 284 passed.
+
+     The lesson is the same one this session keeps teaching: fix the layer the
+     job actually uses, and prove it through that layer. Three "fixes" that
+     each passed their own unit test changed nothing on the cluster.

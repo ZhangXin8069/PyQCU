@@ -704,12 +704,20 @@ def _native_failure(observations: dict[str, Any], started: float, *,
         # exactly what happened on 2026-11-24: every sweep row recorded
         # restart=5 because this line overwrote the requested 1/2/10/20/50, and
         # `Options` carrying the value correctly made no difference.
-        kwargs.setdefault("mg_levels", declaration["mg_levels"])
-        kwargs.setdefault("restart", declaration["restart"])
-        # The declaration has no coarse tolerance; never invent one here.
-        if settings.get("coarse_tol_factor") is not None:
-            kwargs.setdefault("coarse_tol_factor",
-                              settings.get("coarse_tol_factor"))
+        kwargs["mg_levels"] = (settings.get("mg_levels")
+                               if settings.get("mg_levels") is not None
+                               else declaration["mg_levels"])
+        kwargs["restart"] = (settings.get("restart")
+                             if settings.get("restart") is not None
+                             else declaration["restart"])
+    if kind == "mg":
+        # The matrix declares neither of these, so a run-level value is the
+        # only source; an unset value stays unset and the runner keeps its
+        # default.  `setdefault` was wrong here: the key was never present, so
+        # it always fell back to the declaration and a sweep repeated one point.
+        for name in ("mg_grid", "coarse_tol_factor"):
+            if settings.get(name) is not None:
+                kwargs[name] = settings[name]
     for name in ("mass", "kappa", "csw"):
         if observations.get(name) is not None:
             kwargs[name] = observations[name]
