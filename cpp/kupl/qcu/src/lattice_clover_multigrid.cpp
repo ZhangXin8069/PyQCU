@@ -378,32 +378,31 @@ public:
     bool fallback_to_fine = false;
     int accepted_corrections = 0;
     int since_correction = 0;
+    // A V-cycle buys nothing on an UNSMOOTHED residual, and that is what this
+    // loop starts from: residual(0) = b, a dense source.  The coarse basis is
+    // child.E vectors per block of parent.E*bx*by*bz*bt fine components - on
+    // the cached L48 hierarchy (data/l48_validation_20261117/caches/
+    // l48_16r_mg_l2r5.json: dof [12,2], mg_grid 2 2 2 2) that is 2 of 192 - so
+    // for a dense residual ||R r||/||r|| scales like sqrt(E/local_dim) = 0.102
+    // and the optimal single correction is bounded by
+    // sqrt(1 - E/local_dim) = 0.9948 no matter how the transfers are indexed.
+    // Job 2248613 measured 0.107979 / 0.995898 with galerkin_defect 3.7e-07:
+    // the iteration-0 V-cycle sits on that bound, gains 0.4%, and costs 0.30 s
+    // of the 3.79 s solve.  The same prolong/restrict only become worth their
+    // fine apply once the residual has been smoothed, which is where every
+    // multigrid schedule puts its first cycle.  So: smooth first (the prefix
+    // below), then correct.  The correction itself is unchanged.
     if (corrections_enabled && deflate_ && residual > target) {
-      const Real before = residual;
-      const Real candidate = apply_coarse_correction(0);
+      const int prefix = smoothing_prefix(levels_[0].correction_interval);
+      since_correction =
+          std::max(0, levels_[0].correction_interval - prefix);
       if (params_[kVerbose] != 0) {
         std::fprintf(
             stdout,
             "PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:\n "
-            "deflation candidate before=%g candidate=%g target=%g\n",
-            static_cast<double>(before), static_cast<double>(candidate),
+            "coarse schedule interval=%d smooth_prefix=%d target=%g\n",
+            levels_[0].correction_interval, prefix,
             static_cast<double>(target));
-      }
-      if (!std::isfinite(static_cast<double>(candidate)) ||
-          candidate >= before) {
-        corrections_enabled = false;
-        fallback_to_fine = true;
-      } else {
-        residual = candidate;
-        ++accepted_corrections;
-      }
-      if (params_[kVerbose] != 0) {
-        std::fprintf(stdout,
-                     "PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:\n "
-                     "deflation residual=%g target=%g corrections=%d\n",
-                     static_cast<double>(residual),
-                     static_cast<double>(target),
-                     corrections_enabled ? 1 : 0);
       }
     }
     while (!fallback_to_fine &&
@@ -1004,6 +1003,384 @@ private:
     out = state.x;
   }
 
+  // KUPL_MG_DEBUG diagnostics for one coarse correction.  The four numbers it
+  // prints decide whether a weak correction is the transfer pair's fault (the
+  // prolonged vector is not A^{-1} of the restricted residual) or the coarse
+  // operator's (A_c disagrees with R A P on the vector actually solved):
+  //   restrict   ||R r|| / ||r||      coarse-space content of the fine residual
+  //   galerkin   ||R(A P c) - A_c c|| / ||A_c c||   transfer/operator mismatch
+  //   coarse     ||R r - A_c c|| / ||R r||          coarse solve quality
+  //   align      <r, A P c> / ||A P c|| / ||r||     cos(r, A P c)
+  //
+  // `overlap` is NOT that cosine: it is <r, A P c> / ||r||^2, i.e. the cosine
+  // times ||A P c||/||r|| (`image_ratio`).  cos_overlap below is the real
+  // cosine; divide `overlap` by `image_ratio` to recover it from an older row.
+  //
+  // `capture_bound` / `reduction_bound` are ALGEBRA, not diagnostics:
+  //   capture_bound   = sqrt(child.E / (parent.E * bx*by*bz*bt))
+  //   reduction_bound = sqrt(1 - capture_bound^2)
+  // They are functions of (child.E, parent.E, the coarsening factors) only and
+  // cannot be changed by any transfer mapping, so a fall of capture_bound when
+  // the grid is coarsened is a restatement of bx*by*bz*bt growing, not evidence
+  // about the transfers.  `capture` is the same fraction without the sqrt.
+  // What the transfers actually achieve is `restrict_ratio` and `cos_overlap`
+  // relative to those numbers.
+  void diagnose_correction(int level,
+                           const std::vector<Complex<Real>> &coarse_correction,
+                           Real before) {
+    LegacyMgLevel<Real> &parent = levels_[level];
+    LegacyMgLevel<Real> &child = levels_[level + 1];
+    std::vector<Complex<Real>> apple(parent.x.size());
+    std::vector<Complex<Real>> coarse_apply(child.x.size());
+    std::vector<Complex<Real>> coarse_image(child.x.size());
+    apply_level(level, apple, parent.correction);
+    apply_level(level + 1, coarse_apply, coarse_correction);
+    restrict(level, coarse_image, apple);
+    const Real restricted_rhs = std::sqrt(mg_norm2(child.rhs, distributed_));
+    const Real coarse_rhs_defect = [&] {
+      Real local = 0;
+      for (std::size_t i = 0; i < child.rhs.size(); ++i) {
+        local += std::norm(child.rhs[i] - coarse_apply[i]);
+      }
+      Real global = local;
+      if (distributed_) {
+        const MPI_Datatype type =
+            sizeof(Real) == sizeof(float) ? MPI_FLOAT : MPI_DOUBLE;
+        MPI_Allreduce(&local, &global, 1, type, MPI_SUM, MPI_COMM_WORLD);
+      }
+      return std::sqrt(global);
+    }();
+    const Real galerkin_defect = [&] {
+      Real local = 0;
+      Real scale = 0;
+      for (std::size_t i = 0; i < child.rhs.size(); ++i) {
+        local += std::norm(coarse_image[i] - coarse_apply[i]);
+        scale += std::norm(coarse_apply[i]);
+      }
+      Real global[2] = {local, scale};
+      if (distributed_) {
+        const MPI_Datatype type =
+            sizeof(Real) == sizeof(float) ? MPI_FLOAT : MPI_DOUBLE;
+        MPI_Allreduce(MPI_IN_PLACE, global, 2, type, MPI_SUM, MPI_COMM_WORLD);
+      }
+      return std::sqrt(global[0]) /
+             std::max(std::sqrt(global[1]), std::numeric_limits<Real>::min());
+    }();
+    const Complex<Real> overlap = mg_dot(parent.r, apple, distributed_);
+    const Real image_norm = std::sqrt(mg_norm2(apple, distributed_));
+    const Real coarse_norm = std::sqrt(mg_norm2(coarse_correction, distributed_));
+    // What the geometry alone allows.  The coarse basis is child.E vectors per
+    // block of parent.E*bx*by*bz*bt fine components; a dense residual can only
+    // fill that fraction of the coarse space, and a single correction cannot
+    // beat the orthogonal-projection bound below.  Printing the two numbers
+    // next to the measured restrict_ratio/best_ratio separates "the transfers
+    // are mapped wrong" from "the coarse space is this small": a mapping
+    // mismatch breaks the basis_error/galerkin_defect lines while these bounds
+    // keep holding unchanged - they are pure algebra in
+    // (child.E, parent.E, bx, by, bz, bt) and carry no information about the
+    // mapping at all.  capture (no sqrt) is printed so the identity is visible
+    // in the row itself.
+    const int bx = std::max(1, parent.dims[0] / child.dims[0]);
+    const int by = std::max(1, parent.dims[1] / child.dims[1]);
+    const int bz = std::max(1, parent.dims[2] / child.dims[2]);
+    const int bt = std::max(1, parent.dims[3] / child.dims[3]);
+    const int block_dof = parent.E * bx * by * bz * bt;
+    const Real capture = block_dof > 0
+                             ? static_cast<Real>(child.E) /
+                                   static_cast<Real>(block_dof)
+                             : Real(1);
+    const Real capture_bound = std::sqrt(std::min(Real(1), capture));
+    const Real reduction_bound =
+        std::sqrt(std::max(Real(0), Real(1) - capture));
+    // R P = I on the coarse dof.  This is the check a wrong coarse index or a
+    // wrong fine-component axis cannot pass: a permuted axis turns the
+    // round-trip into that permutation, which is not the identity, and a
+    // parity/site mix-up in prolong() alone shows up here even when restrict()
+    // is its exact adjoint (both are, see the R = P^H construction).
+    std::vector<Complex<Real>> basis_seed(child.x.size());
+    for (std::size_t i = 0; i < basis_seed.size(); ++i) {
+      const Real phase = Real(0.011) * static_cast<Real>((i * 29 + 7) % 97);
+      basis_seed[i] =
+          Complex<Real>(std::cos(phase), Real(0.6) * std::sin(phase));
+    }
+    std::vector<Complex<Real>> basis_fine(parent.x.size());
+    std::vector<Complex<Real>> basis_back(child.x.size());
+    prolong(level, basis_fine, basis_seed);
+    restrict(level, basis_back, basis_fine);
+    const Real basis_error = [&] {
+      Real local[2] = {0, 0};
+      for (std::size_t i = 0; i < basis_seed.size(); ++i) {
+        local[0] += std::norm(basis_back[i] - basis_seed[i]);
+        local[1] += std::norm(basis_seed[i]);
+      }
+      Real global[2] = {local[0], local[1]};
+      if (distributed_) {
+        const MPI_Datatype type =
+            sizeof(Real) == sizeof(float) ? MPI_FLOAT : MPI_DOUBLE;
+        MPI_Allreduce(MPI_IN_PLACE, global, 2, type, MPI_SUM, MPI_COMM_WORLD);
+      }
+      return std::sqrt(global[0]) /
+             std::max(std::sqrt(global[1]), std::numeric_limits<Real>::min());
+    }();
+    const Real al_num = before > Real(0)
+                            ? Real(2) * overlap.real() / (before * before)
+                            : Real(0);
+    const Real al_den = before > Real(0)
+                            ? image_norm * image_norm / (before * before)
+                            : Real(0);
+    // ||r - t A c||^2 / ||r||^2 = 1 - t*al_num + t^2*al_den, minimised at
+    // t = al_num/(2 al_den) with the value 1 - al_num^2/(4 al_den).
+    const Real best_damping =
+        al_den > Real(0) ? al_num / (Real(2) * al_den) : Real(0);
+    const Real best_ratio =
+        al_den > Real(0) ? std::sqrt(std::max(
+                               Real(0), Real(1) - al_num * al_num /
+                                                (Real(4) * al_den)))
+                         : Real(1);
+    const Real cos_overlap =
+        image_norm > Real(0)
+            ? overlap.real() / (before * image_norm)
+            : Real(0);
+    if (params_[kNodeRank] == 0) {
+      std::fprintf(stdout,
+                   "PYQCU::KUPL::MG_CORRECTION_DIAG:\n "
+                   "level=%d before=%g restricted=%g restrict_ratio=%g "
+                   "coarse_norm=%g image_norm=%g image_ratio=%g "
+                   "overlap=%g coarse_defect=%g galerkin_defect=%g "
+                   "coarse_rtol=%g best_damping=%g best_ratio=%g "
+                   "E=%d e=%d block=%d capture_bound=%g reduction_bound=%g "
+                   "basis_error=%g cos_overlap=%g capture=%g\n",
+                   level, static_cast<double>(before),
+                   static_cast<double>(restricted_rhs),
+                   static_cast<double>(restricted_rhs / before),
+                   static_cast<double>(coarse_norm),
+                   static_cast<double>(image_norm),
+                   static_cast<double>(image_norm / before),
+                   static_cast<double>(overlap.real() / (before * before)),
+                   static_cast<double>(coarse_rhs_defect /
+                                       std::max(restricted_rhs,
+                                                std::numeric_limits<Real>::min())),
+                   static_cast<double>(galerkin_defect),
+                   static_cast<double>(child.tolerance),
+                   static_cast<double>(best_damping),
+                   static_cast<double>(best_ratio),
+                   child.E, parent.E, block_dof,
+                   static_cast<double>(capture_bound),
+                   static_cast<double>(reduction_bound),
+                   static_cast<double>(basis_error),
+                   static_cast<double>(cos_overlap),
+                   static_cast<double>(capture));
+      std::fflush(stdout);
+    }
+    audit_transfer_mapping(level, bx, by, bz, bt);
+  }
+
+  // KUPL_MG_DEBUG dof-level audit of the coarse<->fine mapping, run once per
+  // transition.  It answers the only question a mapping bug can hide behind:
+  // for a chosen coarse site, which fine dofs does restrict() gather and which
+  // fine dofs does prolong() scatter to, and are they the same set?
+  //
+  // prolong() of a unit coarse dof (E_idx, c) must be supported on exactly
+  //   { (e_idx, x, y, z, t) : e_idx in [0,e), x in [bx*xc, bx*xc+bx),
+  //     y in [by*yc, ...), z in [bz*zc, ...), t in [bt*tc, ...) }
+  // and restrict() of that image must return the same unit coarse dof and
+  // nothing else.  A permuted axis, an off-by-one block origin, a swapped
+  // (x<->t) fastest index, a prolong-only parity shift or a wrong component
+  // stride all break one of the two.
+  //
+  // restrict()/prolong() are pure local loops (no MPI, no halo), so this runs
+  // on every rank without a collective; only rank 0 prints.
+  void audit_transfer_mapping(int level, int bx, int by, int bz, int bt) {
+    static bool done = false;
+    if (done) {
+      return;
+    }
+    done = true;
+    // A debug-only audit must never be able to take a production solve down.
+    try {
+      audit_transfer_mapping_body(level, bx, by, bz, bt);
+    } catch (const std::exception &error) {
+      if (params_[kNodeRank] == 0) {
+        std::fprintf(stderr,
+                     "PYQCU::KUPL::MG_MAP_AUDIT:\n level=%d audit failed: %s\n",
+                     level, error.what());
+        std::fflush(stderr);
+      }
+    }
+  }
+
+  void audit_transfer_mapping_body(int level, int bx, int by, int bz, int bt) {
+    LegacyMgLevel<Real> &p = levels_[level];
+    LegacyMgLevel<Real> &c = levels_[level + 1];
+    const int64_t fine_volume = mg_volume(p.dims);
+    const int64_t coarse_volume = mg_volume(c.dims);
+    const int64_t block_sites =
+        static_cast<int64_t>(bx) * by * bz * bt;
+    const auto coarse_site = [&](int xc, int yc, int zc, int tc) {
+      return ((static_cast<int64_t>(xc) * c.dims[1] + yc) * c.dims[2] + zc) *
+                 c.dims[3] +
+             tc;
+    };
+    // Two centres: the local origin block (exercises the wrap of the first
+    // block) and a block whose global fine indices are strictly interior.
+    std::array<std::array<int, kDim>, 2> centres{};
+    centres[0] = {0, 0, 0, 0};
+    for (int dim = 0; dim < kDim; ++dim) {
+      centres[1][dim] = c.dims[dim] > 2 ? c.dims[dim] / 2 : 0;
+    }
+    std::vector<Complex<Real>> seed(c.x.size());
+    std::vector<Complex<Real>> image(p.x.size());
+    std::vector<Complex<Real>> back(c.x.size());
+    Real max_roundtrip = 0;
+    Real max_outside = 0;
+    int mismatches = 0;
+    for (const auto &centre : centres) {
+      const int64_t site = coarse_site(centre[0], centre[1], centre[2],
+                                       centre[3]);
+      if (params_[kNodeRank] == 0) {
+        std::fprintf(
+            stdout,
+            "PYQCU::KUPL::MG_MAP_AUDIT:\n "
+            "level=%d coarse_site=(%d,%d,%d,%d) linear=%lld block=(%d,%d,%d,%d) "
+            "block_sites=%lld gathers=%lld dofs\n",
+            level, centre[0], centre[1], centre[2], centre[3],
+            static_cast<long long>(site), bx, by, bz, bt,
+            static_cast<long long>(block_sites),
+            static_cast<long long>(block_sites * p.E));
+      }
+      for (int E_idx = 0; E_idx < c.E; ++E_idx) {
+        std::fill(seed.begin(), seed.end(), Complex<Real>(0));
+        seed[static_cast<std::size_t>(
+            static_cast<int64_t>(E_idx) * coarse_volume + site)] =
+            Complex<Real>(1);
+        std::fill(image.begin(), image.end(), Complex<Real>(0));
+        prolong(level, image, seed);
+        // support scan: which (e_idx, x, y, z, t) are non-zero
+        int64_t support = 0;
+        int64_t in_block = 0;
+        int64_t outside = 0;
+        int first_component = -1;
+        int last_component = -1;
+        int64_t first_site = -1;
+        int64_t last_site = -1;
+        for (int e_idx = 0; e_idx < p.E; ++e_idx) {
+          const Complex<Real> *plane =
+              image.data() + static_cast<int64_t>(e_idx) * fine_volume;
+          for (int64_t s = 0; s < fine_volume; ++s) {
+            if (std::abs(plane[s]) == Real(0)) {
+              continue;
+            }
+            ++support;
+            if (first_component < 0) {
+              first_component = e_idx;
+              first_site = s;
+            }
+            last_component = e_idx;
+            last_site = s;
+            // decode the fine site (t fastest, then z, y, x)
+            int64_t remainder = s;
+            const int t = static_cast<int>(remainder % p.dims[3]);
+            remainder /= p.dims[3];
+            const int z = static_cast<int>(remainder % p.dims[2]);
+            remainder /= p.dims[2];
+            const int y = static_cast<int>(remainder % p.dims[1]);
+            const int x = static_cast<int>(remainder / p.dims[1]);
+            const bool inside =
+                x / bx == centre[0] && y / by == centre[1] &&
+                z / bz == centre[2] && t / bt == centre[3];
+            if (inside) {
+              ++in_block;
+            } else {
+              ++outside;
+            }
+          }
+        }
+        std::fill(back.begin(), back.end(), Complex<Real>(0));
+        restrict(level, back, image);
+        Real roundtrip = 0;
+        Real leak = 0;
+        for (int64_t i = 0; i < coarse_volume * c.E; ++i) {
+          const Real expected =
+              i == static_cast<int64_t>(E_idx) * coarse_volume + site
+                  ? Real(1)
+                  : Real(0);
+          const Real error = std::abs(back[static_cast<std::size_t>(i)] -
+                                      Complex<Real>(expected));
+          if (expected == Real(1)) {
+            roundtrip = std::max(roundtrip, error);
+          } else {
+            leak = std::max(leak, error);
+          }
+        }
+        max_roundtrip = std::max(max_roundtrip, roundtrip);
+        max_outside = std::max(max_outside, leak);
+        // A correct transfer must pass all three checks, and each is stated in
+        // units that a correct transfer can actually satisfy:
+        //  (1) the image is supported on exactly the block: every one of the
+        //      block_sites * p.E (component, site) pairs and nothing else;
+        //  (2) no mass outside the block (fp32 round-off is tolerated);
+        //  (3) restrict(prolong(unit)) returns the unit - the pair is adjoint.
+        // `first_component/last_component` are printed for diagnosis only: a
+        // non-diagonal null-vector basis legitimately spreads one coarse dof
+        // over all p.E components, so requiring a single component would fail
+        // on every correct implementation (that was the old assertion's defect).
+        const bool ok = support == block_sites * p.E && outside == 0 &&
+                        roundtrip < Real(1e-4) && leak < Real(1e-4);
+        if (!ok) {
+          ++mismatches;
+        }
+        if (params_[kNodeRank] == 0) {
+          std::fprintf(
+              stdout,
+              "PYQCU::KUPL::MG_MAP_AUDIT:\n "
+              "level=%d E_idx=%d scatter=%lld in_block=%lld outside_block=%lld "
+              "components=[%d,%d] first_fine=%lld last_fine=%lld "
+              "roundtrip_err=%g leak=%g ok=%d\n",
+              level, E_idx, static_cast<long long>(support),
+              static_cast<long long>(in_block),
+              static_cast<long long>(outside), first_component, last_component,
+              static_cast<long long>(first_site),
+              static_cast<long long>(last_site),
+              static_cast<double>(roundtrip), static_cast<double>(leak),
+              ok ? 1 : 0);
+        }
+      }
+    }
+    if (params_[kNodeRank] == 0) {
+      std::fprintf(
+          stdout,
+          "PYQCU::KUPL::MG_MAP_AUDIT:\n "
+          "level=%d checked_coarse_sites=%zu block_sites=%lld "
+          "max_roundtrip_err=%g max_leak=%g mismatches=%d "
+          "gather_set_equals_scatter_set=%d\n",
+          level, centres.size(), static_cast<long long>(block_sites),
+          static_cast<double>(max_roundtrip), static_cast<double>(max_outside),
+          mismatches, mismatches == 0 ? 1 : 0);
+      std::fflush(stdout);
+    }
+  }
+
+  // Fine BiCGStab iterations that run before the first coarse correction.
+  // A V-cycle pays only for a smooth residual (see the comment at its call
+  // site in solve()), so the first correction is scheduled after this many
+  // iterations instead of against residual(0) = b.  KUPL_MG_NU_PRE /
+  // params_[kMgMuPre] override it; the default keeps one quarter of the
+  // configured interval, which is what the L48 schedule uses.
+  int smoothing_prefix(int interval) const {
+    int prefix = 0;
+    const char *env = std::getenv("KUPL_MG_NU_PRE");
+    if (env != nullptr && *env != '\0') {
+      prefix = std::atoi(env);
+    }
+    if (prefix <= 0) {
+      prefix = params_[kMgMuPre];
+    }
+    if (prefix <= 0) {
+      prefix = std::max(1, interval / 4);
+    }
+    return std::min(prefix, std::max(1, interval));
+  }
+
   Real apply_coarse_correction(int level) {
     MgProfileTimer timer(profile_, prof_coarse_correction_seconds_);
     ++prof_coarse_correction_calls_;
@@ -1032,6 +1409,14 @@ private:
     prolong(level, parent.correction, coarse_correction);
     const Real before = std::sqrt(mg_norm2(parent.r, distributed_));
     const std::vector<Complex<Real>> saved_residual = parent.r;
+    // diagnose_correction does distributed work: apply_level/restrict run halo
+    // exchanges and mg_norm2/mg_dot run MPI_Allreduce over MPI_COMM_WORLD, so a
+    // rank-subset guard on the CALL deadlocks every multi-rank run (jobs
+    // 2247200 and 2247255 hung right after the Legacy-MultiGrid banner and were
+    // killed).  Every rank must enter it; only rank 0 prints.
+    if (debug_) {
+      diagnose_correction(level, coarse_correction, before);
+    }
     static constexpr Real damping_steps[] = {
         Real(1), Real(0.5), Real(0.25), Real(0.125)};
     for (const Real damping : damping_steps) {
