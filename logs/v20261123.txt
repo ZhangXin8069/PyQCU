@@ -2651,3 +2651,40 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
        mg-2     c128  @32, @128
      Outstanding: the 16-dual placement for all four solver/dtype pairs, plus
      bistabcg/mg-2 c64/c128 at the ranks not yet covered.
+
+135. Matrix essentially complete: 17 distinct verified cells
+     Full enumeration over all output directories (key = dtype, ranks, grid,
+     solver; PASS and residual_verified only):
+
+       dtype ranks  grid        solver  seconds
+       c64    16  2 2 2 2   solve      18.291
+       c64    16  2 2 2 2   mg        192.887
+       c64    32  2 2 2 4   solve       2.350
+       c64    32  2 2 2 4   mg        102.465
+       c64    64  2 2 2 8   solve       6.342
+       c64    64  2 2 2 8   mg         16.180
+       c64    64  2 2 4 4   mg         92.860   (legacy grid, superseded)
+       c64   128  2 2 2 16  solve       1.880
+       c64   128  2 2 2 16  mg          3.026
+       c128   16  2 2 2 2   solve      54.595
+       c128   16  2 2 2 2   mg        355.257
+       c128   32  2 2 2 4   solve      45.089
+       c128   32  2 2 2 4   mg        104.300
+       c128   64  2 2 2 8   solve      32.148
+       c128   64  2 2 2 8   mg         70.048
+       c128  128  2 2 2 16  solve       4.947
+       c128  128  2 2 2 16  mg          9.319
+
+     So all 16 core cells of {c64,c128} x {bistabcg, mg-2} x {16,32,64,128}
+     are verified, plus one superseded c64 mg @64 legacy-grid row.
+
+     IMPORTANT caveat on the 16-rank column: single-node and dual-node
+     placements both use grid `2 2 2 2`, so this enumeration cannot tell them
+     apart.  Only the single-node placement has been explicitly confirmed (row
+     de3c33aa3def728a, 1 node).  The dual-node 16-rank cells still need their
+     placement read from the row's launcher/rankfile evidence before they can
+     be counted separately.
+
+     Timings: these span many different allocations and node generations, so
+     they are valid per row only - do NOT read the column as a scaling curve
+     (section 114).
