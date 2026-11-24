@@ -2429,3 +2429,38 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      This is a bug in the DIAGNOSTIC, not in the solver.  bg-19 owns the file;
      the fix is recorded here so it is not lost if that agent's context runs out
      first.  Nothing has been changed in the working tree by this note.
+
+127. MG four-quantity diagnosis obtained - the correction direction is wrong
+     Job 2248613 (`l48_mgdiag7`), after fixing the rank-0-only collective, rc=0:
+       level=0 before=12899.6 restricted=1392.88 restrict_ratio=0.107979
+       coarse_norm=1934.38 image_norm=1556.65 image_ratio=0.120675
+       overlap=0.0109188 coarse_defect=0.0554194 galerkin_defect=3.70645e-07
+       coarse_rtol=0.1 best_damping=0.749798 best_ratio=0.995898
+
+     Reading it against the four candidates:
+       galerkin_defect 3.7e-07  -> the transfer pair MATCHES the coarse
+                                   operator to 7 digits.  Ruled out.
+       restrict_ratio  0.108    -> the coarse space captures ~11% of the fine
+                                   residual, not nothing.  Ruled out.
+       coarse_defect   0.055    -> the coarse solve is within its 0.1 target.
+                                   Ruled out as the primary cause.
+       overlap         0.0109   -> cos(r, A P c) is ~0.011, i.e. the correction
+                                   image is essentially ORTHOGONAL to the
+                                   residual (90.6 degrees).
+
+     So the algebra is right and the physics is right, but the vector that comes
+     back from the coarse grid points in the wrong direction.  With that
+     alignment even the optimal damping (0.7498) can only reach ratio 0.9959 -
+     the measured 0.9964.  This is the quantitative explanation of the whole
+     "MG does not accelerate" observation.
+
+     Where the bug must be: the prolongation, or the layout the coarse solve
+     writes into versus the layout `apply_level(level+1)`/`restrict` read.  A
+     3.7e-07 Galerkin defect says the operators agree on the coarse VECTOR
+     SPACE; an 0.011 overlap says the coarse solution is being mapped back into
+     a different dof ordering/parity than the one the fine operator expects.
+     Next: compare `prolong()` with the CUDA reference for index mapping and
+     parity handling, not for algebra.
+
+     Consequence unchanged: MG speedup NOT established, and now with a precise
+     reason rather than a symptom.
