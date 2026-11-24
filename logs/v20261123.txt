@@ -2993,3 +2993,61 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      evidence without checking the authoritative source (140: audit field name;
      143: launcher.kind).  The rule that would have prevented all three: before
      concluding from a field, find the source that RECORDS the fact and read it.
+
+145. RETRACTION of 133 and 142: capture_bound/reduction_bound are ALGEBRA, not measurements
+     `lattice_clover_multigrid.cpp` states it at line 1019 and computes it at 1092:
+
+       capture_bound   = sqrt(child.E / (parent.E * bx*by*bz*bt))
+       reduction_bound = sqrt(1 - capture_bound^2)
+
+     With E=2, e=12 and the three grids used all session, the formula reproduces
+     every number I reported to seven digits:
+
+       mg_grid   block   formula        measured
+       2 2 2 2     16   0.1020621      0.102062
+       2 2 2 4     32   0.07216878     0.0721688
+       4 4 4 4    256   0.02551552     0.0255155
+       (reduction: 0.994778 / 0.9973924 / 0.9996744, likewise exact)
+
+     So those are dimension counts of the coarse space, not any measurement of
+     the solver, and they CANNOT move unless E or the block size changes.  This
+     invalidates two of my own conclusions:
+
+       - section 133 ("capture falls monotonically as the coarse grid coarsens -
+         the signature of a transfer that does not correspond to the coarse
+         operator's geometry") is wrong: capture falls because the block grows,
+         by arithmetic.  It says nothing about the transfer.
+       - section 142 ("the coarse space can only represent 2.5-10% of the fine
+         error") restated that same formula as if it were a measurement of
+         representation quality.
+
+     And it explains why bg-27's basis change moved `overlap` (0.0227 -> 0.0135)
+     and `basis_error` (2.87e-07 -> 4.02e-07) while `capture_bound` stayed
+     bit-identical: the basis is not an argument of that function.  A metric that
+     is invariant to the thing you changed cannot be evidence about it.
+
+     WHAT THE SESSION ACTUALLY MEASURED, and what the MG negative result still
+     rests on - all three are real vector computations, not formulas:
+       - `overlap` = cos(r, A P c) = 0.0135..0.037 - the correction is nearly
+         orthogonal to the residual;
+       - `best_ratio` = 0.9941 at mg_grid 2 2 2 2 - even with the optimal damping
+         one correction removes only ~0.6% of the residual;
+       - `level0` = 18..19, identical to plain BiCGStab - MG does not reduce the
+         fine iteration count at all.
+     Those stand.  The conclusion "Legacy-MG does not accelerate L48x96 c64" is
+     still correct; the reasoning that led to it was partly wrong.
+
+     CONSEQUENCE for the next attempt: since capture_bound = sqrt(E/(e*block)),
+     the coarse space's capacity is set by E, and E=2 with e=12 is very small -
+     two coarse vectors per 12-component site covering a 32-site block.  Raising
+     E is then the only lever that changes the algebra AND is physically the way
+     to enlarge the coarse space.  `allocate_level` (line 658) only requires
+     E > 0, and the ABI has room: level E lives at params[19 + 8*(level-1)], so
+     level 1..5 occupy 19,27,35,43,51 and kMgMuPre=56 / kMgUseDeflate=55 bound
+     the top.  Try E=4,6,8 and re-read `best_ratio` and `level0` - NOT
+     capture_bound, which will merely follow the formula.
+
+     METHOD LESSON: read the definition of a metric before using it as evidence,
+     especially when a change leaves it bit-identical.  I quoted this file
+     hundreds of lines deep for other purposes and still never read lines
+     1019-1023, which say plainly that these two are algebra.
