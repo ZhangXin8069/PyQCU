@@ -3096,3 +3096,48 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      still do not lower `level0` below 18, the honest answer is that this
      two-level Legacy-MG cannot accelerate L48x96 c64 and should be reported as
      a measured limitation rather than tuned further.
+
+147. Correction interval decoupled and swept: MG is measurably SLOWER - closed
+     bg-29 gave `correction_interval` its own knob so it no longer piggybacks on
+     `--restart`, then swept it with restart FIXED at 20.  Library md5
+     f6c057c11d @ 05:26:35; rows in data/l48_ci_20261125, all PASS:
+
+       interval   accepted_corrections   best_ratio   level0   seconds
+       0 (off)    0                       -            18       7.7
+       2          4                       0.991735     19       9.9
+       3          4(*)                    0.990966     19      10.4
+       5          4                       0.992125     19       9.4
+
+     (*) the printed `accepted_corrections=4` with `level1=4` belongs to the
+     interval-3 row; the same line shape appears for the others.
+
+     Three facts, all from the same allocation so the wall times are comparable
+     within this table:
+       - Applying the correction 4 times instead of 1 lowered `best_ratio` from
+         0.993393 to ~0.991 - about 0.2 of a percentage point.  The correction
+         direction stays nearly useless however often it is applied.
+       - `level0` stayed at 19, i.e. MORE fine iterations than plain BiCGStab
+         (18).  MG never pays for itself in fine iterations, at any interval.
+       - Wall time went UP: 7.7 s with corrections off, 9.4-10.4 s with them on.
+         That is a 1.22x-1.35x SLOWDOWN, measured in one allocation.
+
+     This is the decisive answer to the original requirement.  The honest
+     conclusion, after excluding every lever with measurements:
+
+       | lever                | tried                          | result            |
+       | transfer mapping     | audit, adjointness             | correct           |
+       | grid size            | 2 2 2 2 / 2 2 2 4 / 4 4 4 4    | algebra only      |
+       | level count          | 2 (port wires one)             | n/a               |
+       | restart              | 1/5/10/20/50                   | confounded        |
+       | coarse tolerance     | 1e4/1e2/1e1                    | no effect         |
+       | basis shape          | changed                        | no effect         |
+       | basis size E         | 2 -> 4                         | worse (l0 18->24) |
+       | correction interval  | 0/2/3/5 at restart 20          | SLOWER 1.22-1.35x |
+
+     KUPL Legacy-MG cannot accelerate L48x96 c64 as implemented.  The remaining
+     explanation is structural, not tunable: one correction removes ~0.66% of the
+     residual while one fine BiCGStab iteration removes ~45%, and the coarse
+     solve costs more than the fine iterations it saves.  Making it competitive
+     needs a real V-cycle (multiple smoothing sweeps per level, several cycles,
+     and a coarse operator that is actually cheaper than the fine one) - that is
+     a redesign, not a parameter change, and it must not be claimed as achieved.
