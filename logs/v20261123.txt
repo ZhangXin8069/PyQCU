@@ -2207,3 +2207,19 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
        - a PASS requires residual_verified: true
        - do not publish: the matrix is 6 of >=14 verified cells and MG has no
          established speedup.
+
+119. bg-8's alternating A/B also failed at its first point
+     Job 2246053 (`l48_ab3`): `=== POINT bc1 bc` then `POINT_RC bc1 rc=255`,
+     job state FAILED, no rows.  So the alternating shape still fails at the
+     FIRST point, while:
+       - the same bc command as a standalone one-drun job succeeds
+         (l48_mbc rows b7b17fd3b680 at 14:17 and 14:23);
+       - the mg sweep with FOUR sequential drun calls succeeds (2244994).
+     Neither "multiple drun" nor "--native solve" alone explains it.  What is
+     left is how the call is wrapped (function + pipeline + per-tag outdir) or
+     an interaction with the outdir that the per-tag form creates.  I no longer
+     had budget to bisect it; bg-8 and bg-6 are still live and own that script.
+
+     State of the MG question: still no same-allocation pair, therefore still
+     UNRESOLVED, in either direction.  I will not infer from cross-allocation
+     data (2.1x swing on an unchanged script, bit-identical residuals).
