@@ -54,6 +54,14 @@ PYQCU_KUPL_LIB=<repo>/cpp/kupl/qcu/libqcu.so
 `KUPL_NUMA_BIND=1` 时还会清除冲突的 `OMP_PROC_BIND`、`OMP_PLACES`、
 `GOMP_CPU_AFFINITY` 和 `KMP_AFFINITY`。
 
+`KUPL_NUMA_BIND=0`/`KUPL_HUGEPAGE=0` 只是不绑定的起点，不是多 rank KUPL 的
+生产配置：鲲鹏节点上 `pyqcu.test` 的多 rank KUPL 运行要求 `KUPL_NUMA_BIND=1`、
+`KUPL_MEMORY_NODE=local+16`、`KUPL_HUGEPAGE=1`，并配 `mpirun --bind-to none`
+（放置由库负责）。同一 L48 c64 16 rank 求解未绑定 196.00 s、绑定 2.06 s
+（作业 2236451 / 2236485，95x）；缺这三个变量时 `pyqcu.test` 直接报 ERROR，
+而不是记录一个不可比较的数字。唯一例外是刻意的绑定/不绑定 A/B：
+`PYQCU_ALLOW_UNBOUND_KUPL=1`。
+
 不要在文档或脚本中硬编码个人仓库绝对路径；需要外部安装树时通过 `QUDA_INSTALL`、
 `PYQCU_CUDA_LIB`、`PYQCU_DCU_LIB`、`PYQCU_KUPL_LIB` 或构建参数显式传入。
 

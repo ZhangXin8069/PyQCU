@@ -1,0 +1,399 @@
+Segfault probe: test_quick_report_lists_the_nineteen_tier0_tags
+================================================================
+Date        2026-11-24 12:22-13:0x +0800
+Host        WSL2, kernel 6.18.54.1-microsoft-standard-WSL2, 8 cores,
+            15 GiB RAM + 32 GiB swap, Python 3.12.4 (conda-forge),
+            pytest 9.2.0, torch 2.15.0+cu132
+Repo state  main @ 31f71614 + concurrent uncommitted edits by other agents
+            (cpp/kupl/qcu/src/lattice_clover_multigrid.cpp,
+             pyqcu/kupl/multigrid/legacy_multigrid.py, pyqcu/test/native.py,
+             pyqcu/test/ledger_csv.py, docs/*, ... and the untracked
+             pyqcu/testing/python/test_pyqcu_test_mg_levels.py).
+            The tree moved during the probe: `git status` grew from 8 to 25+
+            modified paths between 12:22 and 12:45.
+Nothing was committed, pushed or edited except this file.
+
+0. Verdict (short)
+------------------
+The reported "segfault" is not established by the transcript that was handed
+over.  The pytest line
+
+    ERROR ...test_pyqcu_test_port.py::test_quick_report_lists_the_nineteen_tier0_tags
+
+is a *fixture setup error* of the module-scoped `quick_report` fixture, whose
+failure message is "no JSON report found on stdout".  That message appears for
+ANY non-zero exit of the child process `python3 -B -m pyqcu.test --quick
+--json -` that does not print its report - a real SIGSEGV, a native
+abort(SIGABRT), an uncaught Python exception (rc=1), an OOM kill, an external
+SIGTERM, and a timeout are indistinguishable at that level, because
+`_run_cli` throws the child's stderr away (test_pyqcu_test_port.py:96-111) and
+the child prints nothing on stdout before the very last statement of the run
+(pyqcu/test/__main__.py:1749 -> :1662).
+
+Status of the investigation
+  * original command (a):                 PASSED  (230 passed, 202.05 s)
+  * same + -p no:cacheprovider (b):       REPRODUCED the exact nodeid/ERROR
+                                          ("180 passed, 212 deselected,
+                                           1 error in 21.66s"), child stdout
+                                          empty (`text = ''`), rc != 2.
+  * child's exit status / stderr:         NOT captured when it reproduced
+                                          (the test discards them).
+  * faulting frame:                       NOT OBTAINED (no gdb/strace on this
+                                          host, no core dumps, dmesg has no
+                                          segfault record for the window).
+  * contention as sole cause:            NOT SUPPORTED.  Under the heaviest
+                                          contention I could create the child
+                                          does not die at all - it degrades
+                                          into per-case TIMEOUTs and still
+                                          emits a well-formed JSON report.
+
+1. What the test can reach (file:line)
+--------------------------------------
+The test never executes native code in the pytest process.  It runs a
+subprocess and parses its stdout:
+
+  pyqcu/testing/python/test_pyqcu_test_port.py:96-111  _run_cli()
+  pyqcu/testing/python/test_pyqcu_test_port.py:104      [sys.executable,"-B",
+                                                        "-m","pyqcu.test",*args]
+  pyqcu/testing/python/test_pyqcu_test_port.py:170-184  quick_report fixture
+  pyqcu/testing/python/test_pyqcu_test_port.py:172      _run_cli("--quick",
+                                                        "--json","-")
+  pyqcu/testing/python/test_pyqcu_test_port.py:145      the pytest.fail that is
+                                                        reported as the ERROR
+  pyqcu/testing/python/test_pyqcu_test_port.py:198      the failing test
+
+`--quick` pins tier 0 / 8x8x8x16 / c64 / seed 42 / repeat 1 / warmup 1
+(pyqcu/test/policy.py:429-445), i.e. the 19 tier-0 cases of
+pyqcu/test/units.py:163-262 executed sequentially in ONE child process
+(pyqcu/test/common.py:1848-1876, pyqcu/test/__main__.py:1695-1752).
+
+Five of the 19 enter libqcu.so through ctypes:
+  units.py:205  kupl/abi/symbols   -> binds the C ABI + nm only, no numeric call
+                                      (kupl_qcu.py:1479-1600)
+  units.py:211  kupl/dslash/wilson -> applyInitQcu/applyWilsonDslashQcu/
+                                      applyEndQcu     (kupl_qcu.py:1797-1890)
+  units.py:217  kupl/solve/bistabcg
+  units.py:256  kupl/dslash/clover
+  units.py:262  kupl/solve/cg
+Library load: pyqcu/kupl/qcu.py:53-69, `_LIBRARY = _load_library()` at line 69,
+i.e. `ctypes.CDLL(pyqcu/kupl/libqcu.so, RTLD_LOCAL)` at *import* time.
+The transaction protocol is kupl_qcu.py:1253-1283 (applyInitQcu at :1262,
+applyEndQcu at :1276) and the raw-pointer call is kupl_qcu.py:1359.
+
+The other 14 cases are pure torch; torch/mg/legacy (units.py:193) and
+torch/mg/strict (units.py:200) are the slowest (25-60 s core each on an idle
+box, 187 s wall under load).  cuda/* (units.py:223-241) PASS on this host, so
+the child also creates CUDA contexts.
+
+Reachable native code inside the child, in order of first touch:
+  * libqcu.so + its dependencies at `--quick` case 9/10:
+      libmpi.so.40 (OpenMPI), libgomp.so.1, libucs/libucp/libucm/libfabric
+      (UCX) are all pulled into the process (ldd pyqcu/kupl/libqcu.so).
+  * MPI: pyqcu/cuda/define.py:1 and pyqcu/kupl/define.py:8 import mpi4py,
+    which initialises MPI at import; the library additionally calls
+    MPI_Init_thread itself if MPI is not yet initialised
+    (cpp/kupl/qcu/src/apply_init.cpp:13 -> lattice_cpu.cpp:834-846,
+     then configured_threads()/bind_logical_numa()).
+  * Every native exception is turned into an abort with a message
+    (cpp/kupl/qcu/src/api_common.hpp:19-27 -> lattice_cpu.cpp:885-899:
+     fprintf(stderr,"PYQCU::KUPL::..."), then MPI_Abort(MPI_COMM_WORLD,2)
+     or std::abort()).
+
+NOT reached by `--quick`:
+  * pyqcu/test/driver.py (its run_row at driver.py:353 is the full-mode hook,
+    common.py:1983/3171); pyqcu/test/native.py except as a lazy dependency:
+    native.apply_environment (native.py:678-748, the only place OMP_NUM_THREADS
+    is set) is called only from native.run_case (native.py:3356).  A plain
+    `--quick` case run therefore inherits whatever OMP_NUM_THREADS the caller
+    had, and lets the KUPL library pick omp_get_max_threads() itself.
+
+2. Attempts, verbatim
+---------------------
+Environment note for every run: several other agents were running the same or
+nearby pytest selections on this 8-core box at the same time, e.g. (ps):
+  PID 5212  python3 -m pytest pyqcu/testing/python -x -q -k driver or pyqcu_test or mg   (mine, a)
+  PID 5415  python3 -m pytest pyqcu/testing/python -x -q -k ledger or cli or pyqcu_test
+  PID 4071  python3 -m pytest pyqcu/testing/python -x -q -k mg or native or pyqcu_test
+  several `/home/zhangxin/miniforge3/bin/python3 -B -m pyqcu.test --quick --json -`
+  load average 3.9 -> 20.0 during the probe.
+
+(a) exact original batch command
+  $ cd /home/zhangxin/PyQCU
+  $ python3 -m pytest pyqcu/testing/python -x -q -k "driver or pyqcu_test or mg"
+  start 2026-11-24T12:22:44+08:00, end 2026-11-24T12:26:19+08:00
+  RESULT: EXIT=0
+          "230 passed, 212 deselected in 202.05s (0:03:22)"
+  (no ERROR; the port fixture's child ran 113 s and passed)
+
+(b) same batch with the cache plugin off
+  $ python3 -m pytest pyqcu/testing/python -x -q -p no:cacheprovider \
+        -k "driver or pyqcu_test or mg"
+  start 2026-11-24T12:26:28+08:00, end 2026-11-24T12:27:01+08:00
+  RESULT: EXIT=1 - REPRODUCED, same nodeid, same counts as the report:
+    "ERROR at setup of test_quick_report_lists_the_nineteen_tier0_tags"
+    ...
+    text = '', what = 'pyqcu.test --quick --json -'
+    E  Failed: pyqcu.test --quick --json -: no JSON report found on stdout
+    ERROR pyqcu/testing/python/test_pyqcu_test_port.py::test_quick_report_lists_the_nineteen_tier0_tags
+    !!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!
+    180 passed, 212 deselected, 1 error in 21.66s
+  The child's stdout was EMPTY (`text = ''`), and rc != 2 (the exit-2 branch at
+  test:173 was not taken).  Whole session 21.66 s, i.e. the child lived only a
+  few seconds (the 180 tests before it account for ~15 s of the session).
+  The child's stderr - which holds the reason - was discarded by _run_cli.
+
+(c) the test alone, three consecutive times
+  $ python3 -m pytest \
+      "pyqcu/testing/python/test_pyqcu_test_port.py::test_quick_report_lists_the_nineteen_tier0_tags" \
+      -q -x
+  run 1: started 12:34:20; at 12:46:57 (12m37s) its child was STILL running
+         (load average 16-20, torch/mg cases hitting their 120 s per-case
+         budget).  ABORTED by me, rc=143.  (Recorded honestly: not a result.)
+  run 2/3: not started (loop stopped).
+  Re-run instrumented (same command, child stderr captured), in progress at
+  the time of writing - result appended in section 6.
+  Also "test alone" without pytest, exactly what the fixture does:
+  $ PYTHONPATH=/home/zhangxin/PyQCU PYTHONUNBUFFERED=1 PYTHONFAULTHANDLER=1 \
+      python3 -B -m pyqcu.test --quick --json -
+    attempt 1  rc=0   113.4 s   overall PASS (19 cases)
+    attempt 2  rc=0   ~318 s    overall PASS
+    attempt 3  not completed (aborted while the box was at load ~16)
+
+(d) scheduling / thread-count perturbations
+  d1: $ PYQCU_CHILD_TRACE_DIR=... taskset -c 0-3 nice -n 19 \
+          python3 -m pytest <nodeid> -q -x --durations=5
+      RESULT (child's own stderr, captured): the child did NOT crash; it
+      degraded into timeouts:
+        PASS    torch/lattice          core=0.000s wall=102.926s
+        TIMEOUT torch/dslash/wilson    exceeded 120s wall-clock budget
+        TIMEOUT torch/dslash/parity    exceeded 120s wall-clock budget
+        TIMEOUT torch/dslash/clover    exceeded 120s wall-clock budget
+      (aborted by me after ~9 min; the same would have gone on for 19 cases.)
+  d2: $ OMP_NUM_THREADS=1 PYQCU_CHILD_TRACE_DIR=... \
+          python3 -m pytest <nodeid> -q -x --durations=5
+      RESULT: no child had started after ~10 min under load 16-20 (the parent
+      had not finished importing/collecting).  Aborted by me; no result.
+
+(e) batch with the other tests split in halves
+  e1: $ PYQCU_CHILD_TRACE_DIR=... PYTHONPATH=... PYTHONFAULTHANDLER=1 \
+          python3 -m pytest pyqcu/testing/python -x -q \
+          -k "driver or pyqcu_test or mg"           # instrumented (b)
+      RESULT: EXIT=1 in 8.08 s at a DIFFERENT test:
+        FAILED pyqcu/testing/python/test_pyqcu_test_l48_matrix.py::test_explicit_cg_on_l48_is_a_usage_error
+        1 failed, 52 passed, 212 deselected in 8.08s
+      i.e. the port test (position ~181 of 232 collected) was never reached,
+      because a concurrent agent had changed the L48 CG retirement message
+      while its test still expected the old one.  This is the moving-tree
+      hazard, not the segfault.
+  e2 (halves by node id): not run - budget.
+
+Instrumentation used for (d)/(e) and for the re-run of (c): a
+sitecustomize.py OUTSIDE the repository (scratchpad) that, only in the
+`-m pyqcu.test` child, dup2()s fd 2 to a per-pid file and calls
+faulthandler.enable(file=...).  It changes no repository file and no test; it
+only makes the child's stderr observable, which is exactly what the fixture
+throws away.  Verified: a normal child ends with
+"[probe] reached interpreter shutdown".
+
+3. Faulting frame
+-----------------
+None.  No stack was obtained because:
+  * no reproduce-with-capture happened: the one reproduction (b) predates the
+    stderr capture, and every later run either passed or failed differently;
+  * gdb, strace and ltrace are NOT installed on this host
+    (`which gdb strace ltrace` -> nothing, ptrace_scope=1);
+  * `ulimit -c` is 0 and /proc/sys/kernel/core_pattern is "core", so a crash
+    leaves no core to post-mortem;
+  * the kernel ring buffer contains NO segfault record: `dmesg | grep -i
+    "segfault|oom-kill|killed process"` is empty over 870 lines spanning
+    t=0..1545 s, which covers the 12:27 reproduction.  So at least for that
+    event there is no evidence of SIGSEGV, SIGBUS or the OOM killer; a
+    SIGABRT (raise/abort) or an external SIGTERM/SIGKILL, or a plain non-zero
+    Python exit, would leave exactly this (empty) trace.
+
+4. Best-supported explanation
+-----------------------------
+What is proved:
+  * The failure is in the CHILD process, not in pytest: the report is
+    "ERROR at setup of ..." with `text = ''`, and the parent session
+    completed normally (180 passed + 1 error + summary line).
+  * It is reproducible on this host under load (1 of 2 batch attempts), and
+    it is fast (the child died after a few seconds, not after a 120/300/600 s
+    case budget and not after the 1800 s subprocess timeout).
+  * It is NOT reproducible when the child is run on its own: 2/2 direct runs
+    and 1/1 `--only kupl` runs passed (see section 6 for the rest).
+
+What contention can and cannot explain:
+  * FOR: only the loaded batch reproduced it; the box was running 3+ other
+    pytest sessions and 2-4 concurrent `pyqcu.test --quick` children.
+  * AGAINST: contention, by itself, does not silence the child.  Forcing the
+    worst scheduling I could (taskset to 4 CPUs, nice 19, load ~20) produced
+    a *well-formed* report with `TIMEOUT` case statuses (d1), which pytest
+    reports as a FAILED case-status/exit-code test, not as a setup ERROR with
+    empty stdout.  To produce the observed ERROR, contention would have to
+    KILL the child - which contention does not normally do on a box with
+    32 GiB of free swap and ~10 GiB of free RAM (no oom-kill in dmesg).
+
+Therefore the most likely shape of the bug is: an abrupt termination of the
+child that is invisible to the test by construction.  Ranked:
+  (1) A native abort or crash inside the child.  The KUPL path turns every
+      C++ exception into `PYQCU::KUPL::<module>: <message>` + MPI_Abort(...,2)
+      or std::abort() (lattice_cpu.cpp:885-899); MPI_Abort with exit code 2
+      would have hit the fixture's `returncode == 2` branch, but std::abort()
+      (SIGABRT) or a segfault inside libqcu/libmpi/libgomp/UCX would not, and
+      neither leaves a message on any stream the test keeps.  This is the
+      only class of failure that is *inherently* invisible here.
+  (2) A crash in the torch/CUDA half of the matrix (14 of 19 cases;
+      torch/mg/legacy and torch/mg/strict dominate; the cuda/* cases really
+      do create a CUDA context on this host, and dmesg is full of
+      `misc dxg: dxgkio_*: Ioctl failed: -22` from the WSL2 GPU driver).
+      The absence of a "segfault at" record weakens this.
+  (3) An uncaught Python exception in the child (rc=1) - trivially consistent
+      with the symptom, and it would be written, with a traceback, to the
+      stderr the test discards.
+  (4) An external kill: another agent's cleanup (`pkill`, `timeout`, task
+      cancellation) hitting the child.  Worth stating because several agents
+      were running `timeout ... python3 -m pytest` on the SAME tree at the
+      same time, and one of those sessions disappeared mid-run at ~12:27
+      (its log ends without an EXIT= line).  SIGTERM/SIGKILL leaves no dmesg
+      record and no stdout.
+
+Evidence FOR a genuine native-memory bug (not just contention):
+  * the failure is silent and fast - nothing in the child's *observable*
+    output (stdout) exists, so no Python-level failure had a chance to be
+    reported;
+  * the KUPL path passes raw tensor addresses straight into C++ with shape
+    validation only in Python (kupl_qcu.py:1352-1360) and a registry keyed by
+    the *address* of the set_ptrs tensor (lattice_cpu.cpp:864-880), so a
+    lifetime/aliasing mistake would be timing-sensitive in exactly this way;
+  * the failure appeared while 3-4 processes were each driving that library
+    with their own OpenMP teams and their own MPI/UCX initialisation.
+Evidence AGAINST:
+  * every direct reproduction attempt of the native path passed (kupl cases
+    in ~16 s, 5/5 cases PASS);
+  * no segfault record in the kernel log for the one event that did happen;
+  * the child that died lived only a few seconds - earlier than the first
+    `applyInitQcu` in the sequence (case 10), so it may not have touched
+    libqcu at all;
+  * the event coincided with a period in which the tree itself was being
+    rewritten by other agents.
+
+5. The smallest experiment that would settle it
+-----------------------------------------------
+Make the child's death observable, then reproduce once.  In order of cost:
+
+  (i) Zero new code, ~1 minute:
+      $ for i in $(seq 1 40); do
+          PYTHONPATH=$PWD PYTHONFAULTHANDLER=1 python3 -B -m pyqcu.test \
+              --quick --json - >/dev/null 2>child.$i.err
+          echo "run=$i rc=$?"; [ $? -ne 0 ] && break
+        done
+      run while the box is loaded by 2-3 other pytest sessions.
+      rc alone splits the space: -11 SIGSEGV, -6 SIGABRT (read child.err for
+      the `PYQCU::KUPL::` or CUDA line and for the last completed case),
+      -9 external/OOM, 1 Python traceback (names the case), -15 external kill.
+
+  (ii) One-line diagnostic (NOT a fix, and not a way to hide the failure):
+      in pyqcu/testing/python/test_pyqcu_test_port.py:145 add
+      `completed.returncode` and `completed.stderr[-4000:]` to the failure
+      message.  Then the batch itself reports the signal and the native
+      message, permanently - this is the change that would have answered the
+      question the first time it happened.
+
+  (iii) To get the C frame, the host needs either gdb (`gdb --batch -ex run
+      -ex bt --args python3 -m pyqcu.test --quick --json -`, with the case
+      pinned by `--only <tag>`), or core dumps (`ulimit -c unlimited` + a
+      core_pattern that writes somewhere writable).  With `-X faulthandler`
+      alone one gets only the Python frame (which case, which ctypes call);
+      that is enough to pick the C++ entry point, not enough to name the C
+      line.
+
+6. Late results (appended while the probe ran)
+----------------------------------------------
+6.1 The child run directly (exactly what the fixture does)
+  $ PYTHONPATH=/home/zhangxin/PyQCU PYTHONUNBUFFERED=1 PYTHONFAULTHANDLER=1 \
+      python3 -B -m pyqcu.test --quick --json -
+    attempt 1  rc=0   113.38 s   "19 cases, 19 pass"          12:27:12 -> 12:29:05
+    attempt 2  rc=0   ~318 s     "19 cases, 19 pass"          12:29:05 -> 12:34:23
+    attempt 3  aborted by me (box at load ~16, case budgets not reached)
+  => 2/2 clean exits, full stderr retained, no faulthandler dump.
+
+6.2 The native path in a loop (instrumented only with stderr captured)
+  $ PYTHONPATH=$PWD python3 -B -m pyqcu.test --quick --only kupl --json -
+    6 consecutive runs, each 15.8 / 23 / 25 / 24 / 19 / 24 s:
+      run=1 rc=0  run=2 rc=0  run=3 rc=0
+      run=4 rc=0  run=5 rc=0  run=6 rc=0
+    every run: 5 cases (kupl/abi/symbols, kupl/dslash/wilson,
+    kupl/solve/bistabcg, kupl/dslash/clover, kupl/solve/cg) all PASS,
+    e.g. wall 5.12/5.24/2.05/0.83 s for the four numeric ones.
+  => 6/6 clean, under load average 15-16, while 2-3 other agents were also
+     running `pyqcu.test --quick` children.  The libqcu path is not
+     "flaky under load" in this sample.
+
+6.3 The test alone, instrumented (attempt (c) with the child's stderr kept)
+  $ PYQCU_CHILD_TRACE_DIR=... PYTHONPATH=shims:$PWD PYTHONFAULTHANDLER=1 \
+      python3 -m pytest <nodeid> -q -x
+    run 1: started 12:48:20, still healthy at 12:55:21 (child alive 6m56s):
+      PASS torch/lattice, torch/dslash/{wilson,parity,clover}, torch/smear/stout
+      PASS torch/solve/bistabcg   wall=73.6s
+      PASS torch/mg/legacy        wall=282.4s   (vs 25.9 s core unloaded)
+      ... inside torch/mg/strict when the probe was stopped
+    NO crash, NO timeout of the child's own budget, no dump.
+  => the "test alone" case did not reproduce in the time available; under a
+     loaded 8-core box it simply cannot finish 19 cases inside the probe
+     budget (each MG case alone costs 3-5 minutes).
+
+6.4 Can a *neighbour test* be required? (the (e) question)
+  The child is a fresh process, so the only channels from earlier tests to it
+  are (i) the parent's environment (inherited via os.environ.copy() in
+  _run_cli at test:100) and (ii) machine load.
+  (i) is ruled out for this selection: the only modules under
+      pyqcu/testing/python that assign `os.environ[...] = ...` directly are
+      test_torch_mpi_optimizations.py and test_tilelang_optional.py, and
+      neither is selected by `-k "driver or pyqcu_test or mg"`
+      (0/232 collected ids come from those files).
+  (ii) is exactly the contention hypothesis, and 6.2/6.3/6.4 show it does not
+      by itself produce the symptom.
+  So no neighbour test is *required*; what the batch adds over "the test
+  alone" is load and duration, not state.
+
+6.5 Reproduction tally
+  batch runs:            2 attempted, 1 reproduced (b, 12:27).
+  direct child runs:     2 full + 6 native-only + 1 long instrumented run
+                         = 9, all rc=0, all reports complete.
+  instrumented batch:    1 attempted, aborted at a *different* test
+                         (pyqcu/testing/python/test_pyqcu_test_l48_matrix.py
+                         ::test_explicit_cg_on_l48_is_a_usage_error) because
+                         another agent was rewriting the L48 message at that
+                         moment; the port test was never reached.
+  signal capture:        0 events.  The one reproduction predates the
+                         stderr capture, and no later run failed that way.
+
+6.6 Other checks worth recording
+  * `for i in 1..15: python3 -c "from mpi4py import MPI"` -> 15/15 rc=0,
+    so MPI_Init via mpi4py is not systematically broken here.
+  * /dev/shm: 7.1 MB used of 7.8 GB - not an MPI/UCX segment exhaustion.
+  * MemFree ~7-11 GiB during every run, swap untouched -> no memory pressure
+    anywhere near an OOM.
+  * the child's per-case budget is 120 s (dslash/smear/lattice), 300 s
+    (solve), 600 s (mg), 60 s (abi) (pyqcu/test/units.py:132-135), and the
+    fixture's subprocess budget is 1800 s (test:63).  A timeout therefore
+    cannot explain a child that died after ~5 s.
+  * `dmesg` over the whole window: no "segfault at", no "oom-kill",
+    no "killed process".  (Non-zero exit codes and SIGABRT leave no kernel
+    line, which is why the absence is informative but not conclusive.)
+
+6.7 Bottom line for a release claim
+  Do not ship a "contention explains it" sentence yet.  What can be said
+  honestly is: the port fixture treats ANY silent non-zero exit of
+  `pyqcu.test --quick` as "no JSON report found on stdout", so the current
+  evidence cannot distinguish a native crash from a Python exception or an
+  external kill, and the one reproduced event left no kernel record.  Two
+  cheap changes make the next occurrence self-diagnosing:
+    (1) include `completed.returncode` and `completed.stderr[-4000:]` in the
+        message at pyqcu/testing/python/test_pyqcu_test_port.py:145;
+    (2) in the child, wrap `main()` so an uncaught exception still prints the
+        partial report (pyqcu/test/__main__.py:516-542), or at minimum flush
+        a "case <tag> starting" line to stderr (the per-case `on_result`
+        lines at __main__.py:1715-1720 already do this for completed cases,
+        which is how the last completed case was identified in 6.3).

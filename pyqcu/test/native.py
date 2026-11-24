@@ -188,6 +188,19 @@ MG_LEVEL_DATA_TYPE = 6
 MG_LEVEL_NUM_RESTART = 7
 #: ``define._MG_LEVEL1_ATOL_``: first coarse tolerance in ``argv``.
 ARGV_MG_LEVEL_BASE = 3
+#: Level count the KUPL Legacy-MG accepts (``num_levels_ < 1 || > 5`` in
+#: ``cpp/kupl/qcu/src/lattice_clover_multigrid.cpp:195``).
+MG_MAX_LEVELS = 5
+#: Smallest coarse extent a *new* transition may produce.  The solver warns
+#: below this ("too small", ``lattice_clover_multigrid.cpp:288``) and its block
+#: validation then has nothing left to halve.
+MG_COARSEST_EXTENT = 4
+#: Components of the odd-Schur fine field (``kVector``); every transition's
+#: ``lonv`` keeps the parent components as its second axis.
+MG_FINE_COMPONENTS = 12
+#: ``lonv``/``hnn``/``hdg``/``sit``: the four tensors of one coarse transition
+#: (:data:`pyqcu.test.cache.ASSET_NAMES`, the cache format's dataset names).
+MG_TRANSITION_ASSETS: tuple[str, ...] = tuple(cache_module.ASSET_NAMES)
 #: Default coarsening: 12 fine components, 12 coarse basis vectors.
 DEFAULT_DOF: tuple[int, int] = (12, 12)
 DEFAULT_MG_GRID: tuple[int, int, int, int] = (2, 2, 2, 2)
@@ -1370,14 +1383,27 @@ def _mpi_comm() -> Any:
     """The MPI communicator for a collective HDF5 read, or ``None``.
 
     ``pyqcu.tools`` already owns the capability probe (``h5py.get_config().mpi``
-    plus a live ``driver='mpio'`` open), so this only reuses it.  The decision is
-    allgathered: one rank entering a collective open while another reads
-    independently would hang, so every rank must agree before any of them opens
-    the file.  ``None`` means "read independently", never "skip the read".
+    plus a live ``driver='mpio'`` open), so this only reuses the flag; the
+    communicator itself always comes from ``mpi4py`` (``pyqcu.tools`` does not
+    re-export it, and importing it from there raised ``ImportError`` on every
+    rank, which the blanket ``except`` turned into "MPI is unavailable").  Only
+    ``ImportError`` is caught here: a broken *name* must surface instead of
+    silently selecting the serial path.
+
+    A one-rank communicator resolves to ``None``: with nothing to coordinate, a
+    plain serial open is correct and cheaper, and handing the comm back would
+    turn every single-rank artifact read into a collective ``driver='mpio'``
+    open - a new failure mode where a serial open already works.
+
+    On more than one rank the decision is allgathered: one rank entering a
+    collective open while another reads independently would hang, so every rank
+    must agree before any of them opens the file.  ``None`` means "read
+    independently", never "skip the read".
     """
     try:
-        from pyqcu.tools import HAS_MPI_SUPPORT, MPI
-    except Exception:  # noqa: BLE001 - no mpi4py is a normal single-node case
+        from mpi4py import MPI
+        from pyqcu.tools import HAS_MPI_SUPPORT
+    except ImportError:  # no mpi4py/capability probe is a normal single-node case
         return None
     try:
         comm = MPI.COMM_WORLD
@@ -1385,9 +1411,7 @@ def _mpi_comm() -> Any:
     except Exception:  # noqa: BLE001 - MPI present but unusable in this process
         return None
     if size <= 1:
-        # Nothing to coordinate; a one-rank case may still use the mpio driver
-        # when the build supports it, and the recorded mode stays truthful.
-        return comm if HAS_MPI_SUPPORT else None
+        return None
     votes = comm.allgather(1 if HAS_MPI_SUPPORT else 0)
     if len(set(votes)) != 1:
         raise RuntimeError(
@@ -3038,17 +3062,13 @@ def _options(case: Any = None, *, kind: str = "solve", **explicit: Any
     if any(value <= 0 for value in mg_grid):
         raise ValueError(f"mg_grid extents must be positive, got {mg_grid}")
     mg_levels = _resolve_int(_get("mg_levels", 2), "mg_levels", minimum=1)
-    if mg_levels > 2:
-        # NOT a solver limit: the KUPL Legacy-MG accepts 1..5 levels and builds
-        # its hierarchy in a loop (cpp/kupl/qcu/src/lattice_clover_multigrid.cpp,
-        # `num_levels_ < 1 || num_levels_ > 5` and the per-level coarsening).
-        # This port only wires ONE coarse transition (a single asset set in
-        # `_configure_legacy_mg`), so mg-3+ would be given repeated copies of
-        # the same block shape instead of a real hierarchy.  Refusing is the
-        # honest answer until the per-level assets exist.
+    if mg_levels > MG_MAX_LEVELS:
+        # This *is* a solver limit: the KUPL Legacy-MG throws for a level count
+        # outside 1..5 (``num_levels_ < 1 || num_levels_ > 5`` in
+        # cpp/kupl/qcu/src/lattice_clover_multigrid.cpp:195).
         raise ValueError(
-            f"pyqcu.test wires one coarse transition, so mg_levels must be 1 "
-            f"or 2; the KUPL Legacy-MG itself supports up to 5, got "
+            f"the KUPL Legacy-MG accepts 1..{MG_MAX_LEVELS} levels "
+            f"(cpp/kupl/qcu/src/lattice_clover_multigrid.cpp:195), got "
             f"{mg_levels}")
     dof_value = _get("dof", DEFAULT_DOF)
     dof = tuple(_resolve_int(value, "dof", minimum=1) for value in dof_value)
@@ -3056,6 +3076,12 @@ def _options(case: Any = None, *, kind: str = "solve", **explicit: Any
         raise ValueError(
             f"dof must start with the 12-component fine field and list at "
             f"least two levels, got {dof}")
+    if mg_levels > 2:
+        # Derive the hierarchy now: every level of a Legacy-MG case is built in
+        # one solver constructor (lattice_clover_multigrid.cpp:231-275), so an
+        # unrepresentable depth is a usage error here rather than a half-wired
+        # hierarchy later.  The derivation names the level and the extent.
+        _mg_level_chain(lattice, mg_grid, mg_levels, dof)
     nv_iters = _resolve_int(_get("nv_iters", DEFAULT_NV_ITERS), "nv_iters",
                             minimum=1)
     restart = _resolve_int(_get("restart", 5), "restart")
@@ -3562,8 +3588,219 @@ def controls_plan(probe: BackendProbe, kind: str) -> int:
 
 
 # ---------------------------------------------------------------------------
-# Legacy-MG assets (cache reuse or native build) and wiring
+# Legacy-MG hierarchy (per-level geometry and per-transition shapes)
 # ---------------------------------------------------------------------------
+def _mg_level_extents(lattice: Sequence[int], mg_grid: Sequence[int],
+                      limit: int = MG_MAX_LEVELS,
+                      ) -> tuple[tuple[tuple[int, ...], ...],
+                                 dict[str, Any] | None]:
+    """Derive a Legacy-MG hierarchy, stopping at the first unrepresentable level.
+
+    Level 0 is the odd-Schur fine field (``X, Y, Z, T/2``); level 1 is the one
+    transition the cache format stores, ``fine_odd // mg_grid``
+    (:func:`pyqcu.tools._legacy_mg_cache.legacy_mg_geometry`); every further
+    level halves its parent.  Halving is the finest coarsening the CUDA/KUPL
+    block validation accepts for a second transition
+    (``cpp/kupl/qcu/src/lattice_clover_multigrid.cpp:238-244``: each coarse
+    extent must divide its parent), and the solver only ever builds a block
+    factor of ``parent // coarse`` (line 285).
+
+    Returns ``(extents, blocked)``: ``extents`` holds the extents of levels
+    ``0..n-1`` that *can* be built, ``blocked`` describes the first level that
+    cannot (``level``/``axis``/``extent`` of the parent/``half`` and the
+    ``reason``, ``"odd"`` or ``"small"``), or ``None`` when ``limit`` was the
+    stopping reason.  A level-1 grid that does not divide the fine odd field is
+    a usage error, not an early stop: there is no hierarchy at all without the
+    first transition.
+    """
+    extents = tuple(int(value) for value in lattice)
+    grid = tuple(int(value) for value in mg_grid)
+    if len(extents) != _SPACE or len(grid) != _SPACE:
+        raise ValueError(
+            f"lattice {extents} and mg_grid {grid} must both be 4-D")
+    if any(value <= 0 for value in extents):
+        raise ValueError(f"lattice extents must be positive, got {extents}")
+    if extents[3] % 2:
+        raise ValueError(
+            f"the odd-Schur Legacy-MG needs an even time extent, got {extents}")
+    if any(value <= 0 for value in grid):
+        raise ValueError(f"mg_grid extents must be positive, got {grid}")
+    fine = (extents[0], extents[1], extents[2], extents[3] // 2)
+    coarse = []
+    for axis in range(_SPACE):
+        if fine[axis] % grid[axis]:
+            raise ValueError(
+                f"level 1 (axis {axis}): the fine odd extent {fine[axis]} is "
+                f"not divisible by mg_grid {grid[axis]} (fine {fine}, mg_grid "
+                f"{grid}); the first transition has no valid coarse extent")
+        coarse.append(fine[axis] // grid[axis])
+    levels: list[tuple[int, ...]] = [fine, tuple(coarse)]
+    blocked: dict[str, Any] | None = None
+    for level in range(2, max(int(limit), 2)):
+        parent = levels[-1]
+        child = []
+        for axis in range(_SPACE):
+            extent = parent[axis]
+            half = extent // 2
+            if extent % 2 or half < MG_COARSEST_EXTENT:
+                blocked = {"level": level, "axis": axis, "extent": extent,
+                           "half": half,
+                           "reason": "odd" if extent % 2 else "small"}
+                break
+            child.append(half)
+        if blocked is not None:
+            break
+        levels.append(tuple(child))
+    return tuple(levels), blocked
+
+
+def _mg_level_chain(lattice: Sequence[int], mg_grid: Sequence[int],
+                    mg_levels: int, dof: Sequence[int] | None = None,
+                    ) -> tuple[dict[str, Any], ...]:
+    """Return the per-level geometry and component counts of the hierarchy.
+
+    ``dof`` supplies one component count per level: ``dof[0]`` is the
+    odd-Schur fine field (:data:`MG_FINE_COMPONENTS`), ``dof[level]`` the coarse
+    basis of that level (the first transition's ``out_dof`` is what the cache
+    format stores, ``pyqcu/tools/_legacy_mg_cache.py:103-128``).  Every level
+    record is ``{"level", "E", "dims", "parent", "block"}``: ``block`` is the
+    per-axis ratio to the parent, which is what ``lonv`` stores as its inner
+    extents.
+
+    A depth the halving chain cannot reach raises :class:`ValueError` naming the
+    level and the extent it would have had - never a silently truncated
+    hierarchy, because the C++ then keeps ``num_levels_`` levels and would read
+    uninitialised ``params`` blocks for the missing ones.
+    """
+    count = int(mg_levels)
+    if count < 1:
+        raise ValueError(f"mg_levels must be >= 1, got {count}")
+    if count > MG_MAX_LEVELS:
+        raise ValueError(
+            f"the KUPL Legacy-MG accepts 1..{MG_MAX_LEVELS} levels "
+            f"(cpp/kupl/qcu/src/lattice_clover_multigrid.cpp:195), got {count}")
+    values = tuple(int(value) for value in dof) if dof is not None else ()
+    if values:
+        if values[0] != MG_FINE_COMPONENTS:
+            raise ValueError(
+                f"dof must start with the {MG_FINE_COMPONENTS}-component fine "
+                f"field, got {values[0]} (dof={values})")
+        if len(values) < count:
+            raise ValueError(
+                f"mg_levels={count} needs one dof component count per level; "
+                f"dof={values} stops at level {len(values) - 1}.  dof[0] is "
+                f"the fine field and dof[level] the coarse basis of that level")
+    extents, blocked = _mg_level_extents(lattice, mg_grid, count)
+    if blocked is not None:
+        # ``_mg_level_extents`` only ever blocks a level below ``count``: the
+        # loop stops there, so a blocked hierarchy is always too shallow for the
+        # requested depth and must never be truncated to fit.
+        if blocked["reason"] == "odd":
+            raise ValueError(
+                f"level {blocked['level']} (axis {blocked['axis']}) cannot be "
+                f"built: level {blocked['level'] - 1} is "
+                f"{blocked['extent']} on that axis and an odd extent has no "
+                f"integer half (it would be {blocked['half']}).  "
+                f"mg_levels={count} does not fit lattice {tuple(lattice)} with "
+                f"mg_grid {tuple(mg_grid)}; the hierarchy supports at most "
+                f"{blocked['level']} level(s) here")
+        raise ValueError(
+            f"level {blocked['level']} (axis {blocked['axis']}) would have "
+            f"extent {blocked['half']}, below the coarsest extent "
+            f"{MG_COARSEST_EXTENT}: level {blocked['level'] - 1} is "
+            f"{blocked['extent']} and halves to {blocked['half']}.  "
+            f"mg_levels={count} does not fit lattice {tuple(lattice)} with "
+            f"mg_grid {tuple(mg_grid)}; the hierarchy supports at most "
+            f"{blocked['level']} level(s) here")
+    chain: list[dict[str, Any]] = []
+    for level in range(count):
+        dims = extents[level]
+        parent = None
+        block = None
+        if level:
+            parent = level - 1
+            previous = extents[level - 1]
+            block = tuple(previous[axis] // dims[axis] for axis in range(_SPACE))
+        chain.append({
+            "level": level,
+            "E": (values[level] if level < len(values) else None),
+            "dims": dims,
+            "parent": parent,
+            "block": block,
+        })
+    return tuple(chain)
+
+
+def _mg_level_shapes(identity: Mapping[str, Any],
+                     chain: Sequence[Mapping[str, Any]],
+                     ) -> list[dict[str, tuple[int, ...]]]:
+    """Return the four tensor shapes of every coarse transition.
+
+    Transition 1 is the canonical cache shape
+    (:func:`pyqcu.test.cache.asset_shapes`), so a mg-2 case keeps exactly the
+    shapes and the cache identity it always had.  A deeper transition uses the
+    same documented layout with its own component counts and extents
+    (``pyqcu/tools/_legacy_mg_cache.py:103-128``): ``lonv`` is
+    ``(E, E_parent, X, bx, Y, by, Z, bz, T, bt)`` with the coarse extents and
+    the block factors of that transition, ``hnn``/``hdg`` keep their direction
+    axes (``[2,4]``/``[2,2,6]``) and ``sit`` is the diagonal block.
+
+    These are the shapes a chain-aware builder would have to fill, and what
+    :func:`_configure_legacy_mg` cross-checks its inputs against.  Nothing
+    produces the contents today: KUPL builds the fine transition only, so a
+    ``mg_levels`` above 2 is refused by :func:`_resolve_mg_assets` before these
+    shapes allocate anything.
+    """
+    first = cache_module.asset_shapes(identity)
+    shapes = [{name: tuple(int(value) for value in first[name])
+               for name in MG_TRANSITION_ASSETS}]
+    for level in range(2, len(chain)):
+        child = chain[level]
+        parent = chain[level - 1]
+        dims = tuple(int(value) for value in child["dims"])
+        block = tuple(int(value) for value in child["block"])
+        components = int(child["E"])
+        parent_components = int(parent["E"])
+        shapes.append({
+            "lonv": (components, parent_components, dims[0], block[0],
+                     dims[1], block[1], dims[2], block[2], dims[3], block[3]),
+            "hnn": (2, 4, components, components, *dims),
+            "hdg": (2, 2, 6, components, components, *dims),
+            "sit": (components, components, *dims),
+        })
+    return shapes
+
+
+def _mg_chain_record(chain: Sequence[Mapping[str, Any]],
+                     shapes: Sequence[Mapping[str, Sequence[int]]],
+                     sources: Sequence[str]) -> list[dict[str, Any]]:
+    """Row description of the hierarchy: one record per coarse transition.
+
+    ``dims``/``block`` are the *global* hierarchy derived from the physical
+    lattice and ``mg_grid``, which is the level a usage error is judged at.
+    The ABI block of each level is the rank-local slab - the shapes of the
+    tensors actually pointed at - and is recorded separately in
+    ``mg_level_parameters`` by :func:`_configure_legacy_mg`.
+    """
+    record: list[dict[str, Any]] = []
+    for level in range(1, len(chain)):
+        transition = level - 1
+        entry: dict[str, Any] = {
+            "level": level,
+            "parent": level - 1,
+            "E": chain[level]["E"],
+            "E_parent": chain[level - 1]["E"],
+            "coarse": [int(value) for value in chain[level]["dims"]],
+            "block": [int(value) for value in chain[level]["block"]],
+            "source": (sources[transition]
+                       if transition < len(sources) else "unknown"),
+        }
+        if transition < len(shapes):
+            entry["shape"] = [int(value) for value in shapes[transition]["lonv"]]
+        record.append(entry)
+    return record
+
+
 def _device_tensor(torch: Any, value: Any, probe: BackendProbe,
                    dtype: Any) -> Any:
     """Move a cached host array onto the backend device/dtype."""
@@ -3765,8 +4002,82 @@ def _load_ranked_mg_assets(
 def _resolve_mg_assets(option: NativeCase, controls: _Controls, gauge: Any,
                        terms: Sequence[Any], inverses: Sequence[Any],
                        torch: Any, grid: Sequence[int]
-                       ) -> tuple[dict[str, Any], Any, dict[str, Any]]:
-    """Return the four coarse tensors, reusing or publishing a cache.
+                       ) -> tuple[list[dict[str, Any]], Any, dict[str, Any]]:
+    """Return the per-transition coarse tensors, reusing or publishing a cache.
+
+    The list holds one four-tensor dict per coarse transition, in hierarchy
+    order (``[0]`` is level 0 -> level 1), which is the indexing
+    :func:`_configure_legacy_mg` places into ``params``/``set_ptrs``.  A
+    ``mg_levels`` of 1 or 2 resolves to exactly the single transition this port
+    has always used, through :func:`_resolve_mg_transition`.
+
+    A deeper request is refused here, before the null-vector inverse iteration
+    and before the ABI call: the cache format describes one transition
+    (``pyqcu/tools/_legacy_mg_cache.py:103-128``) and KUPL has no
+    coarse-to-coarser builder.  ``multigrid_build_null_vectors`` and
+    ``multigrid_build_stencil_local`` are its only two builders
+    (``cpp/kupl/qcu/include/kupl/lattice_set.h:69,74``) and both take the *fine*
+    gauge plus Clover terms (``cpp/kupl/qcu/src/apply_multigrid.cpp:232,281``),
+    so transition 2 has no operator to build from.  :func:`_mg_unbuilt_error`
+    names the transitions that would be missing one.
+    """
+    depth = int(option.mg_levels)
+    if depth > 2:
+        # One constructor builds every level (lattice_clover_multigrid.cpp:
+        # 231-275) and reads a null-vector block plus a coarse operator for each
+        # transition.  A zero operator would silently produce a hierarchy that
+        # cannot converge, and the guarded ABI call then aborts the *process*
+        # (api::guarded, cpp/kupl/qcu/src/api_common.hpp:18-26).  Refusing is
+        # the only honest answer, and doing it here means no tensor is
+        # allocated and no inverse iteration runs first.
+        refusal = _mg_unbuilt_error(
+            option, ["native"] + ["unbuilt"] * (depth - 2))
+        assert refusal is not None  # depth > 2 always leaves a transition out
+        raise refusal
+    assets, entry, info = _resolve_mg_transition(
+        option, controls, gauge, terms, inverses, torch, grid)
+    info = dict(info)
+    info["mg_transition_sources"] = [
+        "cache" if info.get("cache_reused") else "native"]
+    return [assets], entry, info
+
+
+def _mg_unbuilt_error(option: NativeCase,
+                      sources: Sequence[str]) -> ValueError | None:
+    """Return the error for a hierarchy with a transition no builder can fill.
+
+    A transition marked ``"unbuilt"`` is one this port cannot produce at all:
+    the Legacy-MG cache stores one transition
+    (``pyqcu/tools/_legacy_mg_cache.py:103-128``) and KUPL's builders take the
+    fine gauge plus Clover terms, i.e. they build the fine transition only
+    (``cpp/kupl/qcu/src/apply_multigrid.cpp:232,281``).  Handing the solver a
+    hierarchy with a missing coarse operator would fail to converge and then
+    abort the *process* (``applyCloverMultigridQcu`` is wrapped in
+    ``api::guarded``, which calls ``MPI_Abort`` on any exception:
+    ``cpp/kupl/qcu/src/api_common.hpp:18-26``).  Refusing before the ABI call
+    keeps that a reported observation of this port instead of a dead rank.
+    """
+    missing = [index + 1 for index, source in enumerate(sources)
+               if source == "unbuilt"]
+    if not missing:
+        return None
+    return ValueError(
+        f"mg_levels={option.mg_levels} cannot run: coarse transition(s) "
+        f"{missing} of the hierarchy have no operator.  KUPL builds only the "
+        f"fine transition - applyMultigridBuildNullVectorsQcu and "
+        f"applyMultigridBuildStencilLocalQcu take gauge+Clover terms "
+        f"(cpp/kupl/qcu/src/apply_multigrid.cpp:232,281) - and the Legacy-MG "
+        f"cache format stores one transition only "
+        f"(pyqcu/tools/_legacy_mg_cache.py:103-128), so a chain-aware source "
+        f"would be needed.  The wiring itself supports "
+        f"1..{MG_MAX_LEVELS} levels (see native._configure_legacy_mg).")
+
+
+def _resolve_mg_transition(option: NativeCase, controls: _Controls, gauge: Any,
+                           terms: Sequence[Any], inverses: Sequence[Any],
+                           torch: Any, grid: Sequence[int]
+                           ) -> tuple[dict[str, Any], Any, dict[str, Any]]:
+    """Return the four tensors of the first transition (cache or native build).
 
     ``cache_policy`` selects the behaviour: ``auto`` reuses a valid cache and
     otherwise builds (publishing the result), ``off`` always builds, and
@@ -3826,22 +4137,60 @@ def _resolve_mg_assets(option: NativeCase, controls: _Controls, gauge: Any,
 
 
 def _configure_legacy_mg(option: NativeCase, controls: _Controls,
-                         assets: Mapping[str, Any]) -> dict[str, Any]:
+                         assets: Sequence[Mapping[str, Any]],
+                         chain: Sequence[Mapping[str, Any]] | None = None
+                         ) -> dict[str, Any]:
     """Wire the coarse assets into ``params``/``argv``/``set_ptrs``.
 
     The parameter block is the documented Legacy-MG one: level 0 is the fine
-    odd-Schur field (``kVector`` components), every further level reads its
-    ``E`` and coarse extents from ``params`` and its four asset pointers from
-    ``set_ptrs[30 + 4*(level-1) : ... ]``.  ``set_ptrs[99]`` selects the
-    odd-Schur fine layout, which is what the cache stores.
+    odd-Schur field (``kVector`` components), every further level ``L`` reads its
+    ``E`` and coarse extents from ``params[MG_LEVEL_BASE + MG_LEVEL_STRIDE*L-1 :
+    ...]`` and its four asset pointers from
+    ``set_ptrs[SLOT_LIMIT + 4*(L-1) : ...]``; its tolerance is
+    ``argv[ARGV_MG_LEVEL_BASE + L - 1]``.  ``assets`` holds one four-tensor dict
+    per coarse transition (``assets[L-1]`` is level ``L-1 -> L``), which is the
+    same indexing the C++ uses for its own per-level loop
+    (``cpp/kupl/qcu/src/lattice_clover_multigrid.cpp:231-275``).
+    ``set_ptrs[99]`` selects the odd-Schur fine layout, which is what the cache
+    stores.
+
+    The terminal block shape is read from the transition's own ``lonv`` tensor,
+    so the recorded geometry is the geometry the solver will read; when
+    ``chain`` is given (:func:`_mg_level_chain`) it is used to cross-check the
+    tensor against the derived hierarchy and a mismatch is an error rather than a
+    silently wrong level.
     """
     define = controls.define
     params, argv, set_ptrs = controls.params, controls.argv, controls.set_ptrs
-    params[define._MG_NUM_LEVEL_] = int(option.mg_levels)
+    depth = int(option.mg_levels)
+    params[define._MG_NUM_LEVEL_] = depth
     params[define._MG_USE_DEFLATE_] = 1 if option.deflate else 0
+    if len(assets) < depth - 1:
+        raise ValueError(
+            f"mg_levels={depth} needs {depth - 1} coarse transitions, got "
+            f"{len(assets)} asset set(s)")
     levels: list[dict[str, Any]] = []
-    for level in range(1, int(option.mg_levels)):
-        block = tuple(int(value) for value in assets["lonv"].shape)
+    for level in range(1, depth):
+        level_assets = assets[level - 1]
+        block = tuple(int(value) for value in level_assets["lonv"].shape)
+        if len(block) != 10:
+            raise ValueError(
+                f"level {level} lonv must be "
+                f"(E, E_parent, X, bx, Y, by, Z, bz, T, bt), got {block}")
+        if chain is not None:
+            expected = chain[level]
+            parent = chain[level - 1]
+            coarse = [block[2], block[4], block[6], block[8]]
+            factors = [block[3], block[5], block[7], block[9]]
+            derived = [int(value) for value in expected["dims"]]
+            derived_block = [int(value) for value in expected["block"]]
+            if (coarse != derived or factors != derived_block
+                    or block[0] != int(expected["E"])
+                    or block[1] != int(parent["E"])):
+                raise ValueError(
+                    f"level {level} lonv {block} does not match the derived "
+                    f"hierarchy (E={expected['E']}, E_parent={parent['E']}, "
+                    f"coarse={derived}, block={derived_block})")
         base = MG_LEVEL_BASE + (level - 1) * MG_LEVEL_STRIDE
         params[base + 0] = block[0]
         params[base + 1] = block[2]
@@ -3854,10 +4203,8 @@ def _configure_legacy_mg(option: NativeCase, controls: _Controls,
         argv[ARGV_MG_LEVEL_BASE + level - 1] = float(
             option.atol * option.coarse_tol_factor * (3 ** (level - 1)))
         slot = SLOT_LIMIT + 4 * (level - 1)
-        set_ptrs[slot + 0] = int(assets["lonv"].data_ptr())
-        set_ptrs[slot + 1] = int(assets["hnn"].data_ptr())
-        set_ptrs[slot + 2] = int(assets["hdg"].data_ptr())
-        set_ptrs[slot + 3] = int(assets["sit"].data_ptr())
+        for offset, name in enumerate(MG_TRANSITION_ASSETS):
+            set_ptrs[slot + offset] = int(level_assets[name].data_ptr())
         levels.append({
             "level": int(level),
             "E": block[0],
@@ -3901,15 +4248,22 @@ def _mg_case(option: NativeCase, probe: BackendProbe, grid: Sequence[int],
     source = _build_source(option, torch, controls.torch_dtype, geometry,
                            probe.rank)
     terms, inverses = _native_clover_terms(controls, gauge["compact"], torch)
-    assets: dict[str, Any] = {}
+    assets: list[dict[str, Any]] = []
+    chain: tuple[dict[str, Any], ...] | None = None
     cache_entry = None
     cache_info: dict[str, Any] = {"cache_reused": False, "cache_seconds": None,
                                   "cache_notes": ["no coarse transition: "
-                                                  "mg_levels=1"]}
+                                                  "mg_levels=1"],
+                                  "mg_transition_sources": []}
     if int(option.mg_levels) > 1:
+        chain = _mg_level_chain(option.lattice, option.mg_grid,
+                                int(option.mg_levels), option.dof)
         assets, cache_entry, cache_info = _resolve_mg_assets(
             option, controls, gauge, terms, inverses, torch, grid)
-    mg_parameters = _configure_legacy_mg(option, controls, assets)
+    sources = list(cache_info.get("mg_transition_sources") or [])
+    mg_parameters = _configure_legacy_mg(
+        option, controls, assets, None if chain is None or len(chain) < 3
+        else chain)
     solution = controls.tensor(option.fermion_shape)
     global_before = _global_abi_snapshot()
     gauge_before = gauge["compact"].clone()
@@ -3972,8 +4326,11 @@ def _mg_case(option: NativeCase, probe: BackendProbe, grid: Sequence[int],
         asset_source=("cache" if cache_entry is not None
                       and cache_info.get("cache_reused") else "native"),
         asset_shapes={name: list(value_.shape)
-                      for name, value_ in assets.items()},
-        asset_names=sorted(assets),
+                      for name, value_ in (assets[0] if assets else {}).items()},
+        asset_names=sorted(assets[0] if assets else {}),
+        mg_level_chain=_mg_chain_record(
+            chain or (), list(cache_info.get("mg_transition_shapes") or []),
+            sources),
         **mg_parameters,
         **cache_info,
         notes=[

@@ -198,6 +198,12 @@ def configure_mg(params: np.ndarray, argv: np.ndarray, set_ptrs: np.ndarray,
                  coarse_tol_factor: float, deflate: bool,
                  null_vectors: list[Any], hop_nn: list[Any],
                  hop_diag: list[Any], sitting: list[Any]) -> None:
+    # OPEN (2026-11-24): the coarse correction is additive and does not reduce
+    # the fine iteration count.  L48 c64 32 ranks NUMA-bound: plain Clover
+    # BiCGStab 18 iterations / 2.350 s (job 2237987) vs mg-2 18 fine iterations
+    # + 4 accepted corrections / 3.041 s (job 2236599, level0=18 level1=4,
+    # accepted_corrections=4, fallback_fine=0).  A sweep over the knobs below
+    # only means something once they are proven to reach params/argv.
     params[MG_NUM_LEVEL] = levels
     params[MG_USE_DEFLATE] = int(deflate)
     for level in range(1, levels):
@@ -1249,6 +1255,12 @@ def main(argv=None) -> int:
         help="gate the reported PASS/FAIL on atol alone (production policy)")
     parser.add_argument("--max-iter", type=int, default=1000)
     parser.add_argument("--dtype", choices=("c64", "c128"), default="c64")
+    # Before interpreting any sweep over the four knobs below (--levels,
+    # --restart, --mg-grid, --coarse-tol-factor), assert that the recorded
+    # configuration equals the requested one: a row that still reports the
+    # default value means the knob never reached the solver.  Learned on
+    # 2026-11-24 - job 2238157 ran six named points as one identical point
+    # because pyqcu.test's Case dropped restart/mg_grid/coarse_tol_factor.
     parser.add_argument("--levels", type=int, default=2)
     parser.add_argument("--dof", nargs="+", type=int, default=(12, 2, 2, 2, 2))
     parser.add_argument("--mg-grid", nargs=4, type=int, default=DEFAULT_BLOCK)

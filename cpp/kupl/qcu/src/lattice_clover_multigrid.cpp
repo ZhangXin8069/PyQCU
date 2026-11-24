@@ -190,8 +190,19 @@ public:
         set_ptrs_ == nullptr || params_ == nullptr) {
       throw std::runtime_error("legacy Clover-MG received a null pointer");
     }
+    // The solver cannot bind itself and the caller's environment dominates
+    // every timing it produces: the identical L48 c64 16-rank solve measured
+    // 196.00 s without KUPL_NUMA_BIND=1 KUPL_MEMORY_NODE=local+16
+    // KUPL_HUGEPAGE=1 and 2.06 s with them (jobs 2236451 vs 2236485, 95x).
+    // The fine operator streams the gauge slab plus four Clover terms, so the
+    // OpenMP threads and first-touch pages scatter over 8 NUMA domains unbound.
     num_levels_ = params_[kMgNumLevel];
     distributed_ = params_[kNodeSize] > 1;
+    // 5 is an ABI-layout limit, not an algorithmic one (define.h:41,49,61,76):
+    // per-level params at 19 + 8*(level-1) (E,X,Y,Z,T,max_iter,dtype,restart),
+    // per-level set_ptrs quartets at 30 + 4*(level-1) (lonv,hnn,hdg,sit) and
+    // per-level argv tolerances at 3 + (level-1).  Raising the cap needs a
+    // layout change on both the C++ and the Python side, not just this check.
     if (num_levels_ < 1 || num_levels_ > 5) {
       throw std::runtime_error("legacy Clover-MG level count must be 1..5");
     }
@@ -306,6 +317,13 @@ public:
                                  (params_[kLatT] / 2)));
     canonical_output_.resize(canonical_input_.size());
     profile_ = mg_env_enabled("PYQCU_KUPL_MG_PROFILE");
+    // KUPL_MG_DEBUG=1 traces the coarse correction itself: the residual norm
+    // before a correction, the candidate after every damping step, and the true
+    // residual at every chunk boundary.  Those three numbers decide whether an
+    // MG schedule can pay for itself (the correction only earns its keep when
+    // `candidate/before` beats the fine Krylov's own per-iteration contraction
+    // and the restart penalty it forces).
+    debug_ = mg_env_enabled("KUPL_MG_DEBUG");
     require_correction_ = mg_env_enabled("KUPL_REQUIRE_MG_CORRECTION");
     level_iterations_.assign(static_cast<std::size_t>(num_levels_), 0);
   }
@@ -401,6 +419,16 @@ public:
       total_iterations += completed;
       since_correction += completed;
       residual = true_residual(0);
+      if (debug_ && params_[kNodeRank] == 0) {
+        std::fprintf(stdout,
+                     "PYQCU::KUPL::MG_CHUNK_DEBUG:\n "
+                     "chunk=%d completed=%d total=%d residual=%g "
+                     "relative=%g since_correction=%d\n",
+                     chunk, completed, total_iterations,
+                     static_cast<double>(residual),
+                     static_cast<double>(residual / rhs_norm),
+                     since_correction);
+      }
       if (params_[kVerbose] != 0 &&
           (total_iterations < 20 || total_iterations % 50 == 0)) {
         std::fprintf(stdout,
@@ -1016,6 +1044,15 @@ private:
         parent.r[i] = parent.rhs[i] - parent.v[i];
       }
       const Real candidate = std::sqrt(mg_norm2(parent.r, distributed_));
+      if (debug_ && params_[kNodeRank] == 0) {
+        std::fprintf(stdout,
+                     "PYQCU::KUPL::MG_CORRECTION_DEBUG:\n "
+                     "level=%d damping=%g before=%g candidate=%g ratio=%g\n",
+                     level, static_cast<double>(damping),
+                     static_cast<double>(before),
+                     static_cast<double>(candidate),
+                     static_cast<double>(candidate / before));
+      }
       if (std::isfinite(static_cast<double>(candidate)) &&
           candidate < before) {
         if (params_[kVerbose] != 0) {
@@ -1111,6 +1148,7 @@ private:
   bool deflate_ = false;
   bool compact_fine_ = false;
   bool profile_ = false;
+  bool debug_ = false;
   bool require_correction_ = false;
   double prof_fine_apply_seconds_ = 0;
   double prof_coarse_apply_seconds_ = 0;

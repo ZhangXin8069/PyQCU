@@ -104,9 +104,10 @@ NUMA/hugepage 绑定）：
   `pyqcu/testing/kupl/submit_pyqcu_test.sh`，此前**不导出这三个变量**。
   断崖 = 两个作业族的启动环境差异。
 
-机制：每个 rank 的 fine 算子要流式读取 gauge slab 与四个 Clover 项（12×12 复数），
-没有 `MADV_HUGEPAGE` 时页表足迹巨大，没有 NUMA 绑定则 OpenMP 线程与
-first-touch 页跨 NUMA 散布，两者相乘，在内存流式内核上就是 30–95x。
+机制：每个 rank 的 fine 算子要按 C-order 连续流式读取自己的 gauge slab 与四个
+Clover 项（12×12 复数）；没有 `MADV_HUGEPAGE` 时这些连续流按 **4K 基页**建页表，
+页表足迹巨大，没有 NUMA 绑定则未绑定的 OpenMP 线程与 first-touch 页跨 NUMA
+散布，两者相乘，在内存流式内核上就是 30–95x。
 
 ### 4.1 已修复（改启动器，不改求解器）
 
@@ -122,8 +123,10 @@ first-touch 页跨 NUMA 散布，两者相乘，在内存流式内核上就是 3
 
 绑定不是可选优化，而是测量配置的一部分。因此 `pyqcu/test/native.py`
 在 **KUPL 且 `mpi_size > 1`** 时直接拒绝未设置 `KUPL_NUMA_BIND` 的运行，
-错误信息给出 196.00 s vs 2.06 s 的依据与修复方法。单 rank 与非 KUPL 后端
-不受影响（tier-0 门仍可在普通硬件上跑）。
+错误信息给出 196.00 s vs 2.06 s 的依据与修复方法。同一 A/B 在 32 rank 上一致
+（`102.47 s` 未绑定 vs `3.04 s` 绑定，34x），所以拒绝条件按 `mpi_size > 1`
+统一执行，不是 16 rank 的特例。单 rank 与非 KUPL 后端不受影响（tier-0 门仍可在
+普通硬件上跑）。
 
 唯一例外是刻意的绑定/不绑定 A/B：`PYQCU_ALLOW_UNBOUND_KUPL=1`，且此时
 行内会写入「比绑定运行慢约 95x、不可比较」的说明。
@@ -133,3 +136,31 @@ first-touch 页跨 NUMA 散布，两者相乘，在内存流式内核上就是 3
 1. 所有历史 32r/64r 计时都是未绑定测量，**引用前必须用修复后的启动器重测**。
 2. L64 矩阵仍被输入缺陷阻塞（见 `logs/v20261123.txt` §48：L64 gauge 实际是
    complex128、source 是 complex64，与文件名和 manifest 不符）。
+
+## 5. rank-slab HDF5 读取（2026-11-24）
+
+§4.3 第 2 条的 L64 输入缺陷在跑本节作业前已修复：gauge/source 的 dtype 转换
+文件与按文件记录 dtype 的 `case_manifest.json` 已就位（`logs/v20261123.txt`
+§58、§61），本节两个作业都跑在修复后的 L64 上。
+
+**之前（作业 `2236885`）**：每个 rank 都调用 `io.load_gauge` / `io.load_source`，
+这两个函数返回**整个全局场**，rank 之后才从中切自己的 block。L64×128 c64 的
+gauge 是 9.66 GB，128 rank 即 **1.24 TB** 读放大、每 rank 常驻 ~9.5 GB RSS
+（每节点 76–82 GB）。该作业 42 min 后仍停在 case 阶段：`utime` 1050 s 对
+`stime` 19000 s，时间花在 I/O 而不是算子上。
+
+**之后（作业 `2237535`）**：`pyqcu/test/native.py::_read_block` 只读本 rank 的
+hyperslab（lattice 四轴在末尾，selection 就是每轴一个 slice），同形状的
+L64×128 c64 cell `case_seconds=247.10 s`，case 阶段每节点 RSS 4–12 GB。
+
+- **mpio 决策在任何 rank 打开文件之前 allgather**：混合构建（部分 rank 的 h5py
+  没有 MPI）会让 collective open 死锁，能力不一致时直接拒绝，而不是冒险。
+- 没有 MPI 支持时走 serial slab 路径，仍然消除 N 倍读放大，只是不能合并 `t`
+  方向的短读。
+- `gauge_read_mode` / `source_read_mode` 记录实际走的路径（`mpio` / `slab`），
+  与绑定、线程字段并列写进行，读路径可审计。
+
+**限制（如实记录）**：现有制品是 contiguous（`chunks=None`），一个 rank 的 slab
+沿 `t` 是 ~1.18e6 个短 run；只有 MPI-IO 能把 128 份交错 selection 合并成大块
+顺序读，所以并行 HDF5 构建仍是 mpio 分支的剩余步骤。serial slab 分支已在真实
+文件上验证（`2237535`），mpio 分支只在有 MPI 的 h5py 上启用。

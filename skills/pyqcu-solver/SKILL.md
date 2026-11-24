@@ -226,6 +226,22 @@ Strict 三层；3L/4L 只作为显式实验路径，depth warning 说明几何/�
 correctness gate。完整矩阵、实际 cycle 计数和证据链接见
 [`pyqcu-benchmark/references/qcu-multigrid-20261023.md`](../pyqcu-benchmark/references/qcu-multigrid-20261023.md)。
 
+### 2026-11-24 QCU-MG 层数上限是 ABI 布局，不是算法
+
+- KUPL Legacy-MG：`cpp/kupl/qcu/src/lattice_clover_multigrid.cpp:195` 接受
+  `num_levels_` **1..5**，层级由 `for (level = 1; level < num_levels_; ...)` 循环
+  建立；CUDA Strict-MG：`cpp/cuda/qcu/src/apply_multigrid_strict.cu:3182` 接受
+  **2..5**，并要求有效的 coarse start。
+- 上限来自 ABI 槽位，不是算法：每个粗层（`level >= 1`）的 params 块从
+  `19 + 8*(level-1)` 开始（`E,X,Y,Z,T,max_iter,dtype,restart`），`set_ptrs`
+  四元组从 `30 + 4*(level-1)` 开始（`lonv,hnn,hdg,sit`），`argv` 容差在
+  `3 + (level-1)`。这些槽位已预留，所以 3/4/5 层是现成的求解器配置。
+- `pyqcu.test` 的 port 目前只接一条粗化 transition（一套 coarse 资产），因此
+  拒绝 `mg_levels > 2`；这是 **port 缺口**，错误信息已明说，不是求解器上限。
+  多层需要逐层资产和能存下整条链的 cache。
+- 接受不等于已验证：Legacy 的正式验证深度仍是两层、Strict 是三层，3–5 层必须
+  逐层过独立全算子残差门后才能引用。
+
 ## Strict QUDA-style MultiGrid Invariants
 
 Keep the legacy implementation available for comparison. Select Strict with `hierarchy_mode="strict"` or the public `StrictMultigrid`; `setup_operator="schur"` is the legacy compact odd-Schur/setup-vector option, not the hierarchy selector. Under Strict the coarse geometry remains full even when that setup option is supplied. The strict hierarchy instead uses

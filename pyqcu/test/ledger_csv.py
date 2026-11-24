@@ -43,7 +43,7 @@ The reference table mixes two kinds of information:
 2. facts only the HPCKit/mpirun driver can observe (per-rank OPT_PROFILE
    counters and phase timers, ``node``/``freq_khz``/``governor``,
    ``returncode``/``out_path``/``err_path``, the cache global/ranked split, the
-   cold/warm read modes, HDF5 MPIO, the review flag).
+   reference driver's cold/warm read modes, HDF5 MPIO, the review flag).
 
 Many of the "first kind" values only exist for *native* rows, and they live in
 ``row["metrics"]`` rather than at the top level: :func:`pyqcu.test.common._apply_driver`
@@ -461,14 +461,19 @@ COLUMN_RULES: tuple[ColumnRule, ...] = (
     ColumnRule("source_prewarm_seconds", "derived",
                note="prepare/prewarm input entry 'seconds' for role=source"),
     ColumnRule("gauge_read_mode", "missing",
-               note="cold/warm/pre-generated describes the KUPL driver's "
-                    "artifact resolution; the formal port neither generates nor "
-                    "prewarms inside a solve row"),
+               note="which HDF5 reader produced the rank block: 'mpio' = "
+                    "collective parallel read (driver='mpio' on the world "
+                    "communicator), 'slab' = independent per-rank hyperslab "
+                    "read. A native row carries it as "
+                    "metrics['gauge_read_mode']; the reference driver writes "
+                    "cold/warm/pre-generated into the same column, and this "
+                    "export leaves the column empty"),
     ColumnRule("source_read_mode", "missing",
                note="see gauge_read_mode"),
     ColumnRule("hdf5_mpio_read", "missing",
-               note="the formal port does not record whether h5py was built "
-                    "with MPI for this read"),
+               note="a native row records the effective reader in "
+                    "gauge_read_mode ('mpio'/'slab'), not a separate "
+                    "h5py-MPI flag, so this boolean stays empty"),
     ColumnRule("residual_seconds", "derived",
                note="row metrics['reference_seconds'] - the time the runner "
                     "spent reconstructing the true residual it reports"),

@@ -1,0 +1,124 @@
+2026-11-24  KUPL-MG 可迁移经验：NUMA 95x、slab 读、三个负结果陷阱
+================================================================
+Companion to logs/v20261123.txt, which is the driver's chronological
+record.  This file keeps only the transferable lessons and the judgement
+rules they imply, with the job ids that carry them.
+
+1. NUMA binding is worth 95x, and it is a launcher gap, not a solver defect
+   A/B on one L48 c64 16-rank shape (2 nodes, 8 ranks/node, 36 threads,
+   grid 2 2 2 2, local 24x24x24x48, same coarse cache, same 18 iterations):
+     2236451  unbound : total 196.002810 s  fine_apply 101.058137 s
+     2236485  bound   : total   2.062792 s  fine_apply   1.520722 s
+   bound = KUPL_NUMA_BIND=1 KUPL_MEMORY_NODE=local+16 KUPL_HUGEPAGE=1
+   Mechanism: each fine apply streams the gauge slab plus four Clover
+   terms.  Without MADV_HUGEPAGE the page-table footprint explodes; without
+   binding the OpenMP threads and first-touch pages scatter across the
+   node's 8 NUMA domains.  The two effects multiply.
+   Consequence: the solver kernel is innocent, and every archived 32/64-rank
+   timing taken through the formal launcher was an unbound timing.
+
+2. The same fix at 32 ranks: 102.52 s -> 3.04 s
+   2236383 (32r, unbound, PYQCU_KUPL_MG_PROFILE=1): total 102.522314 s
+   2236599 (32r, bound, reported row): seconds 3.04056982207112,
+     residual_verified true, relative_residual 7.942248513387823e-06
+   Corrected pair: 16r 2.06 s / 32r 3.04 s = 1.5x, the expected cost of
+   halving the local volume while doubling the ranks.  There was never a
+   rank-count cliff: the two row families differed only in environment.
+
+3. Rank-slab HDF5 reads: before (2236885) -> after (2237535)
+   The shipped pyqcu.test reader called load_gauge() and sliced the rank
+   block out of the whole global array, so every rank read the whole file.
+   Measured on L64x128 c64, 128 ranks / 16 nodes (job 2236885):
+     gauge file 9,663,682,560 B; RSS 76-82 GB/node (~9.5-10 GB/rank);
+     redundant I/O 128 x 9.66 GB = 1.24 TB; case phase >2500 s, no row.
+   With the slab read (job 2237535, same 128 ranks, grid 2 2 2 16):
+     c64  PASS solve 1.8795 s  case 247.10 s  18 iterations
+     c128 PASS solve 4.9473 s  case 344.26 s  35 iterations
+     RSS during the case phase 4-12 GB/node
+   The block selection already existed in pyqcu/tools/_io.py (driver='mpio',
+   HAS_MPI_SUPPORT branch); the harness simply never used it.
+   Caveat that keeps that branch load-bearing: the artifacts are contiguous
+   (chunks=None), so one rank block is ~1.18e6 short runs along t.  Only
+   MPI-IO coalesces those; the serial hyperslab fallback is correct and
+   already removes the 128x byte redundancy, but it is not the fast path.
+
+4. Negative-result trap 1: 144 cores requested where 72 were granted
+   Ladder rung L4 asked for 8 ranks/node x 18 cores = 144 cores, while the
+   allocation granted core=36 x 2 replicas = 72 cores/node.  drun rejected
+   the request and the MPI stack never started, so every L4 rc=255 from
+   21:04 onward (job 2235945 and its predecessors) was my configuration
+   error, not site behaviour.  Fixed to core=9 (8 x 9 = 72): job 2236344
+   returned L4 rc=0 with a real 16-rank, 8-ranks/node placement.
+
+5. Negative-result trap 2: Sendrecv to the same peer
+   The ring probe used peer=(rank+1)%size as both dest and source.  Rank i
+   sent to i+1 but waited for i+1, a one-way ring that only matches at
+   size==2 and deadlocks above it.  Every "2 ranks OK, >=4 ranks hang"
+   verdict built on it is invalid as fabric evidence (jobs 2231110,
+   2231484, 2231614, 2231906, 2232027, 2232271, and 2232208 which added a
+   rankfile on top).  Correct ring: send to (rank+1)%size, receive from
+   (rank-1+size)%size.  A probe that cannot separate a hang from its own
+   bug is not a gate.
+
+6. Negative-result trap 3: the MG knobs never reached the solver
+   Job 2238157 ran six named points (restart 5/2/1 x coarse_tol_factor
+   1e4/1e2/1e1).  Four completed, and every row read restart 5,
+   coarse_tol_factor 10000.0, mg_levels 2, with identical MG_PROFILE
+   counts (fine_calls=48 coarse_calls=8 coarse_correction_calls=4).
+   Root cause: native.case() built pyqcu.test.common.Case, which has no
+   restart/mg_levels/mg_grid/coarse_tol_factor fields, so the validated
+   options were discarded and run_mg fell back to the NativeCase defaults.
+   Fixed by carrying the options on the Case and gating it
+   (test_pyqcu_test_mg_options.py, 9 cases).
+   Rule: before reading a sweep, assert that the recorded configuration
+   equals the requested one; a row that still says the default value means
+   the knob never arrived.
+
+7. Five MG levels are supported, and the cap is ABI layout
+   The legacy Clover-MG level check in
+   cpp/kupl/qcu/src/lattice_clover_multigrid.cpp rejects
+   num_levels_ < 1 || num_levels_ > 5 (line 195 in the 2026-11-23 tree);
+   the CUDA verifier
+   (apply_multigrid_strict.cu:3182) allows 2..5.  The 5 comes from the
+   fixed ABI tables, not from the algorithm: per-level params at
+   19 + 8*(level-1) (E,X,Y,Z,T,max_iter,dtype,restart), per-level set_ptrs
+   quartets at 30 + 4*(level-1) (lonv,hnn,hdg,sit), per-level argv
+   tolerances at 3 + (level-1) (define.h: kMgLevel1E=19, kMgParamsSize=8,
+   kSetPtrsCoarseBase=30, kMgLevel1Atol=3).  Raising the cap is a layout
+   change on both sides, not a one-line edit.
+   The 2-level refusal inside the pyqcu.test port is a port gap (one asset
+   set reused for every level), not a solver property; mg-3..mg-5 first
+   need per-level coarse assets and a cache that stores the chain.
+
+8. MG does not reduce the fine iteration count (open, quantified)
+   2237987 plain Clover BiCGStab, L48 c64 32 ranks, NUMA-bound, repeat 3:
+     iterations 18, samples [2.3500, 2.3454, 2.3685] s, median 2.3500 s,
+     relative_residual 6.554e-07, atol 1e-6
+   2236599 mg-2, same shape and cache, NUMA-bound:
+     level0=18 level1=4 accepted_corrections=4 fallback_fine=0,
+     solve 3.0406 s, relative_residual 7.942e-06
+   Same 18 fine iterations for 1.29x the wall time: the coarse correction
+   removed zero fine iterations.  The mg row used atol 1e-5 while BiCGStab
+   used 1e-6, so BiCGStab was solving a tighter problem and still needed
+   the same 18 - under equal tolerance mg-2 has even less room to win.
+   Candidate knobs, still unmeasured because of trap 6: coarse_tol_factor
+   (1e4 default => level-1 target 1e-1), restart (5 => only 4 corrections
+   in 18 iterations), mg_grid, and the additive, non-preconditioning form
+   of the correction.  No kernel change is justified before a sweep whose
+   rows prove the knobs arrived and whose fine iteration count drops.
+
+9. Release gate: not met, nothing published
+   {c64,c128} x bistabcg at 128 ranks: 2/2 PASS (job 2237535).
+   {c64,c128} x mg-2: 0/2, each dtype needs its own L64 coarse cache.
+   The expanded spec (16 single node / 16 dual node / 32 / 64 / 128 rank
+   columns) is >=14 cells, so the ten review rounds cannot start and no
+   commit, tag, push, PyPI or RTD publication was performed.
+
+10. Cross-cutting lesson
+   Traps 4-6 each produced a clean, plausible negative result from a broken
+   measurement, the same way the environment skew in 1 produced a clean,
+   plausible "rank-count cliff".  In every case the disproof was a field in
+   the row (binding_environment, threads and cores per rank, restart,
+   coarse_tol_factor) disagreeing with the request.  Read the recorded
+   configuration before the number: if the two disagree, the number
+   describes the harness, not the code.

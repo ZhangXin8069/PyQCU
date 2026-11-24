@@ -92,7 +92,14 @@ HPCKit 安装树。禁止把系统 UCX 与 HPCKit UCX、或两套 HMPI 启停脚
 - 必须使用 `mpirun --bind-to none`；
 - 必须取消 `OMP_PROC_BIND`、`OMP_PLACES`、`GOMP_CPU_AFFINITY` 和
   `KMP_AFFINITY`；
-- 调度器已提供 NUMA-local cpuset 时保持 `KUPL_NUMA_BIND=0`。
+- 调度器已提供 NUMA-local cpuset 时，直接调用库或跑 4.1 节的 benchmark 可以保持
+  `KUPL_NUMA_BIND=0`（放置已由调度器完成）。
+
+`pyqcu.test` 的多 rank KUPL 运行不走上面这条捷径：它要求 `KUPL_NUMA_BIND=1`、
+`KUPL_MEMORY_NODE=local+16`、`KUPL_HUGEPAGE=1` 同时生效。同一 L48 c64 16 rank
+求解未绑定 196.00 s、绑定 2.06 s（作业 2236451 / 2236485，95x），缺这三个变量时
+`pyqcu.test` 直接报 ERROR，而不是记录一个不可比较的数字。唯一例外是刻意的
+绑定/不绑定 A/B：`PYQCU_ALLOW_UNBOUND_KUPL=1`。
 
 `solve_case.py` 和 benchmark 启动器在用户显式指定 `KUPL_MEMORY_POLICY` 时自动设置
 `KUPL_REQUIRE_MEMORY_BIND=1`，避免容器 seccomp 或系统权限让策略静默退化为默认分配。

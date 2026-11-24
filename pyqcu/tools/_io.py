@@ -109,6 +109,12 @@ def hdf5oooxyzt2gridoooxyzt(
             f"PYQCU::TOOLS::IO:\n rank {rank}: Grid Lat X: {grid_lat_x}, Y: {grid_lat_y}, Z: {grid_lat_z}, T: {grid_lat_t}")
         print(
             f"PYQCU::TOOLS::IO:\n rank {rank}: Grid Index X: {grid_index_x}, Y: {grid_index_y}, Z: {grid_index_z}, T: {grid_index_t}")
+    # This branch is the reason the module exists in this form: the shipped
+    # pyqcu.test reader did a whole-file read on every rank for a long time
+    # (L64x128 c64: 9.66 GB x 128 ranks = 1.24 TB, ~9.5 GB RSS per rank).  The
+    # artifacts are contiguous (chunks=None), so one 4-D block is ~1.18e6 short
+    # runs along t; only MPI-IO coalesces those, which is why the serial
+    # fallback below is correct but not the fast path.
     if HAS_MPI_SUPPORT:
         # Use MPI parallel I/O
         with h5py.File(file_name, 'r', driver='mpio', comm=comm) as f:

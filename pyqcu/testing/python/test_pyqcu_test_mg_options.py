@@ -48,7 +48,16 @@ def test_mg_grid_and_levels_reach_the_option():
 
 
 def test_mg_3_is_wired_when_the_lattice_holds_the_hierarchy():
-    """mg-3 is a real hierarchy now, not a refusal.
+    """mg-3 is accepted and its hierarchy derived - and still refused to run.
+
+    Until 2026-11-24 ``mg_levels > 2`` was rejected before the lattice was
+    looked at, so a lattice with room for three levels could not express it.
+    The option layer now resolves the depth and derives the geometry.  That is
+    *wiring*, not runnability: KUPL builds the fine transition only
+    (``apply_multigrid.cpp:232,281`` take gauge+Clover terms) and the cache
+    stores one transition, so the run refuses.  Both halves are asserted - a
+    change that lets mg-3 reach an ABI it cannot fill is as much a regression as
+    one that refuses the option again.
 
     The KUPL Legacy-MG accepts 1..5 levels and builds the hierarchy in a loop
     (``num_levels_ < 1 || num_levels_ > 5`` in lattice_clover_multigrid.cpp),
@@ -69,6 +78,11 @@ def test_mg_3_is_wired_when_the_lattice_holds_the_hierarchy():
     assert [tuple(level["dims"]) for level in chain] == [
         (16, 16, 16, 16), (8, 8, 8, 8), (4, 4, 4, 4)]
     assert [level["E"] for level in chain] == [12, 12, 12]
+    # Acceptance is not runnability: the gate that stops a placeholder operator
+    # from reaching the ABI must still name the transition it cannot build.
+    refusal = native._mg_unbuilt_error(resolved, ["native", "unbuilt"])
+    assert isinstance(refusal, ValueError)
+    assert "transition(s) [2]" in str(refusal)
 
 
 def test_the_port_rejects_a_depth_the_lattice_cannot_hold():

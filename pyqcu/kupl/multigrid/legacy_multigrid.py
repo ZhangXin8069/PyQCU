@@ -62,6 +62,11 @@ class LegacyMultigrid:
         self.clover_odd_inv = _cpu_tensor(
             clover_odd_inv, "clover_odd_inv", dtype=self.data_dtype)
         self.output = output
+        # Caller contract, measured on Kunpeng (jobs 2236451 vs 2236485): the
+        # fine operator streams the gauge slab plus four Clover terms, so the
+        # same L48 c64 16-rank solve took 196.00 s unbound and 2.06 s with
+        # KUPL_NUMA_BIND=1 KUPL_MEMORY_NODE=local+16 KUPL_HUGEPAGE=1 (95x).
+        # This wrapper cannot bind: the environment must be set before setup().
         levels = int(params[define._MG_NUM_LEVEL_])
         lattice = tuple(int(params[index]) for index in range(
             define._LAT_X_, define._LAT_T_ + 1))

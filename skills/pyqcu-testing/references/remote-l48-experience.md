@@ -342,6 +342,24 @@ export CCS_DRUN_RANK_FILE=$OUT/logs/$JOBTAG-rankfile
   （含 L3）再解除阻塞，恢复后用一次真实 solver 作业复核。明细见
   [`docs/kupl_l48_mg_cliff_20261123.md`](../../../docs/kupl_l48_mg_cliff_20261123.md) §3。
 
+### 8.5 负向结果先对请求算术，再归因网络或求解器（2026-11-23/24）
+
+三次归因错误都出在**请求与实际配置不一致**，而不是 fabric 或求解器。判读前先做
+一次请求算术：
+
+- **资源超配**：`drun -rpn 8 -R core=18` = 144 core/节点，实际授予 `core=36 × 2`
+  = 72 core/节点，`drun` 直接拒绝、MPI 未启动；`rc=255` 是资源拒绝不是 fabric，
+  正确值是 `core=9`（细节见 §8.4）。
+- **探针结构性死锁**：`sh/mpi_probe.py` 的 `Sendrecv` 把同一个 peer 同时当 `dest`
+  和 `source`，`size >= 3` 必然死锁；正确写法 `dest=(rank+1)%size`、
+  `source=(rank-1)%size`（细节见 §8.4）。
+- **请求没有进到 case**：`pyqcu.test` 在 `native.case()` 处丢掉 `restart`/
+  `mg_levels`/`mg_grid`/`coarse_tol_factor`（`Case` 没有对应字段），一轮 MG sweep
+  因此跑了 N 个相同点；是行内**自己记录的值**暴露了它。
+
+规则：解释任何 sweep 或负向 gate 之前，先断言行里记录的配置等于请求的配置；
+不相等就先修管道，不得改内核、也不得宣布 fabric 故障。
+
 ## 9. 发布与证据纪律
 
 - 已发布 `0.1.17` / `test37`，**不得覆盖**；下一版 `0.1.18` / `test38` 只在十轮
