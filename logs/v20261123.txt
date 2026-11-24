@@ -3317,3 +3317,31 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      competitive requires the coarse space to capture far more per correction -
      that is a different multigrid design (smoothed aggregation or a proper
      V-cycle with a coarse operator several orders cheaper), not a parameter.
+
+151. Review round 1 (matrix integrity): the 16 cells are independent and self-consistent
+     Checks run before accepting the L64x128 matrix for release:
+
+     (a) DISTINCTNESS.  19 PASS rows with a verified residual, 19 distinct
+         sha256 prefixes - none is a byte copy of another.
+     (b) TOLERANCE vs DTYPE.  Every cell satisfies atol <= gate and
+         residual < gate, where the gate is 1e-8 for c128 and 1e-5 for c64:
+           c128 solve  atol 1e-9 / 1e-10, residual 7.1e-11 / 6.5e-12
+           c128 mg     atol 1e-9,           residual ~5.3e-10
+           c64  solve  atol 1e-5 / 1e-6,    residual 6.0e-6 / 7.4e-7
+           c64  mg     atol 1e-5,           residual 6.1e-6..7.9e-6
+         No c128 cell uses the c64 tolerance, which was the defect that made an
+         earlier c128 cell FAIL at 7.167e-07.
+     (c) NOT COPIES IN DISGUISE.  The three c128 MG cells at 16, 32 and 64 ranks
+         agree to twelve significant digits but are NOT identical:
+           5.302517076639365e-10 (16 rank)
+           5.302517076570517e-10 (32 rank)
+           5.302517076344920e-10 (64 rank)
+         A relative spread of ~1e-12 across three different domain
+         decompositions is a consistency result, not duplication: it says the
+         solve converges to the same solution however the lattice is split.
+     (d) `iterations = 0` on every MG row is NOT a silent zero: those rows carry
+         `iterations_available = False` (pyqcu/test/kupl_qcu.py:2316 sets it from
+         `iterations > 0`), `converged = True` and `hit_max_iter = False`.  The MG
+         path does not expose an iteration count through the ABI.  Worth knowing
+         for release notes: MG timings cannot be normalised by iterations, so
+         they must not be compared with the BiCGStab columns as a rate.
