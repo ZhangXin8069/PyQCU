@@ -2464,3 +2464,33 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
 
      Consequence unchanged: MG speedup NOT established, and now with a precise
      reason rather than a symptom.
+
+128. c128 16-rank cell: numerically good but fails the dtype gate - needs a tighter --atol
+     Row `data/l64_matrix_fill_20261124/bc_c128_16single/rows/9dab685504f9389f.json`
+       status            FAIL
+       dtype c128, ranks 16, grid 2 2 2 2, local 32x32x32x64
+       seconds           103.31
+       iterations        18, converged true, hit_max_iter false
+       relative_residual 7.166599670836971e-07
+       residual_verified TRUE
+       reason            "relative_residual=7.167e-07 <= 1.000e-08"
+       failed            same string
+       atol (applied)    1e-05
+
+     Read carefully: the run is numerically sound (independent residual
+     verified) but the c128 acceptance gate is 1e-08 and the run reached
+     7.2e-07, so the gate correctly rejects it.  The gate is dtype-dependent
+     because complex128 can do far better - the c128 128-rank cell reached
+     6.5e-10 and passed.
+
+     Why it missed: the solver's stopping criterion is `--atol 1e-5`, so it
+     stops as soon as its internal residual hits 1e-5 and the true residual
+     lands around 7e-7.  To satisfy a 1e-8 gate the internal criterion must be
+     tighter than the gate, i.e. `--atol 1e-9` or less.  That is now possible
+     because `--atol` actually reaches the runner (commit 0bab08ee); before
+     that commit the flag was silently dropped and this cell could not have
+     been made to pass at all.
+
+     Action: re-run the c128 cells with `--atol 1e-9` (and check the reported
+     `atol` in the row is 1e-9, not the default).  This is a configuration fix,
+     not a solver or gate change - the gate is right and must not be relaxed.
