@@ -1762,3 +1762,33 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      and kupl_kunpeng_guide.md still say KUPL_NUMA_BIND=0 is the safe default),
      M3 (gauge_read_mode vocabulary), M4/M5 (the two weak tests - partially
      addressed by the new real-path test).
+
+103. THIRD drop point found: driver overrode the CLI with the matrix declaration
+     Sweep 2240080 asked restart=10/20/50 but every row still recorded
+     restart=5, even though `_build_test` -> `Options` -> `as_kwargs` was
+     verified to carry the value correctly (probe on the remote: cfg 10 ->
+     test 10 -> options 10 -> kwargs 10).  The overwrite is in
+     `pyqcu/test/driver.py::_native_failure`:
+
+       if declaration and kind == "mg":
+           kwargs["mg_levels"] = declaration["mg_levels"]
+           kwargs["restart"]    = declaration["restart"]
+
+     `declaration` is the L48 MATRIX row (`pyqcu/test/l48.py:140` declares
+     mg_levels 2 / restart 5), so it unconditionally replaced whatever the
+     command line asked for.  That is why three separate fixes to the
+     Case/Options chain changed nothing: the value was already correct by the
+     time it arrived.
+
+     Fixed with `setdefault` (an explicit CLI value wins; the declaration still
+     supplies the reproducible default) plus a coarse_tol_factor default that
+     is only applied when the settings actually carry one, since the matrix
+     declaration has no such field.
+
+104. A blocking test segfaulted once and then passed
+     `test_quick_report_lists_the_nineteen_tier0_tags` segfaulted during a
+     `-k "driver or pyqcu_test or mg"` batch run, then passed on its own
+     (1 passed, 98.5 s).  Recorded as a transient, not as a pass: a segfault
+     that appears once is a real signal and must be reproduced before any
+     release claim.  It ran while several cluster jobs and other agents were
+     active, so contention is the leading hypothesis, but unproven.
