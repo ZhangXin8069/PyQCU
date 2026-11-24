@@ -2526,3 +2526,27 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      coarsest extent staying >= 4) and read `capture_bound`/`reduction_bound`
      and `level0` again.  A working two-level MG needs `reduction_bound` well
      below 0.55, not 0.995.
+
+130. The queue is stalled because the site has closed the nodes to users
+     All six L48 mg-grid sweep jobs (2249272-2249276, 2249358) have been PENDING
+     for 25+ minutes.  `dnode` explains it:
+
+       9698  nodes  UNAVAILABLE   (608 cores, 608 free - powered but out of service)
+       9629  nodes  CLOSE_ADMIN   (608 cores,   0 free)
+       3105  nodes  CLOSE_ADMIN   (608 cores, 608 free - free but administratively closed)
+       1087  nodes  CLOSE_ADMIN   (608 cores, 592 free)
+
+     "CLOSE_ADMIN" with 608 cores free means capacity exists but the
+     administrator has closed those nodes to user jobs.  So the PENDING jobs are
+     not a scheduling bug and not a problem with the job scripts - the site has
+     withdrawn the capacity.
+
+     This also retro-explains part of the day's "void runs": between ~15:00 and
+     now the queue repeatedly accepted a submit and then never started it, or
+     started it on `cn19xxx` nodes that behave differently from the `cn12xxx`
+     set used earlier.
+
+     Nothing to do about it from here.  The five sweep configurations are
+     written and queued; they will run when capacity returns.  No further
+     submissions until then - adding jobs to a queue that cannot dispatch only
+     increases congestion.
