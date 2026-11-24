@@ -2930,3 +2930,37 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      timestamp 2026-11-25 02:26:52, `make.sh: SUCCESS`, and the object file
      contains the new `gather_set_equals_scatter_set` symbol - so the audit that
      printed eq=1 is the corrected one, not the unsatisfiable original.
+
+143. The "16 dual" rows are not dual-node - the cross-node launcher does not exist
+     Every 16-rank PASS row carries the same launcher block:
+
+       kind     = in-process
+       nodes    = None
+       mpirun   = None
+       rankfile = None
+       note     = "one Python process per MPI rank; the cross-node launcher
+                   (mpirun + rankfile from CCS_ALLOC_FILE) is not implemented
+                   yet - docs/pyqcu_test_l48_remote.md 5.3"
+
+     All seven 16-rank rows (single_v2, bc_c64_16single, bc_c64_16dual,
+     bc_c128_16dual, mg_c64_16single, mg_c64_16dual, mg_c128_16single,
+     mg_c128_16dual) report `in-process` with no mpirun and no rankfile.
+
+     Therefore the directory names `bc_c64_16dual`, `bc_c128_16dual`,
+     `mg_c64_16dual` and `mg_c128_16dual` assert a placement the rows do not
+     support: those cells place all 16 ranks through the in-process launcher,
+     i.e. on one node.  The rows themselves are honest - `launcher.note` says the
+     cross-node launcher is unimplemented - but the naming invites exactly the
+     mistake section 136 warned about: a directory name is not evidence.
+
+     Consequence for the matrix: it is 16 core cells of
+     {c64,c128} x {bistabcg, mg-2} x {16,32,64,128} where the 16-rank column is
+     SINGLE NODE ONLY.  There is no dual-node coverage at 16 ranks and none can
+     be claimed until `mpirun` + rankfile from `CCS_ALLOC_FILE` is implemented
+     (`docs/pyqcu_test_l48_remote.md` section 5.3).  The 32/64/128-rank cells are
+     genuine multi-node because they go through the batch `drun` path.
+
+     Action: the `*_16dual` directories should be renamed to `*_16single_dup` or
+     deleted as duplicates of the single-node cells once the launcher exists -
+     but not before, because their PASS rows are real measurements of something,
+     just not of the placement their name claims.
