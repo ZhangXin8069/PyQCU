@@ -2494,3 +2494,35 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      Action: re-run the c128 cells with `--atol 1e-9` (and check the reported
      `atol` in the row is 1e-9, not the default).  This is a configuration fix,
      not a solver or gate change - the gate is right and must not be relaxed.
+
+129. prolong fix does not help, and the code now prints WHY: the coarse grid is too fine
+     Job 2248967 (`l48_mgfix1`), after bg-20's prolong/index work, rc=0:
+       level=0 before=144.637 restricted=42.3491 restrict_ratio=0.292796
+       coarse_norm=74.3444 image_norm=49.8829 image_ratio=0.344884
+       overlap=0.0374907 coarse_defect=0.0762084 galerkin_defect=4.16722e-07
+       coarse_rtol=0.1 best_damping=0.315194 best_ratio=0.994074
+       E=2 e=12 block=192 capture_bound=0.102062
+       reduction_bound=0.994778 basis_error=2.87008e-07
+       MG_LEVEL_ITERS level0=18 level1=1 total=18
+
+     `overlap` improved from 0.0109 to 0.0375 and `best_ratio` from 0.9959 to
+     0.9941 - both still nowhere near the 0.55 a working correction needs, and
+     `level0` is unchanged at 18.
+
+     The decisive numbers are the bounds the code now computes:
+       capture_bound   0.102    the coarse space can represent at most ~10% of
+                                the fine residual
+       reduction_bound 0.9948   therefore one correction can reduce the
+                                residual by at most ~0.5%
+     Both agree with the measurement, so this is no longer a mystery: the
+     correction is doing exactly as well as the coarse space allows.
+
+     Root cause of "MG does not accelerate", final form: the coarse grid is too
+     fine. `mg_grid 2 2 2 2` on 48^3x96 leaves a 24^3x48 coarse lattice - only
+     a 4x volume reduction - and such a coarse space captures ~10% of the error,
+     which cannot pay for a coarse solve.
+     Next experiment, and it is a configuration change rather than a code
+     change: coarsen harder (`--mg-grid 2 2 2 4` or `4 4 4 4`, subject to the
+     coarsest extent staying >= 4) and read `capture_bound`/`reduction_bound`
+     and `level0` again.  A working two-level MG needs `reduction_bound` well
+     below 0.55, not 0.995.
