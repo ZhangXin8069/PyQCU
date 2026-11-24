@@ -2628,3 +2628,26 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      transfer/correction mapping, which needs an index-by-index comparison with
      cpp/cuda/qcu/src/apply_clover_multigrid.cu - not another sweep.  This is a
      negative result about THIS implementation, not about MG in general.
+
+134. Matrix jumps from 7 to 11 verified cells; the --atol 1e-9 fix works
+     Job 2249768/2249769/2249770/2249805 (bg-22), new PASS rows:
+       cell                dtype ranks seconds  relative_residual  atol    cache_reused
+       bc_c128_32          c128    32  45.089   7.137607564676363e-11  1e-09  -
+       mg_c128_32          c128    32  104.30   5.302517076570517e-10  1e-09  true
+       mg_c64_16single     c64     16  43.977   6.145842585622435e-06  1e-05  true
+       mg_c64_32           c64     32  24.287   6.765662608415902e-06  1e-05  true
+     All four: status PASS, residual_verified true.
+
+     The c128 rows record `atol 1e-09` and reach 1e-11/1e-10, i.e. far below the
+     1e-08 c128 gate - exactly as predicted in section 128.  The earlier
+     FAIL at 7.167e-07 was a solver-criterion problem, not a gate problem, and
+     tightening `--atol` (which only started reaching the runner with commit
+     0bab08ee) fixed it without touching the gate.
+
+     Matrix now 11 verified cells of >=14:
+       bistabcg c64   @16 single, @32, @64, @128
+       bistabcg c128  @32, @128
+       mg-2     c64   @16 single, @32, @128
+       mg-2     c128  @32, @128
+     Outstanding: the 16-dual placement for all four solver/dtype pairs, plus
+     bistabcg/mg-2 c64/c128 at the ranks not yet covered.
