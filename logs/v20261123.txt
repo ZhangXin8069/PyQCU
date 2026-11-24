@@ -3051,3 +3051,48 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      especially when a change leaves it bit-identical.  I quoted this file
      hundreds of lines deep for other purposes and still never read lines
      1019-1023, which say plainly that these two are algebra.
+
+146. E=4 measured: capacity is NOT the bottleneck, and a larger E makes it worse
+     First measurement of this session at E != 2.  Cache identity verified
+     (`identity.dof = [12, 4]`, 32 rank files, status PASS) and the run accepted
+     `--mg-dof 12 4` (no unrecognized-argument errors; job 2252054):
+
+                       E=2 (2 2 2 2)      E=4 (2 2 2 2)
+       overlap         0.0374907          0.0454937
+       best_ratio      0.9941             0.993393
+       best_damping    -                  0.289517
+       level0          18                 24          <-- WORSE
+       accepted_corr   1                  1
+       capture_bound   0.102062           0.144338
+
+     `capture_bound` again equals the algebra exactly:
+     sqrt(2/(12*16)) = 0.1020621 and sqrt(4/(12*16)) = 0.1443376.  So section
+     145's prediction that this metric merely follows the formula is now
+     confirmed on a second, independent point - it must never be quoted as
+     evidence again.
+
+     The measurements that matter all say the same thing:
+       - `best_ratio` moved from 0.9941 to 0.9934.  Doubling the coarse space
+         bought 0.07 percentage points: even with the optimal damping one
+         correction still removes only ~0.66% of the residual.
+       - `overlap` rose from 0.0375 to 0.0455 - still almost orthogonal.
+       - `level0` rose from 18 to 24, i.e. E=4 needs MORE fine iterations than
+         plain BiCGStab (18).  Larger E is actively worse here.
+       - `best_damping` is 0.29: the optimal blend keeps only 29% of the
+         correction, another sign the direction is close to useless.
+
+     CONCLUSION: coarse-space capacity is not the bottleneck.  Squeezing more
+     vectors per coarse site cannot fix this, and pushing to E=6/8 would only
+     increase the coarse cost.  What is left, and what the numbers point at, is
+     the SCHEDULE: only one correction is accepted (`accepted_corrections=1`)
+     across the whole solve, so the coarse work can never be amortised, and the
+     single correction is taken with damping 0.29 that barely moves the
+     residual.  Two-level MG applied once cannot beat a 45%-per-iteration
+     BiCGStab.
+
+     Next and only remaining lever: apply the coarse correction repeatedly
+     (a real cycle: correct, smooth a few fine iterations, correct again) rather
+     than once, and re-measure `level0` and wall time.  If repeated corrections
+     still do not lower `level0` below 18, the honest answer is that this
+     two-level Legacy-MG cannot accelerate L48x96 c64 and should be reported as
+     a measured limitation rather than tuned further.
