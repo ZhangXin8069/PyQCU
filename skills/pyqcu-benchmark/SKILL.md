@@ -113,6 +113,13 @@ even-site point source, and a native `MPI_ABORT` because `_SET_PLAN_` was left a
   version, plus warmup/repeat counts and median/min/max. A wall time without that
   identity is "not comparable" and cannot support a speedup or regression claim.
   CPU and GPU results are never folded into a single speedup.
+- **Never compare timings across allocations.** The same unchanged BiCGStab
+  script, same shape and flags, measured 1.8185 / 3.8661 / 2.7584 s (medians) in
+  three allocations, with bit-identical residuals (6.554010772522588e-07) and the
+  same 18 iterations; the cross-allocation swing of one solver is 2.1x, larger
+  than the effect under test (`logs/v20261123.txt` §114, L48 c64). Quote the job
+  or allocation id with every number, and attribute a solver difference only to
+  alternating points measured inside ONE allocation (same job, same nodes).
 
 正式三方基准的输入、同窗比较、历史证据和不可外推条件见
 [`pyqcu-docs/references/extracted-guidance.md`](../pyqcu-docs/references/extracted-guidance.md#5-性能与证据解释)。

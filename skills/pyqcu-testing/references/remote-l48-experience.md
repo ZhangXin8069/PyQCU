@@ -360,6 +360,32 @@ export CCS_DRUN_RANK_FILE=$OUT/logs/$JOBTAG-rankfile
 规则：解释任何 sweep 或负向 gate 之前，先断言行里记录的配置等于请求的配置；
 不相等就先修管道，不得改内核、也不得宣布 fabric 故障。
 
+### 8.6 void cluster run 的三类（2026-11-23/24）
+
+三类空跑各自毁掉过一次诊断（`logs/v20261123.txt` §114-§118、§123、§126、§132）：
+
+1. **launch 输出接进管道**：`drun ... | grep | tail`（`2245988`）在下游提前退出时
+   让整条作业以 `rc=141`（128+SIGPIPE）结束；即使跑完，唯一的诊断行也在管道里被
+   滤掉——`2245986` 确实打印了 `PYQCU::KUPL::MG_CORRECTION_DEBUG`，日志里 0 行
+   （§117）。规则：`> logs/full.out 2>&1` 落到文件，事后读文件再过滤，不在产生
+   输出的管道上过滤。
+2. **在 `if (rank == 0)` 里调用含 `MPI_Allreduce` 的函数**：
+   `cpp/kupl/qcu/src/lattice_clover_multigrid.cpp` 的 `diagnose_correction` 在
+   rank 0 独占分支里进入 `MPI_Allreduce(MPI_COMM_WORLD)`，32 rank 只有 1 个参与者，
+   作业一律 `rc=255`（`2245432`、`2247200`、`2247255`、`2248474`）；同一 mg 作业
+   不设 `KUPL_MG_DEBUG`（`2245127`）则正常。规则：只 gate 打印，不 gate 调用。
+3. **`sed` 改了脚本输出目录却漏掉 `#DSUB -oo/-eo` 路径**：日志写到别处，作业表现
+   为“立刻失败且没有日志”。`2246030` 用 sed 去掉 grep 改重定向后就是这种状态：
+   `SUCCEEDED`，但预期日志里没有 `MG_CORRECTION_DEBUG`/`MG_CHUNK_DEBUG`/
+   `MG_LEVEL_ITERS`（§118）。规则：提交前把 `#DSUB` 头的两个日志路径和脚本实际写
+   的路径都打印出来核对。
+
+**`SUCCEEDED` 但没有 row 文件是空跑，不是成功**：`2246474` SUCCEEDED，但
+`solver_c1.log` 没有 `ratio=`/`level0=`、`mg_r20_c1/rows/` 没有 json（§123）；
+`2249495`-`2249497` 三个 SUCCEEDED，却只跑到 cache 探测就退出，既无
+`capture_bound` 也无 row（§131）。判 PASS 只认 `rows/*.json` 且
+`residual_verified=true`。
+
 ## 9. 发布与证据纪律
 
 - 已发布 `0.1.17` / `test37`，**不得覆盖**；下一版 `0.1.18` / `test38` 只在十轮

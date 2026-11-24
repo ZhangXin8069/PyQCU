@@ -94,6 +94,10 @@ identity 不一致时才重建。
   `KUPL_MEMORY_POLICY=preferred|bind`；此时 MPI 必须使用 `--bind-to none` 且
   不得设置 `OMP_PROC_BIND`/`OMP_PLACES`/`GOMP_CPU_AFFINITY`/`KMP_AFFINITY`，
   否则运行时会在库绑定前压缩可见 cpuset。库会绑定实际 OpenMP team 的每个线程。
+- 绑定是配置项不是调优旋钮：Clover/gauge 顺序 streaming，未绑定时页按 4K 散在多个
+  NUMA 域、大页未生效、OpenMP 线程不固定；16 rank 未绑定 `196.00 s` / 绑定 `2.06 s`、
+  32 rank `102.47 s` / `3.04 s`（`2236451`/`2236485`、`2236599`），迭代与残差逐位同。
+  未绑定多 rank 由 `_require_kunpeng_binding` 拒绝，例外 `PYQCU_ALLOW_UNBOUND_KUPL=1`。
 - `KUPL_MEMORY_NODE=local+N` 用于独立编号的片上内存 node；
   `KUPL_REQUIRE_MEMORY_BIND=1` 把 `set_mempolicy` 失败改为 fatal，
   `KUPL_TOPOLOGY_REPORT=1` 输出每 rank 的最终 cpuset/node/thread 证据。
@@ -126,13 +130,10 @@ identity 不一致时才重建。
   `KUPL_HUGEPAGE=1` 只对大型内部 scratch 发 `MADV_HUGEPAGE` advice。
 - Clover cache 默认要求 gauge 内容在 set 生命周期内不可变。原地改写同一地址时
   必须 `KUPL_DISABLE_CLOVER_CACHE=1`，强制刷新 gauge halo 和目标 parity inverse。
-- 调度器已提供 NUMA-local cpuset 时保持 `KUPL_NUMA_BIND=0`，只设置
-  `KUPL_OMP_THREADS`/`OMP_NUM_THREADS`。
-- 同节点多 rank 应在 Python/NumPy 输入分配前完成 MPI 或调度器绑定；库内
-  `KUPL_NUMA_BIND=1` 发生在 `applyInitQcu`，不能迁移调用方已前触到错误 NUMA
-  节点的页。仓库 LIME benchmark/MG driver 会先执行一次私有 prebind lifecycle；
-  自定义调用方仍须自行保证顺序。OpenMPI 可用
-  `--bind-to numa --map-by ppr:1:numa`。
+- 调度器已给 NUMA-local cpuset 时保持 `KUPL_NUMA_BIND=0`，只设线程数；多 rank 绑定须
+  在 Python/NumPy 分配前完成：库内绑定在 `applyInitQcu`，不能迁移已前触页（LIME
+  benchmark/MG driver 内含私有 prebind lifecycle，自定义调用方须自行保证顺序）。
+  OpenMPI 可用 `--bind-to numa --map-by ppr:1:numa`。
 - 全局点积/范数使用 `MPI_Allreduce`，所有 rank 必须走对称集合操作。
 - 大 local-volume dslash 默认启用跨 site SIMD 内点/周期面内核；local
   `half_sites < 65536` 自动回退 scalar。`KUPL_DISABLE_BLOCK_DSLASH=1`

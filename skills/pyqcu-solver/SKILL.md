@@ -242,6 +242,32 @@ correctness gate。完整矩阵、实际 cycle 计数和证据链接见
 - 接受不等于已验证：Legacy 的正式验证深度仍是两层、Strict 是三层，3–5 层必须
   逐层过独立全算子残差门后才能引用。
 
+### 2026-11-24 KUPL Legacy-MG 在本实现中无法加速（实测，勿再扫参数）
+
+L48 c64 32 rank、`restart=20`、`KUPL_MG_DEBUG=1` 的实测（`logs/v20261123.txt`
+§121、§127、§129、§132、§133；作业 `2248613`、`2248967`、`2249605`、`2249606`）：
+
+- 一次粗修正把残差乘以 `0.9964`（只去掉 `0.36%`，花 `0.065 s` 粗网格工作），而一次
+  细迭代约乘 `0.55`（每次去掉约 `45%`）；粗修正比一次细迭代弱两个数量级，任何
+  restart 都不可能降低迭代数（有无修正都是 `18` 次）。
+- 代数与粗解都不是瓶颈：`galerkin_defect 3.7e-07`（转移与粗算子到 7 位一致）、
+  `coarse_defect 0.055`（粗解在 `0.1` 目标内），但 `overlap = cos(r, A P c)` 只有
+  `0.011-0.037`，修正向量与误差几乎正交；最优 damping `0.7498` 也只能到
+  `ratio 0.9959`。
+- 粗化方向相反：`mg_grid` 从 `2 2 2 2` 到 `2 2 2 4` 到 `4 4 4 4`，`capture_bound`
+  **下降** `0.102 -> 0.072 -> 0.026`，`reduction_bound` **变差**
+  `0.9948 -> 0.9974 -> 0.9997`，`level0` 仍是 `18-19`。能工作的两级 MG 必须相反。
+- 结论：转移对与粗算子的几何不对应（索引/parity 映射），不是网格大小、层数、
+  restart 或粗容差问题；这些都已扫尽，不得重扫。修法是逐索引对比
+  `cpp/cuda/qcu/src/apply_clover_multigrid.cu`。这是本实现的负结果，不是 MG 的
+  普适结论。
+
+**`--atol` 必须比 dtype 的验收门更紧**：c128 的验收门是 `1e-08`；`--atol 1e-5` 的
+c128 16 rank 单元真残差 `7.17e-07`、`residual_verified=true`，仍被判 FAIL（原因串把
+`7.167e-07` 与 `1.000e-08` 门比较）；改 `--atol 1e-9` 后到 `1e-11`/`5.3e-10` 并
+PASS（`logs/v20261123.txt` §128、§134）。门是对的，只能收紧求解器 `--atol`；该
+flag 在提交 `0bab08ee` 之前根本到不了 runner。
+
 ## Strict QUDA-style MultiGrid Invariants
 
 Keep the legacy implementation available for comparison. Select Strict with `hierarchy_mode="strict"` or the public `StrictMultigrid`; `setup_operator="schur"` is the legacy compact odd-Schur/setup-vector option, not the hierarchy selector. Under Strict the coarse geometry remains full even when that setup option is supplied. The strict hierarchy instead uses

@@ -62,6 +62,12 @@ PYQCU_KUPL_LIB=<repo>/cpp/kupl/qcu/libqcu.so
 而不是记录一个不可比较的数字。唯一例外是刻意的绑定/不绑定 A/B：
 `PYQCU_ALLOW_UNBOUND_KUPL=1`。
 
+数量级差来自访存布局而非算法：Clover/gauge 是顺序 streaming 读，每 rank 的 fine
+apply 要流过 GB 级 gauge slab 与四个 Clover 项；未绑定时页按 4K 散落在节点内多个
+NUMA 域、大页未生效、OpenMP 线程也不固定在 NUMA-local CPU 上，两个效应相乘即
+30-60x。32 rank 同一形状由 102.47 s 降到 3.04 s（作业 2236599），迭代数与真残差
+逐位相同（`logs/v20261123.txt` §46/§49/§54）。
+
 不要在文档或脚本中硬编码个人仓库绝对路径；需要外部安装树时通过 `QUDA_INSTALL`、
 `PYQCU_CUDA_LIB`、`PYQCU_DCU_LIB`、`PYQCU_KUPL_LIB` 或构建参数显式传入。
 

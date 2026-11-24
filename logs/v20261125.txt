@@ -1,0 +1,78 @@
+2026-11-25  口径交接：NUMA 绑定、跨分配计时、三类空跑、MG 负结果
+================================================================
+
+来源：logs/v20261123.txt（章节号即该文件节号）。本文件只记录可复用的判定
+规则与实测数字，不重复设计正文。
+
+1. NUMA 绑定是配置项，不是调优旋钮（§46、§49、§51、§53、§54）
+   同 L48 c64 形状（grid 2 2 2 2）：
+     16 rank 未绑定 196.00 s / 绑定 2.06 s（作业 2236451 / 2236485，95x）
+     32 rank 未绑定 102.47 s / 绑定 3.04 s（作业 2236599，34x）
+   两次都是同样的迭代计数与逐位相同的残差，差异只在
+   KUPL_NUMA_BIND=1 KUPL_MEMORY_NODE=local+16 KUPL_HUGEPAGE=1。
+   机制：Clover/gauge 是顺序 streaming 读，每 rank 的 fine apply 流过 GB 级
+   gauge slab 与四个 Clover 项；未绑定时页按 4K 散在节点内多个 NUMA 域、大页
+   未生效、OpenMP 线程不固定，两个效应相乘 => 30-60x 量级。
+   强制：pyqcu/test/native.py 的 _require_kunpeng_binding 拒绝未设
+   KUPL_NUMA_BIND 的多 rank KUPL 运行（mpi_size > 1）；唯一例外是刻意的
+   绑定/不绑定 A/B：PYQCU_ALLOW_UNBOUND_KUPL=1，并在行内注明不可比。
+   源码不需要为这件事做任何“优化”。
+
+2. 禁止跨分配比较计时（§113、§114）
+   同一份未改动的 BiCGStab 脚本、同形状同参数，三次分配的中位数：
+     分配 A 13:2x（行 b7b17fd3b680） 1.8185 s
+     分配 B 作业 2245590            3.8661 s
+     分配 C 14:23                   2.7584 s
+   三次都是 18 次迭代、真残差逐位相同 6.554010772522588e-07。
+   同一求解器跨分配摆动 2.1x，大于当时要归因给 MG 的 1.55x => 跨分配的 MG
+   加速比（两个方向都）不成立。规则：每个秒数都带作业/分配 id；只有同一作业
+   内交替 A/B 才能归因求解器。矩阵行的 seconds 只对本行有效；32/64/128 rank
+   的 11.72 / 6.34 / 1.88 s 也跨分配，作 scaling 前须在同一分配内重测。
+
+3. 三类 void cluster run（§115-§118、§123、§126、§132）
+   a. 管道：drun ... | grep | tail（2245988）在下游早退时以 rc=141（128+SIGPIPE）
+      结束；即使跑完，唯一诊断行也被滤掉——2245986 打印了
+      PYQCU::KUPL::MG_CORRECTION_DEBUG，日志里 0 行（§117）。
+      => 输出 > logs/full.out 2>&1 落到文件，事后读文件再过滤。
+   b. rank-0 集合：diagnose_correction 的 MPI_Allreduce(MPI_COMM_WORLD) 在
+      if (rank == 0) 内，32 rank 只有 1 个参与者 => rc=255（2245432、2247200、
+      2247255、2248474）；不设 KUPL_MG_DEBUG 的 2245127 正常。
+      => 只 gate 打印，不 gate 调用。
+   c. sed 改了脚本输出目录却漏掉 #DSUB -oo/-eo 路径：日志写到别处，作业表现为
+      立刻失败且没有日志；2246030 SUCCEEDED 但预期日志里没有
+      MG_CORRECTION_DEBUG / MG_CHUNK_DEBUG / MG_LEVEL_ITERS（§118）。
+      => 提交前打印 #DSUB 头的两个路径和脚本实际写的路径。
+   另：SUCCEEDED 但没有 row 文件是空跑，不是成功——2246474（§123）与
+   2249495-2249497（§131，只跑到 cache 探测）。判 PASS 只认 rows/*.json 且
+   residual_verified=true。
+
+4. MG 在本实现中无法加速（§121、§127、§129 被 §132 撤回、§133）
+   L48 c64 32 rank、restart=20、KUPL_MG_DEBUG=1（2248613、2248967、2249605、
+   2249606）：
+     一次粗修正把残差乘以 0.9964（去掉 0.36%，花 0.065 s），
+     一次细迭代约乘 0.55（每次去掉约 45%）=> 粗修正弱两个数量级，没有
+     restart 能减少迭代数（有无修正都是 18 次）。
+     galerkin_defect 3.7e-07（转移与粗算子到 7 位一致）、coarse_defect 0.055
+     （粗解在 0.1 目标内），但 overlap = cos(r, A P c) 只有 0.011-0.037；
+     最优 damping 0.7498 也只能到 ratio 0.9959。
+     粗化方向相反：mg_grid 2 2 2 2 -> 2 2 2 4 -> 4 4 4 4，
+       capture_bound    0.102  -> 0.0722 -> 0.0255   （下降）
+       reduction_bound  0.9948 -> 0.9974 -> 0.9997   （变差）
+       level0           18     -> 19     -> 19
+     能工作的两级 MG 必须相反。=> 转移对与粗算子的几何不对应（索引/parity
+     映射）；网格大小、层数、restart、粗容差都已扫尽，不得重扫。修法是逐索引
+     对比 cpp/cuda/qcu/src/apply_clover_multigrid.cu。这是本实现的负结果，
+     不是 MG 的普适结论。
+
+5. --atol 必须比 dtype 的验收门更紧（§128、§134）
+   c128 验收门 1e-08。c128 16 rank 单元（grid 2 2 2 2）用 --atol 1e-5：真残差
+   7.17e-07、residual_verified=true，仍判 FAIL（原因串把 7.167e-07 与 1.000e-08
+   门比较）；改 --atol 1e-9 后到 1e-11 / 5.3e-10 并 PASS。门是对的，只能收紧
+   求解器 --atol；0bab08ee 之前该 flag 到不了 runner。
+
+6. 本轮只改文档与注释，不改代码逻辑
+   docs/env.md、docs/pyqcu_test_l48_remote.md、skills/pyqcu-kupl/SKILL.md、
+   skills/pyqcu-benchmark/SKILL.md、
+   skills/pyqcu-testing/references/remote-l48-experience.md、
+   skills/pyqcu-solver/SKILL.md、logs/v20261125.txt。
+   未碰 pyqcu/test/**，未碰 logs/v20261123.txt，未提交、未推送。
