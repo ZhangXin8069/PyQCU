@@ -2223,3 +2223,34 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      State of the MG question: still no same-allocation pair, therefore still
      UNRESOLVED, in either direction.  I will not infer from cross-allocation
      data (2.1x swing on an unchanged script, bit-identical residuals).
+
+120. The alternating A/B has now failed 3/3 at the same point; stop retrying
+     2245988, 2246053, 2246145: every one dies at `=== POINT bc1 bc` with
+     `POINT_RC bc1 rc=255`, while the IDENTICAL bc command as a standalone
+     one-drun job succeeds (l48_mbc rows at 14:17 and 14:23).  bg-8 reproduced
+     it too.  Three independent attempts, same failure, same place.
+
+     What is ruled out: multiple drun calls (2244994 did four successfully),
+     `--native solve` per se (standalone works), argparse (the full argv plans
+     two rows locally), the site (control PASSes), and the library build (the
+     control passes on the current build).
+
+     What is left: the wrapper around the call.  Differences between the
+     failing and the working scripts are only (a) a shell function, (b) a
+     per-tag `--outdir "$O/$tag"` that does not exist yet at launch, (c) a
+     pipeline on the launch output.  Retrying cannot separate those; a single
+     controlled bisect can, and it needs someone with budget to run it.
+
+     Verdict for this session: the MG-vs-BiCGStab question stays OPEN.  Nine
+     hours of attempts produced no same-allocation pair, and cross-allocation
+     data is unusable (2.1x swing on an unchanged script, bit-identical
+     residuals).  I would rather hand over an open question with a clean list
+     of what is ruled out than a number I cannot defend.
+
+     Handover state (unchanged, verified):
+       L48 cliff        fixed and enforced (NUMA binding, 95x)
+       L64 matrix       6 cells PASS with residual_verified=true
+       mg-2 L64         c64 3.0256 s, c128 9.3189 s, cache_reused=true
+       16-rank cells    SKIP(reference_workspace), budget flag pending
+       MG speedup       NOT established; A/B harness blocked at bc1
+       publish          NO
