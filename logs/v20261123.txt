@@ -2706,3 +2706,28 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      this row is "PASS at 16 ranks, grid 2 2 2 2" and its dual-node placement is
      asserted by its directory name only.  Do not count it as a separate cell
      until the execNodes are recorded.
+
+137. bg-24's transfer-geometry change is UNCOMPILED and UNVERIFIED
+     `cpp/kupl/qcu/src/lattice_clover_multigrid.cpp` carries +396/-20 lines from
+     bg-24 (a transfer-geometry rewrite).  Nothing has shown it works:
+       - no new `capture_bound`/`reduction_bound` anywhere under data/ - the last
+         values are still the 2 2 2 2 baseline (cap 0.102062, red 0.994778);
+       - `bash make.sh` on the login node returns `cmake: command not found`
+         (BUILD_RC=127) even after sourcing HPCKit's setvars.sh, and the built
+         `build/libqcu.so.0.1.0` is dated 19:46, i.e. older than the edit;
+       - the rebuild job submitted to a compute node (2250512) FAILED instantly
+         with empty stdout/stderr and an empty build.log, so it never compiled
+         anything either.
+     Therefore the change has never been compiled, let alone measured, and it
+     must not be described as a fix.
+
+     Consequence for the delivery: the tree stays at commit da3a7de1 with this
+     file uncommitted.  The MG conclusion stands as the measured one from
+     sections 121/132/133 - capture falls as the grid coarsens, reduction stays
+     at 0.995-0.9997, the transfer does not match the coarse operator's geometry
+     - and the proposed repair is untested work in progress.
+
+     To finish it: get a build working (cmake is only on the compute nodes; the
+     earlier successful rebuilds happened inside jobs, so a working job shape
+     exists), then run `sh/l48_gsm_2224.sh` and require capture > 0.102,
+     reduction < 0.55, overlap > 0.037, level0 < 18.
