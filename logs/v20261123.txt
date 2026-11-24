@@ -2025,3 +2025,39 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      produced row b7b17fd3b680 at 13:2x) unchanged.  If it still passes, the
      regression is in the changed code or the new build, not the site.  If it
      fails, the site is degraded again.  That single control decides which.
+
+113. Control run PASSES - the site is healthy - but the new build is 2.1x slower
+     Job 2245590, the identical script that produced row b7b17fd3b680 at 13:2x:
+       overall: PASS, CELL_RC rc=0
+       iterations 18            (identical to the earlier run)
+       relative_residual 6.554010772522588e-07   (BIT-IDENTICAL)
+       residual_verified true
+       samples [3.8418, 3.8798, 3.8661], median 3.8661 s
+     against the earlier run's [1.8185, 1.8205, 1.8177], median 1.8185 s.
+
+     Same iteration count, bit-identical residual, 2.1x slower wall time, and
+     both sample sets are tight (spread < 1%).  That is not noise and not a
+     different computation.
+
+     What changed between the two runs: `build/libqcu.so.0.1.0` was rebuilt at
+     13:53 (the only artefact touched), and the source now carries bg-5's
+     `KUPL_MG_DEBUG` tracing.  Build config looks correct on paper
+     (CMAKE_BUILD_TYPE=Release -> `-O3 -DNDEBUG`, bisheng clang++), and the new
+     fprintf calls sit in cold paths (once per chunk, once per correction), so
+     the instrumentation alone should not cost 2x.  Two live hypotheses:
+       (a) the rebuild reconfigured something the previous library had (arch
+           flags, OpenMP, different compiler path);
+       (b) node/clock difference between the two allocations - weakened by the
+           tightness of both sample sets but not excluded.
+
+     Consequence, and it is the important part: NO timing produced after 13:53
+     is comparable with anything measured before it.  That includes bg-5's
+     diagnostic numbers and any new matrix cell.  The earlier MG-vs-BiCGStab
+     comparison (MG 2.8172 s at 13:1x vs BiCGStab 1.8185 s at 13:2x) predates
+     the rebuild, so it stands as measured - but it must be re-run on one
+     library before it is used for a decision.
+
+     Discriminator, cheapest first: re-run the same control a second time (node
+     variance) and, if it is still ~3.87 s, rebuild from a clean directory with
+     the previous flags and re-run.  Do not attribute the 2.1x to the MG
+     instrumentation or to the site before that.
