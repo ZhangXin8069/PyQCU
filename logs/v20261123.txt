@@ -3269,3 +3269,51 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      number (0.992125).  Any future sweep that compares "first correction"
      across intervals must account for that, or it will read a scheduling
      coincidence as a trend.
+
+150. Clean A/B/C with instrumentation OFF: MG is 1.48x-1.77x slower - closed
+     Every earlier MG timing in this log carried KUPL_MG_DEBUG=1, and
+     `diagnose_correction` (two apply_level, a restrict, several MPI_Allreduce
+     and the transfer audit) runs INSIDE the `coarse_correction` timer.  So no
+     earlier number could decide whether MG accelerates.  Job 2252541 ran three
+     configurations in one allocation, one library, debug OFF, --repeat 3
+     --warmup 1, grid 2 2 2 2, E=4 (cache l48_mg_2224_e4, dof [12,4]),
+     restart 20, 16 ranks on cn12084:
+
+       run     config                                  wall s   level0  level1  internal
+       A_nomg  --mg-levels 1 (pure BiCGStab)            4.534     -       -       -
+       B_one   --mg-levels 2, interval unset (=20)     6.717     19       1      5.063
+       C_i2    --mg-levels 2, KUPL_MG_CORRECTION_INTERVAL=2
+                                                       8.040     16       8      6.294
+
+     The analytic damping is live and it did cut the cost: C's
+     `coarse_correction` is 1.368 s for 8 calls = 0.171 s each, against the
+     0.49 s/call measured earlier (that one with debug on, so it is not a clean
+     before/after - the honest statement is that the 4-step line search was
+     replaced by one fine apply plus two reductions, and 0.171 s/call is what
+     remains).
+
+     The schedule also genuinely works: C's level0 is 16, below B's 19.  So
+     repeated corrections DO reduce fine iterations - that part of the design is
+     sound.
+
+     But the arithmetic of the trade is hopeless, and this is the measured
+     reason MG cannot win here:
+       - one coarse correction costs 0.171 s, i.e. ~2.3 fine iterations (one
+         fine iteration is ~0.074 s: fine_apply 4.87 s over ~66 calls);
+       - eight corrections saved three fine iterations, i.e. ~0.22 s;
+       - so 1.37 s was spent to save 0.22 s.  Even removing the last fine apply
+         inside the damping step (0.074 s) would leave ~1.0 s spent for 0.22 s,
+         still a 4.5x loss.
+     The root number is `best_ratio`: one correction removes under 1% of the
+     residual while one fine iteration removes ~45%.  A correction must therefore
+     cost less than 1/45 of a fine iteration to pay for itself, and it costs 2.3.
+
+     FINAL: KUPL Legacy-MG cannot accelerate L48x96 c64.  With profiling off the
+     measured wall times are 4.534 s (none), 6.717 s (one correction) and
+     8.040 s (eight corrections).  Every lever is excluded by measurement:
+     transfer mapping (correct), grid size (algebra), level count, restart
+     (confounded, now decoupled), coarse tolerance, basis shape, basis size E,
+     correction interval, and damping selection (now analytic).  Making this
+     competitive requires the coarse space to capture far more per correction -
+     that is a different multigrid design (smoothed aggregation or a proper
+     V-cycle with a coarse operator several orders cheaper), not a parameter.
