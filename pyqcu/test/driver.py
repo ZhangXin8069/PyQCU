@@ -697,24 +697,21 @@ def _native_failure(observations: dict[str, Any], started: float, *,
         "gauge": data.get("gauge"),
         "source": data.get("source"),
     }
-    if declaration and kind == "mg":
-        # The matrix declares levels/restart, and a Legacy-MG row must be
-        # reproducible - but an explicit command-line value has to win, or a
-        # parameter sweep silently runs the declared point every time.  That is
-        # exactly what happened on 2026-11-24: every sweep row recorded
-        # restart=5 because this line overwrote the requested 1/2/10/20/50, and
-        # `Options` carrying the value correctly made no difference.
-        kwargs["mg_levels"] = (settings.get("mg_levels")
-                               if settings.get("mg_levels") is not None
-                               else declaration["mg_levels"])
-        kwargs["restart"] = (settings.get("restart")
-                             if settings.get("restart") is not None
-                             else declaration["restart"])
     if kind == "mg":
-        # The matrix declares neither of these, so a run-level value is the
-        # only source; an unset value stays unset and the runner keeps its
-        # default.  `setdefault` was wrong here: the key was never present, so
-        # it always fell back to the declaration and a sweep repeated one point.
+        # A run-level (CLI) value wins; the L48 matrix declaration supplies the
+        # reproducible default when the row has one.  The declaration must NOT
+        # gate this: a plain `--native mg` row has `declaration is None`, and
+        # gating it meant a sweep recorded the runner default 5 for every point
+        # while coarse_tol_factor (not gated) arrived - the exact split seen on
+        # 2026-11-24 in rows r10_c1e4..r20_c1e2.
+        for name in ("mg_levels", "restart"):
+            value = settings.get(name)
+            if value is None and declaration is not None:
+                value = declaration.get(name)
+            if value is not None:
+                kwargs[name] = value
+        # The matrix declares neither of these, so settings is the only source;
+        # an unset value stays unset so the runner keeps its own default.
         for name in ("mg_grid", "coarse_tol_factor"):
             if settings.get(name) is not None:
                 kwargs[name] = settings[name]
