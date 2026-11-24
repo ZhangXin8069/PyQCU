@@ -2964,3 +2964,32 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      deleted as duplicates of the single-node cells once the launcher exists -
      but not before, because their PASS rows are real measurements of something,
      just not of the placement their name claims.
+
+144. RETRACTION of section 143: the dual-node cells ARE dual-node
+     Section 143 concluded from `launcher.kind = in-process` plus a null
+     `mpirun`/`rankfile` that the `*_16dual` cells were really single-node.  That
+     was wrong.  `launcher.kind` describes how the Python driver spawns its
+     ranks, not how many nodes the batch system gave the job.  The authoritative
+     placement evidence is the allocation record in the job log:
+
+       data/l64_matrix_final_20261124/bc_c64_16dual   nnodes 2
+       data/l64_matrix_final_20261124/bc_c128_16dual  nnodes 2
+       data/l64_matrix_final_20261124/mg_c64_16dual   nnodes 2
+       data/l64_matrix_final_20261124/mg_c128_16dual  nnodes 2
+
+     All four dual cells were allocated two nodes, and the two `*_16single`
+     directories carry no `nnodes` line.  So the matrix's 16-rank column does
+     have both placements, the directory names are accurate, and no rename or
+     deletion is warranted.
+
+     What is still true from 143 is narrower: the rows' own `launcher` block
+     records `nodes: None`, so a row read in isolation cannot prove its
+     placement.  Placement must be read from the job log's `nnodes`/`NODELIST`,
+     which is where the scheduler records it.  That is a reporting gap in the
+     row schema (worth filling: copy `nnodes` into `metrics.launcher`), not a
+     defect in the measurements.
+
+     This is the third time this session that a field NAME was treated as
+     evidence without checking the authoritative source (140: audit field name;
+     143: launcher.kind).  The rule that would have prevented all three: before
+     concluding from a field, find the source that RECORDS the fact and read it.
