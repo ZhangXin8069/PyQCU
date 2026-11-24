@@ -2095,3 +2095,33 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      each valid for their own job only.  The rank-scaling table (32/64/128
      ranks: 11.72 / 6.34 / 1.88 s) spans different allocations and must be
      re-measured in one allocation before it is used as a scaling claim.
+
+115. Same-allocation A/B still not obtained; three script attempts, each void
+     2245805 / 2245841 (six drun calls): every call `exit status 1`, child
+       stderr swallowed by the PLM -> no diagnosis, no rows.
+     2245909 (my wrapper `_one_case.sh`): passed a DIRECTORY into a filename
+       (`out_/home/share/...txt`), the redirect failed, python never ran.  Its
+       `DRUN_RC=0` is a false signal and produced no data.  Do not cite it.
+     2245930 (hand-written, one drun, `--native solve mg`, `--repeat 3`,
+       `--atol 1e-5`, cache-dir, PYQCU_KUPL_MG_PROFILE=1): `DRUN_RC=255`,
+       `err:exit status 1`, and again no child stderr.
+
+     Ruled out by a local run of the exact argv: `--only kupl/native` is valid
+     and selects both `kupl/native/solve` and `kupl/native/mg`; the full argv
+     parses and plans two rows locally (`summary: rows=2 ... overall: ERROR`
+     only because /tmp/x.h5 does not exist).  So the exit 1 is not argparse and
+     not the `--only` prefix.
+
+     What IS known to work: one drun call, direct `python3 -m pyqcu.test`
+     (no wrapper), `--native solve` only - that produced row b7b17fd3b680 at
+     13:2x and the control rows at 14:17/14:23.  Everything that added a second
+     kind or a wrapper has failed so far.
+
+     Consequence: the MG-vs-BiCGStab question is STILL unresolved, and I have
+     no same-allocation pair.  Two agents now own this (bg-6: atol plumbing plus
+     the paired run; bg-7: reference_budget plus the 16-rank cells), both told
+     to use one drun and to report the job id with every number.
+
+     Discipline note to myself: three void cluster runs in a row came from
+     script edits I did not dry-run.  From here every job script gets a local
+     `--list`-style dry check of its argv before submission.
