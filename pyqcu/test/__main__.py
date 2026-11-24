@@ -106,9 +106,9 @@ from .. import __version__
 from . import ledger_export, l48, matrix, policy, profiles
 from .common import (CASE_MODE, FULL_MODE_TIER, LATTICE_PRESETS, MODES,
                      FullModeOptions, ModePaths, Result, Test, TestReport,
-                     UsageError, build_rows, grid_product, json_safe,
-                     ledger_owner, module_availability, mpi_info, probe_env,
-                     run_mode, summarize, write_json_atomic)
+                     UsageError, _optional_dof, build_rows, grid_product,
+                     json_safe, ledger_owner, module_availability, mpi_info,
+                     probe_env, run_mode, summarize, write_json_atomic)
 
 __all__ = ["build_parser", "main"]
 
@@ -185,6 +185,8 @@ class _Config:
     max_iter: int | None
     restart: int | None
     mg_levels: int | None
+    #: ``--mg-dof`` per-level component counts ``(12, E)``; ``None`` = not given.
+    mg_dof: tuple[int, ...] | None
     coarse_tol_factor: float | None
     #: ``--reference-budget`` in **bytes** (already resolved from ``8GiB``/
     #: ``8e9``/a plain int by :func:`_budget_flag`), or ``None`` for the runner's
@@ -280,6 +282,15 @@ def build_parser() -> argparse.ArgumentParser:
         "--mg-grid", nargs="+", default=None, metavar="N",
         help="multigrid block grid x y z t, same list syntax "
              "(default: 2 2 2 2)")
+    parser.add_argument(
+        "--mg-dof", nargs="+", default=None, metavar="N",
+        help="Legacy-MG per-level component counts, same list syntax: "
+             "'12 2' = the 12-component fine odd-Schur field and E=2 coarse "
+             "basis vectors per coarse site (default: not given, i.e. the "
+             "runner default, or - for a ranked Legacy-MG cache - the E the "
+             "artifact was built with).  E must match the cache: it is the "
+             "coarse space's capacity, capture_bound = sqrt(E/(e*block)), and "
+             "it reaches the solver as params[kMgLevel1E]=19")
     parser.add_argument(
         "--mode", choices=MODES, default=None, metavar="{list,prepare,prewarm,"
         "solve,merge,run,validate}",
@@ -609,6 +620,22 @@ def _int_flag(value: int | None, flag: str, *, minimum: int = 1) -> int | None:
     if value < minimum:
         raise UsageError(f"{flag} must be >= {minimum}, got {value}")
     return int(value)
+
+
+def _dof_flag(value: Any, flag: str) -> tuple[int, ...] | None:
+    """Validate the optional ``--mg-dof`` list (``dof[0]`` is the fine field).
+
+    ``dof[1]`` is ``E``, the coarse basis dimension that reaches the solver as
+    ``params[kMgLevel1E]`` (19).  ``None`` stays ``None`` so "not given" is
+    observably different from "asked for the default": a ranked Legacy-MG cache
+    supplies its own ``E`` and ``native`` refuses a mismatch.
+    """
+    if value is None:
+        return None
+    try:
+        return _optional_dof(policy.parse_int_list(value))
+    except ValueError as error:
+        raise UsageError(f"{flag}: {error}") from error
 
 
 def _float_flag(value: float | None, flag: str, *,
@@ -982,6 +1009,7 @@ def _resolve_config(args: argparse.Namespace) -> _Config:
             restart=_int_flag(args.restart, "--restart"),
             mg_levels=_int_flag(args.mg_levels, "--mg-levels"),
             mg_grid=mg_grid,
+            mg_dof=_dof_flag(args.mg_dof, "--mg-dof"),
             coarse_tol_factor=_float_flag(args.coarse_tol_factor,
                                           "--coarse-tol-factor",
                                           exclusive=True),
@@ -1037,6 +1065,7 @@ def _resolve_config(args: argparse.Namespace) -> _Config:
         max_iter=_int_flag(args.max_iter, "--max-iter"),
         restart=_int_flag(args.restart, "--restart"),
         mg_levels=_int_flag(args.mg_levels, "--mg-levels"),
+        mg_dof=_dof_flag(args.mg_dof, "--mg-dof"),
         coarse_tol_factor=_float_flag(args.coarse_tol_factor,
                                      "--coarse-tol-factor",
                                      exclusive=True),
@@ -1064,6 +1093,13 @@ def _native_mg_overrides(config: _Config) -> dict[str, Any]:
         value = getattr(config, field, None)
         if value is not None:
             overrides[field] = value
+    # ``--mg-dof`` is ``native``'s ``dof`` (per-level component counts, so
+    # ``dof[1]`` is the coarse basis dimension E that becomes
+    # ``params[kMgLevel1E]``).  The CLI spelling is ``mg_dof`` because ``--dof``
+    # alone would collide with a lattice/data-type word; the runner keeps its
+    # own name.
+    if config.mg_dof is not None:
+        overrides["dof"] = tuple(int(value) for value in config.mg_dof)
     return overrides
 
 

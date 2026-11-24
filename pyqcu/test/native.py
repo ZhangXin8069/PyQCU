@@ -3936,6 +3936,31 @@ def _load_ranked_mg_assets(
         raise ValueError(
             "ranked Legacy-MG cache identity does not match this case: "
             f"{actual} != {expected}")
+    # E, the coarse basis dimension per coarse site (``dof[1]``), is the
+    # capacity of the coarse space: ``capture_bound = sqrt(E / (e * block))``
+    # (cpp/kupl/qcu/src/lattice_clover_multigrid.cpp:1019-1023,1092).  It
+    # travels *inside* the artifact - ``lonv``'s first axis and
+    # ``identity['dof']`` - and ``_configure_legacy_mg`` copies it into
+    # ``params[kMgLevel1E]`` (=19), so a stale cache silently pins E to whatever
+    # it was built with no matter what the case declares.  That is how every
+    # earlier run ended up at E=2.  A case that asks for a different ``dof``
+    # must get that E or an error, never the cache's E.
+    cached_dof = tuple(int(value) for value in identity.get("dof", ()))
+    if len(cached_dof) < 2 or cached_dof[1] <= 0:
+        raise ValueError(
+            f"ranked Legacy-MG cache {path} records no usable dof/E: "
+            f"{list(cached_dof)}")
+    cached_e = int(cached_dof[1])
+    requested_dof = tuple(int(value) for value in option.dof)
+    if requested_dof[1] != DEFAULT_DOF[1] and requested_dof[1] != cached_e:
+        raise ValueError(
+            f"ranked Legacy-MG cache E={cached_e} (dof={list(cached_dof)}) "
+            f"does not match the requested dof={list(requested_dof)}.  E is a "
+            f"property of the artifact (lonv axis 0 -> params[kMgLevel1E]=19) "
+            f"and cannot be changed at load time: build a dedicated cache "
+            f"with `--dof 12 {requested_dof[1]}` (pyqcu/testing/simple/"
+            f"kupl_multigrid.py --write-coarse-cache) or pass "
+            f"--cache-dir to one that already has it.")
     if option.gauge_file is not None and identity.get("gauge_file_sha256"):
         digest = file_sha256(option.gauge_file)
         if digest != identity["gauge_file_sha256"]:
@@ -3983,7 +4008,9 @@ def _load_ranked_mg_assets(
         or int(len(manifest.get("ranks", []))) != int(controls.probe.size))
     notes = [
         ("ranked Legacy-MG cache repartitioned to live process grid"
-         if repartitioned else "ranked Legacy-MG cache loaded; no coarse rebuild")
+         if repartitioned else "ranked Legacy-MG cache loaded; no coarse rebuild"),
+        f"coarse basis E={cached_e} (e={MG_FINE_COMPONENTS}) "
+        f"dof={list(cached_dof)} -> params[kMgLevel1E]={cached_e}",
     ]
     entry = {
         "cache_reused": True,
@@ -3995,6 +4022,11 @@ def _load_ranked_mg_assets(
         "cache_rank": rank,
         "cache_starts": list(starts),
         "cache_local_coarse": list(local_coarse),
+        #: The coarse basis dimension actually in force for this run.  It is the
+        #: argument of ``capture_bound`` and therefore the one number a reader
+        #: of the row needs in order to know which coarse space was measured.
+        "mg_e": cached_e,
+        "mg_dof": [int(value) for value in cached_dof],
     }
     return assets, entry, dict(entry)
 

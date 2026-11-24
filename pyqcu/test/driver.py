@@ -715,6 +715,12 @@ def _native_failure(observations: dict[str, Any], started: float, *,
         for name in ("mg_grid", "coarse_tol_factor"):
             if settings.get(name) is not None:
                 kwargs[name] = settings[name]
+        # ``--mg-dof`` carries the coarse basis dimension ``E`` (``dof[1]``),
+        # the capacity of the coarse space; the runner calls it ``dof``.  Left
+        # unset, a ranked Legacy-MG cache keeps its own ``E`` and the row
+        # records which one it was (``metrics.mg_e``).
+        if settings.get("mg_dof") is not None:
+            kwargs["dof"] = tuple(int(v) for v in settings["mg_dof"])
     # ``atol`` applies to every native kind (``solve`` and ``mg``) and is a
     # settings-only knob: neither the L48 matrix nor the matrix declaration has
     # a tolerance to fall back to.  An unset value stays unset so the runner

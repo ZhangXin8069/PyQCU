@@ -3141,3 +3141,131 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      needs a real V-cycle (multiple smoothing sweeps per level, several cycles,
      and a coarse operator that is actually cheaper than the fine one) - that is
      a redesign, not a parameter change, and it must not be claimed as achieved.
+
+148. The correction interval sweep, in full: four mis-transcriptions in 147 fixed
+     Section 147 was written at 05:46, before the last run of this sweep had
+     finished, and its table does not match the rows it cites.  The verdict
+     ("MG is measurably slower - closed") is right; four of its numbers are not:
+       - there is NO "interval 0 (off)" row.  The control ran with the knob
+         UNSET, which keeps the historical coupling (interval = restart = 20),
+         and it measured accepted_corrections=1, level0=24 - not 0 and 18;
+       - accepted_corrections at interval 2 is 8, not 4; at interval 3 it is 6,
+         not 4; only interval 5 really is 4;
+       - best_ratio 0.991735 belongs to the SECOND correction at interval 5. The
+         per-row first-correction values are 0.992125 (2, 3, 5) and 0.992377
+         (10), and the minimum over all 88 corrections is 0.990966;
+       - interval 10 is missing, and "level0 stayed at 19" hides the one place
+         where the schedule did change something: interval 2 reaches level0=16.
+     Everything below is read from data/l48_ci_20261125/mg_i*/rows/*.json and
+     data/l48_ci_20261125/logs/mg_i*_solver.log.
+
+149. The correction interval has its own knob now, and the schedule is measured:
+     repeated corrections do lower level0 to 16, and the solve still gets slower
+     Section 146 ended on the only untested lever: apply the coarse correction
+     repeatedly instead of once.  That lever could not be tested before because
+     the interval WAS the BiCGStab restart
+     (lattice_clover_multigrid.cpp:231 read params_[kMgLevel1NumRestart]), so
+     every --restart sweep changed two things at once.  The two are now
+     decoupled and the schedule is measured with --restart fixed at 20.
+
+     THE KNOB.  params has no free slot: kParamsSize 58, level blocks at
+     19+8*(level-1) occupy 19..50, and 51..57 are verbose/seed/_TEST_IN_CPU_/
+     use_gcr/use_deflate/mu_pre/use_init_guess (define.h:8,41,49; define.py:17,
+     59,80).  Extending kParamsSize to 59 is not local: backend.cpp:36,69 copy
+     exactly kParamsSize entries out of the caller's pointer, so a 59-word read
+     walks past every caller that still allocates 58 - including the prebuilt
+     CUDA bridge (cpp/cuda/qcu/include/define.h _PARAMS_SIZE_ 58).  So the
+     interval is KUPL_MG_CORRECTION_INTERVAL, read at the one place the value is
+     decided (lattice_clover_multigrid.cpp:66-84, call site 289-311), default =
+     historical behaviour (restart>0 ? restart : 3) so every earlier number in
+     this log reproduces.  It is deliberately NOT in the Python option path:
+     that path is where four knobs were dropped, and an env var cannot be
+     swallowed by it.  No Python change was made or needed.
+
+     Proof it reaches the solver, not just the process (KUPL_MG_DEBUG=1, rank 0,
+     new line PYQCU::KUPL::MG_INTERVAL_DEBUG):
+       env unset  level0_correction_interval=20 source=legacy-restart env=(unset) restart=20 smooth_prefix=5
+       env=2      level0_correction_interval=2  source=env env=2 restart=20 smooth_prefix=1
+       env=3      level0_correction_interval=3  source=env env=3 restart=20 smooth_prefix=1
+       env=5      level0_correction_interval=5  source=env env=5 restart=20 smooth_prefix=1
+       env=10     level0_correction_interval=10 source=env env=10 restart=20 smooth_prefix=2
+     `restart=20` in the same line is read from params_[26], i.e. the --restart
+     value; it never moves.  The effective schedule is visible in
+     MG_CHUNK_DEBUG (interval=2: chunk=1 then chunk=2 repeatedly, i.e. a
+     correction every second fine iteration) and accepted_corrections counts the
+     coarse solves that were actually taken.
+
+     BUILD IDENTITY for the whole table: one job (2252168) rebuilt one library,
+     libqcu.so md5 bba7fa837dc5bf78dd8f6966fc4a3b62 -> f6c057c11d0ded59a0a1080092625d86,
+     object lattice_clover_multigrid.cpp.o 02:26:50/171496 B ->
+     05:26:33/174936 B, and `strings` finds MG_INTERVAL_DEBUG (1) and
+     KUPL_MG_CORRECTION_INTERVAL (2) in the loaded .so.  All five measurements
+     below ran the same library (sha256 07d0e341b4e5...) on the same
+     allocation shape as job 2252054: 1 node, 16 ranks, grid 2 2 2 2,
+     E=4, cache l48_mg_2224_e4 (identity dof [12,4]), --mg-dof 12 4,
+     --restart 20, --repeat 3 --warmup 1, NUMA bound + hugepages.  One drun per
+     job, run one after another, no `unrecognized arguments` in any solver log.
+     (Note: 2252054 was 16 ranks on one node, not 32 ranks - sh/l48_me4.sh is
+     `-nn 1 -rpn 16 --ranks 16`.  This table is measured on that same shape.)
+
+       interval  job      acc.corr  best_ratio(first/min)  overlap(first)  level0  level1  total  wall s   internal s
+       unset(20) 2252178     1      0.993393 / 0.993393      0.0454937        24       1      24    7.679     6.216
+          2      2252199     8      0.992125 / 0.991835      0.0360260        16       8      16    9.949     8.303
+          3      2252230     6      0.992125 / 0.992125      0.0360260        19       6      19   10.354     8.800
+          5      2252258     4      0.992125 / 0.990966      0.0360260        19       4      19    9.377     7.643
+         10      2252301     3      0.992377 / 0.992377      0.0413499        23       3      23    8.877     7.481
+       (baseline) 2252054    1      0.993393                 0.0454937        24       1      24    9.114     7.55-8.15
+
+     `wall s` is the row's median of the three timed solves (the samples within
+     a job agree to <0.5%); `internal s` is MG_PROFILE total, the second and
+     later solves.  All rows PASS with an independent verified residual
+     (5.7e-6..7.7e-6 against the 1e-5 gate) and identity dof [12,4].
+
+     WHAT IMPROVED.  level0 = 16 at interval=2 is the first time this session
+     that the fine iteration count goes BELOW plain BiCGStab's 18 (it was 18 at
+     E=2, 24 at E=4 with a single correction).  Repeated corrections do work as a
+     schedule: 8 coarse corrections, level1=8, and the fine Krylov needs 16
+     iterations instead of 24 to clear the same 1e-5 true-residual gate
+     (verified residual 5.7e-6 against the control's 7.3e-6).
+
+     WHY IT IS STILL NOT A SPEEDUP.
+       - best_ratio never goes below 0.990966 on any correction of any setting
+         (min over all 88 corrections measured, the control's four included:
+         0.991).  A correction still
+         removes ~0.8%, a fine iteration ~45%.  No schedule can amortise a step
+         that weak, and later corrections are WEAKER, not stronger: at
+         interval=3 the six corrections read 0.992125, 0.992876, 0.993286,
+         0.993800, 0.993827, 0.994045 - monotonically worse as the residual
+         smooths, which is the opposite of what multigrid theory needs.
+       - the coarse work multiplies while the fine work does not fall:
+         coarse_correction 0.49 s (1 call) -> 1.46 s (3) -> 2.06 s (4) ->
+         3.16 s (6) -> 3.78 s (8), but fine_apply stays flat-to-worse
+         5.18 s (53 calls) -> 5.59..5.96 s (55..66 calls), because every chunk
+         boundary restarts BiCGStab and pays the extra applies.  So internal
+         total rises 6.22 -> 7.48..8.80 s and wall time rises 7.68 -> 8.88..10.35 s.
+       - cross-allocation noise is bigger than every difference here: the
+         control (interval unset) reproduces 2252054 BIT-IDENTICALLY in every
+         solver quantity and still measures 7.679 s against 9.114 s - 19%.  That
+         is the quantitative form of "never compare timings across allocations",
+         and it means the only trustworthy wall-time comparison is same-build:
+         control 7.679 s vs every interval setting 8.877..10.354 s.
+
+     VERDICT.  Applying the correction repeatedly does NOT make Legacy-MG
+     accelerate L48x96 c64.  The acceptance gate was level0 materially below 18
+     with a lower total cost and best_ratio well below 0.9: level0 reaches 16
+     (-11%) at interval=2 only, the total cost is HIGHER at every setting, and
+     best_ratio stays at 0.991-0.994.  One of three conditions is partly met and
+     the other two fail, so this is a negative result.  The reason is the one
+     section 146 identified and this measurement confirms from the schedule
+     side: with overlap 0.036-0.045 the correction is nearly orthogonal to the
+     error, so its per-application reduction is fixed near 0.99 by the coarse
+     space itself.  Schedule tuning is exhausted; the lever is the coarse basis,
+     not the interval.
+
+     Method note: the PREFIX that decides where the first correction lands is
+     smoothing_prefix(interval) = max(1, interval/4) unless KUPL_MG_NU_PRE or
+     params[kMgMuPre] overrides it, so intervals 2/3/5 all take their first
+     correction after ONE fine iteration and their first best_ratio is the same
+     number (0.992125).  Any future sweep that compares "first correction"
+     across intervals must account for that, or it will read a scheduling
+     coincidence as a trend.

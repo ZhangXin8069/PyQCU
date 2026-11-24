@@ -1150,6 +1150,31 @@ def _optional_float(name: str, value: Any, *, minimum: float | None = None,
     return number
 
 
+def _optional_dof(value: Any) -> tuple[int, ...] | None:
+    """Normalise the Legacy-MG per-level component counts (``--mg-dof``).
+
+    ``dof[0]`` is the 12-component fine odd-Schur field and ``dof[level]`` the
+    coarse basis of that level, so ``dof[1]`` is ``E``: the coarse basis
+    dimension that reaches the solver as ``params[kMgLevel1E]`` (19) and that
+    sets the coarse space's capacity, ``capture_bound = sqrt(E / (e * block))``
+    (cpp/kupl/qcu/src/lattice_clover_multigrid.cpp:1019-1023).  ``None`` means
+    "not given" and stays ``None`` so the runner keeps its own default and, for
+    a ranked Legacy-MG cache, adopts the ``E`` the artifact was built with.
+    """
+    if value is None:
+        return None
+    if isinstance(value, (str, bytes)) or not isinstance(value, Sequence):
+        raise ValueError(
+            f"mg_dof must be a list of per-level component counts, got "
+            f"{value!r}")
+    values = tuple(_optional_int("mg_dof", item) for item in value)
+    if len(values) < 2 or values[0] != 12:
+        raise ValueError(
+            "mg_dof must start with the 12-component fine field and list at "
+            f"least two levels, got {list(values)}")
+    return values
+
+
 def _optional_int(name: str, value: Any, *, minimum: int = 1) -> int | None:
     """Validate an optional integer (``int`` or an integer string only)."""
     if value is None:
@@ -1226,6 +1251,9 @@ def _normalize_run_fields(instance: Any) -> None:
     object.__setattr__(instance, "device_id",
                        _optional_int("device_id", instance.device_id,
                                      minimum=0))
+    if hasattr(instance, "mg_dof"):
+        object.__setattr__(instance, "mg_dof",
+                           _optional_dof(getattr(instance, "mg_dof")))
 
 
 # ---------------------------------------------------------------------------
@@ -1281,6 +1309,17 @@ class Options:
     mg_levels: int | None = None
     mg_nu_pre: int | None = None
     mg_nu_post: int | None = None
+    # Per-level component counts of the Legacy-MG hierarchy, ``(12, E)``: the
+    # 12-component fine odd-Schur field and the coarse basis dimension ``E`` of
+    # level 1.  ``E`` is the capacity of the coarse space
+    # (``capture_bound = sqrt(E / (e * block))``,
+    # cpp/kupl/qcu/src/lattice_clover_multigrid.cpp:1019-1023) and it reaches the
+    # solver through ``params[kMgLevel1E]`` (=19), which this port copies out of
+    # the coarse ``lonv`` tensor's first axis
+    # (``native._configure_legacy_mg``).  ``None`` means "not given": the runner
+    # then keeps its own default and, for a ranked Legacy-MG cache, adopts the
+    # ``E`` the artifact was built with.
+    mg_dof: tuple[int, ...] | None = None
     threads: int | None = None
     device_id: int | None = None
     # Legacy-MG coarse-level tolerance multiplier.  A runner option, not a
@@ -1348,6 +1387,11 @@ class Options:
             "mg_levels": self.mg_levels,
             "mg_nu_pre": self.mg_nu_pre,
             "mg_nu_post": self.mg_nu_post,
+            # ``dof`` is the runner-facing name of this field: a native row
+            # forwards it straight into ``native.run_mg(dof=...)``, where it
+            # becomes ``NativeCase.dof`` and then the coarse basis of the
+            # hierarchy (``E = dof[1]``).
+            "dof": self.mg_dof,
             "threads": self.threads,
             "device_id": self.device_id,
             "coarse_tol_factor": self.coarse_tol_factor,
@@ -2165,6 +2209,13 @@ class FullModeOptions:
     restart: int | None = None
     mg_levels: int | None = None
     mg_grid: tuple[int, int, int, int] | None = None
+    #: ``--mg-dof``: per-level component counts, ``(12, E)``.  ``E`` is the
+    #: coarse basis dimension of level 1 and therefore the capacity of the
+    #: coarse space; it reaches the solver as ``params[kMgLevel1E]`` through the
+    #: coarse ``lonv`` tensor, so a value here must match the cache artifact
+    #: that supplies those tensors (``native._load_ranked_mg_assets`` refuses a
+    #: mismatch).  ``None`` means the flag was not given.
+    mg_dof: tuple[int, ...] | None = None
     coarse_tol_factor: float | None = None
     #: Solver tolerance (relative residual).  ``None`` means the flag was not
     #: given, so the native runner keeps its own default
@@ -2224,6 +2275,7 @@ class FullModeOptions:
         object.__setattr__(self, "lattice_grid",
                            None if self.lattice_grid is None
                            else policy.validate_lattice_grid(self.lattice_grid))
+        object.__setattr__(self, "mg_dof", _optional_dof(self.mg_dof))
 
     def as_dict(self) -> dict[str, Any]:
         """The effective full-mode configuration (``--list --json``/report)."""
@@ -2252,6 +2304,8 @@ class FullModeOptions:
             "mg_levels": self.mg_levels,
             "mg_grid": (None if self.mg_grid is None
                         else [int(v) for v in self.mg_grid]),
+            "mg_dof": (None if self.mg_dof is None
+                       else [int(v) for v in self.mg_dof]),
             "coarse_tol_factor": self.coarse_tol_factor,
             "atol": self.atol,
             "reference_budget": self.reference_budget,

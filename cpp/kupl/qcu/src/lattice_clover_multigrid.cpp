@@ -28,6 +28,64 @@ bool mg_env_enabled(const char *name) {
          std::strcmp(value, "no") != 0 && std::strcmp(value, "off") != 0;
 }
 
+// The coarse-correction interval is the number of fine Krylov iterations that
+// run between two coarse corrections.  It used to be read from
+// params_[kMgLevel1NumRestart], i.e. from the BiCGStab restart length: with
+// --restart 20 on a solve that needs 18 fine iterations the schedule collapsed
+// to one correction taken at iteration 20 (`accepted_corrections=1`), so the
+// coarse work could never be amortised - and every earlier --restart sweep
+// (1/5/10/20/50) changed the fine restart AND the correction interval at once,
+// which is why no sweep could answer whether repeated corrections help.
+//
+// Where it lives.  The flat params ABI has no free slot for it: kParamsSize is
+// 58 (define.h:8), the level blocks at kMgLevel1E + kMgParamsSize*(level-1)
+// fill 19..50 (define.h:41,49), and 51..57 are kVerbose, kSeed,
+// _TEST_IN_CPU_ (named only in pyqcu/kupl/define.py:80), kMgUseGcr,
+// kMgUseDeflate, kMgMuPre and kUseInitialGuess (define.h:36,37,50-53).
+// Extending kParamsSize to 59 is not
+// a local change: it is the ABI shared with the prebuilt CUDA bridge
+// (cpp/cuda/qcu/include/define.h _PARAMS_SIZE_ 58) and backend.cpp:36,69 copy
+// exactly kParamsSize entries out of the caller's array, so a 59-word read
+// would walk 4 bytes past every caller that still allocates 58.
+//
+// So the interval gets its own environment knob, read here - at the single
+// point where the value is decided - rather than threaded through the Python
+// option layers, which is where this repository has silently dropped four
+// knobs already.  Nothing about it can touch the restart: params_[26] keeps
+// carrying the BiCGStab restart length (it is also the MG enable gate in
+// clover_multigrid_solve), and the fine Krylov keeps restarting every
+// params_[26] iterations regardless of the interval.
+//
+// Name and default, explicitly:
+//   KUPL_MG_CORRECTION_INTERVAL   unset/empty -> historical behaviour
+//                                                (restart>0 ? restart : 3)
+//                                 positive int -> the interval, [1, 100000]
+// The value is parsed strictly: a non-integer is an error, never a silent
+// fallback, because "the knob was ignored" is the failure mode that has to be
+// impossible to miss.
+constexpr const char *kMgCorrectionIntervalEnv =
+    "KUPL_MG_CORRECTION_INTERVAL";
+
+int mg_correction_interval(int restart, bool *from_env) {
+  if (from_env != nullptr) {
+    *from_env = false;
+  }
+  const char *value = std::getenv(kMgCorrectionIntervalEnv);
+  if (value == nullptr || *value == '\0') {
+    return restart > 0 ? restart : 3;
+  }
+  char *end = nullptr;
+  const long parsed = std::strtol(value, &end, 10);
+  if (end == value || *end != '\0' || parsed < 1 || parsed > 100000) {
+    throw std::runtime_error(
+        "KUPL_MG_CORRECTION_INTERVAL must be an integer in [1, 100000]");
+  }
+  if (from_env != nullptr) {
+    *from_env = true;
+  }
+  return static_cast<int>(parsed);
+}
+
 struct MgProfileTimer {
   MgProfileTimer(bool enabled, double &target)
       : enabled_(enabled), target_(target),
@@ -228,10 +286,29 @@ public:
       throw std::runtime_error(
           "legacy Clover-MG max iterations must be positive");
     }
-    levels_[0].correction_interval =
-        params_[kMgLevel1NumRestart] > 0
-            ? params_[kMgLevel1NumRestart]
-            : 3;
+    bool interval_from_env = false;
+    levels_[0].correction_interval = mg_correction_interval(
+        params_[kMgLevel1NumRestart], &interval_from_env);
+    // The knob has to be provable, not assumed: four separate "dropped at some
+    // layer" defects were found in this repository, so rank 0 prints the
+    // interval it will actually use, where the value came from, the raw
+    // environment value and the independent BiCGStab restart, whenever
+    // KUPL_MG_DEBUG=1.  `source=env` with `level0_correction_interval` equal to
+    // the exported value and `restart` still at the --restart value is the
+    // proof that the two knobs are decoupled.
+    if (params_[kNodeRank] == 0 && mg_env_enabled("KUPL_MG_DEBUG")) {
+      const char *raw = std::getenv(kMgCorrectionIntervalEnv);
+      std::fprintf(
+          stdout,
+          "PYQCU::KUPL::MG_INTERVAL_DEBUG:\n"
+          " level0_correction_interval=%d source=%s env=%s restart=%d "
+          "smooth_prefix=%d levels=%d\n",
+          levels_[0].correction_interval,
+          interval_from_env ? "env" : "legacy-restart",
+          raw == nullptr ? "(unset)" : raw, params_[kMgLevel1NumRestart],
+          smoothing_prefix(levels_[0].correction_interval), num_levels_);
+      std::fflush(stdout);
+    }
     const double fine_tolerance = set_.real_parameter(kAtol);
     if (!std::isfinite(fine_tolerance) || fine_tolerance <= 0) {
       throw std::runtime_error(
