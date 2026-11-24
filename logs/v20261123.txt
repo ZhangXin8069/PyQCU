@@ -1824,3 +1824,34 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      The lesson is the same one this session keeps teaching: fix the layer the
      job actually uses, and prove it through that layer. Three "fixes" that
      each passed their own unit test changed nothing on the cluster.
+
+106. THE KNOBS FINALLY ARRIVE - and the split named the cause exactly
+     Sweep 2244994, first point: row r10_c1e4 records `restart=10`,
+     `coarse_tol_factor=10000.0`, seconds 3.7099.  Requested 10, recorded 10.
+     The ungating commit 9ed2a6b8 is the fix; the previous four attempts were
+     all on paths this row never used.
+
+     MG_PROFILE for that point (L48 c64 32 ranks, restart=10):
+       total=3.036605 fine_apply=2.058707 fine_calls=58
+       coarse_apply=0.012411 coarse_calls=6
+       restrict_calls=3 prolong_calls=3
+       coarse_correction=0.288402 coarse_correction_calls=3
+     So restart=10 performs only 3 coarse corrections (interval 10) but needs
+     58 fine applies, against 48 at restart=5.  Fewer corrections, MORE fine
+     work.
+
+     Comparison so far on the same shape, all verified:
+       bistabcg (job 2237987)         18 iterations   2.3500 s
+       mg-2 restart=5  (job 2236485)  18 + 4 corr      ~1.98 s (1 sweep run)
+       mg-2 restart=10 (this row)     -  + 3 corr      3.7099 s
+     The MG runs are not beating plain BiCGStab on this shape, and restart=10
+     is worse than restart=5 here - the opposite of the L24 table
+     (docs/kupl_kunpeng_progress_20261110.md sec 6.1, 1.55-1.77x at 10..50).
+     The L24 table was 16 ranks x 8 threads, atol 1e-4, mg-grid 2 2 2 1; this
+     is 32 ranks x 18 threads, atol 1e-5, mg-grid 2 2 2 2.  Different
+     configurations, so neither refutes the other - but the L48 result is the
+     one that decides for L48, and it is negative so far.
+
+     Remaining points (20, 50, and 20+1e2) are still running; no conclusion
+     until all four land, and even then the honest statement will be about
+     THIS shape, not about MG in general.
