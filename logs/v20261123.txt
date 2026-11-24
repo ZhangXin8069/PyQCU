@@ -1994,3 +1994,34 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      two 16-rank cells are both launchable and both blocked by the budget, not
      by placement or by the solver.  They stay out of the matrix count until
      `--reference-budget` exists.
+
+112. Several cells failed with rc=255 and the reason is NOT in the job log
+     Failing: bg-4's l64_mg2_64r (job 2245125), l64_mg2_c128_64r (2245407),
+     l64_bc64r_c128 (2244728/2244800/2244916), and bg-5's diagnostic
+     l48_mg_diag1 (2245432, first point `base_1e6` rc=255).
+
+     Evidence actually available:
+       l64_mg2_64r/logs/dsub.err:
+         drun: step executed failed on host cn12066, fail to wait step task
+               launcher, err:exit status 255, stepID: 0
+         drun errors: failed to handle status msg
+       diag dsub.out: START ... then `POINT_RC base_1e6 rc=255` with no
+       Python-level message, and dsub.err is empty.
+     So the launcher reported a 255 from a step task and the child produced no
+     diagnostic - the same class as the earlier "empty stdout" problem, now at
+     the drun layer.
+
+     I do NOT attribute this to the site fabric: 2237987/2236485/2239023 all
+     ran the identical launch shape successfully within the last few hours, and
+     the diffs since then are the MG debug instrumentation in
+     lattice_clover_multigrid.cpp (bg-5) plus whatever bg-4 changed in its job
+     scripts.  A newly built libqcu.so is on the path (diag log prints
+     LIB .../build/libqcu.so.0.1.0 e6efeb870d470926b513373e36f153df), so a
+     crash inside the new debug code is a live candidate - it prints with
+     fprintf(stdout) from rank 0 inside the solver, which the earlier code never
+     did.
+
+     Next: rerun ONE known-good shape (the exact l48_matched_bc script that
+     produced row b7b17fd3b680 at 13:2x) unchanged.  If it still passes, the
+     regression is in the changed code or the new build, not the site.  If it
+     fails, the site is degraded again.  That single control decides which.
