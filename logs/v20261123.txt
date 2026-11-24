@@ -2125,3 +2125,28 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      Discipline note to myself: three void cluster runs in a row came from
      script edits I did not dry-run.  From here every job script gets a local
      `--list`-style dry check of its argv before submission.
+
+116. Alternating A/B blocked; my "multiple drun" theory was wrong
+     Correction first: 2244994 ran FOUR drun calls in one job successfully, so
+     "multiple drun calls fail" is FALSE.  What fails is:
+       - one invocation planning two kinds (`--native solve mg`) -> exit 1
+       - and, in job 2245988, even a SINGLE-kind bc point (bc1, the first call)
+         returned 255 while the SAME bc command succeeded as a standalone job
+         at 14:17 and 14:23 (rows in l48_mbc, 3.866 s and 2.758 s).
+     So 2245988 fails at the first point, which rules out "accumulated PLM
+     state" and leaves a difference in the script itself.
+
+     Differences between the working l48_mbc job and 2245988's bc_point:
+       - 2245988 pipes drun's output through `grep | tail` (l48_mbc writes it
+         straight to the job log);
+       - 2245988 exports PYQCU_KUPL_MG_PROFILE=1 for BOTH the bc and mg points;
+       - 2245988 writes to a per-tag subdirectory of a fresh outdir.
+     The pipe and the profile env are the two candidates worth one test each.
+
+     My own repeated mistake, again: filtering drun's output with grep threw
+     away the only diagnostic lines.  Every failure I have chased today was
+     preceded by me discarding the error text.
+
+     Status of the MG question: STILL OPEN.  No same-allocation pair exists,
+     and I will not infer anything from cross-allocation numbers (2.1x swing on
+     an unchanged script, bit-identical residuals - section 114).
