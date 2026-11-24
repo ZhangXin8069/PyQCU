@@ -1494,43 +1494,61 @@ private:
     if (debug_) {
       diagnose_correction(level, coarse_correction, before);
     }
-    static constexpr Real damping_steps[] = {
-        Real(1), Real(0.5), Real(0.25), Real(0.125)};
-    for (const Real damping : damping_steps) {
+    // The optimal damping is analytic.  Minimising ||r - t A c||^2 over a real
+    // t gives t = <r, Ac> / ||Ac||^2 with residual^2 = ||r||^2 - <r,Ac>^2/||Ac||^2,
+    // so one apply_level plus two reductions finds it.  The previous code tried
+    // t in {1, 1/2, 1/4, 1/8} and applied the FINE operator once per candidate,
+    // which cost up to four fine applications per correction - measured as the
+    // bulk of `coarse_correction` in MG_PROFILE (0.49 s per correction at
+    // interval 2, against 0.07 s for restrict+prolong+coarse_apply combined).
+    apply_level(level, parent.v, parent.correction);
+    const Complex<Real> residual_dot_image =
+        mg_dot(parent.r, parent.v, distributed_);
+    const Real image_norm2 = mg_norm2(parent.v, distributed_);
+    const Real before_norm2 = before * before;
+    Real damping = Real(0);
+    Real candidate = before;
+    if (std::isfinite(static_cast<double>(image_norm2)) &&
+        image_norm2 > Real(0)) {
+      damping = residual_dot_image.real() / image_norm2;
+      const Real remaining = before_norm2 -
+                             residual_dot_image.real() *
+                                 residual_dot_image.real() / image_norm2;
+      if (std::isfinite(static_cast<double>(damping)) &&
+          std::isfinite(static_cast<double>(remaining))) {
+        candidate = std::sqrt(std::max(Real(0), remaining));
+      } else {
+        damping = Real(0);
+      }
+    }
+    if (debug_ && params_[kNodeRank] == 0) {
+      std::fprintf(stdout,
+                   "PYQCU::KUPL::MG_CORRECTION_DEBUG:\n "
+                   "level=%d damping=%g before=%g candidate=%g ratio=%g\n",
+                   level, static_cast<double>(damping),
+                   static_cast<double>(before),
+                   static_cast<double>(candidate),
+                   static_cast<double>(candidate / before));
+    }
+    if (damping > Real(0) && std::isfinite(static_cast<double>(candidate)) &&
+        candidate < before) {
       for (std::size_t i = 0; i < parent.x.size(); ++i) {
         parent.x[i] += multiply_complex(
             Complex<Real>(damping), parent.correction[i]);
       }
-      apply_level(level, parent.v, parent.x);
       for (std::size_t i = 0; i < parent.r.size(); ++i) {
-        parent.r[i] = parent.rhs[i] - parent.v[i];
+        parent.r[i] -= multiply_complex(
+            Complex<Real>(damping), parent.v[i]);
       }
-      const Real candidate = std::sqrt(mg_norm2(parent.r, distributed_));
-      if (debug_ && params_[kNodeRank] == 0) {
+      if (params_[kVerbose] != 0) {
         std::fprintf(stdout,
-                     "PYQCU::KUPL::MG_CORRECTION_DEBUG:\n "
-                     "level=%d damping=%g before=%g candidate=%g ratio=%g\n",
-                     level, static_cast<double>(damping),
+                     "PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:\n "
+                     "correction damping=%g before=%g candidate=%g\n",
+                     static_cast<double>(damping),
                      static_cast<double>(before),
-                     static_cast<double>(candidate),
-                     static_cast<double>(candidate / before));
+                     static_cast<double>(candidate));
       }
-      if (std::isfinite(static_cast<double>(candidate)) &&
-          candidate < before) {
-        if (params_[kVerbose] != 0) {
-          std::fprintf(
-              stdout,
-              "PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:\n "
-              "correction damping=%g before=%g candidate=%g\n",
-              static_cast<double>(damping), static_cast<double>(before),
-              static_cast<double>(candidate));
-        }
-        return candidate;
-      }
-      for (std::size_t i = 0; i < parent.x.size(); ++i) {
-        parent.x[i] -= multiply_complex(
-            Complex<Real>(damping), parent.correction[i]);
-      }
+      return candidate;
     }
     parent.r = saved_residual;
     return before;
