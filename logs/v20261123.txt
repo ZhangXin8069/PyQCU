@@ -2150,3 +2150,25 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      Status of the MG question: STILL OPEN.  No same-allocation pair exists,
      and I will not infer anything from cross-allocation numbers (2.1x swing on
      an unchanged script, bit-identical residuals - section 114).
+
+117. The MG debug trace was produced and then discarded by my own grep
+     Job 2245986 (`sh/l48_mgdbg.sh`, KUPL_MG_DEBUG=1, restart=20) SUCCEEDED,
+     rc=0.  The job log has 1 `MG_PROFILE` line and 0 `MG_CORRECTION_DEBUG`
+     lines - but the debug code IS in the remote source (grep: 2 hits for
+     KUPL_MG_DEBUG, 1 for MG_CORRECTION_DEBUG) and the literal is in the built
+     libqcu.so.0.1.0.
+     Cause: the script pipes drun's output through
+       grep -E "level0=|MG_PROFILE|^ total=|summary:|overall:"
+     which does not match `PYQCU::KUPL::MG_CORRECTION_DEBUG`.  So the trace was
+     printed and filtered away before it reached the log.
+
+     This is the FOURTH time today that a grep/redirect of mine destroyed the
+     only diagnostic.  Rule for the rest of this work, no exceptions: launch
+     output goes to a file verbatim; filtering happens only when reading the
+     file afterwards, never on the pipeline that produces it.
+
+     Next: rerun the same job with `> logs/full.out 2>&1` and read
+     MG_CORRECTION_DEBUG / MG_CHUNK_DEBUG from that file.  Then the
+     "candidate/before" ratio per correction decides whether an MG schedule can
+     pay for itself, which is the evidence bg-5 said was needed before touching
+     the algorithm.
