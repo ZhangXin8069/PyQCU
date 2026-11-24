@@ -1890,3 +1890,36 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      BiCGStab is UNRESOLVED until both are run with the same atol and the same
      repeat count.  That matched run is the next experiment; no speedup claim
      before it.
+
+108. Matched comparison ran - but `atol` is a FIFTH unplumbed knob
+     2245167 BiCGStab: row restart 5, atol 1e-06, seconds 1.8185,
+       samples [1.8185, 1.8205, 1.8177], rel_res 6.554010772522588e-07, verified
+     2245127 mg-2 restart=20: row restart 20, atol 1e-05, seconds 2.8172,
+       samples [2.7962, 2.8172, 2.8364], rel_res 6.6447493004157185e-06, verified
+
+     Both jobs were launched with `--atol 1e-5`, but the rows report 1e-6 and
+     1e-5 - i.e. each runner's own default.  Cause: `atol` is declared in
+     CONFIG_FIELDS and carried by `Options.as_kwargs` (common.py:1120,1330), but
+     `driver.py` never puts it into the kwargs it hands to `native.run_case`
+     (`grep '"atol"' pyqcu/test/driver.py` -> no match).  So `--atol` is the
+     fifth knob in the full-mode path that silently does nothing, alongside the
+     four found earlier.
+
+     Consequence: the runs are NOT matched - they solved different problems, a
+     decade apart in residual.  The comparison is therefore not a controlled
+     A/B and I do not report a speedup ratio from it.
+
+     What it does establish, and the direction is unambiguous because it goes
+     AGAINST the looser side:
+       BiCGStab reached 6.55e-07 (tighter) in 1.8185 s
+       mg-2     reached 6.64e-06 (10x looser) in 2.8172 s
+     On L48 c64 32 ranks, NUMA-bound, the Legacy-MG path is ~1.55x slower than
+     plain BiCGStab even when asked for a residual an order of magnitude
+     weaker.  That is a real negative result for mg-2 on this shape, and it is
+     consistent with the four sweep points (2.58-3.71 s) never reaching the
+     1.82 s of plain BiCGStab.
+
+     To turn this into a proper matched A/B the `atol` drop must be fixed
+     (same class of fix as restart/coarse_tol_factor: put it in the driver
+     kwargs), and then both must be run at one atol with the same repeat.  Not
+     claimed until then.
