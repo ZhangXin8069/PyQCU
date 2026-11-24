@@ -948,6 +948,10 @@ def _resolve_config(args: argparse.Namespace) -> _Config:
             coarse_tol_factor=_float_flag(args.coarse_tol_factor,
                                           "--coarse-tol-factor",
                                           exclusive=True),
+            # ``args.atol`` and not ``config.atol``: the config is resolved
+            # below, after this construction.  An unset flag stays ``None`` so
+            # the native runner keeps its own per-kind default.
+            atol=_float_flag(args.atol, "--atol", minimum=0.0, exclusive=True),
             tier=(FULL_MODE_TIER if tier is None else int(tier)),
             repeat=int(repeat),
             warmup=int(warmup),

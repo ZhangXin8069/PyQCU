@@ -2138,6 +2138,13 @@ class FullModeOptions:
     mg_levels: int | None = None
     mg_grid: tuple[int, int, int, int] | None = None
     coarse_tol_factor: float | None = None
+    #: Solver tolerance (relative residual).  ``None`` means the flag was not
+    #: given, so the native runner keeps its own default
+    #: (``native.DEFAULT_ATOL_C64`` / ``native.DEFAULT_MG_ATOL_C64``); a value
+    #: is passed straight through.  Without this field the whole full-mode path
+    #: dropped ``--atol`` and two runs that looked matched solved to a decade
+    #: apart (2026-11-24, rows 2245167 vs 2245127).
+    atol: float | None = None
     allow_all_skipped: bool = False
     fail_fast: bool = False
 
@@ -2161,6 +2168,8 @@ class FullModeOptions:
         if int(self.tier) not in policy.TIERS:
             raise ValueError(
                 f"mode tier must be one of {policy.TIERS}, got {self.tier!r}")
+        if self.atol is not None and float(self.atol) <= 0.0:
+            raise ValueError(f"atol must be > 0, got {self.atol!r}")
         object.__setattr__(self, "run_label", label)
         object.__setattr__(self, "ranks", int(self.ranks))
         object.__setattr__(self, "tier", int(self.tier))
@@ -2207,6 +2216,7 @@ class FullModeOptions:
             "mg_grid": (None if self.mg_grid is None
                         else [int(v) for v in self.mg_grid]),
             "coarse_tol_factor": self.coarse_tol_factor,
+            "atol": self.atol,
             "allow_all_skipped": self.allow_all_skipped,
             "fail_fast": self.fail_fast,
         }

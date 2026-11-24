@@ -715,6 +715,15 @@ def _native_failure(observations: dict[str, Any], started: float, *,
         for name in ("mg_grid", "coarse_tol_factor"):
             if settings.get(name) is not None:
                 kwargs[name] = settings[name]
+    # ``atol`` applies to every native kind (``solve`` and ``mg``) and is a
+    # settings-only knob: neither the L48 matrix nor the matrix declaration has
+    # a tolerance to fall back to.  An unset value stays unset so the runner
+    # keeps its own per-kind default (``native.DEFAULT_ATOL_C64`` /
+    # ``DEFAULT_MG_ATOL_C64``), which is what makes "no flag" observably
+    # different from "``--atol 1e-5``".  Not gated on ``kind``/``declaration``:
+    # that is the 9ed2a6b8 mistake that silently dropped ``restart``.
+    if settings.get("atol") is not None:
+        kwargs["atol"] = settings["atol"]
     for name in ("mass", "kappa", "csw"):
         if observations.get(name) is not None:
             kwargs[name] = observations[name]
