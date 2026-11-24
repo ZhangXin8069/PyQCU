@@ -2839,3 +2839,52 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      gather_set_equals_scatter_set=1 and mismatches=0 before re-measuring
      capture/reduction.  The audit itself is the regression test - it needs no
      solve and costs one job.
+
+141. RETRACTION of section 140: the audit's pass condition is unsatisfiable
+     Section 140 claimed `gather_set_equals_scatter_set=0` proved that restrict
+     gathers a different set than prolong scatters.  Reading the assertion itself
+     (lattice_clover_multigrid.cpp:1317-1319) shows that conclusion is an
+     artifact:
+
+       const bool ok = in_block == block_sites && outside == 0 &&
+                       first_component == E_idx && last_component == E_idx &&
+                       roundtrip < Real(1e-4) && leak < Real(1e-4);
+
+     Two conjuncts cannot hold for ANY correct transfer:
+       - `in_block == block_sites` compares a DOF count against a SITE count.
+         `block_sites` is bx*by*bz*bt = 32; `in_block` counts every non-zero
+         (component, site) pair = 32 * 12 = 384 - which is exactly the 384 the
+         job printed.  It could only hold if p.E == 1.
+       - `first_component == E_idx && last_component == E_idx` requires the
+         prolongation of a unit coarse dof to touch exactly one fine component.
+         A generic null-vector basis spreads it over all 12, which is why the job
+         printed components=[0,11].  It is unsatisfiable for every E_idx.
+     And `gather_set_equals_scatter_set` is merely `mismatches == 0`, so it
+     inherits both defects.
+
+     So `ok=0`, `mismatches=4` and `gather_set_equals_scatter_set=0` say nothing
+     about the transfer - they say the audit's threshold is wrong.  bg-24 wrote a
+     check that fails on a correct implementation.
+
+     What the same output DOES establish, and what survives:
+       - `scatter=384 in_block=384 outside_block=0` - prolong is exactly
+         supported: 32 sites x 12 components, nothing outside the block;
+       - `leak` 1.65e-08 - fp32 round-off only;
+       - `roundtrip_err` 2.4e-07..8.3e-07 - restrict(prolong(unit)) returns the
+         unit to complex64 precision, i.e. the two maps ARE adjoint-consistent.
+     Those three together point the other way: the transfer pair looks self-
+     consistent, and the cause of the small overlap is still unexplained.
+
+     Where MG therefore stands NOW (supersedes 140): capture falls as the grid
+     coarsens (0.102 / 0.072 / 0.026) and reduction stays at 0.9948-0.9997, which
+     is measured fact.  The transfer is SUSPECT but NOT proven defective, and
+     nothing in this session has demonstrated a mapping error.  The next step is
+     not "fix restrict()" but "make the audit's assertion correct and re-run it":
+     compare gather-set and scatter-set as SETS of (component, site) pairs
+     instead of counts, and drop the per-component identity requirement that a
+     non-diagonal projector can never meet.
+
+     Process lesson, the same one as section 128 in a new guise: a self-authored
+     assertion can be as untrustworthy as a self-authored PASS.  Before quoting
+     an audit's verdict as proof, read the comparison operator and check that the
+     two sides carry the same units and that a CORRECT implementation would pass.
