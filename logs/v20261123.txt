@@ -2061,3 +2061,37 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      variance) and, if it is still ~3.87 s, rebuild from a clean directory with
      the previous flags and re-run.  Do not attribute the 2.1x to the MG
      instrumentation or to the site before that.
+
+114. Methodology correction: the same solver varies 2.1x ACROSS allocations
+     Three runs of the SAME unchanged BiCGStab script, same shape, same flags:
+
+       allocation A (13:2x)  samples [1.8185, 1.8205, 1.8177]  median 1.8185
+       allocation B (14:17)  samples [3.8418, 3.8798, 3.8661]  median 3.8661
+       allocation C (14:23)  samples [2.7584, 2.4976, 2.8122]  median 2.7584
+       18 iterations and the BIT-IDENTICAL residual 6.554010772522588e-07 in
+       all three.
+
+     So the 2.1x I flagged in section 113 is NOT a build regression and not the
+     MG instrumentation - it is node/allocation variance.  The first two sample
+     sets were tight only because each was measured inside one allocation; the
+     third shows a 12% spread within its own allocation.
+
+     This invalidates the comparison I was using for the MG question.  The
+     "MG 2.8172 s vs BiCGStab 1.8185 s" pair came from DIFFERENT allocations,
+     and the cross-allocation swing of the same solver is 2.1x - larger than
+     the 1.55x difference I was attributing to the solvers.  Any MG speedup
+     claim from across-allocation data is therefore unsupportable, in either
+     direction.
+
+     Correct design, submitted as job 2245682 (`l48_interleaved.sh`): ONE
+     allocation, alternating bc1, mg1, bc2, mg2, bc3, mg3, each `--repeat 3`,
+     same nodes, same clock, same load, same atol behaviour.  Only that can
+     separate solver from machine.
+
+     Standing rule for the rest of this work: never compare timings taken in
+     different allocations; state the allocation (job id) with every number.
+
+     Consequence for earlier numbers in this log: the matrix cells' seconds are
+     each valid for their own job only.  The rank-scaling table (32/64/128
+     ranks: 11.72 / 6.34 / 1.88 s) spans different allocations and must be
+     re-measured in one allocation before it is used as a scaling claim.
