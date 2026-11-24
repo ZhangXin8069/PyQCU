@@ -2372,3 +2372,30 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      If work resumes, the first task is not the solver: it is one job shape
      that reliably writes a row, proven on three consecutive submissions,
      before any further MG iteration.  Everything else queues behind that.
+
+125. FIRST new verified cell in hours: L64 16-rank SINGLE node now PASS
+     `data/l64_16r_refbudget2_20261124/single_v2/rows/de3c33aa3def728a.json`
+       status            PASS
+       ranks 16, lattice_grid 2 2 2 2, local 32x32x32x64, dtype c64
+       seconds           18.290543168084696
+       iterations        15
+       relative_residual 6.009303405339651e-06
+       residual_verified true
+       case_seconds      1041.62
+
+     This is the cell that returned SKIP(reference_workspace) three times before
+     ("needs about 7.50 GiB per rank, above the declared 4.00 GiB budget").  The
+     committed `--reference-budget` flag (3c1a86cc) resolves it, and the row
+     carries an independent verified residual rather than a skip.
+
+     Matrix count: 7 verified cells of >=14
+       bistabcg c64 @32/64/128, c128 @128
+       mg-2     c64 @128, c128 @128
+       bistabcg c64 @16 single node        <- this one
+
+     Also note: 15 iterations here against 18 at 128 ranks.  Not interpreted -
+     different local volume (32x32x32x64 vs 32x32x32x8), and the timings are
+     from different allocations so nothing is compared.
+
+     The dual-node 16-rank cell is still outstanding; bg-17 is running it
+     (job 2248159).
