@@ -2604,3 +2604,27 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      grid size, level count or restart.  Two-level MG with this transfer cannot
      accelerate, and that is a defensible negative result - but it is NOT a
      proof about MG in general, only about this implementation's transfer.
+
+133. Final MG table: capture falls monotonically as the coarse grid coarsens
+     All three measured on L48x96 c64, 32 ranks, restart=20, caches verified:
+       mg_grid     capture_bound  reduction_bound  level0
+       2 2 2 2        0.102062       0.994778         18
+       2 2 2 4        0.0721688      0.997392         19     (job 2249605)
+       4 4 4 4        0.0255155      0.999674         19     (job 2249606)
+
+     A working two-level MG must capture MORE of a smooth error as the coarse
+     grid gets coarser; here capture falls 0.102 -> 0.072 -> 0.0255 and the
+     achievable reduction goes 0.9948 -> 0.9974 -> 0.9997, i.e. coarsening makes
+     the correction strictly less useful while `level0` rises 18 -> 19.
+
+     That monotone trend is the signature of a transfer that does not correspond
+     to the coarse operator's geometry: the more the grid is coarsened, the
+     larger the index/parity mismatch, so the correction lands further from the
+     error.  It rules out grid size, level count and restart as levers, and it
+     agrees with the tiny `overlap` (0.011-0.037) seen at every grid.
+
+     Final status of the MG task: the KUPL Legacy-MG does not accelerate and
+     cannot be made to accelerate by configuration.  The defect is in the
+     transfer/correction mapping, which needs an index-by-index comparison with
+     cpp/cuda/qcu/src/apply_clover_multigrid.cu - not another sweep.  This is a
+     negative result about THIS implementation, not about MG in general.
