@@ -1952,3 +1952,45 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      Nothing here is committed and none of it may be treated as fixed until it
      has been read and validated; the previous audit found two "working"
      features that were dead on the real path.
+
+110. The "segfault" is NOT established - and the test was hiding the evidence
+     bg-3 reproduced the `ERROR at setup of
+     test_quick_report_lists_the_nineteen_tier0_tags` ONCE (with
+     `-p no:cacheprovider`, same 180 passed / 1 error, child stdout empty) and
+     could not reproduce it in 9 direct child runs.  Findings that matter:
+
+       - No `segfault at`, no `oom-kill`, no `killed process` in 870 lines of
+         dmesg covering the event.  SIGABRT, exit(1), SIGTERM/SIGKILL all leave
+         that same empty kernel trace, so SIGSEGV is not supported.
+       - The pytest message for this failure is "no JSON report found on
+         stdout", and the child prints nothing on stdout until its final
+         statement, so EVERY abrupt death produces the identical message.
+       - `_run_cli` captured the child's stderr and then threw it away
+         (test_pyqcu_test_port.py:96-111, fail message used stdout only).
+       - Forcing worst-case scheduling did not crash: it TIMEOUTed cleanly with
+         well-formed output, which pytest reports as FAILED, not a setup ERROR.
+       - The `-k` selection cannot require a neighbour: the child is a fresh
+         process and the only env-writing neighbours are not selected.  The one
+         real coupling is machine load (3-4 agents + 2-4 concurrent --quick
+         children on 8 cores, load 3.9 -> 20.0).
+
+     Fixed the diagnosis path (not the cause): `_child_diagnostics()` now adds
+     `child rc=... stderr_tail=...` to that failure, and all four
+     `_decode_json_payload` call sites pass the CompletedProcess.  The rc alone
+     splits the space: -11 SIGSEGV, -6 SIGABRT (stderr then carries the
+     `PYQCU::KUPL::<module>:` line and the last completed case), -9 OOM or
+     external kill, -15 external kill, 1 a Python traceback naming the case.
+     test_pyqcu_test_port.py: 38 passed.
+
+     Status of the release gate item: still UNEXPLAINED, but now observable.
+     The smallest settling experiment (bg-3's) is 40 sequential
+     `pyqcu.test --quick --json -` runs with PYTHONFAULTHANDLER=1 under load,
+     breaking on the first non-zero rc.  Not run yet.
+
+111. L64 16-rank DUAL-node cell: SKIP as well
+     Job 2245256 finished with `overall: SKIP`, rc=255, row c2545d4efdf60f8f.
+     Same reference_workspace refusal as the single-node cell: the independent
+     residual needs more than the 4 GiB per-rank budget at 16 ranks.  So the
+     two 16-rank cells are both launchable and both blocked by the budget, not
+     by placement or by the solver.  They stay out of the matrix count until
+     `--reference-budget` exists.

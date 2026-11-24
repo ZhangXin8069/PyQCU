@@ -111,7 +111,24 @@ def _run_cli(*arguments: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-def _decode_json_payload(text: str, what: str) -> object:
+def _child_diagnostics(completed: subprocess.CompletedProcess[str]) -> str:
+    """Return the child's exit status and stderr tail for a failure message.
+
+    A missing JSON report used to be reported with the child's **stdout** only,
+    which is empty by construction until the last statement of the run.  Any
+    abrupt death - native abort, SIGSEGV, OOM, external kill, uncaught
+    exception - therefore produced the same message and threw the one piece of
+    evidence away that would distinguish them (2026-11-24 investigation,
+    logs/segfault-probe.txt).  Keep the return code and the stderr tail.
+    """
+    code = completed.returncode
+    stderr = (completed.stderr or "")[-4000:]
+    return f"child rc={code} stderr_tail=\n{stderr}"
+
+
+def _decode_json_payload(text: str, what: str,
+                        completed: subprocess.CompletedProcess[str] | None = None
+                        ) -> object:
     """Return the first JSON document carrying a ``cases`` key.
 
     The human report and the JSON document may share stdout, so scan from the
@@ -142,7 +159,8 @@ def _decode_json_payload(text: str, what: str) -> object:
             continue
         if isinstance(payload, dict) and "cases" in payload:
             return payload
-    pytest.fail(f"{what}: no JSON report found on stdout\n{text[-4000:]}")
+    detail = "" if completed is None else "\n" + _child_diagnostics(completed)
+    pytest.fail(f"{what}: no JSON report found on stdout\n{text[-4000:]}{detail}")
 
 
 def _case_tags(payload: object) -> list[str]:
@@ -176,7 +194,8 @@ def quick_report() -> dict:
             f"stdout:\n{completed.stdout[-4000:]}\n"
             f"stderr:\n{completed.stderr[-4000:]}"
         )
-    payload = _decode_json_payload(completed.stdout, "pyqcu.test --quick --json -")
+    payload = _decode_json_payload(completed.stdout,
+                                   "pyqcu.test --quick --json -", completed)
     if not isinstance(payload, dict):
         pytest.fail("pyqcu.test --quick --json - did not return a report object")
     payload.setdefault("_exit_code", completed.returncode)
@@ -191,7 +210,8 @@ def listed_tags() -> list[str]:
         f"pyqcu.test --list --json failed: rc={completed.returncode}\n"
         f"{completed.stdout[-2000:]}\n{completed.stderr[-2000:]}"
     )
-    payload = _decode_json_payload(completed.stdout, "pyqcu.test --list --json")
+    payload = _decode_json_payload(completed.stdout, "pyqcu.test --list --json",
+                                   completed)
     return _case_tags(payload)
 
 
@@ -420,7 +440,8 @@ def _single_case(*arguments: str) -> dict:
         f"{' '.join(arguments)}: rc={completed.returncode}\n"
         f"{completed.stdout[-2000:]}\n{completed.stderr[-2000:]}"
     )
-    payload = _decode_json_payload(completed.stdout, " ".join(arguments))
+    payload = _decode_json_payload(completed.stdout, " ".join(arguments),
+                                   completed)
     cases = _cases(payload)
     assert len(cases) == 1, _case_tags(payload)
     return cases[0]
