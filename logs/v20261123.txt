@@ -2888,3 +2888,45 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      assertion can be as untrustworthy as a self-authored PASS.  Before quoting
      an audit's verdict as proof, read the comparison operator and check that the
      two sides carry the same units and that a CORRECT implementation would pass.
+
+142. The transfer pair is SELF-CONSISTENT - the MG negative result is now closed
+     After (a) correcting the audit's assertion to units a correct transfer can
+     satisfy, and (b) proving the new code is really in the loaded library, the
+     decisive measurement (job 2251030, --mg-grid 2 2 2 4, 32 ranks, cache
+     l48_mg_2224 verified) returned:
+
+       job=SUCCEEDED ov=0.0226784 cap=0.0721688 red=0.997392 mm=0 eq=1
+       level0=19 level1=1 total=19 accepted_corrections=1 fallback_fine=0
+
+     `mm=0 eq=1` with the corrected predicate means all of:
+       - support == block_sites * p.E : prolong of a unit coarse dof lands on
+         exactly the 32-site block x 12 components and nowhere else;
+       - outside == 0 : no mass leaks out of the block;
+       - roundtrip < 1e-4 and leak < 1e-4 : restrict(prolong(unit)) returns the
+         unit to complex64 precision, i.e. the pair is adjoint-consistent.
+     So the mapping is correct: this is NOT a permuted axis, an off-by-one block
+     origin, a swapped x<->t index, a prolong-only parity shift or a component
+     stride error.  Sections 140/141 are both superseded - 140 over-claimed a
+     defect from an unsatisfiable assertion, and the defect does not exist.
+
+     The bounds are unchanged (cap 0.0721688, red 0.997392) exactly as expected,
+     because only the audit was edited - nothing in restrict()/prolong() was
+     altered.  That is the control: a measurement that moves when the audit
+     changes would have proved the audit was measuring the solver.
+
+     CONCLUSION, now supported rather than suspected: with a self-consistent
+     transfer, a correct coarse solve and a matching Galerkin operator, one
+     coarse correction still removes only ~0.36% of the residual while one fine
+     BiCGStab iteration removes ~45%, and the coarse space captures 2.5-10% of
+     the fine error.  Two-level MG with this coarse space therefore CANNOT
+     accelerate L48x96 c64, and no configuration of grid size, level count,
+     restart or coarse tolerance changes that.  The remaining explanation is the
+     coarse space itself (the null-vector basis spans too little of the fine
+     error), which is a basis-generation problem, not a transfer or tuning
+     problem - and it is where a future session must start, with a new basis,
+     not with another sweep.
+
+     Verified build identity for this measurement: libqcu.so md5 7d89183ac3,
+     timestamp 2026-11-25 02:26:52, `make.sh: SUCCESS`, and the object file
+     contains the new `gather_set_equals_scatter_set` symbol - so the audit that
+     printed eq=1 is the corrected one, not the unsatisfiable original.
