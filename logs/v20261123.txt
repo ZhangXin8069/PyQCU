@@ -2550,3 +2550,28 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      written and queued; they will run when capacity returns.  No further
      submissions until then - adding jobs to a queue that cannot dispatch only
      increases congestion.
+
+131. Site recovered; the grid sweep ran but only probed for caches
+     Node status went from all-closed to `6551 OK / 7282 CLOSE_FULL`, and the
+     six queued jobs had been dropped during the closure.  Resubmitted the four
+     mg-grid configurations (2249495 b2224, 2249496 b2228, 2249497 b4444,
+     2249498 b4448).  Results: three SUCCEEDED, b4448 FAILED.
+
+     But they produced no `capture_bound` and no rows, because the job only
+     probed for the cache the new grid needs and printed:
+       "ls: cannot access .../caches/l48_16r_mg_2224: No such file or directory"
+       "SIDECAR False .../caches/l48_16r_mg_2224.json"
+     A coarse cache identity includes `mg_grid`, so each new coarse grid needs
+     its own cache built first.  The sweep as submitted therefore measured
+     nothing - it exited after the cache check.
+
+     Next step, in order:
+       1 build the cache for each candidate mg_grid (L48 32 ranks, the same
+         command shape as `sh/l48_build32_cache.sh` with `--mg-grid` changed;
+         at L48 this is minutes, not the 62 minutes the L64 cache took);
+       2 re-run the bound measurement with the cache present;
+       3 only then compare `capture_bound`, `reduction_bound` and `level0`
+         against the 2 2 2 2 baseline (cap 0.102, red 0.9948, level0 18).
+
+     Nothing here changes the delivered state: L48 cliff fixed and enforced,
+     L64 matrix 7 verified cells, MG speedup still not established.
