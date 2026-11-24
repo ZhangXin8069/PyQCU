@@ -2799,3 +2799,43 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      4 nodes, grid 2 2 2 4, rpn 8, cores/threads 36, KUPL_NUMA_BIND=1,
      KUPL_MEMORY_NODE=local+16, KUPL_HUGEPAGE=1 (sh/l48_vfy_2224.sh,
      job 2250657 succeeded).
+
+140. THE MG BUG IS PROVEN: restrict's gather set != prolong's scatter set
+     bg-24's audit was already executing inside job 2250657 (KUPL_MG_DEBUG prints
+     both the bounds and MG_MAP_AUDIT), so no new job was needed to read it:
+
+       level=0 E_idx=0 scatter=384 in_block=384 outside_block=0
+               components=[0,11] first_fine=0 last_fine=14427
+               roundtrip_err=8.34465e-07 leak=1.65457e-08 ok=0
+       level=0 E_idx=0 scatter=384 in_block=384 outside_block=0
+               components=[0,11] first_fine=173100 last_fine=187527
+               roundtrip_err=2.38419e-07 leak=7.96403e-09 ok=0
+       level=0 checked_coarse_sites=2 block_sites=32
+               max_roundtrip_err=8.34465e-07 max_leak=1.65457e-08
+               mismatches=4 gather_set_equals_scatter_set=0
+
+     Reading it:
+       - `scatter=384 in_block=384 outside_block=0` - prolong is well supported:
+         32 block sites x 12 components (4 spin x 3 colour) = 384, nothing lands
+         outside the block, and `leak` ~ 1e-8 (fp32 round-off only).
+       - `roundtrip_err` 2.4e-07..8.3e-07 - restrict(prolong(unit)) returns the
+         unit up to complex64 epsilon, so the two maps are adjoint-consistent.
+       - `gather_set_equals_scatter_set=0` with `mismatches=4` - the set of fine
+         dofs that restrict() GATHERS is not the set that prolong() SCATTERS to.
+         That is the defect, and it is exactly the failure mode bg-24's own comment
+         enumerates (a permuted axis, an off-by-one block origin, a swapped
+         x<->t fastest index, a prolong-only parity shift or a wrong component
+         stride).
+
+     This closes the loop with the measurements: a correction built from a
+     mismatched gather set is largely orthogonal to the error, which is why
+     `overlap` never left 0.011-0.037 no matter the coarse grid, and why one
+     correction only multiplied the residual by 0.9964.  It also explains why
+     coarsening HURT: the mismatch grows with the block size.
+
+     Next action is now unambiguous and local: make restrict() gather exactly the
+     set that prolong() scatters to (all 12 components over the same 32-site
+     block), rebuild in a job, confirm the library md5 changed, then require
+     gather_set_equals_scatter_set=1 and mismatches=0 before re-measuring
+     capture/reduction.  The audit itself is the regression test - it needs no
+     solve and costs one job.
