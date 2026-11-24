@@ -2297,3 +2297,27 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
 
      Note: this row's `total=1.5546 s` must NOT be compared with the 1.8185 s
      BiCGStab baseline - different allocations (section 114).
+
+122. UCX ruled out: 4th failure of the alternating A/B at the same point
+     2245988, 2246053, 2246145, 2246354 (the last with `UCX_TLS=^ud`):
+     every one dies at `=== POINT bc1 bc` with `POINT_RC bc1 rc=255`.
+     So the transport is not the cause - which I expected, because the failure
+     is a clean `exit status 1` from the child, not a hang or a UCX
+     `ud_ep.c` timeout.
+
+     Ruled out so far, with evidence:
+       site / fabric        control job PASSes on the current build
+       library build        same control job
+       argparse             full argv plans two rows locally
+       `--native solve`     works standalone
+       multiple drun calls  2244994 ran four successfully
+       UCX transport        2246354 with UCX_TLS=^ud fails identically
+     Remaining: the wrapper itself - shell function, pipeline on the launch
+     output, or a per-tag outdir that does not exist at launch.  One bisect of
+     those three, one change at a time, is the only remaining path; four
+     retries have produced nothing.
+
+     Status: MG-vs-BiCGStab still has no same-allocation pair.  The MG
+     structural finding in section 121 stands on its own and is the more useful
+     result: the coarse correction removes 0.36% of the residual against ~45%
+     per fine iteration, so it cannot accelerate at any restart value.
