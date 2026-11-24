@@ -1923,3 +1923,32 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      (same class of fix as restart/coarse_tol_factor: put it in the driver
      kwargs), and then both must be run at one atol with the same repeat.  Not
      claimed until then.
+
+109. Agent status and matrix progress at 13:32
+     bg-1 (audit multi-level MG)  completed
+     bg-2 (B3/M2/M3)              completed
+     bg-3 (segfault)              completed
+     bg-4 (fill matrix cells)     running - job 2245256 is the L64 c64
+                                  bistabcg 16-rank DUAL-node cell
+     bg-5 (debug KUPL MG vs CUDA) running - the active investigation
+
+     L64 16-rank SINGLE node (bg-4, row de3c33aa3d): SKIP, dtype c64, 16 ranks,
+     seconds None, residual_verified None.  This is the reference_workspace SKIP
+     predicted in section 93: the distributed independent reference wants about
+     7.50 GiB per rank against the 4 GiB default budget.  It is NOT a solver
+     failure - the launch, rankfile and geometry were correct and the run was
+     refused at preflight.  Making it a verified PASS needs the
+     `--reference-budget` flag that bg-2 was asked to add; until that lands the
+     cell is honestly SKIP, not PASS, and it must not be counted as a matrix
+     cell.
+
+     Uncommitted work in the tree (belongs to the agents, not yet reviewed):
+       cpp/kupl/qcu/src/lattice_clover_multigrid.cpp   (bg-5, MG debug - live)
+       docs/env.md, docs/kupl_kunpeng_guide.md         (bg-2, M2 wording)
+       docs/kupl_l48_mg_cliff_20261123.md              (bg-3/bg-5 notes)
+       pyqcu/kupl/multigrid/legacy_multigrid.py        (bg-5, MG debug - live)
+       pyqcu/test/ledger_csv.py, ledger_excel.py       (bg-2, M3 vocabulary)
+       pyqcu/test/native.py                            (bg-1 multi-level MG)
+     Nothing here is committed and none of it may be treated as fixed until it
+     has been read and validated; the previous audit found two "working"
+     features that were dead on the real path.
