@@ -2688,3 +2688,21 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      Timings: these span many different allocations and node generations, so
      they are valid per row only - do NOT read the column as a scaling curve
      (section 114).
+
+136. First 16-rank DUAL-node cell verified
+     `data/l64_matrix_final_20261124/bc_c64_16dual/rows/c2545d4efdf60f8f.json`
+       status PASS, dtype c64, ranks 16, grid 2 2 2 2, seconds 13.36
+       residual_verified true, atol 1e-05
+
+     Counting note: my enumeration key is (dtype, ranks, grid, solver) and both
+     placements use grid 2 2 2 2, so this row does not raise the key count - the
+     matrix still has 17 distinct keys.  What it adds is the DUAL placement for
+     the c64 bistabcg 16-rank column, which was previously only confirmed for a
+     single node.
+
+     Caveat recorded rather than glossed over: the row's `launcher.nodes` field
+     is None, so the two-node placement is NOT proven by the row itself.  bg-23
+     was asked to prove it from the job's execNodes; until that evidence is in,
+     this row is "PASS at 16 ranks, grid 2 2 2 2" and its dual-node placement is
+     asserted by its directory name only.  Do not count it as a separate cell
+     until the execNodes are recorded.
