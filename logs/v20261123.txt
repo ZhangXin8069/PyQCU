@@ -2762,3 +2762,40 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      still never been changed.  The diagnostic machinery that bg-24 built is
      worth keeping precisely because it can prove a future repair worked: it can
      print the fine->coarse and coarse->fine maps site by site.
+
+139. Handoff: what a fresh session must do about MG, and what not to redo
+     State of the tree: commit 9238f1e9 plus this section; the working tree's
+     only uncommitted file is cpp/kupl/qcu/src/lattice_clover_multigrid.cpp
+     carrying bg-24's three diagnostic functions (no functional change).
+
+     DO NOT redo, all exhausted and measured:
+       - grid size: 2 2 2 2 / 2 2 2 4 / 4 4 4 4, capture 0.102 / 0.072 / 0.026;
+       - level count: only one coarse transition is wired in pyqcu.test;
+       - restart: 1/5/10/20/50 on L48, no window reproduces the L24 1.55-1.77x;
+       - --coarse-tol-factor 1e4/1e2/1e1: no effect, coarse solve already meets
+         its target (coarse_defect 0.055 vs 0.1);
+       - "repairing" the transfer without touching restrict/prolong: bg-24 tried,
+         measurement was bit-identical (section 138).
+
+     DO, in this order:
+       1. Turn on bg-24's audit_transfer_mapping (it exists in the header now) and
+          print the fine->coarse and coarse->fine maps for one 4^4 coarse block,
+          on all ranks that own a block.  That output is the missing evidence:
+          nobody has yet seen the two maps side by side.
+       2. Diff those maps against cpp/cuda/qcu/src/apply_clover_multigrid.cu's
+          restrict/prolong for the same block, dof by dof (colour, spin, parity).
+       3. Only then modify restrict()/prolong(), rebuild in a JOB (cmake exists
+          only on compute nodes - a login-node make.sh returns 127), and confirm
+          the library md5 changed before believing any measurement.
+       4. Acceptance, unchanged: capture > 0.102, reduction << 0.55,
+          overlap >> 0.037, level0 << 18, residual_verified true,
+          fallback_fine 0, same --atol.
+       5. If the maps turn out to agree, say so and stop - that converts the
+          negative result from "transfer suspect" to "two-level MG with this
+          coarse space cannot help on L48", which is a legitimate conclusion.
+
+     Working job shapes (all verified today): rebuild 1 node cpu=8 or 18
+     (sh/l48_verify_build.sh, job 2250594 succeeded); measurement 32 ranks,
+     4 nodes, grid 2 2 2 4, rpn 8, cores/threads 36, KUPL_NUMA_BIND=1,
+     KUPL_MEMORY_NODE=local+16, KUPL_HUGEPAGE=1 (sh/l48_vfy_2224.sh,
+     job 2250657 succeeded).
