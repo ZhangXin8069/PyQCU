@@ -2399,3 +2399,33 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
 
      The dual-node 16-rank cell is still outstanding; bg-17 is running it
      (job 2248159).
+
+126. WHY the MG diagnostic jobs return rc=255: a collective on rank 0 only
+     `cpp/kupl/qcu/src/lattice_clover_multigrid.cpp`:
+
+       1123:  const Real before = std::sqrt(mg_norm2(parent.r, distributed_));
+       1125:  if (debug_ && params_[kNodeRank] == 0) {
+       1126:    diagnose_correction(level, coarse_correction, before);
+       1127:  }
+
+     and `diagnose_correction` (line 1015 onwards) performs an
+     `MPI_Allreduce(&local, &global, 1, type, MPI_SUM, MPI_COMM_WORLD)`.
+
+     So the Allreduce is entered by RANK 0 ONLY while the other 31 ranks skip
+     the block entirely.  A collective with one participant out of 32 is
+     undefined behaviour and in practice kills the step - which is exactly the
+     `rc=255` that 2245432, 2247200, 2247255, 2248474 (mgdiag4) all returned,
+     while the same mg job WITHOUT KUPL_MG_DEBUG (`l48_matched_mg.sh`, job
+     2245127) ran fine.
+
+     That also explains why four attempts produced zero `galerkin=`/`align=`
+     lines: the code never got that far.
+
+     Fix (one line): gate only the printing on rank 0, not the call -
+        if (debug_) { diagnose_correction(level, coarse_correction, before); }
+     `diagnose_correction` already prints under its own rank check, so the
+     call site must let every rank reach the collective.
+
+     This is a bug in the DIAGNOSTIC, not in the solver.  bg-19 owns the file;
+     the fix is recorded here so it is not lost if that agent's context runs out
+     first.  Nothing has been changed in the working tree by this note.
