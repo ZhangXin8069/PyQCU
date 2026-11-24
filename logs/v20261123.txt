@@ -2731,3 +2731,34 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      earlier successful rebuilds happened inside jobs, so a working job shape
      exists), then run `sh/l48_gsm_2224.sh` and require capture > 0.102,
      reduction < 0.55, overlap > 0.037, level0 < 18.
+
+138. bg-24's 396 lines are diagnostics, not a fix - measured to be a no-op
+     After the compute-node rebuild (job 2250594, library md5 dfff35a485d3 ->
+     de84716ca069, so the new code IS in the loaded library) I ran the decisive
+     measurement (job 2250657, --mg-grid 2 2 2 4, cache l48_mg_2224 verified):
+       overlap=0.0226784  capture_bound=0.0721688  reduction_bound=0.997392
+       level0=19 level1=1 total=19 accepted_corrections=1 fallback_fine=0
+     Every value is BIT-IDENTICAL to the pre-fix run in section 132.  A change
+     that actually altered the transfer could not reproduce seven significant
+     digits.
+
+     Reading the diff explains it: the added symbols are
+       diagnose_correction(int level, ...)
+       audit_transfer_mapping(int level, ...)
+       audit_transfer_mapping_body(int level, ...)
+     and 91 of the added lines contain cout/printf/debug_/comment text.  Nothing
+     in restrict(), prolong() or the coarse-operator assembly was modified.  So
+     bg-24 added auditing, not a repair, and the 396 lines must not be described
+     as a fix.
+
+     Method note for the future: a bit-identical measurement after a claimed fix
+     is the cheapest possible refutation - run it before reading any diff.  It
+     took one job and one 12-hex-digit md5 comparison to establish that 396
+     lines changed nothing observable.
+
+     Where this leaves MG: the negative result of sections 121/132/133 stands
+     unmodified.  capture falls as the grid coarsens (0.102 -> 0.072 -> 0.026),
+     reduction stays at 0.9948-0.9997, overlap 0.011-0.037, and the transfer has
+     still never been changed.  The diagnostic machinery that bg-24 built is
+     worth keeping precisely because it can prove a future repair worked: it can
+     print the fine->coarse and coarse->fine maps site by site.
