@@ -149,26 +149,32 @@ std::array<Complex<Real>, 2> mg_dot_pair(
 // replaces them, which is this backend's equivalent of CUDA keeping every dot
 // device-side (cpp/cuda/qcu/include/lattice_clover_multigrid.h:5830-5845).
 template <typename Real>
-void mg_dot_many(const std::vector<Complex<Real>> &left,
-                 const std::vector<std::vector<Complex<Real>>> &rights, int n,
+void mg_dot_many(const std::vector<std::vector<Complex<Real>>> &lefts,
+                 const std::vector<Complex<Real>> &right, int n,
                  bool distributed, std::vector<Complex<Real>> &out) {
   out.assign(static_cast<std::size_t>(n), Complex<Real>(0));
   if (n <= 0) {
     return;
   }
-  const int64_t count = static_cast<int64_t>(left.size());
+  const int64_t count = static_cast<int64_t>(right.size());
   const int64_t chunk = omp_chunk<Real>(count);
   std::vector<Real> local(static_cast<std::size_t>(2 * n), Real(0));
   for (int slot = 0; slot < n; ++slot) {
     const std::vector<Complex<Real>> &other =
-        rights[static_cast<std::size_t>(slot)];
+        lefts[static_cast<std::size_t>(slot)];
     Real real_part = 0;
     Real imag_part = 0;
+    // out[slot] = lefts[slot]^H right, the same convention as mg_dot (which
+    // conjugates its LEFT argument).  Arnoldi needs h_ij = <v_i, w> = v_i^H w, so
+    // the basis goes on the left; passing the image on the left instead yields
+    // conj(h_ij), and a conjugated Hessenberg makes the least-squares update
+    // wrong while still producing plausible-looking numbers - which is exactly
+    // how the first FGMRES run failed to converge.
 #pragma omp parallel for schedule(static, chunk) reduction(+ : real_part, imag_part)
     for (int64_t index = 0; index < count; ++index) {
       const Complex<Real> product =
-          std::conj(left[static_cast<std::size_t>(index)]) *
-          other[static_cast<std::size_t>(index)];
+          std::conj(other[static_cast<std::size_t>(index)]) *
+          right[static_cast<std::size_t>(index)];
       real_part += product.real();
       imag_part += product.imag();
     }
@@ -961,7 +967,7 @@ private:
         }
         apply_level(0, image, Z[static_cast<std::size_t>(j)]);
         std::vector<C> projections;
-        mg_dot_many(image, V, j + 1, distributed_, projections);
+        mg_dot_many(V, image, j + 1, distributed_, projections);
         for (int i = 0; i <= j; ++i) {
           const C h = projections[static_cast<std::size_t>(i)];
           hessenberg[hindex(i, j)] = h;
