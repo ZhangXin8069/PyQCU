@@ -4079,6 +4079,17 @@ def _load_ranked_mg_assets(
         "nv_builder": str(identity.get("nv_builder")
                           or cache_module.UNSPECIFIED_NULL_VECTOR_BUILDER),
     }
+    # nv_iters describes the KUPL C++ null-vector builder's inverse iteration, so
+    # it is compared for transition 1 only.  A deeper transition is the Python
+    # probe, which records its own pass count - one per vector, by construction
+    # (mg_transition.transition_identity) - and that number says nothing about the
+    # case's --nv-iters, which governs the C++ builder.  Comparing them was the
+    # only thing that refused a correct transition 2, whose every other field
+    # matched.  nv_builder still is compared for every transition: it names which
+    # basis the artifact holds, and that must never be taken on trust.
+    if int(transition) > 1:
+        expected.pop("nv_iters")
+        actual.pop("nv_iters")
     if actual != expected:
         raise ValueError(
             f"ranked Legacy-MG cache identity of {label} does not match this "
