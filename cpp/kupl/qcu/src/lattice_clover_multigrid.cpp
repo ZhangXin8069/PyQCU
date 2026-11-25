@@ -28,101 +28,36 @@ bool mg_env_enabled(const char *name) {
          std::strcmp(value, "no") != 0 && std::strcmp(value, "off") != 0;
 }
 
-// The coarse-correction interval is the number of fine Krylov iterations that
-// run between two coarse corrections.  It used to be read from
-// params_[kMgLevel1NumRestart], i.e. from the BiCGStab restart length: with
-// --restart 20 on a solve that needs 18 fine iterations the schedule collapsed
-// to one correction taken at iteration 20 (`accepted_corrections=1`), so the
-// coarse work could never be amortised - and every earlier --restart sweep
-// (1/5/10/20/50) changed the fine restart AND the correction interval at once,
-// which is why no sweep could answer whether repeated corrections help.
+// The Legacy-MG solves with the SAME structure as CUDA, so the two backends can
+// be compared: a right-preconditioned FGMRES(m) whose preconditioner is one
+// application of the hierarchy.
 //
-// Where it lives.  The flat params ABI has no free slot for it: kParamsSize is
-// 58 (define.h:8), the level blocks at kMgLevel1E + kMgParamsSize*(level-1)
-// fill 19..50 (define.h:41,49), and 51..57 are kVerbose, kSeed,
-// _TEST_IN_CPU_ (named only in pyqcu/kupl/define.py:80), kMgUseGcr,
-// kMgUseDeflate, kMgMuPre and kUseInitialGuess (define.h:36,37,50-53).
-// Extending kParamsSize to 59 is not
-// a local change: it is the ABI shared with the prebuilt CUDA bridge
-// (cpp/cuda/qcu/include/define.h _PARAMS_SIZE_ 58) and backend.cpp:36,69 copy
-// exactly kParamsSize entries out of the caller's array, so a 59-word read
-// would walk 4 bytes past every caller that still allocates 58.
+//   M^-1 v = nu_pre MR smoothing steps on v, then one coarse cycle on the
+//            residual that remains, then the prolongation of that correction
+//            added with weight 1.  No post-smoothing: CUDA omits it and leaves
+//            the remaining high frequencies to the outer Krylov
+//            (cpp/cuda/qcu/include/lattice_clover_multigrid.h:5378).
 //
-// So the interval gets its own environment knob, read here - at the single
-// point where the value is decided - rather than threaded through the Python
-// option layers, which is where this repository has silently dropped four
-// knobs already.
+//   outer:  z_j = M^-1 v_j; w = A z_j; Arnoldi with j+1 projections in one
+//           collective; x += Z y; restart at m = 10 on a true residual
+//           (lattice_clover_multigrid.h:5755-5900).
 //
-// What this knob does, and what an earlier version of this comment got wrong.
-// Until this revision the coarse correction and the fine BiCGStab restart were
-// the same number: `solve()` sizes each chunk as
-//     chunk = min(remaining, correction_interval - since_correction)
-// and every bicgstab_chunk started a fresh BiCGStab (rhat = r; p = v = 0;
-// rho_old = alpha = omega = 1), so the correction interval WAS the restart
-// length.  KUPL_MG_CORRECTION_INTERVAL=2 therefore restarted BiCGStab every 2
-// iterations, and the `--mg-levels 1` arm (which runs set_.clover_bistabcg and
-// never enters this loop at all) ran one unbroken BiCGStab - three arms of a
-// three-way comparison measuring three Krylov strategies, with no way to
-// attribute the difference to multigrid.
+//   coarse: cycle() is CUDA's V-cycle body - two BiCGStab steps of pre-smoothing,
+//           restrict, recurse, prolong, two steps of post-smoothing - and the
+//           coarsest level solves to its tolerance.  At two levels the entry
+//           level IS the coarsest, so the body does not run; that is a property
+//           of the hierarchy depth, identical on both backends.
 //
-// The two are now independent:
-//   * `solve()` still sizes a chunk as above, so a coarse correction lands on
-//     schedule (`correction_interval - since_correction` fine iterations after
-//     the previous one);
-//   * `bicgstab_chunk()` restarts BiCGStab every `restart` fine iterations
-//     *inside* the chunk (see the comment there), counted in absolute
-//     iterations through `LegacyMgLevel::since_restart`, so one chunk can span
-//     several restarts and one restart can span several corrections.
-// `--restart` keeps its meaning (the BiCGStab restart length, level 0 only);
-// this knob only decides when the coarse correction is applied.
+// This replaced an in-loop corrector that applied one damped coarse correction to
+// a running BiCGStab residual on a fixed fine-iteration schedule.  That was a
+// different method, so a CUDA-vs-KUPL measurement could not attribute a
+// difference to the hardware.  It is deleted rather than kept behind a switch:
+// two solvers selected by an environment variable is exactly how an A/B ends up
+// measuring the same arm twice.
 //
-// Name and default, explicitly:
-//   KUPL_MG_CORRECTION_INTERVAL   unset/empty -> the historical VALUE
-//                                                (restart>0 ? restart : 3)
-//                                 0           -> corrections disabled
-//                                 positive int -> the interval, [1, 100000]
-// With the knob unset the effective interval equals the restart length AND the
-// restart schedule is anchored so that a chunk of that length contains exactly
-// one restart boundary, at its end (see the anchor in solve()), so the run is
-// bit-for-bit the pre-decoupling one: same level0, same MG_PROFILE call counts.
-//
-// "Historical value", not "historical behaviour": the first correction is now
-// scheduled after `smoothing_prefix` fine iterations instead of against
-// residual(0) = b, because an unsmoothed dense residual makes the first V-cycle
-// gain 0.4% while costing 0.30 s of a 3.79 s solve (job 2248613, and the
-// algebra at the loop below explains why that is a bound, not bad luck).  That
-// phase change is deliberate and is NOT reversible by leaving this unset.
-//
-// The value is parsed strictly: a non-integer is an error, never a silent
-// fallback, because "the knob was ignored" is the failure mode that has to be
-// impossible to miss.
-constexpr const char *kMgCorrectionIntervalEnv =
-    "KUPL_MG_CORRECTION_INTERVAL";
-
-int mg_correction_interval(int restart, bool *from_env) {
-  if (from_env != nullptr) {
-    *from_env = false;
-  }
-  const char *value = std::getenv(kMgCorrectionIntervalEnv);
-  if (value == nullptr || *value == '\0') {
-    return restart > 0 ? restart : 3;
-  }
-  char *end = nullptr;
-  const long parsed = std::strtol(value, &end, 10);
-  // 0 is accepted and means "no coarse corrections at all": it is the fair
-  // "corrections OFF, restart still 20" arm, and it is the only way to get that
-  // arm through this code path (--mg-levels 1 leaves the Legacy-MG loop
-  // entirely and runs set_.clover_bistabcg, which does not restart at all).
-  if (end == value || *end != '\0' || parsed < 0 || parsed > 100000) {
-    throw std::runtime_error(
-        "KUPL_MG_CORRECTION_INTERVAL must be an integer in [0, 100000] "
-        "(0 disables corrections)");
-  }
-  if (from_env != nullptr) {
-    *from_env = true;
-  }
-  return static_cast<int>(parsed);
-}
+// `num_levels_ == 1` or _MG_USE_DEFLATE_ == 0 has no coarse space at all and runs
+// set_.clover_bistabcg directly - that is the underlying solver, not a second
+// multigrid.
 
 struct MgProfileTimer {
   MgProfileTimer(bool enabled, double &target)
@@ -206,6 +141,55 @@ std::array<Complex<Real>, 2> mg_dot_pair(
           Complex<Real>(global[2], global[3])};
 }
 
+// Batched inner products sharing the left vector, in one collective.
+//
+// FGMRES needs j+1 projections at Arnoldi step j.  One at a time they cost j+1
+// blocking MPI_Allreduce, and at the measured 0.45-1.02 ms per reduction on eight
+// ranks the recurrence would dominate the solve.  One reduction of 2n doubles
+// replaces them, which is this backend's equivalent of CUDA keeping every dot
+// device-side (cpp/cuda/qcu/include/lattice_clover_multigrid.h:5830-5845).
+template <typename Real>
+void mg_dot_many(const std::vector<Complex<Real>> &left,
+                 const std::vector<std::vector<Complex<Real>>> &rights, int n,
+                 bool distributed, std::vector<Complex<Real>> &out) {
+  out.assign(static_cast<std::size_t>(n), Complex<Real>(0));
+  if (n <= 0) {
+    return;
+  }
+  const int64_t count = static_cast<int64_t>(left.size());
+  const int64_t chunk = omp_chunk<Real>(count);
+  std::vector<Real> local(static_cast<std::size_t>(2 * n), Real(0));
+  for (int slot = 0; slot < n; ++slot) {
+    const std::vector<Complex<Real>> &other =
+        rights[static_cast<std::size_t>(slot)];
+    Real real_part = 0;
+    Real imag_part = 0;
+#pragma omp parallel for schedule(static, chunk) reduction(+ : real_part, imag_part)
+    for (int64_t index = 0; index < count; ++index) {
+      const Complex<Real> product =
+          std::conj(left[static_cast<std::size_t>(index)]) *
+          other[static_cast<std::size_t>(index)];
+      real_part += product.real();
+      imag_part += product.imag();
+    }
+    local[static_cast<std::size_t>(2 * slot)] = real_part;
+    local[static_cast<std::size_t>(2 * slot + 1)] = imag_part;
+  }
+  if (distributed) {
+    std::vector<Real> global(static_cast<std::size_t>(2 * n), Real(0));
+    const MPI_Datatype type =
+        sizeof(Real) == sizeof(float) ? MPI_FLOAT : MPI_DOUBLE;
+    MPI_Allreduce(local.data(), global.data(), 2 * n, type, MPI_SUM,
+                  MPI_COMM_WORLD);
+    local.swap(global);
+  }
+  for (int slot = 0; slot < n; ++slot) {
+    out[static_cast<std::size_t>(slot)] =
+        Complex<Real>(local[static_cast<std::size_t>(2 * slot)],
+                      local[static_cast<std::size_t>(2 * slot + 1)]);
+  }
+}
+
 template <typename Real>
 Real mg_norm2(const std::vector<Complex<Real>> &field, bool distributed) {
   Real local = 0;
@@ -251,16 +235,13 @@ template <typename Real> struct LegacyMgLevel {
   int E = 0;
   std::array<int, kDim> dims{};
   int max_iter = 100;
-  int correction_interval = 5;
-  // BiCGStab restart length for this level, in fine iterations.  `<= 0` means
-  // "one unbroken BiCGStab per chunk", which is the pre-decoupling behaviour and
-  // is what the coarse levels below the finest one keep using (their solves are
-  // 2-iteration smoothers and one coarsest-level solve; changing them would
-  // change level1 counts for no measurement in hand).
+  // BiCGStab restart length for this level, in iterations; `<= 0` means one
+  // unbroken BiCGStab.  Only the coarse levels use it: the fine level's outer
+  // solver is FGMRES, which restarts on its own m = 10.
   int restart = 0;
-  // Fine iterations since this level's last BiCGStab restart.  It lives in the
-  // level, not in the chunk, so the restart schedule is a property of the solve:
-  // a chunk boundary is not a restart boundary unless the counter says so.
+  // Iterations since this level's last BiCGStab restart.  It lives in the level,
+  // not in the chunk, so a chunk boundary is not a restart boundary unless this
+  // counter says so.
   int since_restart = 0;
   Real tolerance = Real(0);
   Real target = Real(0);
@@ -334,54 +315,6 @@ public:
       throw std::runtime_error(
           "legacy Clover-MG max iterations must be positive");
     }
-    bool interval_from_env = false;
-    levels_[0].correction_interval = mg_correction_interval(
-        params_[kMgLevel1NumRestart], &interval_from_env);
-    // The independent half of the pair: the BiCGStab restart length.  It is
-    // --restart (params_[kMgLevel1NumRestart]) and nothing else; restart > 0 is
-    // guaranteed here because clover_multigrid_solve() routes restart == 0 to
-    // the parity-Schur solver, but clamp anyway - a 0 would mean "never
-    // restart" and silently undo the decoupling.
-    levels_[0].restart = std::max(1, params_[kMgLevel1NumRestart]);
-    // The knob has to be provable, not assumed: four separate "dropped at some
-    // layer" defects were found in this repository, so rank 0 prints the
-    // interval it will actually use, where the value came from, the raw
-    // environment value and the independent BiCGStab restart, whenever
-    // KUPL_MG_DEBUG=1.  `source=env` with `level0_correction_interval` equal to
-    // the exported value and `restart` still at the --restart value is the
-    // proof that the two knobs are decoupled.
-    if (params_[kNodeRank] == 0 && mg_env_enabled("KUPL_MG_DEBUG")) {
-      const char *raw = std::getenv(kMgCorrectionIntervalEnv);
-      const bool corrections_on =
-          num_levels_ > 1 && levels_[0].correction_interval > 0;
-      std::fprintf(
-          stdout,
-          "PYQCU::KUPL::MG_INTERVAL_DEBUG:\n"
-          " level0_correction_interval=%d source=%s env=%s restart=%d "
-          "smooth_prefix=%d levels=%d\n",
-          levels_[0].correction_interval,
-          interval_from_env ? "env" : "legacy-restart",
-          raw == nullptr ? "(unset)" : raw, params_[kMgLevel1NumRestart],
-          smoothing_prefix(levels_[0].correction_interval), num_levels_);
-      // Two different numbers, two different names, on purpose.  The defect this
-      // line exists to make impossible to repeat is a reader seeing
-      // `restart=20, interval=2` and concluding "the restart stays at 20": it
-      // did not, the interval WAS the restart length.  Now:
-      //   restart_length      fine iterations per BiCGStab restart (`--restart`)
-      //   correction_interval fine iterations between coarse corrections
-      // and they are printed from the two separate members that the loop reads.
-      std::fprintf(
-          stdout,
-          "PYQCU::KUPL::MG_RESTART_DEBUG:\n"
-          " restart_length=%d restart_source=--restart/params_[%d] "
-          "correction_interval=%d interval_source=%s corrections_enabled=%d "
-          "interval_zero_means=disabled levels=%d\n",
-          levels_[0].restart, kMgLevel1NumRestart,
-          levels_[0].correction_interval,
-          interval_from_env ? "env" : "legacy-restart",
-          corrections_on ? 1 : 0, num_levels_);
-      std::fflush(stdout);
-    }
     const double fine_tolerance = set_.real_parameter(kAtol);
     if (!std::isfinite(fine_tolerance) || fine_tolerance <= 0) {
       throw std::runtime_error(
@@ -405,8 +338,6 @@ public:
       }
       levels_[level].max_iter =
           params_[base + 5] > 0 ? params_[base + 5] : 50;
-      levels_[level].correction_interval =
-          params_[base + 7] > 0 ? params_[base + 7] : 3;
       const int arg_index = kMgLevel1Atol + level - 1;
       const double level_tolerance = set_.real_parameter(arg_index);
       levels_[level].tolerance = static_cast<Real>(
@@ -515,7 +446,6 @@ public:
       store_solution(fermion_out);
       last_total_iterations_ = 0;
       last_accepted_corrections_ = 0;
-      last_fallback_to_fine_ = false;
       print_level_iterations();
       print_profile(profile_start);
       return;
@@ -523,179 +453,33 @@ public:
     const Real target = levels_[0].tolerance * rhs_norm;
     levels_[0].target = target;
     int total_iterations = 0;
-    bool corrections_enabled =
-        num_levels_ > 1 && levels_[0].correction_interval > 0;
-    bool fallback_to_fine = false;
     int accepted_corrections = 0;
-    int since_correction = 0;
-    // The restart phase belongs to the solve, not to the solver object
-    // (pyqcu.test runs repeat+warmup solves in one process, each with its own
-    // Krylov history).
-    levels_[0].since_restart = 0;
-    // Whether `residual` is a recomputed true residual.  A coarse correction
-    // leaves the analytic PREDICTION in `residual`; it must never reach the
-    // exit check, where an optimistic prediction would throw "did not reach the
-    // full true residual" instead of simply iterating more.
-    bool residual_verified = true;
-    // A V-cycle buys nothing on an UNSMOOTHED residual, and that is what this
-    // loop starts from: residual(0) = b, a dense source.  The coarse basis is
-    // child.E vectors per block of parent.E*bx*by*bz*bt fine components - on
-    // the cached L48 hierarchy (data/l48_validation_20261117/caches/
-    // l48_16r_mg_l2r5.json: dof [12,2], mg_grid 2 2 2 2) that is 2 of 192 - so
-    // for a dense residual ||R r||/||r|| scales like sqrt(E/local_dim) = 0.102
-    // and the optimal single correction is bounded by
-    // sqrt(1 - E/local_dim) = 0.9948 no matter how the transfers are indexed.
-    // Job 2248613 measured 0.107979 / 0.995898 with galerkin_defect 3.7e-07:
-    // the iteration-0 V-cycle sits on that bound, gains 0.4%, and costs 0.30 s
-    // of the 3.79 s solve.  The same prolong/restrict only become worth their
-    // fine apply once the residual has been smoothed, which is where every
-    // multigrid schedule puts its first cycle.  So: smooth first (the prefix
-    // below), then correct.  The correction itself is unchanged.
-    //
-    // `restart_anchor_pending`: the smoothing prefix is the one Krylov segment
-    // whose length is not tied to the restart length (prefix = interval/4 by
-    // default), so the BiCGStab restart schedule is anchored at the END of it -
-    // i.e. at the first coarse correction - instead of at iteration 0.  Two
-    // things follow, and both are wanted:
-    //   * interval == restart (the unset default) reproduces the historical
-    //     chunk-aligned restarts exactly: the prefix chunk runs to the first
-    //     correction, the anchor restarts BiCGStab there, every later chunk is
-    //     `restart` long and ends exactly on the next restart boundary, so
-    //     level0 and the MG_PROFILE counts are unchanged by the decoupling;
-    //   * interval < restart leaves the phase alone at later corrections, so the
-    //     restart really does happen every `restart` iterations and spans as
-    //     many correction intervals as fit - which is the measurement that could
-    //     not be made while the interval WAS the restart length.
-    bool restart_anchor_pending = false;
-    if (corrections_enabled && deflate_ && residual > target) {
-      const int prefix = smoothing_prefix(levels_[0].correction_interval);
-      since_correction =
-          std::max(0, levels_[0].correction_interval - prefix);
-      restart_anchor_pending = true;
-      if (params_[kVerbose] != 0) {
-        std::fprintf(
-            stdout,
-            "PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:\n "
-            "coarse schedule interval=%d smooth_prefix=%d target=%g\n",
-            levels_[0].correction_interval, prefix,
-            static_cast<double>(target));
-      }
-    }
-    while (!fallback_to_fine &&
-           total_iterations < levels_[0].max_iter && residual > target) {
-      const int remaining = levels_[0].max_iter - total_iterations;
-      const int chunk =
-          corrections_enabled
-              ? std::min(remaining,
-                         levels_[0].correction_interval - since_correction)
-              : remaining;
-      bicgstab_chunk(0, chunk, false);
-      const int completed = last_chunk_iterations_;
-      total_iterations += completed;
-      since_correction += completed;
-      residual = true_residual(0);
-      if (debug_ && params_[kNodeRank] == 0) {
-        std::fprintf(stdout,
-                     "PYQCU::KUPL::MG_CHUNK_DEBUG:\n "
-                     "chunk=%d completed=%d total=%d residual=%g "
-                     "relative=%g since_correction=%d restart_length=%d "
-                     "since_restart=%d\n",
-                     chunk, completed, total_iterations,
-                     static_cast<double>(residual),
-                     static_cast<double>(residual / rhs_norm),
-                     since_correction, levels_[0].restart,
-                     levels_[0].since_restart);
-      }
-      if (params_[kVerbose] != 0 &&
-          (total_iterations < 20 || total_iterations % 50 == 0)) {
-        std::fprintf(stdout,
-                     "PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:\n "
-                     "iterations=%d residual=%g target=%g\n",
-                     total_iterations, static_cast<double>(residual),
-                     static_cast<double>(target));
-      }
-      if (!std::isfinite(static_cast<double>(residual)) ||
-          residual <= target) {
-        break;
-      }
-      if (corrections_enabled &&
-          since_correction >= levels_[0].correction_interval) {
-        const Real before = residual;
-        const Real candidate = apply_coarse_correction(0);
-        since_correction = 0;
-        if (!std::isfinite(static_cast<double>(candidate)) ||
-            candidate >= before) {
-          corrections_enabled = false;
-          fallback_to_fine = true;
-          break;
-        } else {
-          // `candidate` is the analytic prediction from the damping step, not a
-          // recomputed residual: apply_coarse_correction returns
-          // sqrt(before^2 - <r,Ac>^2/||Ac||^2) and does not re-evaluate A x.
-          // Using it only as the loop CONDITION is safe, because the next
-          // iteration recomputes true_residual(0) before anything can terminate;
-          // what was not safe is letting a predicted value survive to the exit
-          // check, where an optimistic prediction turned "needs more iterations"
-          // into the hard throw at the end of this function.  So record it for
-          // the loop, and force one real evaluation before the exit test.
-          residual = candidate;
-          ++accepted_corrections;
-          residual_verified = false;
-          // First correction of the solve: the BiCGStab restart schedule starts
-          // here (see restart_anchor_pending above).  A later correction must
-          // NOT touch the phase, or `interval < restart` would degenerate back
-          // into "restart every interval" - the defect this change removes.
-          if (restart_anchor_pending) {
-            levels_[0].since_restart = 0;
-            restart_anchor_pending = false;
-          }
-        }
-        if (params_[kVerbose] != 0) {
-          std::fprintf(stdout,
-                       "PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:\n "
-                       "coarse-correction iterations=%d residual=%g "
-                       "corrections=%d\n",
-                       total_iterations, static_cast<double>(residual),
-                       corrections_enabled ? 1 : 0);
-        }
-      }
-    }
-    if (fallback_to_fine) {
-      if (require_correction_) {
-        throw std::runtime_error(
-            "KUPL_REQUIRE_MG_CORRECTION=1 rejected fine BiCGStab fallback");
-      }
+    if (num_levels_ <= 1 || !deflate_) {
+      // No coarse space.  This is the underlying parity-Schur BiCGStab, not a
+      // second multigrid, and it writes the solution itself, so it returns here.
       set_.clover_bistabcg(
           fermion_out, fermion_in_, gauge_, clover_even_, clover_odd_,
           clover_even_inv_, clover_odd_inv_);
-      total_iterations += set_.iterations();
-      if (params_[kVerbose] != 0) {
-        std::fprintf(
-            stdout,
-            "PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:\n "
-            "final iterations=%d residual=accepted-by-fine-fallback "
-            "relative=accepted-by-fine-fallback fallback=fine_bicgstab\n",
-            total_iterations);
-      }
+      total_iterations = set_.iterations();
       last_total_iterations_ = total_iterations;
-      last_accepted_corrections_ = accepted_corrections;
-      last_fallback_to_fine_ = true;
+      last_accepted_corrections_ = 0;
+      if (require_correction_) {
+        throw std::runtime_error(
+            "KUPL_REQUIRE_MG_CORRECTION=1 needs a coarse space, but levels=" +
+            std::to_string(num_levels_) +
+            " and _MG_USE_DEFLATE_=" + std::to_string(deflate_ ? 1 : 0));
+      }
+      if (params_[kVerbose] != 0) {
+        std::fprintf(stdout,
+                     "PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:\n "
+                     "no coarse space: iterations=%d\n",
+                     total_iterations);
+      }
       print_level_iterations();
       print_profile(profile_start);
       return;
     }
-    if (params_[kVerbose] != 0) {
-      std::fprintf(
-          stdout,
-          "PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:\n "
-          "final iterations=%d residual=%g target=%g relative=%g\n",
-          total_iterations, static_cast<double>(residual),
-          static_cast<double>(target),
-          static_cast<double>(residual / rhs_norm));
-    }
-    if (!residual_verified) {
-      residual = true_residual(0);
-    }
+    fgmres_solve(total_iterations, accepted_corrections, residual, target);
     if (!std::isfinite(static_cast<double>(residual)) ||
         residual > target) {
       throw std::runtime_error(
@@ -703,7 +487,6 @@ public:
     }
     last_total_iterations_ = total_iterations;
     last_accepted_corrections_ = accepted_corrections;
-    last_fallback_to_fine_ = false;
     if (require_correction_ && accepted_corrections == 0) {
       throw std::runtime_error(
           "KUPL_REQUIRE_MG_CORRECTION=1 completed without an accepted coarse "
@@ -749,6 +532,14 @@ public:
     for (int parent = 0; parent + 1 < num_levels_; ++parent) {
       LegacyMgLevel<Real> &fine = levels_[parent];
       LegacyMgLevel<Real> &coarse = levels_[parent + 1];
+      // The dof-level mapping audit used to be reached only from the corrector's
+      // diagnostic.  It is a gate on the transfer pair, not part of any solver, so
+      // it runs here instead - once per level, guarded inside.
+      audit_transfer_mapping(parent,
+                             std::max(1, fine.dims[0] / coarse.dims[0]),
+                             std::max(1, fine.dims[1] / coarse.dims[1]),
+                             std::max(1, fine.dims[2] / coarse.dims[2]),
+                             std::max(1, fine.dims[3] / coarse.dims[3]));
       std::vector<Complex<Real>> coarse_seed(coarse.x.size());
       std::vector<Complex<Real>> fine_image(fine.x.size());
       std::vector<Complex<Real>> coarse_back(coarse.x.size());
@@ -1015,6 +806,298 @@ private:
   // BiCGStab for the whole chunk).  The coarse levels use it: their solves are
   // 2-iteration smoothers plus one coarsest-level solve, and changing them would
   // move level1 counts for no measurement in hand.
+  // ---------------------------------------------------------------------
+  // CUDA-parity outer solver.
+  //
+  // CUDA runs the MG as a RIGHT PRECONDITIONER inside FGMRES(m=10) / CA-GCR
+  // (cpp/cuda/qcu/include/lattice_clover_multigrid.h:5749-5825): z_j = M^-1 v_j,
+  // w = A z_j, Arnoldi, then x += Z y.  M^-1 is one fine pre-smoothing pass
+  // (nu_pre steps of MR, CG or Chebyshev, :5292-5345) followed by one coarse
+  // cycle and a prolongation added with weight 1; post-smoothing is omitted on
+  // purpose (:5378 "nu_post 平滑省略 (v1): 外层 FGMRES 承担剩余高频误差").
+  //
+  // This backend used to run the OPPOSITE structure - the MG corrected a running
+  // BiCGStab residual in place, with analytic optimal damping - which is why no
+  // measurement could attribute a difference to the hardware.  That path is gone.
+  // ---------------------------------------------------------------------
+
+  // nu_pre steps, same parameter and same default as CUDA
+  // (_MG_MU_PRE_, default 4 at lattice_clover_multigrid.h:5293).
+  int mu_pre_steps() const {
+    const int configured = params_[kMgMuPre];
+    const int steps = configured > 0 ? configured : 4;
+    return std::min(steps, 8);
+  }
+
+  // One MR smoothing pass on level's (x, r), matching CUDA's MR branch
+  // (:5319-5336): alpha = <A r, r> / <A r, A r>, x += alpha r, r -= alpha A r.
+  // mg_dot_pair returns {<a,a>, <a,b>}, so both scalars arrive in ONE collective
+  // - that is what makes four steps affordable on this backend.
+  void mr_smooth(int level, int steps) {
+    using C = Complex<Real>;
+    LegacyMgLevel<Real> &state = levels_[level];
+    const int64_t count = static_cast<int64_t>(state.x.size());
+    const int64_t chunk = omp_chunk<Real>(count);
+    for (int step = 0; step < steps; ++step) {
+      apply_level(level, state.v, state.r);
+      const auto pair = mg_dot_pair(state.v, state.r, distributed_);
+      const Real denominator = pair[0].real();
+      if (!std::isfinite(static_cast<double>(denominator)) ||
+          denominator <= Real(0)) {
+        // A vanishing image means this direction is exhausted; leaving the
+        // smoother early is what CUDA's "zero or invalid denominator is a no-op"
+        // does (:206-210).
+        return;
+      }
+      const C alpha = pair[1] / pair[0];
+#pragma omp parallel for schedule(static, chunk)
+      for (int64_t index = 0; index < count; ++index) {
+        const auto i = static_cast<std::size_t>(index);
+        state.x[i] += alpha * state.r[i];
+        state.r[i] -= alpha * state.v[i];
+      }
+    }
+  }
+
+  // M^-1 v: exactly CUDA's apply_mg_prec.  Zero, nu_pre MR steps on the incoming
+  // vector, one coarse cycle on the residual that remains, then prolong and add
+  // with weight 1 (CUDA takes t=1; the analytic damping belongs to the corrector
+  // path and is deliberately not used here, because the outer FGMRES absorbs a
+  // badly scaled direction).
+  void apply_mg_preconditioner(std::vector<Complex<Real>> &out,
+                               const std::vector<Complex<Real>> &in) {
+    using C = Complex<Real>;
+    MgProfileTimer timer(profile_, prof_coarse_correction_seconds_);
+    ++prof_coarse_correction_calls_;
+    LegacyMgLevel<Real> &fine = levels_[0];
+    std::fill(fine.x.begin(), fine.x.end(), C(0));
+    fine.r = in;
+    mr_smooth(0, mu_pre_steps());
+    if (num_levels_ > 1) {
+      LegacyMgLevel<Real> &child = levels_[1];
+      restrict(0, child.rhs, fine.r);
+      std::vector<C> coarse_correction(child.x.size(), C(0));
+      cycle(1, child.rhs, coarse_correction);
+      prolong(0, fine.correction, coarse_correction);
+      const int64_t count = static_cast<int64_t>(fine.x.size());
+      const int64_t chunk = omp_chunk<Real>(count);
+#pragma omp parallel for schedule(static, chunk)
+      for (int64_t index = 0; index < count; ++index) {
+        const auto i = static_cast<std::size_t>(index);
+        fine.x[i] += fine.correction[i];
+      }
+    }
+    out = fine.x;
+  }
+
+  // Right-preconditioned FGMRES(m), structured after
+  // cpp/cuda/qcu/include/lattice_clover_multigrid.h:5755-5900.
+  void fgmres_solve(int &total_iterations, int &applications, Real &residual,
+                    Real target) {
+    using C = Complex<Real>;
+    LegacyMgLevel<Real> &fine = levels_[0];
+    const int m = 10;  // CUDA hardcodes 10 (lattice_clover_multigrid.h:5749)
+    const int64_t count = static_cast<int64_t>(fine.x.size());
+    const int64_t chunk = omp_chunk<Real>(count);
+    std::vector<std::vector<C>> V(
+        static_cast<std::size_t>(m + 1), std::vector<C>(static_cast<std::size_t>(count), C(0)));
+    std::vector<std::vector<C>> Z(
+        static_cast<std::size_t>(m), std::vector<C>(static_cast<std::size_t>(count), C(0)));
+    std::vector<C> image(static_cast<std::size_t>(count), C(0));
+    std::vector<C> hessenberg(static_cast<std::size_t>((m + 1) * m), C(0));
+    std::vector<C> cosine(static_cast<std::size_t>(m), C(0));
+    std::vector<C> sine(static_cast<std::size_t>(m), C(0));
+    std::vector<C> givens(static_cast<std::size_t>(m + 1), C(0));
+    std::vector<C> y(static_cast<std::size_t>(m), C(0));
+    const auto hindex = [m](int row, int column) {
+      return static_cast<std::size_t>(row * m + column);
+    };
+
+    // CUDA's preconditioner gate (:5767-5772): a six-step window, geometric mean
+    // of the residual ratios, and two consecutive windows at or above 0.9 turn
+    // the preconditioner off for the rest of the solve so a weak coarse space
+    // stops burning cycles.  Z[j] = V[j] is exactly its "no preconditioner"
+    // branch.
+    const int gate_window = 6;
+    const Real gate_threshold = Real(0.9);
+    int gate_count = 0;
+    int gate_failures = 0;
+    Real gate_log_sum = Real(0);
+    bool precondition = num_levels_ > 1;
+    Real previous_estimate = residual;
+
+    total_iterations = 0;
+    applications = 0;
+    const int restarts = (levels_[0].max_iter + m - 1) / m;
+    for (int restart = 0; restart < restarts; ++restart) {
+      if (restart > 0) {
+        residual = true_residual(0);
+      }
+      if (!std::isfinite(static_cast<double>(residual)) || residual <= target) {
+        break;
+      }
+      const Real beta = residual;
+      if (!(beta > Real(0))) {
+        break;
+      }
+      const Real inverse_beta = Real(1) / beta;
+#pragma omp parallel for schedule(static, chunk)
+      for (int64_t index = 0; index < count; ++index) {
+        V[0][static_cast<std::size_t>(index)] =
+            fine.r[static_cast<std::size_t>(index)] * inverse_beta;
+      }
+      std::fill(hessenberg.begin(), hessenberg.end(), C(0));
+      std::fill(givens.begin(), givens.end(), C(0));
+      givens[0] = C(beta, 0);
+      previous_estimate = beta;
+      int used = 0;
+      for (int j = 0; j < m; ++j) {
+        if (precondition) {
+          apply_mg_preconditioner(Z[static_cast<std::size_t>(j)],
+                                  V[static_cast<std::size_t>(j)]);
+          ++applications;
+        } else {
+          Z[static_cast<std::size_t>(j)] = V[static_cast<std::size_t>(j)];
+        }
+        apply_level(0, image, Z[static_cast<std::size_t>(j)]);
+        std::vector<C> projections;
+        mg_dot_many(image, V, j + 1, distributed_, projections);
+        for (int i = 0; i <= j; ++i) {
+          const C h = projections[static_cast<std::size_t>(i)];
+          hessenberg[hindex(i, j)] = h;
+#pragma omp parallel for schedule(static, chunk)
+          for (int64_t index = 0; index < count; ++index) {
+            const auto k = static_cast<std::size_t>(index);
+            image[k] -= h * V[static_cast<std::size_t>(i)][k];
+          }
+        }
+        const Real next = std::sqrt(mg_norm2(image, distributed_));
+        hessenberg[hindex(j + 1, j)] = C(next, 0);
+        used = j + 1;
+        if (next > Real(0)) {
+          const Real inverse = Real(1) / next;
+#pragma omp parallel for schedule(static, chunk)
+          for (int64_t index = 0; index < count; ++index) {
+            const auto k = static_cast<std::size_t>(index);
+            V[static_cast<std::size_t>(j + 1)][k] = image[k] * inverse;
+          }
+        }
+        for (int i = 0; i < j; ++i) {
+          const C a = hessenberg[hindex(i, j)];
+          const C b = hessenberg[hindex(i + 1, j)];
+          hessenberg[hindex(i, j)] = cosine[static_cast<std::size_t>(i)] * a +
+                                     sine[static_cast<std::size_t>(i)] * b;
+          hessenberg[hindex(i + 1, j)] =
+              -std::conj(sine[static_cast<std::size_t>(i)]) * a +
+              cosine[static_cast<std::size_t>(i)] * b;
+        }
+        const C a = hessenberg[hindex(j, j)];
+        const C b = hessenberg[hindex(j + 1, j)];
+        const Real radius = std::sqrt(std::norm(a) + std::norm(b));
+        if (!(radius > Real(0))) {
+          break;
+        }
+        cosine[static_cast<std::size_t>(j)] = std::conj(a) / radius;
+        sine[static_cast<std::size_t>(j)] = std::conj(b) / radius;
+        hessenberg[hindex(j, j)] = C(radius, 0);
+        hessenberg[hindex(j + 1, j)] = C(0, 0);
+        const C g0 = givens[static_cast<std::size_t>(j)];
+        const C g1 = givens[static_cast<std::size_t>(j + 1)];
+        givens[static_cast<std::size_t>(j)] =
+            cosine[static_cast<std::size_t>(j)] * g0 +
+            sine[static_cast<std::size_t>(j)] * g1;
+        givens[static_cast<std::size_t>(j + 1)] =
+            -std::conj(sine[static_cast<std::size_t>(j)]) * g0 +
+            cosine[static_cast<std::size_t>(j)] * g1;
+        ++total_iterations;
+        const Real estimate = std::abs(givens[static_cast<std::size_t>(j + 1)]);
+        if (precondition && estimate > Real(0) &&
+            previous_estimate > Real(0)) {
+          gate_log_sum +=
+              std::log(estimate / previous_estimate);
+          ++gate_count;
+          if (gate_count >= gate_window) {
+            const Real mean = std::exp(gate_log_sum / Real(gate_count));
+            gate_log_sum = Real(0);
+            gate_count = 0;
+            if (mean >= gate_threshold) {
+              ++gate_failures;
+              if (gate_failures >= 2) {
+                precondition = false;
+                if (params_[kVerbose] != 0) {
+                  std::fprintf(stdout,
+                               "PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:\n "
+                               "MG preconditioner disabled by the contraction "
+                               "gate at iteration %d (window mean %g)\n",
+                               total_iterations, static_cast<double>(mean));
+                }
+              }
+            } else {
+              gate_failures = 0;
+            }
+          }
+        }
+        previous_estimate = estimate;
+        if (estimate <= target) {
+          break;
+        }
+      }
+      if (used <= 0) {
+        break;
+      }
+      // Back substitution on the triangular factor, then x += Z y.
+      std::fill(y.begin(), y.end(), C(0));
+      for (int i = used - 1; i >= 0; --i) {
+        C sum = givens[static_cast<std::size_t>(i)];
+        for (int k = i + 1; k < used; ++k) {
+          sum -= hessenberg[hindex(i, k)] * y[static_cast<std::size_t>(k)];
+        }
+        const C diagonal = hessenberg[hindex(i, i)];
+        y[static_cast<std::size_t>(i)] =
+            std::abs(diagonal) > std::numeric_limits<Real>::min()
+                ? sum / diagonal
+                : C(0);
+      }
+      for (int i = 0; i < used; ++i) {
+        const C coefficient = y[static_cast<std::size_t>(i)];
+        if (std::abs(coefficient) == Real(0)) {
+          continue;
+        }
+#pragma omp parallel for schedule(static, chunk)
+        for (int64_t index = 0; index < count; ++index) {
+          const auto k = static_cast<std::size_t>(index);
+          fine.x[k] += coefficient * Z[static_cast<std::size_t>(i)][k];
+        }
+      }
+      if (params_[kVerbose] != 0) {
+        std::fprintf(stdout,
+                     "PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:\n "
+                     "fgmres restart=%d iterations=%d estimate=%g relative=%g "
+                     "applications=%d preconditioner=%d\n",
+                     restart, total_iterations,
+                     static_cast<double>(std::abs(
+                         givens[static_cast<std::size_t>(used)])),
+                     static_cast<double>(std::abs(givens[static_cast<std::size_t>(
+                         used)]) / std::max(residual, Real(1))),
+                     applications, precondition ? 1 : 0);
+      }
+    }
+    residual = true_residual(0);
+    // The fine level's count belongs to this solver: FGMRES does not go through
+    // bicgstab_chunk(0, ...), so without this the row would report level0=0 while
+    // level1/level2 showed real work - the most misleading possible output.
+    level_iterations_[0] += static_cast<long long>(total_iterations);
+    if (params_[kVerbose] != 0) {
+      std::fprintf(stdout,
+                   "PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:\n "
+                   "fgmres final iterations=%d residual=%g target=%g "
+                   "applications=%d preconditioner=%d\n",
+                   total_iterations, static_cast<double>(residual),
+                   static_cast<double>(target), applications,
+                   precondition ? 1 : 0);
+    }
+  }
+
   bool bicgstab_chunk(int level, int iterations, bool force_convergence) {
     using C = Complex<Real>;
     LegacyMgLevel<Real> &state = levels_[level];
@@ -1241,178 +1324,6 @@ private:
     out = state.x;
   }
 
-  // KUPL_MG_DEBUG diagnostics for one coarse correction.  The four numbers it
-  // prints decide whether a weak correction is the transfer pair's fault (the
-  // prolonged vector is not A^{-1} of the restricted residual) or the coarse
-  // operator's (A_c disagrees with R A P on the vector actually solved):
-  //   restrict   ||R r|| / ||r||      coarse-space content of the fine residual
-  //   galerkin   ||R(A P c) - A_c c|| / ||A_c c||   transfer/operator mismatch
-  //   coarse     ||R r - A_c c|| / ||R r||          coarse solve quality
-  //   align      <r, A P c> / ||A P c|| / ||r||     cos(r, A P c)
-  //
-  // `overlap` is NOT that cosine: it is <r, A P c> / ||r||^2, i.e. the cosine
-  // times ||A P c||/||r|| (`image_ratio`).  cos_overlap below is the real
-  // cosine; divide `overlap` by `image_ratio` to recover it from an older row.
-  //
-  // `capture_bound` / `reduction_bound` are ALGEBRA, not diagnostics:
-  //   capture_bound   = sqrt(child.E / (parent.E * bx*by*bz*bt))
-  //   reduction_bound = sqrt(1 - capture_bound^2)
-  // They are functions of (child.E, parent.E, the coarsening factors) only and
-  // cannot be changed by any transfer mapping, so a fall of capture_bound when
-  // the grid is coarsened is a restatement of bx*by*bz*bt growing, not evidence
-  // about the transfers.  `capture` is the same fraction without the sqrt.
-  // What the transfers actually achieve is `restrict_ratio` and `cos_overlap`
-  // relative to those numbers.
-  void diagnose_correction(int level,
-                           const std::vector<Complex<Real>> &coarse_correction,
-                           Real before) {
-    LegacyMgLevel<Real> &parent = levels_[level];
-    LegacyMgLevel<Real> &child = levels_[level + 1];
-    std::vector<Complex<Real>> apple(parent.x.size());
-    std::vector<Complex<Real>> coarse_apply(child.x.size());
-    std::vector<Complex<Real>> coarse_image(child.x.size());
-    apply_level(level, apple, parent.correction);
-    apply_level(level + 1, coarse_apply, coarse_correction);
-    restrict(level, coarse_image, apple);
-    const Real restricted_rhs = std::sqrt(mg_norm2(child.rhs, distributed_));
-    const Real coarse_rhs_defect = [&] {
-      Real local = 0;
-      for (std::size_t i = 0; i < child.rhs.size(); ++i) {
-        local += std::norm(child.rhs[i] - coarse_apply[i]);
-      }
-      Real global = local;
-      if (distributed_) {
-        const MPI_Datatype type =
-            sizeof(Real) == sizeof(float) ? MPI_FLOAT : MPI_DOUBLE;
-        MPI_Allreduce(&local, &global, 1, type, MPI_SUM, MPI_COMM_WORLD);
-      }
-      return std::sqrt(global);
-    }();
-    const Real galerkin_defect = [&] {
-      Real local = 0;
-      Real scale = 0;
-      for (std::size_t i = 0; i < child.rhs.size(); ++i) {
-        local += std::norm(coarse_image[i] - coarse_apply[i]);
-        scale += std::norm(coarse_apply[i]);
-      }
-      Real global[2] = {local, scale};
-      if (distributed_) {
-        const MPI_Datatype type =
-            sizeof(Real) == sizeof(float) ? MPI_FLOAT : MPI_DOUBLE;
-        MPI_Allreduce(MPI_IN_PLACE, global, 2, type, MPI_SUM, MPI_COMM_WORLD);
-      }
-      return std::sqrt(global[0]) /
-             std::max(std::sqrt(global[1]), std::numeric_limits<Real>::min());
-    }();
-    const Complex<Real> overlap = mg_dot(parent.r, apple, distributed_);
-    const Real image_norm = std::sqrt(mg_norm2(apple, distributed_));
-    const Real coarse_norm = std::sqrt(mg_norm2(coarse_correction, distributed_));
-    // What the geometry alone allows.  The coarse basis is child.E vectors per
-    // block of parent.E*bx*by*bz*bt fine components; a dense residual can only
-    // fill that fraction of the coarse space, and a single correction cannot
-    // beat the orthogonal-projection bound below.  Printing the two numbers
-    // next to the measured restrict_ratio/best_ratio separates "the transfers
-    // are mapped wrong" from "the coarse space is this small": a mapping
-    // mismatch breaks the basis_error/galerkin_defect lines while these bounds
-    // keep holding unchanged - they are pure algebra in
-    // (child.E, parent.E, bx, by, bz, bt) and carry no information about the
-    // mapping at all.  capture (no sqrt) is printed so the identity is visible
-    // in the row itself.
-    const int bx = std::max(1, parent.dims[0] / child.dims[0]);
-    const int by = std::max(1, parent.dims[1] / child.dims[1]);
-    const int bz = std::max(1, parent.dims[2] / child.dims[2]);
-    const int bt = std::max(1, parent.dims[3] / child.dims[3]);
-    const int block_dof = parent.E * bx * by * bz * bt;
-    const Real capture = block_dof > 0
-                             ? static_cast<Real>(child.E) /
-                                   static_cast<Real>(block_dof)
-                             : Real(1);
-    const Real capture_bound = std::sqrt(std::min(Real(1), capture));
-    const Real reduction_bound =
-        std::sqrt(std::max(Real(0), Real(1) - capture));
-    // R P = I on the coarse dof.  This is the check a wrong coarse index or a
-    // wrong fine-component axis cannot pass: a permuted axis turns the
-    // round-trip into that permutation, which is not the identity, and a
-    // parity/site mix-up in prolong() alone shows up here even when restrict()
-    // is its exact adjoint (both are, see the R = P^H construction).
-    std::vector<Complex<Real>> basis_seed(child.x.size());
-    for (std::size_t i = 0; i < basis_seed.size(); ++i) {
-      const Real phase = Real(0.011) * static_cast<Real>((i * 29 + 7) % 97);
-      basis_seed[i] =
-          Complex<Real>(std::cos(phase), Real(0.6) * std::sin(phase));
-    }
-    std::vector<Complex<Real>> basis_fine(parent.x.size());
-    std::vector<Complex<Real>> basis_back(child.x.size());
-    prolong(level, basis_fine, basis_seed);
-    restrict(level, basis_back, basis_fine);
-    const Real basis_error = [&] {
-      Real local[2] = {0, 0};
-      for (std::size_t i = 0; i < basis_seed.size(); ++i) {
-        local[0] += std::norm(basis_back[i] - basis_seed[i]);
-        local[1] += std::norm(basis_seed[i]);
-      }
-      Real global[2] = {local[0], local[1]};
-      if (distributed_) {
-        const MPI_Datatype type =
-            sizeof(Real) == sizeof(float) ? MPI_FLOAT : MPI_DOUBLE;
-        MPI_Allreduce(MPI_IN_PLACE, global, 2, type, MPI_SUM, MPI_COMM_WORLD);
-      }
-      return std::sqrt(global[0]) /
-             std::max(std::sqrt(global[1]), std::numeric_limits<Real>::min());
-    }();
-    const Real al_num = before > Real(0)
-                            ? Real(2) * overlap.real() / (before * before)
-                            : Real(0);
-    const Real al_den = before > Real(0)
-                            ? image_norm * image_norm / (before * before)
-                            : Real(0);
-    // ||r - t A c||^2 / ||r||^2 = 1 - t*al_num + t^2*al_den, minimised at
-    // t = al_num/(2 al_den) with the value 1 - al_num^2/(4 al_den).
-    const Real best_damping =
-        al_den > Real(0) ? al_num / (Real(2) * al_den) : Real(0);
-    const Real best_ratio =
-        al_den > Real(0) ? std::sqrt(std::max(
-                               Real(0), Real(1) - al_num * al_num /
-                                                (Real(4) * al_den)))
-                         : Real(1);
-    const Real cos_overlap =
-        image_norm > Real(0)
-            ? overlap.real() / (before * image_norm)
-            : Real(0);
-    if (params_[kNodeRank] == 0) {
-      std::fprintf(stdout,
-                   "PYQCU::KUPL::MG_CORRECTION_DIAG:\n "
-                   "level=%d before=%g restricted=%g restrict_ratio=%g "
-                   "coarse_norm=%g image_norm=%g image_ratio=%g "
-                   "overlap=%g coarse_defect=%g galerkin_defect=%g "
-                   "coarse_rtol=%g best_damping=%g best_ratio=%g "
-                   "E=%d e=%d block=%d capture_bound=%g reduction_bound=%g "
-                   "basis_error=%g cos_overlap=%g capture=%g\n",
-                   level, static_cast<double>(before),
-                   static_cast<double>(restricted_rhs),
-                   static_cast<double>(restricted_rhs / before),
-                   static_cast<double>(coarse_norm),
-                   static_cast<double>(image_norm),
-                   static_cast<double>(image_norm / before),
-                   static_cast<double>(overlap.real() / (before * before)),
-                   static_cast<double>(coarse_rhs_defect /
-                                       std::max(restricted_rhs,
-                                                std::numeric_limits<Real>::min())),
-                   static_cast<double>(galerkin_defect),
-                   static_cast<double>(child.tolerance),
-                   static_cast<double>(best_damping),
-                   static_cast<double>(best_ratio),
-                   child.E, parent.E, block_dof,
-                   static_cast<double>(capture_bound),
-                   static_cast<double>(reduction_bound),
-                   static_cast<double>(basis_error),
-                   static_cast<double>(cos_overlap),
-                   static_cast<double>(capture));
-      std::fflush(stdout);
-    }
-    audit_transfer_mapping(level, bx, by, bz, bt);
-  }
-
   // KUPL_MG_DEBUG dof-level audit of the coarse<->fine mapping, run once per
   // transition.  It answers the only question a mapping bug can hide behind:
   // for a chosen coarse site, which fine dofs does restrict() gather and which
@@ -1604,123 +1515,6 @@ private:
     }
   }
 
-  // Fine BiCGStab iterations that run before the first coarse correction.
-  // A V-cycle pays only for a smooth residual (see the comment at its call
-  // site in solve()), so the first correction is scheduled after this many
-  // iterations instead of against residual(0) = b.  KUPL_MG_NU_PRE /
-  // params_[kMgMuPre] override it; the default keeps one quarter of the
-  // configured interval, which is what the L48 schedule uses.
-  int smoothing_prefix(int interval) const {
-    int prefix = 0;
-    const char *env = std::getenv("KUPL_MG_NU_PRE");
-    if (env != nullptr && *env != '\0') {
-      prefix = std::atoi(env);
-    }
-    if (prefix <= 0) {
-      prefix = params_[kMgMuPre];
-    }
-    if (prefix <= 0) {
-      prefix = std::max(1, interval / 4);
-    }
-    return std::min(prefix, std::max(1, interval));
-  }
-
-  Real apply_coarse_correction(int level) {
-    MgProfileTimer timer(profile_, prof_coarse_correction_seconds_);
-    ++prof_coarse_correction_calls_;
-    if (level + 1 >= num_levels_) {
-      return Real(0);
-    }
-    LegacyMgLevel<Real> &parent = levels_[level];
-    LegacyMgLevel<Real> &child = levels_[level + 1];
-    for (const Complex<Real> &value : parent.r) {
-      if (!std::isfinite(static_cast<double>(value.real())) ||
-          !std::isfinite(static_cast<double>(value.imag()))) {
-        throw std::runtime_error(
-            "legacy Clover-MG parent residual is non-finite");
-      }
-    }
-    restrict(level, child.rhs, parent.r);
-    for (const Complex<Real> &value : child.rhs) {
-      if (!std::isfinite(static_cast<double>(value.real())) ||
-          !std::isfinite(static_cast<double>(value.imag()))) {
-        throw std::runtime_error(
-            "legacy Clover-MG restriction produced a non-finite coarse RHS");
-      }
-    }
-    std::vector<Complex<Real>> coarse_correction(child.x.size());
-    cycle(level + 1, child.rhs, coarse_correction);
-    prolong(level, parent.correction, coarse_correction);
-    const Real before = std::sqrt(mg_norm2(parent.r, distributed_));
-    const std::vector<Complex<Real>> saved_residual = parent.r;
-    // diagnose_correction does distributed work: apply_level/restrict run halo
-    // exchanges and mg_norm2/mg_dot run MPI_Allreduce over MPI_COMM_WORLD, so a
-    // rank-subset guard on the CALL deadlocks every multi-rank run (jobs
-    // 2247200 and 2247255 hung right after the Legacy-MultiGrid banner and were
-    // killed).  Every rank must enter it; only rank 0 prints.
-    if (debug_) {
-      diagnose_correction(level, coarse_correction, before);
-    }
-    // The optimal damping is analytic.  Minimising ||r - t A c||^2 over a real
-    // t gives t = <r, Ac> / ||Ac||^2 with residual^2 = ||r||^2 - <r,Ac>^2/||Ac||^2,
-    // so one apply_level plus two reductions finds it.  The previous code tried
-    // t in {1, 1/2, 1/4, 1/8} and applied the FINE operator once per candidate,
-    // which cost up to four fine applications per correction - measured as the
-    // bulk of `coarse_correction` in MG_PROFILE (0.49 s per correction at
-    // interval 2, against 0.07 s for restrict+prolong+coarse_apply combined).
-    apply_level(level, parent.v, parent.correction);
-    const Complex<Real> residual_dot_image =
-        mg_dot(parent.r, parent.v, distributed_);
-    const Real image_norm2 = mg_norm2(parent.v, distributed_);
-    const Real before_norm2 = before * before;
-    Real damping = Real(0);
-    Real candidate = before;
-    if (std::isfinite(static_cast<double>(image_norm2)) &&
-        image_norm2 > Real(0)) {
-      damping = residual_dot_image.real() / image_norm2;
-      const Real remaining = before_norm2 -
-                             residual_dot_image.real() *
-                                 residual_dot_image.real() / image_norm2;
-      if (std::isfinite(static_cast<double>(damping)) &&
-          std::isfinite(static_cast<double>(remaining))) {
-        candidate = std::sqrt(std::max(Real(0), remaining));
-      } else {
-        damping = Real(0);
-      }
-    }
-    if (debug_ && params_[kNodeRank] == 0) {
-      std::fprintf(stdout,
-                   "PYQCU::KUPL::MG_CORRECTION_DEBUG:\n "
-                   "level=%d damping=%g before=%g candidate=%g ratio=%g\n",
-                   level, static_cast<double>(damping),
-                   static_cast<double>(before),
-                   static_cast<double>(candidate),
-                   static_cast<double>(candidate / before));
-    }
-    if (damping > Real(0) && std::isfinite(static_cast<double>(candidate)) &&
-        candidate < before) {
-      for (std::size_t i = 0; i < parent.x.size(); ++i) {
-        parent.x[i] += multiply_complex(
-            Complex<Real>(damping), parent.correction[i]);
-      }
-      for (std::size_t i = 0; i < parent.r.size(); ++i) {
-        parent.r[i] -= multiply_complex(
-            Complex<Real>(damping), parent.v[i]);
-      }
-      if (params_[kVerbose] != 0) {
-        std::fprintf(stdout,
-                     "PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:\n "
-                     "correction damping=%g before=%g candidate=%g\n",
-                     static_cast<double>(damping),
-                     static_cast<double>(before),
-                     static_cast<double>(candidate));
-      }
-      return candidate;
-    }
-    parent.r = saved_residual;
-    return before;
-  }
-
   Real true_residual(int level) {
     LegacyMgLevel<Real> &state = levels_[level];
     apply_level(level, state.v, state.x);
@@ -1743,11 +1537,9 @@ private:
       std::fprintf(stderr, " level%zu=%lld", level,
                    static_cast<long long>(level_iterations_[level]));
     }
-    std::fprintf(
-        stderr,
-        " total=%lld accepted_corrections=%d fallback_fine=%d\n",
-        static_cast<long long>(last_total_iterations_),
-        last_accepted_corrections_, last_fallback_to_fine_ ? 1 : 0);
+    std::fprintf(stderr, " total=%lld accepted_corrections=%d\n",
+                 static_cast<long long>(last_total_iterations_),
+                 last_accepted_corrections_);
   }
 
   void print_profile(MgProfileClock::time_point start) const {
@@ -1781,7 +1573,6 @@ private:
   std::vector<long long> level_iterations_;
   long long last_total_iterations_ = 0;
   int last_accepted_corrections_ = 0;
-  bool last_fallback_to_fine_ = false;
   const void *gauge_ = nullptr;
   const void *clover_even_ = nullptr;
   const void *clover_odd_ = nullptr;
