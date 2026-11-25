@@ -4195,3 +4195,54 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      162/168 does not depend on this comparison - it rests on the appendix
      algebra and on the bound-closed three-arm measurement - so nothing already
      reported changes.
+
+173. First real measurement of old-vs-new basis: both are orthonormal, they differ
+     ONLY in direction (overlap 0.115), and neither is degenerate
+     Ran the Gram analysis bg-43 designed as "step 0: basis only, no cluster, no
+     operator" on the two caches actually built at [8,8,8,16] (dof [12,2],
+     mg_grid 2 2 2 2, E=2, e=12, block=16, 256 coarse sites; lonv is
+     (2,12,4,2,4,2,4,2,4,2)):
+
+       tag  nv_builder             |G-I|max   cols/E  cond_med  rank  frac(|G-I|<1e-3)
+       inv  inverse-iteration/2    9.54e-07   1.0000   1.0e+00    2      1.000
+       leg  legacy-residual/1      1.01e-06   1.0000   1.0e+00    2      1.000
+
+     So the historical loop does NOT produce a degenerate or zero basis: after its
+     final normalisation it stores two ORTHONORMAL vectors per coarse block, full
+     rank, condition number 1.  That is exactly what white noise looks like in a
+     192-dimensional space, and it is why every Gram-based quality test passes for
+     both - including the builder's own G=I assertion, which therefore cannot
+     tell the two builders apart.
+
+     The difference is direction, and it is large:
+
+       cross-basis overlap per site ||A_new^H A_old||_F / (||A_new|| ||A_old||):
+         mean 0.1151   median 0.1124   max 0.1902
+       column-norm ratio leg/inv: median 1.0000
+
+     An overlap of 0.11 where 1.0 means "the same subspace" says the two bases span
+     almost disjoint planes in each block, at identical column norms.  They are not
+     two versions of the same object - they are two different objects.
+
+     Capacity is identical by construction and confirms the algebra a fourth time:
+       capture = E/(e*block) = 2/(12*16) = 0.010417
+       sqrt(capture) = 0.102062   (= the capture_bound this log has quoted)
+     So neither basis can capture more than ~1.04% of a residual that fills the
+     block; the bases can only differ in how much of a SMOOTHED residual they
+     capture, which is the one question Gram analysis cannot answer because it
+     involves no residual at all.
+
+     What this settles and what it does not:
+       - settled: the old builder is not broken in the sense of producing a
+         rank-deficient or unnormalised basis; it produces well-formed noise.  That
+         vindicates the "white noise" description of section 167/171 and it kills
+         the hypothesis that the old basis was degenerate.
+       - not settled: which basis captures more of an actual smoothed residual.
+         That needs one residual vector, i.e. the residual dump of bg-43's design or
+         its zero-rebuild fallback (k Krylov iterations in torch with the reference
+         operator).  No cluster-side change is required for the fallback, and the
+         metric then costs zero operator applications per basis, so both bases are
+         evaluated on a bit-identical r.
+
+     The two arm caches are preserved at data/nvlog/caches/{inv,leg} plus their
+     .json sidecars, so this analysis is re-runnable without rebuilding anything.
