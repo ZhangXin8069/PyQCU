@@ -76,6 +76,7 @@ knobs : KUPL_MG_CORRECTION_INTERVAL（间隔）、KUPL_MG_NU_PRE（前缀）、
 | plain BiCGStab | `applyCloverBistabCgQcu` | **1.1856** | 28 | 4.4086e-06 | 未请求 |
 | mg-2 + legacy 基 | `applyCloverMultigridQcu` | **1.9922** | `n/a` | 4.8466e-06 | `cache_reused=True` |
 | mg-2 + inverse 基 | `applyCloverMultigridQcu` | **2.0421** | `n/a` | 4.6316e-06 | `cache_reused=True` |
+| plain（同作业末尾重复） | `applyCloverBistabCgQcu` | 1.1903 | 28 | 4.4086e-06 | 未请求 |
 
 ```text
 MG/plain = 1.680×（legacy 基）   1.722×（inverse 基）

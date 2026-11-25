@@ -177,7 +177,7 @@ docs/qcu_quda_multigrid_coarse_operator.md、logs/v20261126.txt。
     FGMRES + V-cycle 预条件子，KUPL 细层 BiCGStab + 周期粗修正），任何性能或收敛
     差异都无法归因到硬件。端口后两后端结构一致，差异才有归属。
     代价（本轮唯一可引用的新事实，全部实测）：
-      - `lattice_clover_multigrid.cpp` 由 2313 行降到 1698 行（纯删除）
+      - `lattice_clover_multigrid.cpp` 由 2313 行降到 1772 行：删掉旧修正器路径、加上 FGMRES 外层,净减 541 行
       - 库已在计算节点重编译通过，符号中含 `fgmres`
       - **首批 FGMRES 数字仍在测（measured next）**；本文件不写任何新倍数
     A/B 说明：与旧路径的 A/B **按设计不再存在**——旧代码没有留在树里，也没有开关能

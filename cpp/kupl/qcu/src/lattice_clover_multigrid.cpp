@@ -36,7 +36,7 @@ bool mg_env_enabled(const char *name) {
 //            residual that remains, then the prolongation of that correction
 //            added with weight 1.  No post-smoothing: CUDA omits it and leaves
 //            the remaining high frequencies to the outer Krylov
-//            (cpp/cuda/qcu/include/lattice_clover_multigrid.h:5378).
+//            (cpp/cuda/qcu/include/lattice_clover_multigrid.h:5377).
 //
 //   outer:  z_j = M^-1 v_j; w = A z_j; Arnoldi with j+1 projections in one
 //           collective; x += Z y; restart at m = 10 on a true residual
@@ -404,13 +404,11 @@ public:
                                  (params_[kLatT] / 2)));
     canonical_output_.resize(canonical_input_.size());
     profile_ = mg_env_enabled("PYQCU_KUPL_MG_PROFILE");
-    // KUPL_MG_DEBUG=1 traces the coarse correction itself: the residual norm
-    // before a correction, the candidate after every damping step, and the true
-    // residual at every chunk boundary.  Those three numbers decide whether an
-    // MG schedule can pay for itself (the correction only earns its keep when
-    // `candidate/before` beats the fine Krylov's own per-iteration contraction
-    // and the restart penalty it forces).
-    debug_ = mg_env_enabled("KUPL_MG_DEBUG");
+    // KUPL_MG_DEBUG is accepted and ignored: the per-correction trace it used to
+    // enable belonged to the deleted corrector, and the FGMRES path prints one
+    // MG_FGMRES_TRACE line per restart unconditionally (rank 0, to stderr) because
+    // the one time that diagnostic was needed it was behind a flag nobody set.
+    // Saying so here is better than a knob that silently does nothing.
     require_correction_ = mg_env_enabled("KUPL_REQUIRE_MG_CORRECTION");
     level_iterations_.assign(static_cast<std::size_t>(num_levels_), 0);
   }
@@ -1053,9 +1051,20 @@ private:
         if (!(radius > Real(0))) {
           break;
         }
-        cosine[static_cast<std::size_t>(j)] = std::conj(a) / radius;
-        sine[static_cast<std::size_t>(j)] = std::conj(b) / radius;
-        hessenberg[hindex(j, j)] = C(radius, 0);
+        // The rotation [[c, s], [-conj(s), c]] is unitary only when c is REAL.
+        // With c = conj(a)/radius the second row does not annihilate b -
+        // -conj(s)a + c b = b(conj(a) - a)/radius - it only looked annihilated
+        // because the next line overwrites that entry with 0.  CUDA gets this
+        // right (lattice_clover_multigrid.h:5862-5866): c = |a|/radius is real,
+        // s = (a/|a|)conj(b)/radius, and the diagonal keeps r*a/|a|.  The error
+        // here scaled with Im(a); h_jj measured (1.0155, -0.0001), i.e. almost
+        // real, which is why the solve still converged to 4e-5 and why this was
+        // invisible in the results while remaining wrong for a complex diagonal.
+        const Real magnitude = std::abs(a);
+        const C phase = magnitude > Real(0) ? a / magnitude : C(1);
+        cosine[static_cast<std::size_t>(j)] = C(magnitude / radius, 0);
+        sine[static_cast<std::size_t>(j)] = phase * std::conj(b) / radius;
+        hessenberg[hindex(j, j)] = phase * C(radius, 0);
         hessenberg[hindex(j + 1, j)] = C(0, 0);
         const C g0 = givens[static_cast<std::size_t>(j)];
         const C g1 = givens[static_cast<std::size_t>(j + 1)];
@@ -1340,9 +1349,13 @@ private:
         std::sqrt(mg_norm2(state.rhs, distributed_));
     if (level == num_levels_ - 1) {
       const bool converged = bicgstab_chunk(level, state.max_iter, true);
+      // The reduction is computed unconditionally: a collective behind a flag
+      // that a caller could set per rank is the deadlock shape this file already
+      // records twice.
+      const Real coarsest_residual_norm =
+          std::sqrt(mg_norm2(state.r, distributed_));
       if (params_[kVerbose] != 0) {
-        const Real residual_norm =
-            std::sqrt(mg_norm2(state.r, distributed_));
+        const Real residual_norm = coarsest_residual_norm;
         std::fprintf(
             stdout,
             "PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:\n "
@@ -1645,7 +1658,6 @@ private:
   bool deflate_ = false;
   bool compact_fine_ = false;
   bool profile_ = false;
-  bool debug_ = false;
   bool require_correction_ = false;
   double prof_fine_apply_seconds_ = 0;
   double prof_coarse_apply_seconds_ = 0;

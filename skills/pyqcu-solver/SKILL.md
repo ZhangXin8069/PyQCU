@@ -347,7 +347,7 @@ token。`MG_LEVEL_ITERS` 仍打印 `level0/level1/...`、`total=` 与
 `accepted_corrections=`，后者现在计**预条件应用次数**。
 
 代价只有删除：`cpp/kupl/qcu/src/lattice_clover_multigrid.cpp` 由 **2313 行降到
-1698 行**；库已在计算节点重编译通过、符号中含 `fgmres`。**首批 FGMRES 数字仍在测
+1772 行**（删旧修正器、加 FGMRES 外层，净减 541 行）；库已在计算节点重编译通过、符号中含 `fgmres`。**首批 FGMRES 数字仍在测
 （measured next）**，本节不写任何新倍数；旧路径的 A/B 按设计不再存在。完整记录见
 `logs/v20261126.txt`。
 
@@ -380,6 +380,7 @@ token。`MG_LEVEL_ITERS` 仍打印 `level0/level1/...`、`total=` 与
 | plain BiCGStab | `applyCloverBistabCgQcu` | **1.1856** | 28 | 4.4086e-06 | 未请求 |
 | mg-2 + legacy 基 | `applyCloverMultigridQcu` | **1.9922** | `n/a` | 4.8466e-06 | `cache_reused=True` |
 | mg-2 + inverse 基 | `applyCloverMultigridQcu` | **2.0421** | `n/a` | 4.6316e-06 | `cache_reused=True` |
+| plain（同作业末尾重复） | `applyCloverBistabCgQcu` | 1.1903 | 28 | 4.4086e-06 | 未请求 |
 
 ```
 MG/plain = 1.680×（legacy 基）   1.722×（inverse 基）

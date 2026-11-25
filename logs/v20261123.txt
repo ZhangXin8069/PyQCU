@@ -4659,12 +4659,21 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
           the capacity.  That growth is the smoothing concentrating the residual
           where a coarse space can see it - and it is still small.
        d. One correction is still not worth a fine iteration.  At the smooth end a
-          correction can remove at most 8.5% of the residual, while the measured
-          fine iteration removes about 28% (rel residual falls 2.12e-03 ->
-          6.8e-03 over successive k, i.e. a factor ~0.72 per iteration), and a
-          correction costs about 2.3 fine applications (section 152).  So the
-          economics are 0.085 removed for 2.3 applications against 0.28 removed for
-          1 - which is exactly the measured MG/plain = 1.68x of section 179.
+          correction removes at most 8.5% (rho at k=20), and it costs about 2.3
+          fine applications (section 152), i.e. about 3.7% per equivalent fine
+          apply.  The contraction of an actual fine iteration, read off this
+          table: k=4 -> k=10 falls 6.189e-02 -> 7.139e-03 over 6 iterations
+          (factor 0.70, 30% removed) and k=10 -> k=20 falls 7.139e-03 -> 2.122e-03
+          over 10 (factor 0.885, 11% removed), so 11-30% per fine apply against
+          3.7%.  The correction is therefore 3-8x less efficient per unit of work.
+          The authoritative cost measurement is section 187's same-allocation
+          MG/plain = 1.41x SLOWER at the old path's 1.68x; a single "28% per
+          iteration" figure does not exist in this table and is withdrawn.
+
+     Artifact: data/rho_20261125/{build_and_measure.py, rho2.json,
+     sb_inverse_lonv.npy, sb_legacy_lonv.npy}.  This was measured in one local
+     process (no MPI, no scheduler job), which is why it carries no job id; the
+     two caches it read were built by compute-node jobs 2259128 and 2259181.
 
      Both routes (Gram pseudo-inverse and the SVD frame) agreed to machine
      precision on every block, and no block was rank deficient (rank 2 of 2).
@@ -4893,8 +4902,10 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
 
      A zero-step (coarse-only) preconditioner is the only configuration that can
      cost less than one fine apply per iteration, and it could not be measured: it
-     needs _MG_MU_PRE_ = 0, which pyqcu.test rejects (>= 1) and which the C++ already
-     reads as "use the default 4" for CUDA parity.  An environment override was
+     needs _MG_MU_PRE_ = 0, which cannot be expressed: pyqcu.test accepts 0 but
+     documents it as "keep the backend default of 4" (native.py:2771, minimum=0;
+     only negative values are refused), and the C++ reads 0 the same way for CUDA
+     parity, so 0 and "unset" are indistinguishable.  An environment override was
      added, and three separate jobs (2260465, 2260506, 2260528) died with SIGTERM
      ("force to exit immediately") inside that arm while the same batch without the
      override completed.  The override has been REMOVED rather than shipped: a
