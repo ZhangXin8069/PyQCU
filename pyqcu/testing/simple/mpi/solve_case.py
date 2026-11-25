@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 import re
@@ -26,8 +27,13 @@ import numpy as np
 
 from pyqcu.tools._legacy_mg_cache import (
     file_sha256,
+    is_legacy_mg_ranked_cache,
     legacy_mg_cache_identity,
+    legacy_mg_cache_shapes,
+    legacy_mg_geometry,
     logical_array_sha256,
+    null_vector_builder,
+    read_legacy_mg_ranked_manifest,
     validate_legacy_mg_cache,
 )
 
@@ -59,6 +65,11 @@ from pyqcu.testing.simple.mpi.mpi_ranks_power_of_two import validate_rank_count
 
 REPO = Path(__file__).resolve().parents[4]
 BUILD_CACHE = REPO / "pyqcu" / "testing" / "simple" / "build_full_mg_cache.py"
+#: One cache root per Galerkin transition.  ``--coarse-cache`` names transition
+#: 1 and every repeated ``--coarse-cache-level`` names the next one, in order.
+COARSE_CACHE_LEVEL_OPTION = "--coarse-cache-level"
+#: Galerkin bridge builder for transitions >= 2 (probes the parent stencil).
+GALERKIN_TRANSITION_MODULE = "pyqcu.testing.simple.mg_transition"
 
 
 def _input_metadata(path: Path) -> dict[str, Any]:
@@ -227,19 +238,35 @@ def _coarse_cache_path(args, case: dict[str, Any]) -> Path:
         f"_nvi{args.nv_iters}_s{args.seed}.h5")
 
 
-def _coarse_cache_identity(args, case: dict[str, Any]) -> dict[str, Any]:
-    return legacy_mg_cache_identity(
-        gauge_canonical_sha256=case["gauge"]["canonical_sha256"],
-        gauge_file_sha256=case["gauge"]["sha256"],
-        lattice=args.lat,
-        dtype=args.dtype,
-        mass=case["mass"],
-        csw=case["csw"],
-        dof=args.dof[:args.levels],
-        mg_grid=args.mg_grid,
-        nv_iters=args.nv_iters,
-        seed=args.seed,
-    )
+def _coarse_cache_identity(args, case: dict[str, Any], *,
+                           lattice: Sequence[int] | None = None,
+                           dof: Sequence[int] | None = None,
+                           nv_iters: int | None = None,
+                           nv_builder: str | None = None) -> dict[str, Any]:
+    """Identity of one transition root.
+
+    The defaults reproduce the finest transition of a two-level case exactly
+    (``lattice=args.lat``, ``dof=args.dof[:2]``, ``nv_iters=args.nv_iters``, no
+    claimed builder revision); a deeper transition passes its own root lattice,
+    its own ``[E_parent, E_child]`` pair, and the revision of the builder that
+    really produced it, because one cache root describes exactly one Galerkin
+    step.
+    """
+    identity: dict[str, Any] = {
+        "gauge_canonical_sha256": case["gauge"]["canonical_sha256"],
+        "gauge_file_sha256": case["gauge"]["sha256"],
+        "lattice": args.lat if lattice is None else lattice,
+        "dtype": args.dtype,
+        "mass": case["mass"],
+        "csw": case["csw"],
+        "dof": args.dof[:args.levels] if dof is None else dof,
+        "mg_grid": args.mg_grid,
+        "nv_iters": args.nv_iters if nv_iters is None else nv_iters,
+        "seed": args.seed,
+    }
+    if nv_builder is not None:
+        identity["nv_builder"] = nv_builder
+    return legacy_mg_cache_identity(**identity)
 
 
 def _coarse_cache_valid(
@@ -251,36 +278,418 @@ def _coarse_cache_valid(
     return True
 
 
-def _build_coarse_cache(args, case: dict[str, Any], cache_path: Path) -> None:
-    report = cache_path.with_suffix(".json")
-    builder_arguments = [
+def _odd_lattice(lattice: Sequence[int]) -> list[int]:
+    """Odd-Schur geometry (time halved once) of one level."""
+    values = [int(value) for value in lattice]
+    return [values[0], values[1], values[2], values[3] // 2]
+
+
+def _child_lattice(lattice: Sequence[int],
+                   mg_grid: Sequence[int]) -> list[int]:
+    """Return the identity lattice of the root one transition publishes.
+
+    ``lattice`` uses the ``--lat`` convention (an even time extent) and is the
+    *parent root's* identity lattice.  A cache root stores the odd-Schur
+    operator, so a transition halves time exactly once: the coarse box the new
+    root's tensors live on is the parent's odd geometry divided by ``mg_grid``,
+    and the next root re-expresses that box as an even-time lattice.  This is
+    the same recursion as
+    :func:`pyqcu.testing.simple.mg_transition.transition_geometry`, so the
+    chain planned here is exactly the chain the bridge builder accepts.
+    """
+    _, coarse = legacy_mg_geometry(lattice, mg_grid)
+    return [int(coarse[0]), int(coarse[1]), int(coarse[2]), 2 * int(coarse[3])]
+
+
+def _transition_parent_lattice(root_lattices: Sequence[Sequence[int]],
+                               transition: int) -> list[int]:
+    """Parent root identity lattice consumed by ``transition``.
+
+    Transition 1 is gauge-built from ``--lat``; from transition 2 on the bridge
+    builder derives its child from the *parent root's* identity lattice, so
+    transition ``k >= 2`` consumes the lattice root ``k - 1`` published.
+    """
+    index = 0 if int(transition) == 1 else int(transition) - 2
+    return [int(value) for value in root_lattices[index]]
+
+
+def _root_lattice_chain(lattice: Sequence[int],
+                        mg_grid: Sequence[int],
+                        levels: int) -> list[tuple[list[int], list[int]]]:
+    """``(parent_lattice, published_root_lattice)`` for every transition.
+
+    Root 1 publishes the solve's own ``--lat`` identity lattice because the C++
+    builder coarsens the gauge operator directly; root ``k >= 2`` publishes the
+    child lattice its parent root implies.  Both the planner and the pre-flight
+    validation walk this single recurrence.
+    """
+    root_lattices = [[int(value) for value in lattice]]
+    pairs: list[tuple[list[int], list[int]]] = []
+    for transition in range(1, int(levels)):
+        parent = _transition_parent_lattice(root_lattices, transition)
+        if transition == 1:
+            root = list(parent)
+        else:
+            try:
+                root = _child_lattice(parent, mg_grid)
+            except ValueError as exc:
+                raise ValueError(
+                    f"multigrid transition {transition} (parent lattice "
+                    f"{tuple(parent)}) is not a valid Galerkin step for "
+                    f"--mg-grid {tuple(int(value) for value in mg_grid)}: "
+                    f"{exc}") from exc
+            root_lattices.append(root)
+        pairs.append((parent, root))
+    return pairs
+
+
+def _validate_transition_geometry(lattice: Sequence[int],
+                                  mg_grid: Sequence[int], levels: int,
+                                  dof: Sequence[int]) -> None:
+    """Reject an impossible coarse chain before any cache is built."""
+    values = [int(value) for value in dof]
+    block = [int(value) for value in mg_grid]
+    for transition, (_, root) in enumerate(
+            _root_lattice_chain(lattice, block, levels), start=1):
+        # The root's own odd-Schur box must divide by the block as well: it is
+        # the geometry every dataset of the root is stored on.
+        try:
+            legacy_mg_geometry(root, block)
+        except ValueError as exc:
+            raise ValueError(
+                f"multigrid transition {transition} publishes level-"
+                f"{transition} lattice {tuple(root)}, whose odd-Schur box is "
+                f"not divisible by --mg-grid {tuple(block)}: {exc}") from exc
+        if transition >= 2 and values[transition - 1] != 12:
+            raise ValueError(
+                f"multigrid transition {transition} cannot be built: the "
+                f"Legacy-MG cache format stores lonv with 12 parent "
+                f"components, so level-{transition - 1} must keep E=12, got "
+                f"{values[transition - 1]} "
+                f"(--dof {' '.join(str(value) for value in values)})")
+
+
+def _missing_root_message(levels: int, count: int) -> str:
+    """Name the first transition whose cache root was not supplied."""
+    first = count + 1
+    return (
+        f"multigrid transition {first} has no cache root: --levels {levels} "
+        f"needs {levels - 1} per-transition roots, got {count}. A level-N solve "
+        f"consumes N-1 roots in order - --coarse-cache names transition 1 and "
+        f"each {COARSE_CACHE_LEVEL_OPTION} names the next one (the first "
+        f"{COARSE_CACHE_LEVEL_OPTION} is transition 2)")
+
+
+def _transition_identity(args, case: dict[str, Any],
+                         entry: dict[str, Any]) -> dict[str, Any]:
+    """Identity of the root one transition publishes.
+
+    Transition 1 is the gauge-built C++ artifact, so its identity is the solve's
+    own (lattice, ``--nv-iters``, builder revision unclaimed) - byte for byte the
+    two-level identity this launcher has always used.  From transition 2 on the
+    Galerkin bridge builder performs exactly one inverse-iteration pass per
+    vector and claims that revision, so the expected identity says so too and a
+    freshly built child root validates instead of being rebuilt every run.
+    """
+    if entry["builder"] == "stencil":
+        return _coarse_cache_identity(
+            args, case, lattice=entry["root_lattice"],
+            dof=[entry["parent_e"], entry["child_e"]])
+    return _coarse_cache_identity(
+        args, case, lattice=entry["root_lattice"],
+        dof=[entry["parent_e"], entry["child_e"]],
+        nv_iters=1, nv_builder=null_vector_builder())
+
+
+def _finest_cache_path(args, case: dict[str, Any]) -> Path:
+    """Resolve the transition-1 root (``--coarse-cache`` or the case default)."""
+    if args.coarse_cache:
+        return resolve_path(args.coarse_cache, Path(args.coarse_cache).expanduser())
+    return _coarse_cache_path(args, case)
+
+
+def _coarse_cache_chain(args, case: dict[str, Any],
+                        finest: Path | None = None) -> list[dict[str, Any]]:
+    """Planned cache roots, parents, and child geometries of one solve.
+
+    Transition ``t`` consumes the root of transition ``t - 1`` - the gauge-built
+    33-tensor stencil for ``t == 1``, the Galerkin projection of it afterwards -
+    and publishes level ``t``, so a level-``L`` solve needs ``L - 1`` roots in
+    order (one root per transition, the repository's cache layout).  Every
+    lattice uses the ``--lat`` (even time) convention, exactly like
+    :func:`pyqcu.tools._legacy_mg_cache.legacy_mg_geometry`, and the field names
+    mirror :func:`pyqcu.testing.simple.mg_transition.transition_geometry`.
+    """
+    levels = int(args.levels)
+    if levels < 2:
+        return []
+    roots = [Path(finest) if finest is not None else _finest_cache_path(args, case)]
+    roots.extend(
+        resolve_path(value, Path(value).expanduser())
+        for value in getattr(args, "coarse_cache_level", []))
+    if len(roots) < levels - 1:
+        raise RuntimeError(_missing_root_message(levels, len(roots)))
+    dof = [int(value) for value in args.dof]
+    if len(dof) < levels:
+        raise RuntimeError(
+            f"--levels {levels} needs {levels} --dof values, got {dof}")
+    block = [int(value) for value in args.mg_grid]
+    chain: list[dict[str, Any]] = []
+    for transition, (parent, root_lattice) in enumerate(
+            _root_lattice_chain(args.lat, block, levels), start=1):
+        output = roots[transition - 1]
+        entry: dict[str, Any] = {
+            "transition": transition,
+            "parent_level": transition - 1,
+            "child_level": transition,
+            "parent_cache": (
+                "<gauge>" if transition == 1 else str(roots[transition - 2])),
+            "parent_lattice": parent,
+            "parent_odd_lattice": _odd_lattice(parent),
+            "parent_coarse_lattice": list(
+                legacy_mg_geometry(parent, block)[1]),
+            "root_lattice": list(root_lattice),
+            "root_odd_lattice": _odd_lattice(root_lattice),
+            "coarse_lattice": list(legacy_mg_geometry(root_lattice, block)[1]),
+            "block": list(block),
+            "parent_e": dof[transition - 1],
+            "child_e": dof[transition],
+            "output": str(output),
+            "report": str(_transition_report_path(output, transition)),
+            "builder": "stencil" if transition == 1 else "galerkin",
+            "status": "pending",
+        }
+        entry["identity"] = _transition_identity(args, case, entry)
+        chain.append(entry)
+    return chain
+
+
+def _transition_report_path(output: str | Path, transition: int) -> Path:
+    """Run report path of one transition build.
+
+    Transition 1 keeps the historical ``<root>.json`` report, so a two-level
+    build issues exactly the command it always has.  A child build reports to
+    ``<stem>.transition.json`` instead, because the bridge builder refuses a
+    ``--report`` that would overwrite the cache manifest it just published.
+    """
+    path = Path(output)
+    if int(transition) <= 1:
+        return path.with_suffix(".json")
+    return path.with_suffix(".transition.json")
+
+
+def _chain_record(entry: dict[str, Any], *,
+                  command: Sequence[str] | None = None) -> dict[str, Any]:
+    """JSON record of one planned transition (optionally with its command)."""
+    record = {name: entry[name] for name in (
+        "transition", "parent_level", "child_level", "parent_cache",
+        "parent_lattice", "parent_odd_lattice", "parent_coarse_lattice",
+        "root_lattice", "root_odd_lattice", "coarse_lattice", "block",
+        "parent_e", "child_e", "output", "report", "builder", "status")}
+    if command is not None:
+        record["command"] = list(command)
+    return record
+
+
+def _transition_builder_available() -> bool:
+    try:
+        return importlib.util.find_spec(GALERKIN_TRANSITION_MODULE) is not None
+    except (ImportError, ValueError):
+        return False
+
+
+def _require_transition_builder(entry: dict[str, Any]) -> None:
+    """Refuse (naming the transition) when the bridge builder does not exist."""
+    if _transition_builder_available():
+        return
+    raise RuntimeError(
+        f"the cache root of multigrid transition {entry['transition']} "
+        f"(level-{entry['parent_level']} {tuple(entry['parent_lattice'])} -> "
+        f"level-{entry['child_level']} E={entry['child_e']}, "
+        f"{entry['output']}) is missing and cannot be built: "
+        f"{GALERKIN_TRANSITION_MODULE} is not available. Provide the root with "
+        f"{COARSE_CACHE_LEVEL_OPTION} number {entry['transition'] - 1}, or "
+        f"build it with the Galerkin bridge builder first")
+
+
+def _manifest_of(path: Path) -> dict[str, Any]:
+    """Cache manifest of a ranked root or of a single-file root, fail closed."""
+    if is_legacy_mg_ranked_cache(path):
+        return dict(read_legacy_mg_ranked_manifest(path))
+    manifest = json.loads(
+        Path(path).with_suffix(".json").read_text(encoding="utf-8"))
+    return dict(manifest) if isinstance(manifest, dict) else {}
+
+
+def _transition_root_geometry_valid(
+        path: Path, entry: dict[str, Any]) -> bool:
+    """Check a child root against the geometry and identity fields it declares.
+
+    A level-2+ root is a pure function of its parent root, ``block``, and
+    ``(E_parent, E_child)``, and its parent is validated strictly in the same
+    loop.  A bridge builder that writes an equivalent identity in another
+    spelling (a different ``nv_builder`` revision, a different ``nv_iters``
+    default) still publishes exactly this geometry, so those fields are
+    compared only when the artifact declares them - while the lattice, block,
+    dof, dtype, seed, and dataset shapes must match exactly.
+    """
+    try:
+        manifest = _manifest_of(path)
+    except (OSError, ValueError, TypeError):
+        return False
+    if manifest.get("status") != "PASS":
+        return False
+    try:
+        shapes = legacy_mg_cache_shapes(
+            entry["root_lattice"], entry["block"],
+            [entry["parent_e"], entry["child_e"]])
+    except ValueError:
+        return False
+    identity = manifest.get("identity")
+    identity = dict(identity) if isinstance(identity, dict) else {}
+    for key, expected in (
+            ("lattice", entry["root_lattice"]),
+            ("mg_grid", entry["block"]),
+            ("dof", [entry["parent_e"], entry["child_e"]]),
+            ("seed", entry["identity"]["seed"]),
+            ("mass", entry["identity"]["mass"]),
+            ("csw", entry["identity"]["csw"])):
+        actual = identity.get(key)
+        if actual is None:
+            continue
+        if key in ("mass", "csw", "seed"):
+            if float(actual) != float(expected):
+                return False
+        elif [int(value) for value in actual] != [int(value) for value in expected]:
+            return False
+    dtype = np.dtype(entry["identity"]["dtype"])
+    if identity.get("dtype") is not None and \
+            np.dtype(identity["dtype"]) != dtype:
+        return False
+    if is_legacy_mg_ranked_cache(path):
+        declared = manifest.get("global_shapes")
+        declared = declared if isinstance(declared, dict) else {}
+        for name, shape in shapes.items():
+            actual = declared.get(name)
+            if actual is None or tuple(int(v) for v in actual) != tuple(shape):
+                return False
+        return True
+    import h5py
+
+    try:
+        with h5py.File(path, "r") as handle:
+            for name, shape in shapes.items():
+                if name not in handle:
+                    return False
+                dataset = handle[name]
+                if tuple(int(value) for value in dataset.shape) != tuple(shape):
+                    return False
+                if np.dtype(dataset.dtype) != dtype:
+                    return False
+    except OSError:
+        return False
+    return True
+
+
+def _chain_root_reusable(entry: dict[str, Any]) -> bool:
+    """True when the root on disk already is what this transition needs."""
+    path = Path(entry["output"])
+    if _coarse_cache_valid(path, entry["identity"]):
+        return True
+    if entry["builder"] == "stencil":
+        return False
+    return _transition_root_geometry_valid(path, entry)
+
+
+def _cache_builder_arguments(args, case: dict[str, Any],
+                             entry: dict[str, Any]) -> list[str]:
+    """Builder argv for one transition root (without ``mpirun``)."""
+    values = [
         *_worker_environment_prefix(),
         sys.executable, str(BUILD_CACHE),
-        "--gauge", case["gauge_path"],
-        "--lat", *(str(value) for value in args.lat),
+    ]
+    if entry["builder"] == "stencil":
+        # Transition 1 probes the gauge-built 33-tensor stencil: unchanged
+        # command, including the solve's MPI grid forwarded as --grid.
+        values.extend([
+            "--gauge", case["gauge_path"],
+            "--lat", *(str(value) for value in entry["parent_lattice"]),
+            "--mass", str(case["mass"]),
+            "--csw", str(case["csw"]),
+            "--dtype", args.dtype,
+            "--dof", str(entry["parent_e"]), str(entry["child_e"]),
+            "--mg-grid", *(str(value) for value in entry["block"]),
+            "--nv-iters", str(args.nv_iters),
+            "--seed", str(args.seed),
+            "--build-device", args.build_device,
+            "--batch-size", str(args.build_batch_size),
+            "--grid", *(str(value) for value in args.grid),
+            "--output", entry["output"],
+            "--report", entry["report"],
+        ])
+        return values
+    # Transitions >= 2 project the parent root's 33-tensor stencil, one local
+    # probe pass over the parent: no gauge, so no MPI domain decomposition, and
+    # no --nv-iters either - the bridge builder performs exactly one
+    # inverse-iteration pass per vector and records that in the root identity.
+    values.extend([
+        "--parent-cache", str(entry["parent_cache"]),
+        "--level", str(entry["transition"]),
+        "--lat", *(str(value) for value in entry["parent_lattice"]),
         "--mass", str(case["mass"]),
         "--csw", str(case["csw"]),
         "--dtype", args.dtype,
-        "--dof", *(str(value) for value in args.dof[:args.levels]),
-        "--mg-grid", *(str(value) for value in args.mg_grid),
-        "--nv-iters", str(args.nv_iters),
+        "--dof", str(entry["parent_e"]), str(entry["child_e"]),
+        "--mg-grid", *(str(value) for value in entry["block"]),
         "--seed", str(args.seed),
         "--build-device", args.build_device,
-        "--batch-size", str(args.build_batch_size),
-        "--grid", *(str(value) for value in args.grid),
-        "--output", str(cache_path),
-        "--report", str(report),
-    ]
-    command = build_mpirun_command(
-        mpirun=args.mpirun, ranks=args.ranks, bind_to=args.bind_to,
-        map_by=args.map_by, oversubscribe=args.oversubscribe,
-        allow_run_as_root=args.allow_run_as_root,
-        worker_arguments=builder_arguments)
+        "--output", entry["output"],
+        "--report", entry["report"],
+    ])
+    return values
+
+
+def _run_cache_builder(args, case: dict[str, Any],
+                       entry: dict[str, Any]) -> None:
+    """Run one transition build and fail closed, naming the transition."""
+    arguments = _cache_builder_arguments(args, case, entry)
+    if entry["builder"] == "stencil":
+        command = build_mpirun_command(
+            mpirun=args.mpirun, ranks=args.ranks, bind_to=args.bind_to,
+            map_by=args.map_by, oversubscribe=args.oversubscribe,
+            allow_run_as_root=args.allow_run_as_root,
+            worker_arguments=arguments)
+    else:
+        _require_transition_builder(entry)
+        command = arguments
     completed = subprocess.run(command, cwd=REPO, check=False)
-    if completed.returncode != 0 or not cache_path.is_file():
+    if completed.returncode != 0 or not Path(entry["output"]).is_file():
         raise RuntimeError(
-            f"coarse-cache build failed with exit={completed.returncode}: "
+            f"coarse-cache build for multigrid transition {entry['transition']} "
+            f"(level-{entry['parent_level']} -> level-{entry['child_level']}, "
+            f"E={entry['child_e']}) failed with exit={completed.returncode}: "
             f"{' '.join(command)}")
+
+
+def _build_coarse_cache(args, case: dict[str, Any],
+                        cache_path: Path) -> list[dict[str, Any]]:
+    """Build every missing transition root, in order, reusing the valid ones.
+
+    ``cache_path`` is transition 1 (the gauge-built 33-tensor stencil); the roots
+    of transitions ``2..N`` come from ``--coarse-cache-level`` in order, and each
+    one is built from the root of the transition before it.  A root that already
+    validates against this chain is reused, so an interrupted build resumes at
+    the first missing transition instead of restarting from the gauge.
+    """
+    chain = _coarse_cache_chain(args, case, finest=cache_path)
+    rebuild = bool(getattr(args, "rebuild_coarse_cache", False))
+    for entry in chain:
+        if not rebuild and _chain_root_reusable(entry):
+            entry["status"] = "reused"
+            continue
+        _run_cache_builder(args, case, entry)
+        entry["status"] = "built"
+    return chain
 
 
 def _worker_arguments(args, case: dict[str, Any], cache_path: Path | None,
@@ -493,14 +902,26 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     args.lat = list(validate_lattice(args.lat))
     if len(args.dof) < args.levels:
         parser.error("--dof must provide one value per requested level")
-    if args.backend == "kupl" and args.levels > 2:
-        parser.error("the current KUPL Legacy benchmark supports at most 2 levels")
+    # One cache root per Galerkin transition: --coarse-cache names transition 1
+    # and every repeated --coarse-cache-level names the next one, in order.  The
+    # counts below are N-level; only the message names which transition is
+    # missing, so an incomplete chain never reports a backend limit.
     if args.levels > 2 and args.coarse_cache is None:
-        parser.error("levels > 2 require --coarse-cache")
+        parser.error(
+            f"multigrid transition 1 has no cache root: --levels {args.levels} "
+            f"needs {args.levels - 1} per-transition roots and the root of "
+            "transition 1 (the gauge-built 33-tensor stencil) is --coarse-cache "
+            "<path>")
     if len(args.coarse_cache_level) < max(0, args.levels - 2):
         parser.error(
-            "levels > 2 require one repeated --coarse-cache-level per "
-            "additional coarse transition")
+            _missing_root_message(
+                args.levels, 1 + len(args.coarse_cache_level)))
+    if args.levels > 2 and args.restart != 0:
+        try:
+            _validate_transition_geometry(
+                args.lat, args.mg_grid, args.levels, args.dof)
+        except ValueError as exc:
+            parser.error(str(exc))
     if args.levels < 1 or args.omp_threads < 1:
         parser.error("--levels and --omp-threads must be positive")
     if args.min_size < 2:
@@ -629,6 +1050,31 @@ def main(argv: Sequence[str] | None = None) -> int:
             "mass": mass,
             "csw": csw,
         }
+        # The planned chain is the only way to inspect the wiring before an
+        # expensive build: one record per transition with its parent root, child
+        # basis, geometry, and exact builder command.  Nothing is validated or
+        # built here, so a dry run stays cheap on large roots.
+        dry_run_case = {
+            **placeholder,
+            "gauge": {"canonical_sha256": "0" * 64, "sha256": "0" * 64},
+        }
+        coarse_chain = [
+            {
+                **_chain_record(
+                    entry,
+                    command=_cache_builder_arguments(args, dry_run_case, entry)),
+                "root_exists": Path(entry["output"]).is_file(),
+                "parent_root_exists": (
+                    entry["transition"] == 1 or
+                    Path(str(entry["parent_cache"])).is_file()),
+                "builder_available": (
+                    entry["builder"] == "stencil" or
+                    _transition_builder_available()),
+            }
+            for entry in (
+                _coarse_cache_chain(args, dry_run_case, finest=cache)
+                if cache else [])
+        ]
         worker = _worker_arguments(
             args, placeholder, cache, args.grid, output, report)
         command = build_mpirun_command(
@@ -645,6 +1091,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "binding_fallback": args.binding_fallback,
             "trace_enabled": False,
             "quda_enable_tuning": "0",
+            "coarse_chain": coarse_chain,
             "command": command,
             "environment": {
                 key: launch_environment.get(key) for key in (
@@ -664,14 +1111,10 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     case = _materialize_case(args, dtype)
     cache_path: Path | None = None
+    coarse_chain: list[dict[str, Any]] = []
     if args.levels > 1 and args.restart != 0:
-        expected_cache_identity = _coarse_cache_identity(args, case)
-        cache_path = (
-            resolve_path(args.coarse_cache, Path(args.coarse_cache).expanduser())
-            if args.coarse_cache else _coarse_cache_path(args, case))
-        if args.rebuild_coarse_cache or not _coarse_cache_valid(
-                cache_path, expected_cache_identity):
-            _build_coarse_cache(args, case, cache_path)
+        cache_path = _finest_cache_path(args, case)
+        coarse_chain = _build_coarse_cache(args, case, cache_path)
 
     output = (
         resolve_path(args.output, Path(args.output).expanduser())
@@ -698,6 +1141,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "command": command, "lattice": args.lat, "grid": args.grid,
         "omp_threads": args.omp_threads, "bind_to": args.bind_to,
         "map_by": args.map_by, "binding_fallback": args.binding_fallback,
+        "coarse_chain": [_chain_record(entry) for entry in coarse_chain],
         "worker_pythonpath": env["PYTHONPATH"],
     }, omit_none=True)
     print(json.dumps(launch_payload, ensure_ascii=False), flush=True)

@@ -996,8 +996,6 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parse_args(argv)
-    if args.backend == "kupl" and args.levels > 2:
-        raise ValueError("the current KUPL Legacy benchmark supports at most 2 levels")
     comm = MPI.COMM_WORLD
     try:
         validate_rank_count(int(comm.Get_size()))
