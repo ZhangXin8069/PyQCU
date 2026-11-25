@@ -1065,3 +1065,104 @@ launcher: {kind, mpirun, rankfile, nodes, ranks_per_node}
 | dtype/文件名误标根因 | [`docs/kupl_hdf5_source_gauge_rootcause_20261115.md`](kupl_hdf5_source_gauge_rootcause_20261115.md) |
 | LIME 只读读取点 | [`docs/kupl_kunpeng_matrix_20261115.md`](kupl_kunpeng_matrix_20261115.md) |
 | 用户手册 | [`refer/kunpeng/深圳超算二期用户手册.pdf`](../refer/kunpeng/深圳超算二期用户手册.pdf) |
+
+## 6. 复现一次测量（2026-11-25 补充）
+
+本节记录的是**实际跑出结果的命令本身**，而不是"应该怎么跑"。此前所有 L48/L64 结果都由
+远端工作树里的临时脚本产生（`sh/` 下有 233 个，**一个都没进版本库**，而且
+`/home/share/nsls_yangyb/PyQCU-main` **不是 git 检出**），因此只凭仓库内容无法复现任何一格。
+矩阵行里记录了完整参数（`lattice`、`lattice_grid`、`dtype`、`mg_*`、`cache_identity`、
+`binding_environment`、`atol`），缺的只是下面这几条启动命令。
+
+### 6.1 前置：环境与绑定
+
+```bash
+source ./env.sh                      # PYTHONPATH / PYQCU_ROOT / PYQCU_*_LIB
+export KUPL_NUMA_BIND=1              # 三者缺一不可，pyqcu.test 会硬性拒绝
+export KUPL_MEMORY_NODE=local+16
+export KUPL_HUGEPAGE=1
+source /opt/batch/cli/envs/profile.env          # dsub/djob/drun
+source /work_ssd/software/HPCKit/26.1.RC1/setvars.sh   # 作业内编译需要
+```
+
+单 rank 或非 KUPL 后端不受这三条约束；受控的绑定/未绑定 A/B 用
+`PYQCU_ALLOW_UNBOUND_KUPL=1`，此时行里 `binding_environment` 会记下未绑定，**不得与
+已绑定的数字并列比较**。
+
+### 6.2 作业头（本集群验证可用）
+
+```
+#DSUB -q q_hpcapp
+#DSUB -n <unique-name>
+#DSUB -nn 1
+#DSUB -N 16
+#DSUB -rpn 16
+#DSUB -R "cpu=18,mem=16G"
+#DSUB -x job
+#DSUB -oo /abs/path/to/logs/dsub.out
+#DSUB -eo /abs/path/to/logs/dsub.err
+#DSUB -T 2400
+```
+
+自造的 `-N 1 -rpn 1` 会被调度器以 `job build failed` 在 1 秒内拒绝，脚本**从未执行**；
+`#DSUB -oo` 的目录必须**在提交前存在**，否则作业立刻失败且不写任何日志。同一拒绝形态
+是间歇性的，遇到时重提即可——但必须先确认 `dsub.out` 的**时间戳变了**再相信任何结论。
+
+### 6.3 作业内编译（`cmake` 只在计算节点）
+
+```bash
+cd cpp/kupl/qcu
+touch src/lattice_clover_multigrid.cpp     # 共享文件系统时钟偏移会让 make 静默跳过
+bash make.sh > "$OUT/logs/build.log" 2>&1
+md5sum build/libqcu.so.0.1.0               # 必须与上一次不同
+```
+
+`make.sh: SUCCESS` 与退出码 0 **都不是证据**：`Makefile2` 的未来时间戳会让 `make`
+判定一切最新而直接退出并返回 0。判据是**库 md5 改变** + 构建日志时间戳前移 +
+日志里出现目标文件的 `Building CXX object ...` 行。
+
+### 6.4 建粗层缓存（`E` 存在缓存里）
+
+```bash
+mpirun -mpi pmix -nn 2 -rpn 16 -R core=18 -- \
+  python3 -B pyqcu/testing/simple/kupl_multigrid.py \
+    --lat 48 48 48 96 --grid 2 2 2 4 \
+    --mass -0.277 --csw 1.160920226 --dtype c64 \
+    --levels 2 --restart 5 --max-iter 50 --atol 1e-4 --strict-acceptance \
+    --dof 12 4 --mg-grid 2 2 2 2 --nv-iters 2 \
+    --write-coarse-cache "$CACHE" \
+    --gauge "$GAUGE" --source "$SOURCE" \
+    --report "$OUT/reports/build.json"
+```
+
+`--dof 12 <E>` 决定粗空间容量，**并且写在缓存的 `lonv` 首轴与 `identity['dof']` 里**；
+缓存身份还带 `nv_builder`，所以换了零空间基生成算法必须重建缓存，旧产物会被拒绝而不是
+静默复用。`cache_policy=auto` 下务必核对行里 `cache_reused` / `cache_manifest`。
+
+### 6.5 跑一格并落行
+
+```bash
+/opt/batch/agent/tools/drun -mpi pmix -nn 1 -rpn 16 -R core=18 -- \
+  python3 -B -m pyqcu.test --mode solve --native mg \
+    --only kupl/native/mg --dtype c64 \
+    --lattice-size 48 48 48 96 --lattice-grid 2 2 2 2 --ranks 16 \
+    --mg-levels 2 --mg-grid 2 2 2 2 --mg-dof 12 4 --restart 20 \
+    --coarse-tol-factor 1e4 \
+    --mass -0.277 --csw 1.160920226 \
+    --threads 18 --no-shm --repeat 3 --warmup 1 --max-iter 2000 --atol 1e-5 \
+    --cache-dir "$CACHE" \
+    --gauge-file "$GAUGE" --source-file "$SOURCE" \
+    --outdir "$OUT/mg_r20" > "$OUT/logs/solver.log" 2>&1
+```
+
+- 一次调用只跑**一个** `drun`；`--native solve mg` 同时给出会 exit 1。
+- 全文模式下的标志是 **`--mg-dof`**，`--dof` 是 native 模式的拼法；给错时 python 报
+  `unrecognized arguments` 而**作业状态仍是 SUCCEEDED**，所以必须 grep 求解器日志。
+- 16 rank 用 `--reference-budget 8GiB`（独立参考需约 7.5 GiB/rank，默认 4 GiB 会
+  返回 `SKIP(reference_workspace)`）。
+- **c128 用 `--atol 1e-9`**：验收门是 `1e-08`，`--atol 1e-5` 只能到 `7.2e-07` 会被判
+  FAIL。门不放宽，只收紧求解器判据。
+- 性能结论**只能在同一分配内比较**：同一未改动脚本三次分配测得 1.8185 / 3.8661 /
+  2.7584 s，残差逐位相同（2.1× 摆幅）。
+- 判 PASS 只认 `rows/*.json` 里 `status= PASS` 且 `residual_verified= true`；作业
+  `FAILED` 但 `treeFenceService` 超时的情形很常见，产物完整时以产物为准。

@@ -3563,3 +3563,43 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
        - the 16 matrix cells are 16 independent runs each gated on a residual
          computed by an independent torch operator;
        - no two wall times from different jobs may be compared as a ratio.
+
+158. Review round 3 (reproducibility): the launch scripts were never in the repo
+     Finding: `sh/` holds 233 launch scripts and **none of them is tracked** -
+     `git ls-files sh/` is empty locally and the directory does not exist in the
+     checkout at all, because every script was written straight into the remote
+     working tree.  Worse, `/home/share/nsls_yangyb/PyQCU-main` has **no .git**:
+     it is a synced copy, not a clone, so no commit pins what actually executed.
+     Reproducibility therefore rested entirely on my shell history: a reader with
+     only the repository could not re-run a single cell.
+
+     What the rows DO carry is complete: lattice, lattice_grid, local_lattice,
+     dtype, ranks, mg_levels/mg_grid/mg_dof, restart, coarse_tol_factor, atol,
+     cache_identity, binding_environment, launcher, residual_source, and the
+     environment before/after.  So the parameters are reproducible - only the
+     launcher invocation was missing.
+
+     Fixed by documenting the commands themselves in
+     docs/pyqcu_test_l48_remote.md section 6, taken from the scripts that actually
+     produced the results, including the traps that void a run:
+       - the working #DSUB header, and that a hand-made `-N 1 -rpn 1` is rejected
+         as `job build failed` in under a second with the script never running;
+       - that the -oo/-eo directory must exist before submission;
+       - that `make.sh: SUCCESS` and exit 0 prove nothing under clock skew - the
+         evidence is the library md5, the log timestamp, and the `Building CXX`
+         line;
+       - the cache-build command with `--dof 12 <E>` and the note that E and
+         nv_builder live inside the artifact;
+       - the measurement command, `--mg-dof` (not `--dof`) in full mode, the
+         8GiB reference budget for 16 ranks, `--atol 1e-9` for c128, and that a
+         wrong flag still reports SUCCEEDED;
+       - one drun per invocation, PASS needs rows/*.json with residual_verified,
+         and a treeFenceService timeout can leave complete artifacts behind a
+         FAILED job.
+
+     Still true and recorded rather than fixed: the 233 ad-hoc scripts remain
+     untracked and the remote tree remains a non-git copy.  Section 6 is the
+     canonical recipe; it is not a claim that the historical scripts are
+     archived.  Anyone re-running must expect to rebuild the launcher from that
+     section, and should record the job id and library md5 with every number, as
+     every section of this log does.
