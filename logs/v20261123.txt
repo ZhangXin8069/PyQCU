@@ -5022,3 +5022,50 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
            cluster and were never copied into the repository, which is why the values
            appear here and in the two skill files but in no other log section - they
            were cited to section 153/182 for a while, and neither contains them.
+
+191. Round 9 (test adequacy) showed the two worst fixes had no guard at all; the
+     arithmetic is now a header with a unit test, and the guards are proven
+     destructive
+     Round 9 asked, for every fix this session made, whether reverting it would turn
+     anything red.  The answer for the two most important ones was no, and not
+     because a test was missing in the ordinary sense: no test COULD see them.
+       Givens: a non-unitary rotation still annihilates the subdiagonal because the
+       next line writes 0 there, so the solve converges.  The error scales with
+       Im(a), which measured 1e-4, i.e. inside the 1e-5..1e-4 tolerance band.
+       The 497-test suite was green for the entire life of the defect.
+       Gate: the preconditioner gate never fires on this operator (contraction
+       ~0.40 against a 0.8812 trip), so swapping its statistic changes no result
+       that has ever been produced.
+     Both are now pure functions in cpp/kupl/qcu/include/kupl/mg_arithmetic.hpp
+     (mg_givens_rotation, mg_contraction_mean, mg_mu_pre_steps, mg_guarded_divide,
+     plus kMgGateWindow/kMgGateThreshold/kMgGatePerStepThreshold), called by the
+     solver, and pinned by cpp/kupl/qcu/tests/test_mg_arithmetic.cpp - registered as
+     ctest kupl_qcu_mg_arithmetic, no MPI, no lattice, 0.00 s.
+
+     Destructive proof, both directions:
+       revert the Givens to c = conj(a)/r  -> FAIL rotation is unitary (0.551),
+            -conj(s)a + cb == 0 (0.403), diag phase (1.758) - float and double;
+       delete the nv_builder comparison in _check_identity -> the new
+            parametrized case fails and the other 13 stay green.
+
+     Three more pins, each verified to be red on revert:
+       the gate: g = 0.89 constant gives (g^5)^(1/6) = g^(5/6) = 0.9074 >= 0.9, so
+            it trips; the old six-ratios-over-six form is g = 0.89 and does not.
+            This is where 0.8812 actually comes from: 0.9^(6/5).
+       mu_pre: 0 -> 4, 1..8 identity, 9 -> 8, 100 -> 8, -3 -> 4.
+       _check_identity nv_builder: the reuse test never varied this field, which is
+            why deleting the comparison left 13 tests green while an artifact could
+            validate against the wrong basis.  The first version of the new case used
+            NULL_VECTOR_BUILDER's own value and passed for the wrong reason; it uses
+            legacy-residual/1 now.
+       one-level verify: added to the existing child loop, expects
+            "levels=1 status=2"; ctest kupl_qcu_python_failure_modes PASS, 15.6 s.
+
+     Equivalence on a compute node, job 2261132 (same configuration as 2260994):
+       arm     after the extraction     before                residual
+       base    1.2014 s                1.2126 s              4.41e-06 identical
+       mg-2    1.7067 s                1.6834 s              3.10e-06 identical
+       mg-3    2.6645 s                2.6514 s              4.33e-06 identical
+     Residuals bit-identical, times within 1.4%: moving the arithmetic into a header
+     changed nothing numerically, which is what a pure refactor must show.
+     Local full suite after the new pins: 498 passed, 5 skipped (was 497/5).

@@ -1,6 +1,7 @@
 #include "kupl/lattice_clover_multigrid.h"
 #include "kupl/lattice_linalg.h"
 #include "kupl/lattice_set.h"
+#include "kupl/mg_arithmetic.hpp"
 
 #include <algorithm>
 #include <array>
@@ -854,9 +855,7 @@ private:
     //                   CLI, so it is stated here.
     // The CLI refuses 0 as well (pyqcu/test/__main__.py's _int_flag has a floor of
     // 1), so a user can only reach 0 through the library API.
-    const int configured = params_[kMgMuPre];
-    const int steps = configured > 0 ? configured : 4;
-    return std::min(steps, 8);
+    return mg_mu_pre_steps(params_[kMgMuPre]);
   }
 
   // One MR smoothing pass on level's (x, r), matching CUDA's MR branch
@@ -966,8 +965,11 @@ private:
     // permanent latches that change the whole Krylov basis, so a 2% difference in
     // where they fire is a real behavioural difference, not a rounding one.
     // The window state deliberately spans restarts, as CUDA's does.
-    const int gate_window = 6;
-    const Real gate_threshold = Real(0.9);
+    // Both constants live in kupl/mg_arithmetic.hpp so tests/test_mg_arithmetic.cpp
+    // can pin where the latch fires; see there for why 0.9 is the per-window value
+    // and 0.8812 the per-step equivalent.
+    const int gate_window = kMgGateWindow;
+    const Real gate_threshold = Real(kMgGateThreshold);
     int gate_count = 0;
     int gate_failures = 0;
     Real gate_log_sum = Real(0);
@@ -1089,11 +1091,14 @@ private:
         // here scaled with Im(a); h_jj measured (1.0155, -0.0001), i.e. almost
         // real, which is why the solve still converged to 4e-5 and why this was
         // invisible in the results while remaining wrong for a complex diagonal.
-        const Real magnitude = std::abs(a);
-        const C phase = magnitude > Real(0) ? a / magnitude : C(1);
-        cosine[static_cast<std::size_t>(j)] = C(magnitude / radius, 0);
-        sine[static_cast<std::size_t>(j)] = phase * std::conj(b) / radius;
-        hessenberg[hindex(j, j)] = phase * C(radius, 0);
+        // The construction itself lives in kupl/mg_arithmetic.hpp so that
+        // tests/test_mg_arithmetic.cpp can assert its unitarity; see the comment
+        // above for why no residual comparison can see this defect.
+        MgGivensRotation<Real> rotation;
+        mg_givens_rotation(a, b, rotation);
+        cosine[static_cast<std::size_t>(j)] = C(rotation.cosine, 0);
+        sine[static_cast<std::size_t>(j)] = rotation.sine;
+        hessenberg[hindex(j, j)] = rotation.diagonal;
         hessenberg[hindex(j + 1, j)] = C(0, 0);
         const C g0 = givens[static_cast<std::size_t>(j)];
         const C g1 = givens[static_cast<std::size_t>(j + 1)];
@@ -1115,10 +1120,11 @@ private:
           ++gate_count;
           if (gate_count >= gate_window) {
             // (r_6/r_1)^(1/6): five ratios, divided by the window length, exactly
-            // as CUDA's gfac at lattice_clover_multigrid.h:5886.
-            const Real mean =
-                std::exp((std::log(estimate) - gate_anchor_log) /
-                         Real(gate_window));
+            // as CUDA's gfac at lattice_clover_multigrid.h:5886.  The formula is in
+            // kupl/mg_arithmetic.hpp because the gate is inert on every operator
+            // measured so far, so no solve can pin it.
+            const Real mean = mg_contraction_mean(
+                estimate, std::exp(gate_anchor_log), gate_window);
             gate_log_sum = Real(0);
             gate_count = 0;
             if (mean >= gate_threshold) {
@@ -1157,8 +1163,7 @@ private:
         // 1e-30, not numeric_limits<Real>::min(): the latter is ~2e-308, so a
         // tiny-but-representable pivot would still divide and y could overflow.
         // CUDA floors the same quantity at 1e-30 (:5880 for its window factor).
-        y[static_cast<std::size_t>(i)] =
-            std::abs(diagonal) > Real(1e-30) ? sum / diagonal : C(0);
+        y[static_cast<std::size_t>(i)] = mg_guarded_divide(sum, diagonal);
       }
       for (int i = 0; i < used; ++i) {
         const C coefficient = y[static_cast<std::size_t>(i)];

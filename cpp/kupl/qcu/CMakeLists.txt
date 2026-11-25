@@ -120,6 +120,15 @@ if(KUPL_BUILD_TESTS)
       OpenMP::OpenMP_CXX
   )
 
+  # Pure arithmetic: no MPI, no lattice, no library.  It is the only guard on the
+  # Givens unitarity and on where the preconditioner gate fires, because neither
+  # defect shows up in a residual comparison.
+  add_executable(kupl_qcu_mg_arithmetic tests/test_mg_arithmetic.cpp)
+  target_compile_features(kupl_qcu_mg_arithmetic PRIVATE cxx_std_17)
+  target_include_directories(kupl_qcu_mg_arithmetic
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+  add_test(NAME kupl_qcu_mg_arithmetic COMMAND $<TARGET_FILE:kupl_qcu_mg_arithmetic>)
+
   add_executable(kupl_qcu_bench tests/benchmark_kupl.cpp)
   target_compile_features(kupl_qcu_bench PRIVATE cxx_std_17)
   target_link_libraries(kupl_qcu_bench

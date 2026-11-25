@@ -86,6 +86,10 @@ def test_legacy_cache_is_validated_and_sliced_once_for_all_backends(tmp_path):
     ("gauge_sha256", "b" * 64),
     ("mass", -0.276),
     ("mg_grid", [2, 2, 2, 4]),
+    # _check_identity in pyqcu/tools/_legacy_mg_cache.py had no test for this
+    # field: deleting its comparison left every reuse test green, and the A/B
+    # arms could then load each other's basis.
+    ("nv_builder", "legacy-residual/1"),
 ])
 def test_legacy_cache_rejects_identity_mismatch(tmp_path, field, value):
     assets, identity = _legacy_fixture()

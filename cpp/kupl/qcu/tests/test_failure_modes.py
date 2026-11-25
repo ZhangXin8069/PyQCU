@@ -137,7 +137,9 @@ def child_multigrid_verify_levels(library: ctypes.CDLL) -> None:
     params, argv, set_ptrs, _ = make_state()
     library.applyInitQcu(pointer(set_ptrs), pointer(params), pointer(argv))
     dummy = np.zeros(1, dtype=np.complex64)
-    for levels in (5, 18, 19, 21):
+    # 1 is the case that used to pass: zero transitions ran, and verify() returned
+    # true after allocating nine fine-level vectors.  It reports 2 now.
+    for levels in (1, 5, 18, 19, 21):
         params[17] = levels
         status = library.verifyCloverMultigridQcu(
             pointer(dummy), pointer(dummy), pointer(dummy), pointer(dummy),
@@ -267,7 +269,7 @@ def main() -> int:
             "verifyCloverMultigridQcu crashed on an out-of-range level count: "
             f"returncode={verify_levels.returncode} "
             f"stderr={verify_levels.stderr[-2000:]}")
-    for expected in ("levels=5 status=1", "levels=18 status=1",
+    for expected in ("levels=1 status=2", "levels=5 status=1", "levels=18 status=1",
                      "levels=19 status=2", "levels=21 status=2"):
         if expected not in verify_levels.stdout:
             raise AssertionError(
