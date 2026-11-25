@@ -51,15 +51,30 @@ bool mg_env_enabled(const char *name) {
 // So the interval gets its own environment knob, read here - at the single
 // point where the value is decided - rather than threaded through the Python
 // option layers, which is where this repository has silently dropped four
-// knobs already.  Nothing about it can touch the restart: params_[26] keeps
-// carrying the BiCGStab restart length (it is also the MG enable gate in
-// clover_multigrid_solve), and the fine Krylov keeps restarting every
-// params_[26] iterations regardless of the interval.
+// knobs already.
+//
+// What this knob does NOT do, stated because an earlier version of this comment
+// claimed the opposite: it does not decouple the coarse correction from the fine
+// restart.  `solve()` sizes each chunk as
+//     chunk = min(remaining, correction_interval - since_correction)
+// and every bicgstab_chunk starts a fresh BiCGStab (rhat = r; p = v = 0;
+// rho_old = alpha = omega = 1), so the correction interval IS the fine restart
+// length.  Setting it to 2 restarts BiCGStab every 2 iterations; with it unset
+// the interval equals --restart, which is the historical coupling.  Separating
+// the two needs a chunk that can span several restarts, which this loop cannot
+// do - so no measurement here can attribute a timing difference to MG alone.
 //
 // Name and default, explicitly:
-//   KUPL_MG_CORRECTION_INTERVAL   unset/empty -> historical behaviour
+//   KUPL_MG_CORRECTION_INTERVAL   unset/empty -> the historical VALUE
 //                                                (restart>0 ? restart : 3)
 //                                 positive int -> the interval, [1, 100000]
+// "Historical value", not "historical behaviour": the first correction is now
+// scheduled after `smoothing_prefix` fine iterations instead of against
+// residual(0) = b, because an unsmoothed dense residual makes the first V-cycle
+// gain 0.4% while costing 0.30 s of a 3.79 s solve (job 2248613, and the
+// algebra at the loop below explains why that is a bound, not bad luck).  That
+// phase change is deliberate and is NOT reversible by leaving this unset.
+//
 // The value is parsed strictly: a non-integer is an error, never a silent
 // fallback, because "the knob was ignored" is the failure mode that has to be
 // impossible to miss.
@@ -1268,11 +1283,17 @@ private:
   // restrict()/prolong() are pure local loops (no MPI, no halo), so this runs
   // on every rank without a collective; only rank 0 prints.
   void audit_transfer_mapping(int level, int bx, int by, int bz, int bt) {
-    static bool done = false;
-    if (done) {
+    // Once per (level, block), not once per process: pyqcu.test runs rows
+    // in-process, so a function-local static made the audit silent for every
+    // rank's second and later solve while still looking "already done".
+    if (level < 0 ||
+        static_cast<std::size_t>(level) >= audited_levels_.size()) {
       return;
     }
-    done = true;
+    if (audited_levels_[static_cast<std::size_t>(level)]) {
+      return;
+    }
+    audited_levels_[static_cast<std::size_t>(level)] = true;
     // A debug-only audit must never be able to take a production solve down.
     try {
       audit_transfer_mapping_body(level, bx, by, bz, bt);
@@ -1644,6 +1665,8 @@ private:
   int64_t prof_prolong_calls_ = 0;
   int64_t prof_coarse_correction_calls_ = 0;
   std::array<LegacyMgLevel<Real>, 5> levels_{};
+  //: Which levels have already had the dof-level transfer audit printed.
+  std::array<bool, 5> audited_levels_{};
   std::vector<Complex<Real>> canonical_input_;
   std::vector<Complex<Real>> canonical_output_;
 };
