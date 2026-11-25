@@ -221,6 +221,150 @@ def test_both_cache_implementations_agree_on_the_builder_revision():
     assert cache.NULL_VECTOR_BUILDER == _legacy_mg_cache.NULL_VECTOR_BUILDER
     assert (cache.UNSPECIFIED_NULL_VECTOR_BUILDER
             == _legacy_mg_cache.UNSPECIFIED_NULL_VECTOR_BUILDER)
+    assert (cache.LEGACY_NULL_VECTOR_BUILDER
+            == _legacy_mg_cache.LEGACY_NULL_VECTOR_BUILDER)
+    assert (cache.NULL_VECTOR_BUILDER_ENVIRONMENT
+            == _legacy_mg_cache.NULL_VECTOR_BUILDER_ENVIRONMENT)
+
+
+def test_the_builder_switch_defaults_to_the_inverse_iteration(monkeypatch):
+    """Unset must be HEAD: same revision, same identity hash, no rebuild needed.
+
+    This is the default-safety proof for ``KUPL_NV_BUILDER``.  The identity is
+    compared by HASH, because that is what the cache actually compares and a
+    mapping comparison would pass even if normalisation substituted a value.
+    """
+    from pyqcu.tools import _legacy_mg_cache
+
+    monkeypatch.delenv(cache.NULL_VECTOR_BUILDER_ENVIRONMENT, raising=False)
+    assert cache.null_vector_builder() == cache.NULL_VECTOR_BUILDER
+    assert _legacy_mg_cache.null_vector_builder() == cache.NULL_VECTOR_BUILDER
+    default = _identity()
+    assert default["nv_builder"] == cache.NULL_VECTOR_BUILDER
+    # The constant the switch folds to is the literal HEAD shipped.
+    explicit = dict(default, nv_builder="inverse-iteration/2")
+    assert cache.identity_sha256(explicit) == cache.identity_sha256(default)
+
+
+def test_the_builder_switch_selects_the_legacy_revision(monkeypatch):
+    """``KUPL_NV_BUILDER=legacy`` must change what the artifact claims.
+
+    An arm that asks for the old loop and records the new revision (or the other
+    way round) would silently measure the wrong basis, so the switch has to move
+    the identity, not just the C++.
+    """
+    from pyqcu.tools import _legacy_mg_cache
+
+    inverse = _identity()
+    monkeypatch.setenv(cache.NULL_VECTOR_BUILDER_ENVIRONMENT, "legacy")
+    assert cache.null_vector_builder() == cache.LEGACY_NULL_VECTOR_BUILDER
+    assert _legacy_mg_cache.null_vector_builder() == cache.LEGACY_NULL_VECTOR_BUILDER
+    legacy = _identity()
+    assert legacy["nv_builder"] == cache.LEGACY_NULL_VECTOR_BUILDER
+    assert cache.identity_sha256(legacy) != cache.identity_sha256(inverse)
+
+
+@pytest.mark.parametrize("value", ("legacy", "inverse", ""))
+def test_the_builder_switch_accepts_exactly_the_cpp_spellings(monkeypatch, value):
+    """Python and C++ must accept the same set, or manifest and run disagree.
+
+    The C++ parser is an exact ``strcmp`` (``nv_builder_legacy`` in
+    lattice_solver.cpp), so nothing more permissive may be accepted here.
+    """
+    from pyqcu.tools import _legacy_mg_cache
+
+    monkeypatch.setenv(cache.NULL_VECTOR_BUILDER_ENVIRONMENT, value)
+    expected = (cache.LEGACY_NULL_VECTOR_BUILDER if value == "legacy"
+                else cache.NULL_VECTOR_BUILDER)
+    assert cache.null_vector_builder() == expected
+    assert _legacy_mg_cache.null_vector_builder() == expected
+
+
+@pytest.mark.parametrize("value", ("legacy ", " LEGACY", "Legacy", "old",
+                                   "leagcy", "1", "noise"))
+def test_an_unknown_builder_switch_is_refused(monkeypatch, value):
+    """A typo must fail, never fall back: two identical arms would look like a result."""
+    from pyqcu.tools import _legacy_mg_cache
+
+    monkeypatch.setenv(cache.NULL_VECTOR_BUILDER_ENVIRONMENT, value)
+    with pytest.raises(cache.CacheError):
+        cache.null_vector_builder()
+    with pytest.raises(ValueError):
+        _legacy_mg_cache.null_vector_builder()
+    with pytest.raises(cache.CacheError):
+        _identity()
+
+
+def _ranked_manifest(option, nv_builder):
+    """Minimal ranked manifest good enough to reach the identity comparison."""
+    return {"identity": {
+        "lattice": list(option.lattice),
+        "dtype": "c64",
+        "mass": float(option.mass),
+        "csw": float(option.csw),
+        "mg_grid": list(option.mg_grid),
+        "seed": int(option.seed),
+        "nv_iters": int(option.nv_iters),
+        "dof": [12, int(option.dof[1])],
+        "nv_builder": nv_builder,
+    }}
+
+
+@pytest.mark.parametrize("environment,recorded", (
+    ("inverse", "legacy-residual/1"),
+    ("legacy", "inverse-iteration/2"),
+))
+def test_the_mg_loader_refuses_the_other_builder(monkeypatch, tmp_path,
+                                                 environment, recorded):
+    """Cross-pairing rejection, both directions, in both identity sources.
+
+    The ranked loader is the one that compares ``nv_builder`` and ``nv_iters``
+    field by field (`native._load_ranked_mg_assets`); it must refuse an artifact
+    written by the other loop rather than load it, and the refusal must name the
+    field so the operator sees why.
+    """
+    from pyqcu.tools import _legacy_mg_cache
+
+    option = _case()
+    monkeypatch.setenv(cache.NULL_VECTOR_BUILDER_ENVIRONMENT, environment)
+    manifest = _ranked_manifest(option, recorded)
+    monkeypatch.setattr(
+        _legacy_mg_cache, "read_legacy_mg_ranked_manifest",
+        lambda path, **_kwargs: manifest)
+    with pytest.raises(ValueError) as caught:
+        native._load_ranked_mg_assets(option, None, None, (1, 1, 1, 1),
+                                      tmp_path / "cache.h5")
+    message = str(caught.value)
+    assert "nv_builder" in message, message
+    assert recorded in message, message
+    assert cache.null_vector_builder() in message, message
+
+
+def test_the_shared_cache_loader_refuses_the_other_builder(monkeypatch, tmp_path):
+    """The single-file loader used by the MG path refuses it too.
+
+    ``cache.validate_cache`` compares the whole identity, so this is the same
+    mechanism one level down: a manifest that claims ``legacy-residual/1`` must
+    not validate against an identity asking for ``inverse-iteration/2``.
+    """
+    import json
+
+    identity = _identity()
+    manifest = {
+        "status": "PASS",
+        "schema_version": cache.LEGACY_SCHEMA,
+        "layout": cache.LEGACY_LAYOUT,
+        "identity": dict(identity, nv_builder=cache.LEGACY_NULL_VECTOR_BUILDER),
+    }
+    path = tmp_path / "cache.h5"
+    path.write_bytes(b"not an hdf5 file")
+    cache.manifest_path(path).write_text(json.dumps(manifest), encoding="utf-8")
+    monkeypatch.delenv(cache.NULL_VECTOR_BUILDER_ENVIRONMENT, raising=False)
+    with pytest.raises(cache.CacheError) as caught:
+        cache.validate_cache(path, identity=identity, verify_file_sha256=False)
+    message = str(caught.value)
+    assert "nv_builder" in message, message
+    assert cache.LEGACY_NULL_VECTOR_BUILDER in message, message
 
 
 def test_the_shared_identity_records_the_revision_only_when_claimed():

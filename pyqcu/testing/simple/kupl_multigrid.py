@@ -16,7 +16,6 @@ import numpy as np
 from pyqcu.tools._legacy_mg_cache import (
     LEGACY_MG_ASSET_COARSE_AXES,
     LEGACY_MG_ASSET_NAMES,
-    NULL_VECTOR_BUILDER,
     build_legacy_mg_ranked_cache_manifest,
     file_sha256,
     is_legacy_mg_ranked_cache,
@@ -26,6 +25,7 @@ from pyqcu.tools._legacy_mg_cache import (
     load_legacy_mg_cache_patch,
     load_legacy_mg_cache_slab,
     logical_array_sha256,
+    null_vector_builder,
     read_legacy_mg_ranked_manifest,
     save_legacy_mg_cache,
     validate_legacy_mg_cache,
@@ -1506,7 +1506,11 @@ def main(argv=None) -> int:
             # an artifact that does not declare one cannot be told apart from the
             # old `v -= S^-1(S v)` (solver-noise) basis and is rejected by
             # pyqcu.test.  The CUDA builder deliberately does NOT declare it.
-            nv_builder=NULL_VECTOR_BUILDER,
+            # ``null_vector_builder()`` reads KUPL_NV_BUILDER so this manifest
+            # names the loop the C++ actually ran (legacy-residual/1 when the
+            # switch asks for the old one), in both the write and validate paths
+            # below: the same `cache_identity` object is used for both.
+            nv_builder=null_vector_builder(),
         )
         if args.coarse_cache is not None:
             cache_path = resolve_path(

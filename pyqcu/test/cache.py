@@ -94,9 +94,13 @@ __all__ = [
     "ASSET_NAMES",
     "CACHE_ENVIRONMENT",
     "LEGACY_LAYOUT",
+    "LEGACY_NULL_VECTOR_BUILDER",
     "LEGACY_SCHEMA",
     "MANIFEST_SCHEMA",
+    "NULL_VECTOR_BUILDER",
+    "NULL_VECTOR_BUILDER_ENVIRONMENT",
     "REQUIRED_IDENTITY_FIELDS",
+    "UNSPECIFIED_NULL_VECTOR_BUILDER",
     "CacheEntry",
     "CacheError",
     "CacheMiss",
@@ -114,6 +118,7 @@ __all__ = [
     "mg_identity",
     "normalize_expected_identity",
     "normalize_identity",
+    "null_vector_builder",
     "platform_identity",
     "prepare_cache",
     "read_cache",
@@ -145,6 +150,18 @@ _SCALAR_INT_IDENTITY_FIELDS = frozenset({"nv_iters", "seed", "mpi_size"})
 #: identity because the builder's algorithm, not its inputs, decides what the
 #: coarse basis is.
 NULL_VECTOR_BUILDER = "inverse-iteration/2"
+#: Revision recorded when the *old* loop ran: ``v -= S^-1(S v)``, i.e.
+#: ``v - v``, which stores the inner solver's residual (white noise) instead of a
+#: near-null vector.  Kept as a first-class revision so the old basis stays
+#: measurable: ``KUPL_NV_BUILDER=legacy`` makes the C++ builder run that loop
+#: again (cpp/kupl/qcu/src/lattice_solver.cpp), and this is what the artifact it
+#: writes must record.
+LEGACY_NULL_VECTOR_BUILDER = "legacy-residual/1"
+#: Environment switch that selects the loop.  It is *not* a cache setting: it is
+#: read by the C++ builder and by the Python identity code, so the revision an
+#: artifact records and the revision a loader expects always come from the same
+#: place.  Unset/empty means the current inverse iteration.
+NULL_VECTOR_BUILDER_ENVIRONMENT = "KUPL_NV_BUILDER"
 #: What an identity with no recorded builder normalizes to.  It must differ from
 #: every real revision, otherwise normalisation would silently upgrade an old
 #: artifact to the current builder and defeat the invalidation.
@@ -165,6 +182,34 @@ def _builder_revision(value: Any) -> str:
     if not text:
         return UNSPECIFIED_NULL_VECTOR_BUILDER
     return text
+
+
+def null_vector_builder(environ: Mapping[str, str] | None = None) -> str:
+    """Return the revision the C++ builder records for this environment.
+
+    ``KUPL_NV_BUILDER=legacy`` selects the historical ``v -= S^-1(S v)`` loop,
+    anything else (including unset and empty) selects the current inverse
+    iteration, and an unrecognised value raises: a typo must never silently pick
+    one of the two, because that is how an A/B ends up comparing the same basis
+    twice.  The C++ side parses the same variable the same way
+    (``cpp/kupl/qcu/src/lattice_solver.cpp``), and it prints the revision it
+    actually used under ``KUPL_MG_DEBUG=1`` so the manifest and the run can be
+    checked against each other.
+    """
+    source = os.environ if environ is None else environ
+    raw = source.get(NULL_VECTOR_BUILDER_ENVIRONMENT) or ""
+    # Exact spellings only, because the C++ parser is exact too
+    # (lattice_solver.cpp nv_builder_legacy): a value Python accepted but C++
+    # rejected (or vice versa) would make the manifest and the run disagree.
+    if raw == "" or raw == "inverse":
+        return NULL_VECTOR_BUILDER
+    if raw == "legacy":
+        return LEGACY_NULL_VECTOR_BUILDER
+    raise CacheError(
+        f"{NULL_VECTOR_BUILDER_ENVIRONMENT} must be 'legacy' or 'inverse' "
+        f"(unset means 'inverse'), got {raw!r}")
+
+
 #: Environment variable that overrides :func:`default_cache_dir`.
 CACHE_ENVIRONMENT = "PYQCU_TEST_MG_CACHE"
 #: dtype spellings mapped to the two cache dtypes.
@@ -454,8 +499,10 @@ def mg_identity(*, lattice: Sequence[int], mg_grid: Sequence[int],
         # The builder revision this code writes.  Passed explicitly because
         # normalize_identity deliberately does NOT substitute it for a missing
         # value: an artifact that records no revision must hash differently from
-        # one written by the current builder.
-        "nv_builder": NULL_VECTOR_BUILDER,
+        # one written by the current builder.  ``null_vector_builder()`` reads
+        # KUPL_NV_BUILDER, so an identity built while the legacy loop is selected
+        # declares the legacy revision instead of claiming the inverse one.
+        "nv_builder": null_vector_builder(),
     })
 
 

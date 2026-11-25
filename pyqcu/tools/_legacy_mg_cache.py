@@ -43,6 +43,13 @@ LEGACY_MG_ASSET_COARSE_AXES = {
 #: KUPL's builder is a real inverse iteration since 97508c6a, while CUDA's is
 #: still `v -= S^-1(S v)`, so a CUDA artifact must keep the sentinel.
 NULL_VECTOR_BUILDER = "inverse-iteration/2"
+#: Revision of the historical ``v -= S^-1(S v)`` loop, which stores the inner
+#: solver's residual instead of a near-null vector.  Selected with
+#: ``KUPL_NV_BUILDER=legacy``; see :func:`null_vector_builder`.
+LEGACY_NULL_VECTOR_BUILDER = "legacy-residual/1"
+#: Environment switch read by the C++ builder and by this module, so the
+#: revision an artifact records always names the loop that ran.
+NULL_VECTOR_BUILDER_ENVIRONMENT = "KUPL_NV_BUILDER"
 #: What an artifact that records no revision normalises to.  Must differ from
 #: every real revision, otherwise an old artifact would be silently trusted.
 UNSPECIFIED_NULL_VECTOR_BUILDER = "unspecified"
@@ -354,8 +361,40 @@ def _normalize_identity(identity: Mapping[str, Any]) -> dict[str, Any]:
     return result
 
 
+def null_vector_builder(environ: Mapping[str, str] | None = None) -> str:
+    """Return the revision the C++ null-vector builder records right now.
+
+    ``KUPL_NV_BUILDER=legacy`` selects the historical ``v -= S^-1(S v)`` loop,
+    anything else (unset, empty, ``inverse``) selects the current inverse
+    iteration, and an unrecognised value raises instead of falling back: a typo
+    that silently picked one of the two would make an old-basis and a new-basis
+    arm identical without any visible error.  ``pyqcu.test.cache`` carries the
+    same three constants and the same rule; a guard test asserts they agree.
+    """
+    source = os.environ if environ is None else environ
+    raw = source.get(NULL_VECTOR_BUILDER_ENVIRONMENT) or ""
+    # Exact spellings only: the C++ parser (lattice_solver.cpp
+    # nv_builder_legacy) is exact, so anything more permissive here could make
+    # the manifest claim a builder the library then refuses to run.
+    if raw == "" or raw == "inverse":
+        return NULL_VECTOR_BUILDER
+    if raw == "legacy":
+        return LEGACY_NULL_VECTOR_BUILDER
+    raise ValueError(
+        f"{NULL_VECTOR_BUILDER_ENVIRONMENT} must be 'legacy' or 'inverse' "
+        f"(unset means 'inverse'), got {raw!r}")
+
+
 def legacy_mg_cache_identity(**values: Any) -> dict[str, Any]:
-    """Build a normalized cross-backend cache identity."""
+    """Build a normalized cross-backend cache identity.
+
+    ``nv_builder`` is deliberately NOT defaulted here.  This function is shared
+    with builders that have not been changed (CUDA still runs the old
+    ``v -= S^-1(S v)`` loop), so an artifact that does not *claim* a revision must
+    normalise to ``UNSPECIFIED_NULL_VECTOR_BUILDER`` and be refused by the loader
+    rather than be labelled with KUPL's revision.  A caller that knows which loop
+    ran passes ``nv_builder=null_vector_builder()``.
+    """
     return _normalize_identity(values)
 
 

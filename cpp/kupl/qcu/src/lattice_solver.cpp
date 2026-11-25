@@ -60,6 +60,63 @@ double positive_env_double(const char *name, double fallback) {
   return end != text && *end == '\0' && value > 0.0 ? value : fallback;
 }
 
+bool env_enabled(const char *name) {
+  const char *value = std::getenv(name);
+  return value != nullptr && *value != '\0' && std::strcmp(value, "0") != 0 &&
+         std::strcmp(value, "false") != 0 && std::strcmp(value, "no") != 0 &&
+         std::strcmp(value, "off") != 0;
+}
+
+// Which null-vector loop the builder runs.
+//
+// The old loop was
+//     application(v) -> rhs;  solve S u = rhs;  v -= u
+// i.e. v -= S^-1(S v) = v - v, which stores only the inner solver's residual -
+// white noise with no near-null content.  The current loop is a real inverse
+// iteration v <- S^-1 v with per-pass renormalisation (S^-1 amplifies the
+// smallest eigenvalue by 1/lambda_min per pass, so c64 overflows after a few).
+//
+// Both live in multigrid_build_null_vectors() so the two bases can be measured
+// on ONE library, ONE lattice and ONE allocation, which is the only way an
+// old-basis/new-basis A/B can be attributed to the basis.  Selection is an
+// environment variable rather than a params slot because the flat params ABI has
+// no free word: kParamsSize is 58 (define.h:8), 19..50 are the level blocks and
+// 51..57 are kVerbose/kSeed/_TEST_IN_CPU_/kMgUseGcr/kMgUseDeflate/kMgMuPre/
+// kUseInitialGuess, and backend.cpp:36,69 copy exactly 58 entries.
+//
+//   KUPL_NV_BUILDER   unset/empty -> "inverse" (HEAD behaviour, bit-identical)
+//                     "inverse"   -> v <- S^-1 v, renormalised per pass
+//                     "legacy"    -> v -= S^-1(S v), no renormalisation
+//                     anything else -> error, never a silent fallback
+//
+// The revision string is what the cache identity records, from the SAME
+// environment variable on the Python side (pyqcu/test/cache.py
+// null_vector_builder(), pyqcu/tools/_legacy_mg_cache.py), so an artifact built
+// by one loop cannot satisfy a case that asks for the other.  Under
+// KUPL_MG_DEBUG=1 rank 0 prints the effective choice and its revision, so a run
+// proves which loop produced the basis it used instead of trusting the flag.
+constexpr const char *kNvBuilderEnv = "KUPL_NV_BUILDER";
+constexpr const char *kNvBuilderInverse = "inverse";
+constexpr const char *kNvBuilderLegacy = "legacy";
+constexpr const char *kNvBuilderRevisionInverse = "inverse-iteration/2";
+constexpr const char *kNvBuilderRevisionLegacy = "legacy-residual/1";
+
+bool nv_builder_legacy() {
+  const char *value = std::getenv(kNvBuilderEnv);
+  if (value == nullptr || *value == '\0') {
+    return false;
+  }
+  if (std::strcmp(value, kNvBuilderLegacy) == 0) {
+    return true;
+  }
+  if (std::strcmp(value, kNvBuilderInverse) == 0) {
+    return false;
+  }
+  throw std::runtime_error(
+      "KUPL_NV_BUILDER must be \"legacy\" or \"inverse\" (unset means "
+      "\"inverse\"); refusing to guess which basis to build");
+}
+
 template <typename Real>
 std::array<Complex<Real>, 2>
 global_norm_dot_pair(const Complex<Real> *left, const Complex<Real> *right,
@@ -877,6 +934,26 @@ void LatticeSet<Real>::multigrid_build_null_vectors(
   const bool progress =
       std::getenv("PYQCU_MG_BUILD_PROGRESS") != nullptr;
   const auto progress_start = std::chrono::steady_clock::now();
+  // Decided once, before the first column, and deliberately outside any
+  // collective: no MPI call is added here, so every rank reaches the same loop
+  // (the switch is in the environment every rank already shares).  Only the
+  // print below is rank-gated.
+  const bool legacy_builder = nv_builder_legacy();
+  if (geometry_.rank == 0 && env_enabled("KUPL_MG_DEBUG")) {
+    const char *raw = std::getenv(kNvBuilderEnv);
+    std::fprintf(
+        stdout,
+        "PYQCU::KUPL::NULL_VECTOR_BUILDER_DEBUG:\n"
+        " builder=%s revision=%s source=%s env=%s nv_iters=%d E=%d "
+        "renormalise_per_pass=%d rhs=%s\n",
+        legacy_builder ? "legacy" : "inverse",
+        legacy_builder ? kNvBuilderRevisionLegacy : kNvBuilderRevisionInverse,
+        (raw == nullptr || *raw == '\0') ? "default" : "env",
+        raw == nullptr ? "(unset)" : raw, nv_iters, E,
+        legacy_builder ? 0 : 1,
+        legacy_builder ? "S*v" : "v");
+    std::fflush(stdout);
+  }
 
   for (int column = 0; column < E; ++column) {
     if (progress) {
@@ -923,6 +1000,25 @@ void LatticeSet<Real>::multigrid_build_null_vectors(
       }
       try {
         for (int iteration = 0; iteration < nv_iters; ++iteration) {
+          if (legacy_builder) {
+            // The pre-97508c6a loop, verbatim: rhs = S v, u = S^-1 rhs,
+            // v -= u.  Since S^-1(S v) == v exactly, this stores v - v, i.e. the
+            // inner solver's residual, and it does NOT renormalise per pass -
+            // both are what KUPL_NV_BUILDER=legacy reproduces and what the
+            // cache revision "legacy-residual/1" records.  No line below changes
+            // in the default branch, so an unset switch stays bit-identical.
+            application(vector.data(), rhs.data());
+            std::fill(correction.begin(), correction.end(), C(0));
+            solve_compact_bistabcg(
+                correction.data(), rhs.data(), count, application,
+                "NULL_VECTOR_INVERSE_ITERATION", static_cast<Real>(nv_tol));
+#pragma omp parallel for schedule(static)
+            for (int64_t index = 0; index < count; ++index) {
+              vector[static_cast<std::size_t>(index)] -=
+                  correction[static_cast<std::size_t>(index)];
+            }
+            continue;
+          }
           // Genuine inverse iteration: v <- S^{-1} v, so the right-hand side
           // is v itself.  It used to be S v followed by `vector -= correction`:
           // S^{-1}(S v) == v exactly, so that loop stored v - v, i.e. only the
@@ -980,8 +1076,9 @@ void LatticeSet<Real>::multigrid_build_null_vectors(
     }
     if (!accepted) {
       throw std::runtime_error(
-          "null-vector inverse iteration failed after five deterministic "
-          "retries: " + last_error);
+          std::string("null-vector ") +
+          (legacy_builder ? "legacy residual" : "inverse iteration") +
+          " failed after five deterministic retries: " + last_error);
     }
     log("NULL_VECTOR", "column=%d nv_iters=%d E=%d local_vectors=%lld",
         column, nv_iters, E, static_cast<long long>(count));

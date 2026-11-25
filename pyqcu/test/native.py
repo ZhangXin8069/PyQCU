@@ -2776,6 +2776,13 @@ class NativeCase:
     cache_policy: str = "auto"
     cache: Path | None = None
     cache_directory: Path | None = None
+    #: Ranked Legacy-MG cache root of every coarse transition, finest first:
+    #: ``mg_cache[t-1]`` supplies transition ``t`` (level ``t-1 -> t``).  One
+    #: root per transition is the cache format's own granularity - an artifact
+    #: stores exactly one transition - so ``mg_levels`` levels need
+    #: ``mg_levels - 1`` roots.  Empty means "not given": a 2-level case still
+    #: names its single transition through ``cache``.
+    mg_cache: tuple[Path, ...] = ()
     #: Independent-reference policy.  ``reference_mode`` is ``auto`` (the
     #: distributed path for rank-local blocks, the tiled path for whole-lattice
     #: fields), ``distributed``, ``tiled`` or ``gather``; ``reference_budget``
@@ -2862,6 +2869,7 @@ class NativeCase:
             "cache": None if self.cache is None else str(self.cache),
             "cache_directory": (None if self.cache_directory is None
                                 else str(self.cache_directory)),
+            "mg_cache": [str(path) for path in self.mg_cache],
             "gauge_file": (None if self.gauge_file is None
                            else str(self.gauge_file)),
             "source_file": (None if self.source_file is None
@@ -2911,6 +2919,26 @@ def _normalize_choice(value: Any, aliases: Mapping[str, str], name: str) -> str:
     except KeyError:
         choices = ", ".join(sorted(set(aliases.values())))
         raise ValueError(f"{name} must be one of {choices}, got {value!r}") from None
+
+
+def _path_stack(value: Any, name: str) -> tuple[Path, ...]:
+    """Normalise a repeated path option (one path per coarse transition)."""
+    if value is None:
+        return ()
+    if isinstance(value, (str, bytes, Path)):
+        items: Sequence[Any] = (value,)
+    elif isinstance(value, Sequence):
+        items = value
+    else:
+        raise ValueError(
+            f"{name} must be a path or a list of paths, got {value!r}")
+    paths: list[Path] = []
+    for item in items:
+        if item is None or isinstance(item, bytes) or not str(item).strip():
+            raise ValueError(
+                f"{name} entries must be non-empty paths, got {item!r}")
+        paths.append(Path(str(item)).expanduser())
+    return tuple(paths)
 
 
 def _resolve_mass_kappa(mass: Any, kappa: Any) -> tuple[float, float]:
@@ -3142,6 +3170,18 @@ def _options(case: Any = None, *, kind: str = "solve", **explicit: Any
             f"cache_policy must be auto/off/require, got {cache_policy!r}")
     cache_value = _get("cache")
     cache_directory = _get("cache_directory")
+    mg_cache = _path_stack(_get("mg_cache"), "mg_cache")
+    if mg_cache and cache_value is not None:
+        # Two spellings of the same transition-1 root: which one the run used
+        # would be invisible in the row.
+        raise ValueError(
+            "cache and mg_cache both name the transition-1 root: pass the "
+            "hierarchy's roots with mg_cache (one per transition, finest "
+            "first), or the single transition with cache, not both")
+    if mg_cache and mg_levels < 2:
+        raise ValueError(
+            f"mg_cache names the coarse transition roots, but "
+            f"mg_levels={mg_levels} has no coarse transition")
     reference_mode = _resolve_reference_mode(_get("reference_mode"))
     reference_budget = _resolve_reference_budget(_get("reference_budget"))
     gauge_file = _path_option(_get("gauge_file"))
@@ -3194,6 +3234,7 @@ def _options(case: Any = None, *, kind: str = "solve", **explicit: Any
         cache=(None if cache_value is None else Path(str(cache_value)).expanduser()),
         cache_directory=(None if cache_directory is None
                          else Path(str(cache_directory)).expanduser()),
+        mg_cache=mg_cache,
         reference_mode=reference_mode,
         reference_budget=reference_budget,
         gauge_file=gauge_file,
@@ -3942,9 +3983,11 @@ def _ranked_mg_cache_path(option: NativeCase) -> Path | None:
 
 def _load_ranked_mg_assets(
         option: NativeCase, controls: _Controls, torch: Any,
-        grid: Sequence[int], path: Path,
+        grid: Sequence[int], path: Path, *,
+        transition: int = 1,
+        chain: Sequence[Mapping[str, Any]] | None = None,
         ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
-    """Load coarse tensors from a ranked Legacy-MG cache.
+    """Load one transition's coarse tensors from a ranked Legacy-MG cache.
 
     The cached tensors describe the global coarse operator; the process grid
     and local slabs that published them are only storage metadata.  Each live
@@ -3953,6 +3996,15 @@ def _load_ranked_mg_assets(
     64 ranks when the cache identity (gauge, lattice, dtype, mass, csw,
     ``mg_grid``, seed) still matches.  A single-file cache or a rebuilt serial
     stencil is never used as a fallback; an identity mismatch is an ERROR.
+
+    ``transition`` is the 1-based coarse transition this root publishes and
+    ``chain`` the derived hierarchy (:func:`_mg_level_chain`).  An artifact
+    stores one transition, so its coarse box is the one *that* transition
+    produces: level 1's is ``legacy_mg_geometry``'s coarse box, a deeper one
+    halves its parent and is read from ``chain``.  The identity fields are
+    compared unchanged - they describe the case, not the level - and
+    ``identity['dof']`` is the per-level prefix the writer records
+    (``dof[0]`` the fine field, ``dof[t]`` transition ``t``'s ``E``).
     """
     from pyqcu.tools._legacy_mg_cache import (
         canonical_dtype, file_sha256, legacy_mg_geometry,
@@ -3977,7 +4029,11 @@ def _load_ranked_mg_assets(
         "mg_grid": list(option.mg_grid),
         "seed": int(option.seed),
         "nv_iters": int(option.nv_iters),
-        "nv_builder": str(cache_module.NULL_VECTOR_BUILDER),
+        # The revision the configured builder writes, not a fixed constant: with
+        # KUPL_NV_BUILDER=legacy the case asks for the old loop, so a manifest
+        # that claims the inverse iteration is the wrong artifact for it (and the
+        # other way round).  Both directions are refusals, never a silent reuse.
+        "nv_builder": str(cache_module.null_vector_builder()),
     }
     actual = {
         "lattice": list(identity.get("lattice", [])),
@@ -4003,25 +4059,48 @@ def _load_ranked_mg_assets(
     # it was built with no matter what the case declares.  That is how every
     # earlier run ended up at E=2.  A case that asks for a different ``dof``
     # must get that E or an error, never the cache's E.
+    #
+    # ``dof`` is the per-level prefix, so transition ``t``'s own E is ``dof[t]``:
+    # the fine field (12) for the first transition, its parent's basis for a
+    # deeper one.
     cached_dof = tuple(int(value) for value in identity.get("dof", ()))
-    if len(cached_dof) < 2 or cached_dof[1] <= 0:
+    index = int(transition)
+    if len(cached_dof) <= index or cached_dof[index] <= 0:
         raise ValueError(
             f"ranked Legacy-MG cache {path} records no usable dof/E: "
             f"{list(cached_dof)}")
-    cached_e = int(cached_dof[1])
+    cached_e = int(cached_dof[index])
     requested_dof = tuple(int(value) for value in option.dof)
     # Only a DECLARED E is enforced: ``dof`` defaults to DEFAULT_DOF, so testing
     # the value would let `--mg-dof 12 12` slip past while the row records
     # dof=[12,12] and the run actually used the artifact's E.
-    if option.dof_declared and requested_dof[1] != cached_e:
+    if option.dof_declared and len(requested_dof) > index \
+            and requested_dof[index] != cached_e:
         raise ValueError(
             f"ranked Legacy-MG cache E={cached_e} (dof={list(cached_dof)}) "
             f"does not match the requested dof={list(requested_dof)}.  E is a "
             f"property of the artifact (lonv axis 0 -> params[kMgLevel1E]=19) "
             f"and cannot be changed at load time: build a dedicated cache "
-            f"with `--dof 12 {requested_dof[1]}` (pyqcu/testing/simple/"
+            f"with `--dof 12 {requested_dof[index]}` (pyqcu/testing/simple/"
             f"kupl_multigrid.py --write-coarse-cache) or pass "
             f"--cache-dir to one that already has it.")
+    if int(transition) > 1:
+        # A transition's ``lonv`` keeps its parent's basis on axis 1, so the
+        # parent's E is the cheapest proof that this artifact belongs to this
+        # link of the chain and not to the finest one.
+        if chain is None:
+            raise ValueError(
+                f"transition {index} is checked against the derived hierarchy, "
+                f"so its root cannot be loaded without one")
+        parent_e = int(chain[index - 1]["E"])
+        lonv = tuple(int(value) for value in
+                     manifest.get("global_shapes", {}).get("lonv", ()))
+        parent_axis = lonv[1] if len(lonv) > 1 else None
+        if parent_axis != parent_e:
+            raise ValueError(
+                f"ranked Legacy-MG cache {path} lonv parent components "
+                f"{parent_axis} != level {index - 1} E={parent_e}: this "
+                f"artifact is not the level {index - 1} -> {index} transition")
     if option.gauge_file is not None and identity.get("gauge_file_sha256"):
         digest = file_sha256(option.gauge_file)
         if digest != identity["gauge_file_sha256"]:
@@ -4032,7 +4111,13 @@ def _load_ranked_mg_assets(
     # partition that happened to publish them.  A live grid may therefore read
     # its own coarse window from a cache built by another process grid, as long
     # as the global geometry and identity match.
-    _, coarse = legacy_mg_geometry(option.lattice, option.mg_grid)
+    if chain is not None and index > 1:
+        # A deeper transition's coarse box is the one the hierarchy derives
+        # (level ``index`` halves its parent); ``legacy_mg_geometry`` describes
+        # the *first* transition and would reject every root above it.
+        coarse = tuple(int(value) for value in chain[index]["dims"])
+    else:
+        _, coarse = legacy_mg_geometry(option.lattice, option.mg_grid)
     if list(manifest.get("global_coarse", [])) != list(coarse):
         raise ValueError(
             "ranked Legacy-MG cache global_coarse "
@@ -4092,6 +4177,106 @@ def _load_ranked_mg_assets(
     return assets, entry, dict(entry)
 
 
+def _load_ranked_mg_transitions(
+        option: NativeCase, controls: _Controls, torch: Any,
+        grid: Sequence[int], roots: Sequence[Path],
+        chain: Sequence[Mapping[str, Any]],
+        ) -> tuple[list[dict[str, Any]], dict[str, Any], dict[str, Any]]:
+    """Load one ranked cache root per coarse transition, finest first.
+
+    The rows this produces are per transition: ``assets[t-1]`` is the
+    four-tensor set :func:`_configure_legacy_mg` points ``set_ptrs`` at for
+    level ``t``.  Every root is checked with the full identity comparison of
+    :func:`_load_ranked_mg_assets`, and a failure is re-raised with the
+    transition it belongs to: for a hierarchy, "a cache is unusable" does not
+    say which operator has to be rebuilt.
+    """
+    from pyqcu.tools._legacy_mg_cache import is_legacy_mg_ranked_cache
+
+    depth = int(option.mg_levels)
+    assets: list[dict[str, Any]] = []
+    entries: list[dict[str, Any]] = []
+    notes: list[str] = []
+    for transition, root in enumerate(roots, start=1):
+        label = f"transition {transition} (level {transition - 1} -> {transition})"
+        if not is_legacy_mg_ranked_cache(Path(root)):
+            raise ValueError(
+                f"mg_levels={depth}: {label} root {root} is not a ranked "
+                f"Legacy-MG cache root; a hierarchy reads one such root per "
+                f"transition, finest first")
+        try:
+            loaded, entry, _ = _load_ranked_mg_assets(
+                option, controls, torch, grid, Path(root),
+                transition=transition, chain=chain)
+        except (ValueError, OSError) as error:
+            raise ValueError(
+                f"mg_levels={depth}: {label} root {root} is unusable: "
+                f"{error}") from error
+        assets.append(loaded)
+        entries.append(entry)
+        notes.extend(f"{label}: {note}" for note in entry["cache_notes"])
+    shapes = [
+        {name: [int(value) for value in tensor.shape]
+         for name, tensor in transition_assets.items()}
+        for transition_assets in assets
+    ]
+    first = entries[0]
+    records = [
+        {
+            "transition": int(transition),
+            "level": int(transition),
+            "parent": int(transition - 1),
+            "root": str(roots[transition - 1]),
+            "E": int(entry["mg_e"]),
+            "E_parent": int(chain[transition - 1]["E"]),
+            "coarse": [int(value) for value in entry["cache_local_coarse"]],
+            "starts": [int(value) for value in entry["cache_starts"]],
+            "shapes": shapes[transition - 1],
+            "identity": entry["cache_identity"],
+        }
+        for transition, entry in enumerate(entries, start=1)
+    ]
+    # One merged cache block for the row: the first transition's slabs describe
+    # what ``applyCloverMultigridQcu`` reads for level 1, and
+    # ``mg_transition_cache`` carries the same facts for every root so a reader
+    # never has to assume the other roots were equivalent.
+    merged: dict[str, Any] = {
+        "cache_reused": all(bool(entry.get("cache_reused")) for entry in entries),
+        "cache_seconds": None,
+        "cache_notes": notes,
+        "cache_shapes": first["cache_shapes"],
+        "cache_identity": first["cache_identity"],
+        "cache_manifest": first["cache_manifest"],
+        "cache_rank": first["cache_rank"],
+        "cache_starts": first["cache_starts"],
+        "cache_local_coarse": first["cache_local_coarse"],
+        "mg_e": first["mg_e"],
+        "mg_dof": first["mg_dof"],
+        "mg_transition_roots": [str(root) for root in roots],
+        "mg_transition_cache": records,
+        "mg_transition_shapes": shapes,
+    }
+    return assets, merged, dict(merged)
+
+
+def _mg_transition_roots(option: NativeCase) -> tuple[Path, ...]:
+    """Return the ranked cache root of each coarse transition, finest first.
+
+    ``mg_cache`` names them explicitly, and that spelling is the only one a
+    hierarchy deeper than one transition has: an artifact stores exactly one
+    transition (``pyqcu/tools/_legacy_mg_cache.py:103-128``), so ``mg_levels``
+    levels need ``mg_levels - 1`` roots, ``mg_cache[t-1]`` for transition ``t``.
+    A 2-level case may keep naming its single transition through ``cache``
+    (``--cache-dir <artifact>``); that path is reported here only when the file
+    really is a ranked cache, which leaves the single-file cache path in
+    :func:`_resolve_mg_transition` untouched.
+    """
+    if option.mg_cache:
+        return tuple(Path(path) for path in option.mg_cache)
+    single = _ranked_mg_cache_path(option)
+    return () if single is None else (single,)
+
+
 def _resolve_mg_assets(option: NativeCase, controls: _Controls, gauge: Any,
                        terms: Sequence[Any], inverses: Sequence[Any],
                        torch: Any, grid: Sequence[int]
@@ -4101,43 +4286,67 @@ def _resolve_mg_assets(option: NativeCase, controls: _Controls, gauge: Any,
     The list holds one four-tensor dict per coarse transition, in hierarchy
     order (``[0]`` is level 0 -> level 1), which is the indexing
     :func:`_configure_legacy_mg` places into ``params``/``set_ptrs``.  A
-    ``mg_levels`` of 1 or 2 resolves to exactly the single transition this port
-    has always used, through :func:`_resolve_mg_transition`.
+    ``mg_levels`` of 1 or 2 without explicit transition roots resolves to
+    exactly the single transition this port has always used, through
+    :func:`_resolve_mg_transition`.
 
-    A deeper request is refused here, before the null-vector inverse iteration
-    and before the ABI call: the cache format describes one transition
-    (``pyqcu/tools/_legacy_mg_cache.py:103-128``) and KUPL has no
-    coarse-to-coarser builder.  ``multigrid_build_null_vectors`` and
-    ``multigrid_build_stencil_local`` are its only two builders
-    (``cpp/kupl/qcu/include/kupl/lattice_set.h:69,74``) and both take the *fine*
-    gauge plus Clover terms (``cpp/kupl/qcu/src/apply_multigrid.cpp:232,281``),
-    so transition 2 has no operator to build from.  :func:`_mg_unbuilt_error`
-    names the transitions that would be missing one.
+    Every coarse transition is one ranked cache artifact, so a hierarchy is
+    assembled from one root per transition, finest first::
+        _resolve_mg_assets(...)  # mg_levels=3, mg_cache=(root1, root2)
+
+    A transition without a root is refused here, before the null-vector inverse
+    iteration and before the ABI call.  That is what :func:`_mg_unbuilt_error`
+    reports, and it names the transition whose root is missing: KUPL has no
+    coarse-to-coarser builder (``multigrid_build_null_vectors`` and
+    ``multigrid_build_stencil_local`` are its only two,
+    ``cpp/kupl/qcu/include/kupl/lattice_set.h:69,74``, and both take the *fine*
+    gauge plus Clover terms, ``cpp/kupl/qcu/src/apply_multigrid.cpp:232,281``),
+    so the root IS the operator source for every transition past the first.
     """
     depth = int(option.mg_levels)
-    if depth > 2:
-        # One constructor builds every level (lattice_clover_multigrid.cpp:
-        # 231-275) and reads a null-vector block plus a coarse operator for each
-        # transition.  A zero operator would silently produce a hierarchy that
-        # cannot converge, and the guarded ABI call then aborts the *process*
-        # (api::guarded, cpp/kupl/qcu/src/api_common.hpp:18-26).  Refusing is
-        # the only honest answer, and doing it here means no tensor is
-        # allocated and no inverse iteration runs first.
-        refusal = _mg_unbuilt_error(
-            option, ["native"] + ["unbuilt"] * (depth - 2))
-        assert refusal is not None  # depth > 2 always leaves a transition out
+    if depth <= 2 and not option.mg_cache:
+        # The historical single-transition path, untouched: a 2-level case names
+        # its one transition through ``cache`` (a ranked root, a single-file
+        # cache or nothing) exactly as before.
+        assets, entry, info = _resolve_mg_transition(
+            option, controls, gauge, terms, inverses, torch, grid)
+        info = dict(info)
+        info["mg_transition_sources"] = [
+            "cache" if info.get("cache_reused") else "native"]
+        return [assets], entry, info
+    roots = _mg_transition_roots(option)
+    needed = depth - 1
+    if needed < 1:
+        raise ValueError(
+            f"mg_levels={depth} has no coarse transition, so a cache root has "
+            f"nothing to supply: {[str(root) for root in roots]}")
+    if len(roots) > needed:
+        # A silently ignored root would hide which artifact the run used.
+        raise ValueError(
+            f"mg_levels={depth} has {needed} coarse transition(s), but "
+            f"{len(roots)} cache roots were given: pass one root per "
+            f"transition, finest first "
+            f"({[str(root) for root in roots]})")
+    chain = _mg_level_chain(option.lattice, option.mg_grid, depth, option.dof)
+    # Transition 1 can still be built by the native builders, so it is never the
+    # reason for a refusal; every deeper transition lives on its own root.
+    sources = [
+        "cache" if index < len(roots) else ("native" if index == 0 else "unbuilt")
+        for index in range(needed)
+    ]
+    refusal = _mg_unbuilt_error(option, sources)
+    if refusal is not None:
         raise refusal
-    assets, entry, info = _resolve_mg_transition(
-        option, controls, gauge, terms, inverses, torch, grid)
+    assets, entry, info = _load_ranked_mg_transitions(
+        option, controls, torch, grid, roots, chain)
     info = dict(info)
-    info["mg_transition_sources"] = [
-        "cache" if info.get("cache_reused") else "native"]
-    return [assets], entry, info
+    info["mg_transition_sources"] = ["cache"] * len(roots)
+    return assets, entry, info
 
 
 def _mg_unbuilt_error(option: NativeCase,
                       sources: Sequence[str]) -> ValueError | None:
-    """Return the error for a hierarchy with a transition no builder can fill.
+    """Return the error for a hierarchy with a transition no source can fill.
 
     A transition marked ``"unbuilt"`` is one this port cannot produce at all:
     the Legacy-MG cache stores one transition
@@ -4154,6 +4363,12 @@ def _mg_unbuilt_error(option: NativeCase,
                if source == "unbuilt"]
     if not missing:
         return None
+    # The actionable half: a deeper transition is supplied by ITS OWN ranked
+    # cache root, one root per transition, which is the spelling the rest of the
+    # repository already uses for a chain of coarse levels.
+    needed = int(option.mg_levels) - 1
+    spelling = " ".join(f"--mg-cache ROOT{level}"
+                        for level in range(1, needed + 1))
     return ValueError(
         f"mg_levels={option.mg_levels} cannot run: coarse transition(s) "
         f"{missing} of the hierarchy have no operator.  KUPL builds only the "
@@ -4162,7 +4377,11 @@ def _mg_unbuilt_error(option: NativeCase,
         f"(cpp/kupl/qcu/src/apply_multigrid.cpp:232,281) - and the Legacy-MG "
         f"cache format stores one transition only "
         f"(pyqcu/tools/_legacy_mg_cache.py:103-128), so a chain-aware source "
-        f"would be needed.  The wiring itself supports "
+        f"is needed: mg_levels={option.mg_levels} reads one ranked cache root "
+        f"per transition, finest first ({needed} root(s), e.g. {spelling}, or "
+        f"native.run_mg(mg_cache=[...])).  Transition(s) {missing} have no "
+        f"root, and no fallback reuses the finest root for a deeper "
+        f"transition.  The wiring itself supports "
         f"1..{MG_MAX_LEVELS} levels (see native._configure_legacy_mg).")
 
 
@@ -4550,6 +4769,7 @@ def run_mg(case: Any = None, *, lattice: Any = None, lattice_grid: Any = None,
            mg_nu_pre: Any = None,
            deflate: Any = None, verify: Any = None, cache: Any = None,
            cache_policy: Any = None, cache_directory: Any = None,
+           mg_cache: Any = None,
            gauge_file: Any = None, source_file: Any = None,
            reference_budget: Any = None, reference_mode: Any = None,
            options: Any = None, **extras: Any) -> dict[str, Any]:
@@ -4560,6 +4780,12 @@ def run_mg(case: Any = None, *, lattice: Any = None, lattice_grid: Any = None,
     from the native null-vector/33-stencil builders; the run then publishes the
     result so the next identical case reuses it.  ``cache_policy="off"`` always
     builds, ``"require"`` refuses to build.
+
+    ``mg_cache`` is one ranked Legacy-MG cache root per coarse transition,
+    finest first (``mg_cache[0]`` is level 0 -> 1).  It is what a hierarchy
+    deeper than one transition reads: KUPL builds only the fine transition, so
+    ``mg_levels=3`` needs two roots and is refused without them.  A 2-level
+    case keeps using ``cache`` alone.
 
     Required observations for an ``mg`` gate: ``converged``,
     ``relative_residual``; ``iterations`` is reported for the diagnostic
@@ -4580,7 +4806,7 @@ def run_mg(case: Any = None, *, lattice: Any = None, lattice_grid: Any = None,
         coarse_max_iter=coarse_max_iter, mg_nu_pre=mg_nu_pre,
         coarse_tol_factor=coarse_tol_factor, deflate=deflate, verify=verify,
         cache=cache, cache_policy=cache_policy,
-        cache_directory=cache_directory, extras=extras)
+        cache_directory=cache_directory, mg_cache=mg_cache, extras=extras)
     _require_operator(option, solver="mg")
     return _run_native(option)
 
@@ -4641,6 +4867,7 @@ def _default_requires(kind: str, backend: str) -> tuple[str, ...]:
 _CARRIED_OPTIONS: tuple[str, ...] = (
     "restart", "mg_levels", "mg_grid", "coarse_tol_factor", "coarse_max_iter",
     "nv_iters", "dof", "deflate", "verify", "cache", "cache_policy",
+    "mg_cache",
 )
 
 
