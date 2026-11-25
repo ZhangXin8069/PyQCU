@@ -5,6 +5,11 @@
 > [`kupl_l24_perf_20261113.md`](kupl_l24_perf_20261113.md) 与
 > [`kupl_mpi_scaling_20261114.md`](kupl_mpi_scaling_20261114.md)。
 > 路径前缀：KUPL 为 `cpp/kupl/qcu/`，CUDA 为 `cpp/cuda/qcu/`；行号以本文写作时工作区为准。
+>
+> **2026-11-25 更新**：§0.5 与 §6 的 KUPL Legacy MG 已改为与 CUDA 同构的右预条件
+> FGMRES(m=10)，删除前的细层 BiCGStab 外层 + 周期粗修正（含阻尼线搜索）不再存在。
+> 原因（两后端跑不同方法时差异无法归因到硬件）、被删清单与文件清单见
+> `logs/v20261126.txt`。其余章节的源码核对不受影响。
 
 ## 0. 结论摘要
 
@@ -21,10 +26,11 @@
 4. **求解器层面**：KUPL 是“双容差 + 强制真残差复查”的保守 BiCGStab；CUDA 是
    “递推残差停机 + 每 2 迭代检查”的高吞吐 BiCGStab，两者的初值策略和
    CG 目标函数也不同（KUPL CG 解正规方程 `A A†`，CUDA CG 直接解 Schur 系统）。
-5. **多级菜单**：KUPL 只保留 Legacy 两层 V-cycle（BiCGStab 平滑 + 阻尼搜索）与
-   Strict full-field/MATPC + 右预条件 FGMRES，显式拒绝 GCR/CA-GCR/BiCGStabL/
-   W-F-K/混合精度；CUDA 全部保留，另有 mixed restrict/prolong、融合粗层求解、
-   deflate 初值与预条件子自适应关闭。
+5. **多级菜单**：KUPL 的 Legacy 外层自 2026-11-25 起与 CUDA 同构（右预条件
+   FGMRES(m=10)，V-cycle 只做预条件；删除前的细层 BiCGStab 外层、阻尼搜索与周期
+   粗修正已不存在），Strict 是 full-field/MATPC + 右预条件 FGMRES，两者都显式拒绝
+   GCR/CA-GCR/BiCGStabL/W-F-K/混合精度；CUDA 全部保留，另有 mixed
+   restrict/prolong、融合粗层求解、deflate 初值与预条件子自适应关闭。
 
 ## 1. 硬件约束如何决定实现（先看物理）
 
@@ -200,11 +206,11 @@ GPU 侧保留直接 Schur CG 以维持与 QUDA 的迭代口径一致。
 
 | 项 | KUPL | CUDA |
 |---|---|---|
-| 默认层数 | 2（`levels` 只支持到 2 的正式路径；`src/lattice_clover_multigrid.cpp:276-302`） | 最多 5 层（参数平铺） |
-| 外层 | odd-preconditioned BiCGStab + 每 `num_restart` 步一次粗校正（`:220-223`） | 同样 BiCGStab + 粗校正；另有 GCR/FGMRES、CA-GCR、BiCGStabL（`include/lattice_clover_multigrid.h:4755-4769`） |
+| 默认层数 | 2；**2026-11-25 起 2 层与 3 层都有独立残差证据**（3 层：`level0=59 level1=12 level2=12`、12 次被采用的修正、3.19e-06，`logs/v20261123.txt` §184），4/5 层仍未验证。`src/lattice_clover_multigrid.cpp` 接受 1..5 层，上限是 ABI 槽位而非算法 | 最多 5 层（参数平铺） |
+| 外层 | 右预条件 FGMRES(m=10)，按真残差 restart（2026-11-25 起与 CUDA 同构；删除前的 odd-preconditioned BiCGStab + 每 `num_restart` 步一次粗校正已不存在） | 同一 FGMRES 结构 + V-cycle 预条件；另有 GCR/CA-GCR/BiCGStabL 可选模式（`include/lattice_clover_multigrid.h:4755-4769`） |
 | 平滑器 | **整 2 次 BiCGStab 迭代**（`:933`、`:951`） | MR/Chebyshev 可选，默认 BiCGStab 系 |
 | 最粗层 | BiCGStab 到收敛，不收敛 throw（`:911-931`） | 单核融合 BiCGStab（cooperative `grid.sync()`），体积阈值 262144 且多 rank 禁用（`include/lattice_clover_multigrid.h:3838-3847`） |
-| 粗校正接受 | 阻尼 `{1,0.5,0.25,0.125}` 逐个试，取第一个使真残差下降者，否则回滚（`:984-1013`） | deflate 一次性初值 + 下降则接受（`:4795-4844`） |
+| 粗层角色 | V-cycle 只作预条件子：`M⁻¹` = 4 步 MR 前平滑 → restrict → 一次 coarse cycle → prolong → 权重 1 加回，无 post-smooth；没有"接受/回滚"决策（阻尼 `{1,0.5,0.25,0.125}` 线搜索已于 2026-11-25 删除） | V-cycle 预条件子 + deflate 一次性初值（`:4795-4844`） |
 | 粗算子 | 33 点 stencil（sitting + 8 近邻 + 24 对角）；宽版按 512-site tile 预解码 32 邻居（`src/lattice_multigrid.cpp:508-708`） | 同样 33 点；setup 用 batched local stencil（逐 coarse 中心、逐 probe 调完整 Wilson 核，`src/multigrid.cu:2576-2818`） |
 | 混合精度 | **拒绝**（`:263-266`） | legacy 支持 float↔double restrict/prolong（`src/multigrid.cu:2107-2130`） |
 | 其它模式 | 显式拒绝 GCR/MR/Chebyshev/W-F-K（`:198-201,1104-1107`） | 全部保留 |

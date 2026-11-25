@@ -153,7 +153,7 @@ PYQCU_BUILD_BACKEND=kupl python -m pip install -e . --no-deps
 | `CMAKE_BUILD_TYPE` | `Release` | CMake 构建类型 |
 | `KUPL_ENABLE_NATIVE` | `OFF` | 是否加入 `-march=native` |
 | `KUPL_ENABLE_LTO` | `OFF` | 是否启用 LTO 和局部符号绑定 |
-| `KUPL_BUILD_TESTS` | `ON` | 是否构建 CTest/benchmark；纯部署可设 `OFF` |
+| `KUPL_BUILD_TESTS` | `cpp/kupl/qcu/tests` 存在时 `ON`，否则 `OFF` | 是否构建 CTest/benchmark；纯部署可设 `OFF`。2026-11-25 起 `install.sh` 按目录是否存在决定默认值：`MANIFEST.in` prune 掉 `tests/`，从 sdist 装时旧的 `ON` 默认会导致 `add_executable` 找不到源文件 |
 | `PYQCU_KUPL_LIB` | `cpp/kupl/qcu/libqcu.so` | 指向当前构建库的稳定软链接 |
 
 ## 4. 安装验证
@@ -402,26 +402,29 @@ last_solve_kupl.json
 - CPU 型号、NUMA cpulist、cpuset、线程数、rank 数和四维 grid；
 - lattice、mass、csw、atol、精度、迭代数和耗时；
 - 独立 full-operator 真残差；
-- cache identity、命中状态和 correction 次数（使用 MG 时）。
+- cache identity、命中状态和 `accepted_corrections`（预条件应用次数，使用 MG 时）。
 
 ### 7.5 真正的 Legacy-MG 与高效 BiStabCG
 
 #### 7.5.1 先选择算法路线
 
-`restart` 不是性能档位，而是算法路线：
+`restart` 不是性能档位。2026-11-25 之前它是"MG 粗修正的检查间隔"，删除修正器后
+它已不是间隔；但本 launcher 仍用 `levels>1 and restart!=0` 判断是否启用粗空间，
+所以两条路线仍按 `levels`/`restart` 组合区分：
 
 | 路线 | 正确参数 | coarse hierarchy | 生产用途 |
 |---|---|---|---|
-| Legacy-MG | `--levels 2 --restart 5` | 会构建/加载 33-tensor 粗算子并执行周期 coarse correction | 评估真实 MG 的迭代和墙钟收益 |
+| Legacy-MG | `--levels 2 --restart 5` | 会构建/加载 33-tensor 粗算子，并作为右预条件 FGMRES(m=10) 的 V-cycle 预条件子 | 评估真实 MG 的迭代和墙钟收益 |
 | BiStabCG | `--levels 1 --restart 0` | 不遍历 coarse hierarchy | 稳定的多 rank parity-Schur 基线；当前许多组态上最快 |
 
-`--levels 2 --restart 0` 仍会在数据准备层保留 MG 参数，但实际求解不执行 coarse
-correction；它不能作为完整 MG 性能样本。只有 `levels=2`、`restart>0` 且报告中的
-`coarse_source` 不是 `unused: restart=0` 时，才是在运行真正的 Legacy-MG。
-这里的“真正”表示实际执行 Legacy 粗层 correction，不表示 QUDA-style 或
-Strict-MG 的持久 V-cycle/FGMRES。当前 `mpi/solve_case.py` 的 KUPL 生产路线是
-Legacy-MG；Strict-MG 需要显式 `pyqcu.kupl.multigrid.StrictMultigrid` 集成或专用
-资产/benchmark harness，不能把 Legacy 报告改名为 Strict。
+`--levels 2 --restart 0` 仍会在数据准备层保留 MG 参数但不启用粗空间（launcher 判据
+`levels>1 and restart!=0`）；它不能作为完整 MG 性能样本。只有 `levels=2`、`restart>0`
+且报告中的 `coarse_source` 不是 `unused` 时，才是在运行真正的 Legacy-MG。
+这里的“真正”表示实际进入粗层预条件，不表示 QUDA-style 或 Strict-MG 的实现
+（Legacy 现在是 FGMRES(m=10) 外层 + V-cycle 预条件）。当前 `mpi/solve_case.py` 的
+KUPL 生产路线是 Legacy-MG；Strict-MG 需要显式
+`pyqcu.kupl.multigrid.StrictMultigrid` 集成或专用资产/benchmark harness，不能把
+Legacy 报告改名为 Strict。
 
 推荐生产入口是 MPI 启动器，不要直接拼 worker 命令：
 
@@ -480,16 +483,17 @@ dtype、dof、mg-grid、nv-iters 和 seed 时应复用同一身份匹配的 cach
 
 合格的真实 MG 报告至少应满足：
 
-- `levels=2`、`restart>0`、`coarse_source` 指向实际 cache；
+- `levels=2`、`restart>0`（launcher 的启用开关，不再是修正间隔）、`coarse_source`
+  指向实际 cache；
 - `verify_status=0`；
 - `final_true_residual <= residual_acceptance`，且未使用
   `--skip-independent-residual`；
 - `coarse_source`、cache identity、dtype、MPI grid 和 coarse geometry 一致。
 
 MG 不等于“必然更快”。必须与同 gauge/RHS、dtype、atol、ranks/grid/threads 的
-BiStabCG 基线比较；若 coarse correction 增加墙钟或未减少有效迭代，应保留
-BiStabCG 生产路线并在报告中记录 MG 负收益，而不是修改残差或把 `restart=0`
-改写成 MG。
+BiStabCG 基线比较；若 MG 预条件增加墙钟或未减少有效迭代，应保留 BiStabCG
+生产路线并在报告中记录 MG 负收益，而不是修改残差或把没有粗空间的
+`levels=1`/`restart=0` 改写成 MG。
 
 #### 7.5.4 运行高效多 rank BiStabCG
 
@@ -525,10 +529,10 @@ python -B pyqcu/testing/simple/mpi/solve_case.py \
   prepare、BiStabCG、解重构和 full-operator residual 验收。
 - `applyCloverBistabCgQcu` 直接调用 `LatticeSet::clover_bistabcg()`，并可通过
   `kupl_bistabcg.py`、`KuplLinearOperator` 或统一 `Krylov` facade 使用。
-- `applyCloverMultigridQcu` 是共享入口；当 `levels<=1` 或 `restart=0` 时，
-  `clover_multigrid_solve()` 明确转发到同一个 `set.clover_bistabcg()`。因此
-  `solver=applyCloverMultigridQcu` 记录的是入口 ABI，不代表实际执行了 coarse
-  correction。
+- `applyCloverMultigridQcu` 是共享入口；没有粗空间时（`_MG_USE_DEFLATE_==0`，本
+  launcher 由 `levels<=1` 或 `restart=0` 置 0）`clover_multigrid_solve()` 明确转发
+  到同一个 `set.clover_bistabcg()`。因此 `solver=applyCloverMultigridQcu` 记录的是
+  入口 ABI，不代表实际进了粗层预条件。
 - 当前没有名为 `kupl_bistabcg_mpi.py` 的独立多 rank CLI；多 rank 生产复用
   `kupl_multigrid.py` 或 `simple/mpi/solve_case.py` 的 `levels=1,restart=0`。
 
@@ -676,7 +680,7 @@ KUPL 要求每个 local 维度为偶数。用拓扑规划器或 `--kupl-grid` �
 - [ ] `test_pure_kupl_install.py` 和 `test_kunpeng_runtime.py` 通过。
 - [ ] MPI rank、grid、线程、NUMA/cpuset 和绑定责任明确。
 - [ ] 生产求解使用 `--backend kupl`，报告 `PASS` 并具有独立真残差。
-- [ ] MG/cache 运行记录 cache identity、布局和 correction 次数。
+- [ ] MG/cache 运行记录 cache identity、布局和 `accepted_corrections`（预条件应用次数）。
 - [ ] 文档、ABI 头文件和动态库导出符号同步。
 
 满足以上条件后，才可把该次结果作为纯 KUPL Kunpeng 安装或生产证据。

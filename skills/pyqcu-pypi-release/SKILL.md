@@ -139,9 +139,16 @@ site-packages/pyqcu/cuda/libqcu.so
 site-packages/pyqcu/cuda/qcu.cpython-312-x86_64-linux-gnu.so   # Cython 桥
 ```
 
-- `_install_native_libraries()`（setup.py:187）把构建产物复制进包内，
-  `package_data` 声明 `pyqcu.kupl: *.so`、`pyqcu.cuda: libqcu.so, qcu.pyi,
-  qcu/*.pyi, qcu/*.pxd`。因此安装后不依赖源码树或 `LD_LIBRARY_PATH`。
+- **2026-11-25 起，打包不再读源码树里的 `.so`。** `package_data` 不再声明
+  `pyqcu.kupl: *.so` / `pyqcu.cuda: libqcu.so`（只剩 `qcu.pyi`、`qcu/*.pyi`、
+  `qcu/*.pxd`）；`NativeBuildPy.run()` 把**本次构建产生**的
+  `cpp/kupl/qcu/build/libqcu.so` / `cpp/cuda/qcu/libqcu.so` 直接拷进
+  `self.build_lib/pyqcu/...`，wheel 从 `install_lib` 取。
+  `_remove_foreign_libraries()` 在任何构建结果下（跳过、失败、拒绝）无条件删除
+  `pyqcu/*/libqcu.so` 中**不是本次产物**的文件，`_verify_packaged_libraries()`
+  再对 sha256 做 fail-closed 校验。理由：旧实现只在构建成功分支里清理，实测
+  `PYQCU_SKIP_NATIVE_BUILD=1` 与无 cmake 两条路径都会把**陈旧 `.so` 打进 wheel**
+  （HEAD 实测 2 个）。因此安装后仍不依赖源码树或 `LD_LIBRARY_PATH`。
 - Cython 扩展用 `$ORIGIN` rpath（`runtime_library_dirs=["$ORIGIN"]` +
   `-Wl,-rpath,$ORIGIN`，setup.py:248），桥与 `pyqcu/cuda/libqcu.so` 同目录
   即可解析。
