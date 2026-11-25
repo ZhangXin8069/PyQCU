@@ -4228,7 +4228,11 @@ def _mg_transition_roots(option: NativeCase,
     if depth <= 2:
         return roots
     supplied = tuple(getattr(option, "coarse_cache_level", ()) or ())
-    for transition in range(2, int(depth) + 1):
+    # A hierarchy of `depth` levels has `depth - 1` transitions; transition 1 is
+    # --cache-dir, so the ones that need --coarse-cache-level are 2..depth-1
+    # INCLUSIVE.  `depth + 1` here asked a three-level case for a transition 3
+    # that cannot exist, which the run then refused.
+    for transition in range(2, int(depth)):
         index = transition - 2
         value = supplied[index] if index < len(supplied) else None
         if value is None or not str(value).strip():

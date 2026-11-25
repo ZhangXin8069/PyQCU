@@ -334,16 +334,28 @@ def test_the_row_records_the_chain_and_where_each_transition_came_from():
     assert record[1]["shape"] == list(shapes[1]["lonv"])
 
 
-def test_a_hierarchy_this_port_cannot_build_is_refused_before_the_solver():
+def test_a_transition_without_a_root_is_refused_by_name():
+    """Every transition past the first must name the flag that would supply it.
+
+    A deeper hierarchy is legitimate now that the probe builder exists
+    (``pyqcu.testing.simple.mg_transition``), but the port does not build it: the
+    portable package ships ``pyqcu/test`` and the builder is a checkout-only
+    developer tool, so a run must consume roots that already exist.  Refusing by
+    transition number is what keeps a missing root from silently becoming a
+    two-level hierarchy.
+    """
     option = _option(mg_levels=3, dof=(12, 12, 12))
-    assert native._mg_unbuilt_error(option, ["native"]) is None
-    assert native._mg_unbuilt_error(option, []) is None
-    error = native._mg_unbuilt_error(option, ["native", "unbuilt"])
-    assert isinstance(error, ValueError)
-    message = str(error)
-    assert "transition(s) [2]" in message
-    assert "apply_multigrid.cpp:232,281" in message
-    assert "_legacy_mg_cache.py:103-128" in message
+    second = native._missing_transition_root(option, 2, 3)
+    assert isinstance(second, ValueError)
+    message = str(second)
+    assert "mg_levels=3 needs a cache root for multigrid transition 2" in message
+    assert "--coarse-cache-level number 1" in message
+    assert "level 1 -> level 2" in message
+    # The first transition names the other flag, so a reader is never told to pass
+    # the flag that belongs to a different transition.
+    first = str(native._missing_transition_root(option, 1, 3))
+    assert "--cache-dir" in first and "--coarse-cache-level" not in first.split(
+        "the gauge-built")[0]
 
 
 class _Untouchable:
@@ -355,17 +367,53 @@ class _Untouchable:
             f"asset resolution allocates or builds anything")
 
 
-def test_the_run_path_refuses_a_depth_it_cannot_build_an_operator_for():
+def test_the_run_path_refuses_a_depth_without_its_roots():
     """``_mg_case`` resolves assets through here: refuse, and touch nothing.
 
-    This is the production refusal, not a helper: deleting the gate makes the
-    call fall through to the null-vector/stencil build with a ``None`` control
-    block, which this test reports as "the refusal touched ...".  A regression
-    that lets a mg-3 case reach the ABI would abort the MPI process instead
-    (``api::guarded``), so this one has to fail loudly.
+    This is the production refusal, not a helper.  A keyed-but-empty resolution
+    must raise before the controls are read, so that a depth whose roots were not
+    supplied cannot reach the null-vector/stencil build with a ``None`` control
+    block.  ``_Untouchable`` reports any read as "the refusal touched ...", and a
+    regression that let such a case reach the ABI would abort the MPI process
+    instead (``api::guarded``), so this one has to fail loudly.
     """
     option = _option(mg_levels=3, dof=(12, 12, 12))
     nothing = _Untouchable()
-    with pytest.raises(ValueError, match="mg_levels=3 cannot run"):
+    with pytest.raises(ValueError, match="needs a cache root for multigrid "
+                                         "transition 2"):
         native._resolve_mg_assets(option, nothing, nothing, nothing, nothing,
                                   nothing, nothing)
+
+
+def test_a_three_level_hierarchy_consumes_exactly_two_roots(tmp_path):
+    """`depth` levels means `depth - 1` transitions, and no more.
+
+    Transition 1 is ``--cache-dir``; the ones owed a ``--coarse-cache-level`` are
+    2..depth-1.  Asking for transition ``depth`` is the off-by-one that made a
+    three-level run refuse with "needs a cache root for multigrid transition 3
+    (level 2 -> level 3)" while the caller had supplied every root that exists, so
+    the count is asserted directly rather than through the message.
+    """
+    roots = []
+    for index in range(2):
+        path = tmp_path / f"l{index}.h5"
+        path.write_text("placeholder", encoding="utf-8")
+        roots.append(str(path))
+
+    three = _option(mg_levels=3, dof=(12, 12, 12),
+                    coarse_cache_level=(roots[0],))
+    resolved = native._mg_transition_roots(three, 3)
+    assert len(resolved) == 2, "three levels have exactly two transitions"
+    assert resolved[0] is None, "transition 1 is --cache-dir, not a level root"
+    assert resolved[1] is not None and resolved[1].name == "l0.h5"
+
+    # A fourth level owes one more root and must ask for exactly one more.  It
+    # needs a lattice that holds four levels: 16^3x32 halves to extent 2 at level
+    # 3, which the chain refuses, so the four-level case uses 32^3x64.
+    four = _option(lattice=(32, 32, 32, 64), mg_levels=4,
+                   dof=(12, 12, 12, 12), coarse_cache_level=tuple(roots))
+    resolved4 = native._mg_transition_roots(four, 4)
+    assert len(resolved4) == 3
+    assert [path.name for path in resolved4[1:]] == ["l0.h5", "l1.h5"]
+    with pytest.raises(ValueError, match="transition 3"):
+        native._mg_transition_roots(three, 4)
