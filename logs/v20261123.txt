@@ -4902,10 +4902,13 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
 
      A zero-step (coarse-only) preconditioner is the only configuration that can
      cost less than one fine apply per iteration, and it could not be measured: it
-     needs _MG_MU_PRE_ = 0, which cannot be expressed: pyqcu.test accepts 0 but
-     documents it as "keep the backend default of 4" (native.py:2771, minimum=0;
-     only negative values are refused), and the C++ reads 0 the same way for CUDA
-     parity, so 0 and "unset" are indistinguishable.  An environment override was
+     needs _MG_MU_PRE_ = 0, which cannot be expressed: the CLI refuses it outright
+     (_int_flag has a floor of 1, so --mg-nu-pre 0 is an error, not a request), and
+     the library-level resolver reads 0 as "keep the backend default of 4"
+     (native.py, minimum=0), which is what the C++ does too for CUDA parity.  So 0
+     and "unset" are indistinguishable AND unreachable from the CLI.  An earlier
+     version of this paragraph said the CLI accepts 0; that was wrong.  An
+     environment override was
      added, and three separate jobs (2260465, 2260506, 2260528) died with SIGTERM
      ("force to exit immediately") inside that arm while the same batch without the
      override completed.  The override has been REMOVED rather than shipped: a

@@ -798,11 +798,13 @@ private:
 
   // One Krylov chunk: up to `iterations` BiCGStab iterations on `level`.
   //
-  // A chunk is NOT a BiCGStab run.  `state.restart` (> 0 on level 0, the
-  // --restart value) is the restart length: the recurrence restarts every
-  // `restart` fine iterations, counted in absolute iterations through
-  // `state.since_restart`, so one chunk can span several restarts and one
-  // restart can span several coarse corrections.  A restart re-initialises
+  // A chunk is NOT necessarily a BiCGStab run.  `state.restart` is the restart
+  // length, counted in absolute iterations through `state.since_restart`.  Under
+  // the FGMRES outer solver NOTHING sets it: the fine level restarts on FGMRES's
+  // own m = 10 and every coarse level keeps the default 0, so each coarse chunk is
+  // one uninterrupted BiCGStab segment.  The old note here claimed level 0 carried
+  // the --restart value; that was true of the deleted corrector and is not true
+  // now.  A restart, when a level does have one, re-initialises
   // rhat = r, p = v = 0, rho_old = alpha = omega = 1 and touches nothing else:
   // x and the true residual r are continuous across it.
   //
@@ -834,6 +836,15 @@ private:
     // ("force to exit immediately") inside that arm while the same batch without
     // the override completed, so the path is unstable.  A parameter that can kill
     // a job must not ship.
+    // Three meanings share this one int, and only 1..8 mean themselves:
+    //   0            -> 4 (CUDA's "unset" sentinel; indistinguishable from a
+    //                   caller that never wrote the slot)
+    //   1..8         -> that many steps
+    //   >= 9         -> 8, silently.  The cap is deliberate (steps cost one fine
+    //                   apply each) but the truncation is not advertised by any
+    //                   CLI, so it is stated here.
+    // The CLI refuses 0 as well (pyqcu/test/__main__.py's _int_flag has a floor of
+    // 1), so a user can only reach 0 through the library API.
     const int configured = params_[kMgMuPre];
     const int steps = configured > 0 ? configured : 4;
     return std::min(steps, 8);
