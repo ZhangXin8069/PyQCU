@@ -1318,7 +1318,17 @@ def main(argv=None) -> int:
         return 0
     qcu = backend
     if args.levels not in (1, 2) or len(args.dof) < args.levels:
-        parser.error("--levels must be 1 or 2 and --dof needs one entry per level")
+        parser.error(
+            "--levels is the number of LEVELS THIS BUILDER CONSTRUCTS, and it "
+            "constructs precisely one coarse transition, so 2 is the maximum "
+            "(1 disables the coarse space).  --dof needs one entry per level.  A "
+            "deeper hierarchy is not built here: transition 1 comes from this "
+            "tool (its C++ builder has the gauge and the Clover terms) and every "
+            "transition above it comes from "
+            "python -m pyqcu.testing.simple.mg_transition, which probes the "
+            "parent's 33-tensor stencil.  Run the hierarchy with "
+            "`python -m pyqcu.test --mg-levels N --cache-dir <L1> "
+            "--coarse-cache-level <L2> ...`.")
     lattice = tuple(args.lat)
     if lattice[3] % 2:
         parser.error("KUPL requires an even time extent")
@@ -1336,8 +1346,13 @@ def main(argv=None) -> int:
             mg_coarse_geometry(local_lattice, args.mg_grid)
         except ValueError as exc:
             parser.error(str(exc))
-    if (size > 1 and args.restart != 0 and args.coarse_cache is None
+    if (size > 1 and args.levels > 1 and args.restart != 0
+            and args.coarse_cache is None
             and args.write_coarse_cache is None):
+        # Only a run that actually HAS a coarse space needs a cache.  `use_coarse`
+        # below is `levels > 1 and restart != 0`, so a one-level arm is a plain
+        # solve and was wrongly refused here - which made a multi-rank baseline at
+        # restart != 0 impossible through this entry.
         parser.error(
             "multi-rank coarse-correction mode requires a global --coarse-cache "
             "or --write-coarse-cache (rank-local export)")

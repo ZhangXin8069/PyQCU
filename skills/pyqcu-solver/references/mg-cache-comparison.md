@@ -101,6 +101,58 @@ Wilson-Clover 是 onsite + 1 hop，33 点 stencil 有 2 hop 耦合，没有任�
 复现它，两个 builder 会静默构建**另一个**算子的层级（§177）。level 2 的构建因此
 必须留在 Python/torch，那里 matvec 是参数。
 
+### 建链并跑三层的可复现配方（2026-11-25 实测通过）
+
+三个工具职责不同，**不要混用**：
+
+| 工具 | 职责 | 是否随包发行 |
+|---|---|---|
+| `pyqcu.test --mg-levels N` | N 层**求解**；深层根只消费、不构建 | 是 |
+| `pyqcu.testing.simple.mg_transition` | 构建 transition ≥ 2（33-tensor 探针） | 否（checkout-only） |
+| `pyqcu.testing.simple.kupl_multigrid.py` | 只构建 transition 1；它的 `--levels` 是"要建的层级数"，2 即上限 | 否 |
+
+在计算节点上（launcher 三要素见 `pyqcu-testing/references/remote-l48-experience.md`，
+`-nl "!host"` 排除 inode 耗尽的节点见 `logs/v20261123.txt` §181）：
+
+```bash
+# 1) transition 1：C++ 构建器。E_1 必须取 12（见下）。
+python -B pyqcu/testing/simple/kupl_multigrid.py \
+  --lat 16 16 16 32 --grid 2 2 2 1 --mass 0.1 --csw 1.160920226 --dtype c64 \
+  --levels 2 --dof 12 12 --mg-grid 2 2 2 2 --nv-iters 2 --restart 5 \
+  --write-coarse-cache <L1> --gauge <gauge.h5> --source <source.h5>
+# 实测：status=PASS，builder 186 s（stencil 171 s），lonv [12,12,8,2,8,2,8,2,8,2]
+
+# 2) transition 2：Python 探针，父层已是 33-tensor
+python -B -m pyqcu.testing.simple.mg_transition \
+  --parent <L1> --output <L2> --parent-lattice 16 16 16 32 \
+  --mg-grid 2 2 2 2 --dof 12 2 --dtype c64 --samples 3 --seed 42
+# 实测：Galerkin 3.833e-07 (<=2e-5) | Gram 1.073e-06 (<=1e-4) | 33 offsets
+#       identity lattice [8,8,8,16]（父层粗盒的两倍奇时间），dof [12,2]
+
+# 3) 求解
+python -B -m pyqcu.test --mode solve --native mg --only kupl/native/mg \
+  --dtype c64 --lattice-size 16 16 16 32 --lattice-grid 2 2 2 1 --ranks 8 \
+  --mass 0.1 --atol 1e-5 --max-iter 2000 \
+  --mg-levels 3 --mg-dof 12 12 2 --mg-grid 2 2 2 2 --restart 5 \
+  --cache-dir <L1> --coarse-cache-level <L2> --outdir <out>
+```
+
+判读：只有 `PASS` + `residual_verified: true` 才算数；`MG_LEVEL_ITERS` 的
+`level2` 必须 `> 0`，这是"第三层被真正进入"的唯一证据。实测三层
+`level0=59 level1=12 level2=12 accepted_corrections=12 fallback_fine=0`，
+2.3566 s→3.7684 s（mg-2→mg-3），残差 4.28e-06→3.19e-06（`logs/v20261123.txt` §184）。
+
+两个必须同时成立的条件，别当成两个限制：
+
+- **`E_1 = 12`**：`legacy_mg_cache_shapes` 的 `fine_dof = 12` 与 ABI 包装
+  `apply_multigrid.cpp:149,167` 的 `e = kVectorSize` 都是硬编码，取 `E_1 = 12`
+  时二者同时为真。求解器内部不用改——`restrict(parent)` 传 `p.E` 作 `e`、`c.E`
+  作 `E`（`lattice_clover_multigrid.cpp:986-1001`），所以 transition 2 的 `e`
+  就是 level 1 的 `E`；ABI 那两处只影响**独立**的 restrict/prolong 入口。
+- **`kappa < kappa_c`**：`mass=+0.1` → `kappa=0.121951 < 0.125`。用 `mass=-0.277`
+  时同一块 gauge 上 BiCGStab 残差涨到 1.29、第 229 次变 NaN（§180），任何构建或
+  收敛结论都会变成测量伪影。
+
 ## Strict cache
 
 每条 transition 保存：

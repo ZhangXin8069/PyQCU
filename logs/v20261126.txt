@@ -99,8 +99,30 @@ docs/qcu_quda_multigrid_coarse_operator.md、logs/v20261126.txt。
    - 不要给 launcher 接管道：> logs/full.out 2>&1 落文件，事后读文件再过滤
      （remote-l48-experience §8.6）。
 
-8. 下一会话的顺序
-   a. 3 层：先改 c/d（cache shape 与 ABI 宽变体），再拆 a；b 用 mg_transition.py
-      顶上。第一个目标取 E_1 = 12。
-   b. 任何基比较或收敛实验：先手算 kappa 与 cos p_x，只用热化 gauge（L48 是）。
+8. 三层：已完成，不再是待办（2026-11-25，详见 logs/v20261123.txt §183-§184）
+   - 第 1 层由 C++ 构建器建（E=12），第 2 层由 pyqcu/testing/simple/mg_transition.py
+     用 33-tensor 探针建；门禁 Galerkin 3.833e-07（≤2e-5）、Gram 1.073e-06（≤1e-4）、
+     偏移 33。
+   - 求解已跑通并过独立残差门：mg-2 level0=39/level1=8、2.3566 s、4.28e-06；
+     mg-3 level0=59/level1=12/**level2=12**、12 次被接受的修正、3.7684 s、3.19e-06。
+     `level2>0` 是"第三层真被使用"的唯一证据，只加载会显示 0。
+   - 原计划里的 c/d（cache shape 的 `fine_dof`、ABI 的 `e = kVectorSize`）**不用改**：
+     取 `E_1 = 12` 时二者同时成立。所以 `E_1 = 12` 是**让硬编码为真的条件**，不是限制。
+   - 三个入口的职责（不要混用）：
+       `pyqcu.test --mg-levels N`      N 层求解（随包发行；深层根只消费、不构建）
+       `mg_transition.py`              建 transition >= 2（checkout-only 开发工具）
+       `kupl_multigrid.py`             只建 transition 1（它的 --levels 是"要建的层级数"，
+                                       2 就是上限）；请求更深时请改用上面两个。
+   - 复现命令（计算节点；`-nl "!cn12127"` 见 §181）：
+       建第 1 层：kupl_multigrid.py --lat 16 16 16 32 --grid 2 2 2 1 --mass 0.1
+                 --dof 12 12 --mg-grid 2 2 2 2 --nv-iters 2
+                 --write-coarse-cache <L1> --gauge <g> --source <s>
+       建第 2 层：python -m pyqcu.testing.simple.mg_transition --parent <L1>
+                 --output <L2> --parent-lattice 16 16 16 32 --mg-grid 2 2 2 2
+                 --dof 12 2
+       跑三层：  python -m pyqcu.test --mode solve --native mg --only kupl/native/mg
+                 --mg-levels 3 --mg-dof 12 12 2 --mg-grid 2 2 2 2 --restart 5
+                 --cache-dir <L1> --coarse-cache-level <L2> ...
+     三个都必须用 `kappa < kappa_c` 的算符（mass=+0.1），否则 §180 的 NaN 会伪装成代码缺陷。
+   b. 任何基比较或收敛实验：先手算 kappa 与 cos p_x，只用非奇异算符。
    c. 不要重跑 [4,4,4,4] 探针；不要再找 coarse gauge / coarse Clover。
