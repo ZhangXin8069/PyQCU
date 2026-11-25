@@ -4505,3 +4505,39 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
          this transition-1 root;
        - the earlier basis comparison (section 176) remains void for the same
          reason, and can now be redone properly on this operator.
+
+179. First VALID end-to-end old-vs-new basis run: both arms PASS, both reuse their
+     cache, and within one allocation the two bases are indistinguishable
+     Job 2258741, one compute node, 8 ranks, grid 2 2 2 1, mass = +0.1
+     (kappa = 0.121951 < kappa_c, so the operator is non-singular), the two caches
+     rebuilt at --nv-iters 2 so that they match what the case can declare (full
+     mode exposes no --nv-iters, so the case always uses the default 2 - this was
+     the last blocker after "--cache-policy does not exist"):
+
+       CACHE_RC inverse=0   CACHE_RC legacy=0
+       ARM_RC f3_mg2_leg=0  badargs=0
+       ARM_RC f4_mg2_inv=0  badargs=0
+
+       row            status  sec     residual   verified  cache_reused
+       f3_mg2_leg     PASS    2.030   4.85e-06   True      True
+       f4_mg2_inv     PASS    2.025   4.63e-06   True      True
+
+     What this establishes, and what it does not:
+       - both builders produce a usable basis: each arm converged, each carries an
+         independent residual below the 1e-5 gate, and each records
+         cache_reused=True, so the artifact it used is the one it was told to use;
+       - WITHIN this allocation the two bases are indistinguishable: 2.030 vs
+         2.025 s, 0.25% apart.  That is a comparable pair (same job) and it says the
+         choice of builder does not change the cost here;
+       - the plain BiCGStab baseline is 1.194 s / 28 iterations, but that ran in a
+         DIFFERENT allocation (job 2258587).  By section 114 it must not be compared
+         with the 2.03 s above, and it is not: what can be said is only that MG in
+         this configuration takes about 2 s on this lattice, and a same-allocation
+         baseline is still missing;
+       - `iterations=0` and `level0=None` on both arms is the known
+         `iterations_available=False` of the MG path (section 151), not a zero.
+
+     So the old-vs-new question now has a clean answer for COST - no difference -
+     and still no answer for quality, which needs rho on these two caches.  bg-52 is
+     running exactly that on this non-singular pair; its result, not section 176's
+     void 6.1x, is what counts.
