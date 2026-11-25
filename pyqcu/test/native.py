@@ -2751,6 +2751,9 @@ class NativeCase:
     nv_iters: int = DEFAULT_NV_ITERS
     restart: int = 5
     coarse_max_iter: int = 200
+    #: Fine iterations before the first coarse correction (params[kMgMuPre]);
+    #: 0 keeps the solver default.  Accepted by the CLI and dropped for years.
+    mg_nu_pre: int = 0
     coarse_tol_factor: float = 1.0e4
     deflate: bool = True
     verify: bool = True
@@ -3111,6 +3114,7 @@ def _options(case: Any = None, *, kind: str = "solve", **explicit: Any
     restart = _resolve_int(_get("restart", 5), "restart")
     coarse_max_iter = _resolve_int(_get("coarse_max_iter", 200),
                                     "coarse_max_iter", minimum=1)
+    mg_nu_pre = _resolve_int(_get("mg_nu_pre", 0), "mg_nu_pre", minimum=0)
     coarse_tol_factor = float(_get("coarse_tol_factor", 1.0e4))
     if not math.isfinite(coarse_tol_factor) or coarse_tol_factor <= 0.0:
         raise ValueError(
@@ -3166,6 +3170,7 @@ def _options(case: Any = None, *, kind: str = "solve", **explicit: Any
         nv_iters=nv_iters,
         restart=restart,
         coarse_max_iter=coarse_max_iter,
+        mg_nu_pre=mg_nu_pre,
         coarse_tol_factor=coarse_tol_factor,
         deflate=bool(_get("deflate", True)),
         verify=bool(_get("verify", True)),
@@ -4225,6 +4230,11 @@ def _configure_legacy_mg(option: NativeCase, controls: _Controls,
     depth = int(option.mg_levels)
     params[define._MG_NUM_LEVEL_] = depth
     params[define._MG_USE_DEFLATE_] = 1 if option.deflate else 0
+    # ``smoothing_prefix`` in the solver reads params[kMgMuPre] (=56); nothing
+    # in Python wrote it, so --mg-nu-pre was accepted, recorded in the row and
+    # then dropped.  Leave it at 0 unless the case asks, which keeps the
+    # solver-side default (a quarter of the interval).
+    params[define._MG_MU_PRE_] = int(getattr(option, "mg_nu_pre", 0) or 0)
     if len(assets) < depth - 1:
         raise ValueError(
             f"mg_levels={depth} needs {depth - 1} coarse transitions, got "
@@ -4509,6 +4519,7 @@ def run_mg(case: Any = None, *, lattice: Any = None, lattice_grid: Any = None,
            source_color: Any = None, backend: Any = None, mg_levels: Any = None,
            dof: Any = None, nv_iters: Any = None, restart: Any = None,
            coarse_max_iter: Any = None, coarse_tol_factor: Any = None,
+           mg_nu_pre: Any = None,
            deflate: Any = None, verify: Any = None, cache: Any = None,
            cache_policy: Any = None, cache_directory: Any = None,
            gauge_file: Any = None, source_file: Any = None,
@@ -4538,7 +4549,7 @@ def run_mg(case: Any = None, *, lattice: Any = None, lattice_grid: Any = None,
         source_file=source_file, reference_budget=reference_budget,
         reference_mode=reference_mode, options=options,
         mg_levels=mg_levels, dof=dof, nv_iters=nv_iters, restart=restart,
-        coarse_max_iter=coarse_max_iter,
+        coarse_max_iter=coarse_max_iter, mg_nu_pre=mg_nu_pre,
         coarse_tol_factor=coarse_tol_factor, deflate=deflate, verify=verify,
         cache=cache, cache_policy=cache_policy,
         cache_directory=cache_directory, extras=extras)

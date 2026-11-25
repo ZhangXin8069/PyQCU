@@ -712,7 +712,7 @@ def _native_failure(observations: dict[str, Any], started: float, *,
                 kwargs[name] = value
         # The matrix declares neither of these, so settings is the only source;
         # an unset value stays unset so the runner keeps its own default.
-        for name in ("mg_grid", "coarse_tol_factor"):
+        for name in ("mg_grid", "coarse_tol_factor", "mg_nu_pre"):
             if settings.get(name) is not None:
                 kwargs[name] = settings[name]
         # ``--mg-dof`` carries the coarse basis dimension ``E`` (``dof[1]``),

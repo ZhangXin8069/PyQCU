@@ -3453,3 +3453,23 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      reported number is still the request, not the truth.  Fixing it means
      feeding the cache identity's E back into the observations; it is a reporting
      change, not a correctness one, and it is recorded here rather than half-done.
+
+155. MINOR 7 closed: --mg-nu-pre now reaches params[kMgMuPre]
+     Review round 1 found that `smoothing_prefix()` reads params_[kMgMuPre] (=56)
+     and documents it as an override, but nothing in Python ever wrote that slot:
+     the flag was parsed into Options, copied into the row, and dropped.  Only the
+     undocumented KUPL_MG_NU_PRE environment variable worked.
+
+     The missing writers are now in place:
+       NativeCase.mg_nu_pre           (pyqcu/test/native.py, default 0)
+       _options -> mg_nu_pre          resolved, minimum 0
+       run_mg(... mg_nu_pre=...)      forwarded
+       _configure_legacy_mg           params[define._MG_MU_PRE_] = mg_nu_pre
+       driver                         forwards settings["mg_nu_pre"] for kind=mg
+       LegacyMultigrid.set_smoothing_prefix()   direct API path
+     Zero keeps the solver default (a quarter of the interval), so an unset flag
+     behaves exactly as before.
+
+     Verified at the runner: _options(..., mg_nu_pre=7).mg_nu_pre == 7 and an
+     unset call gives 0.  Gates: pyqcu.test --quick 19/19; 203 focused tests.
+     This closes MINOR 7 of the round-1 review.

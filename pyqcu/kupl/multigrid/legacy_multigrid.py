@@ -28,6 +28,21 @@ class LegacyMultigrid:
     variant = "legacy"
     backend = "kupl"
 
+    def set_smoothing_prefix(self, prefix: int) -> "LegacyMultigrid":
+        """Set the number of fine iterations before the first coarse correction.
+
+        ``smoothing_prefix`` in the solver reads ``params[kMgMuPre]`` (=56) before
+        falling back to a quarter of the interval, but nothing in Python ever
+        wrote that slot - so ``--mg-nu-pre`` was accepted by the CLI, recorded in
+        the row, and then silently dropped.  The C++ read path is complete; this
+        is the missing writer.  Zero or negative restores the built-in default.
+        """
+        value = int(prefix)
+        if value < 0:
+            raise ValueError(f"smoothing prefix must be >= 0, got {value}")
+        self.params[define._MG_MU_PRE_] = value
+        return self
+
     def __init__(self, params: Any, argv: Any, set_ptrs: Any, gauge: Any,
                  clover_even: Any, clover_odd: Any,
                  clover_even_inv: Any, clover_odd_inv: Any,
