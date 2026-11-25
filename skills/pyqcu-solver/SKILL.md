@@ -35,7 +35,12 @@ than two is not a supported performance path.
 > - null-vector 构建失败**不说明** builder 有问题——同一个集体 builder 已在
 >   32/16/128 rank 上 PASS（§176）；
 > - 在该输入上做的基比较**作废**：§176 把 §173 的 overlap `0.115` 与
->   “legacy 多抓 6.1x”一并撤销，两者都不得再引用。
+>   “legacy 多抓 6.1x”一并撤销。**已在 `κ < κ_c` 上重测**（§182）：
+>   [8,8,8,16]、`mass=+0.1`、两套基各由对应 builder 在计算节点构建并 `PASS`，
+>   单向量门禁 ρ=1.000000、稠密随机向量达容量 `1/96`；结论是 legacy 基在
+>   k≥2 上多抓 **1.07–1.38×（中位约 1.3×）**，不是 6.1×——符号对、量级错五倍。
+>   ρ 随残差变光滑从 0.015 升到 0.088（容量 0.0104，上界 0.1021），仍远小于 1。
+>   完整表见 `logs/v20261123.txt` §182；6.1× 与 overlap `0.115` 仍然不得引用。
 >
 > 收紧 `--atol` 无效，换 seed 无效；只能换**热化** gauge 重跑。远端判读表见
 > [`pyqcu-testing/references/remote-l48-experience.md`](../pyqcu-testing/references/remote-l48-experience.md)。

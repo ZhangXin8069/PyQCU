@@ -403,6 +403,7 @@ Wilson）或 `sigma=0.1` 近单位 gauge 上，Wilson-Clover 在
 | `CLOVER_BISTABCG_SCHUR: non-finite or out-of-tolerance true residual` | 同上；不说明求解器或 launcher 有问题 |
 | 8 rank null-vector 构建在两个 builder 上都失败 | 同上；同一集体 builder 已在 32/16/128 rank PASS（§176） |
 | “旧基多抓 6.1x” | **void**：§173 的 overlap `0.115` 与 6.1x 都被 §176 撤销 |
+| 在 `κ < κ_c` 上重测的基捕获率 | legacy 多抓 **1.07–1.38×（中位约 1.3×）**，不是 6.1×；ρ 从 0.015 升到 0.088，容量 0.0104、上界 0.1021。一次修正最多去掉 8.5%，一次细迭代去掉约 28%，而修正要付约 2.3 次细层应用——与同分配实测 MG/plain = 1.68× 一致（`logs/v20261123.txt` §182、§179） |
 
 规则：先手算 `kappa` 与 `cos p_x`，再排 case；收紧 `--atol`、换 seed 都无效，只能
 换**热化** gauge 重跑（L48 gauge 是）。同一陷阱的求解器侧判据见
