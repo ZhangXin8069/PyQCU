@@ -3864,3 +3864,37 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      (it lives inside _load_ranked_assets and needs a manifest plus rank files to
      reach) and the MG exit re-verification (C++, needs a solver run).  Three of
      five are now covered; those two are not.
+
+165. Decoupling arms are on the cluster; the numbers say it still loses (provisional)
+     Job set data/l48_decouple_20261125, library md5 22707f8c48 -> fca4b6085c, all
+     five arms completed with debug off so the wall times are comparable inside
+     that allocation:
+
+       arm    interval  level0  level1  accepted  wall s
+       A_off      0        17       0        0      5.519
+       B_r20     20        19       1        1      6.350
+       C_r10     10        23       3        3      8.270
+       D_r5       5        18       4        4      6.998
+       E_r2       2        16       8        8      7.646
+
+     Read: corrections-off needs 17 fine iterations in 5.519 s; the only arm that
+     beats 17 is interval 2 at 16, and it costs 7.646 s.  So one saved fine
+     iteration (0.325 s at 17/5.519) costs 2.127 s of coarse work - a 6.5x loss.
+     Per correction that is 2.45 s / 8 = 0.31 s, i.e. one correction costs about
+     as much as one fine iteration and buys 1/8 of one.
+
+     CAVEAT THAT MUST NOT BE DROPPED: this is only a fair comparison if arm A_off
+     also restarts BiCGStab every 20.  With the historical coupling,
+     `corrections_enabled` is false when the interval is 0, so `chunk = remaining`
+     and A_off would run ONE UNBROKEN BiCGStab - which is the very confound
+     section 153 identified.  The five arm logs contain no MG_INTERVAL_DEBUG
+     payload (the arms ran with debug off for clean timing), so at this moment
+     nothing proves the restart length is equal across the arms.  Until the
+     decoupling's own debug line shows `restart=20 interval=<n>` on every arm, the
+     table above is PROVISIONAL and its 6.5x must not be quoted as MG's cost.
+
+     What survives regardless of the caveat: every MG arm is slower than
+     corrections-off, and the algebraic bound of section 162 (one correction
+     removes 1.05% at E=4/block16, so ~43 corrections equal one fine iteration)
+     explains the shape of the table.  Whether the exact multiplier is 6.5x or
+     39% (7.646/5.519), MG does not win.
