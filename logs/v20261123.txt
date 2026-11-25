@@ -5069,3 +5069,33 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      Residuals bit-identical, times within 1.4%: moving the arithmetic into a header
      changed nothing numerically, which is what a pure refactor must show.
      Local full suite after the new pins: 498 passed, 5 skipped (was 497/5).
+
+192. Round 10 (release readiness) refused the release: 0.1.18 is already on PyPI, and
+     the artefact in dist/ is that published file, not a build of this tree
+     Verified independently before acting:
+       https://pypi.org/pypi/pyqcu/0.1.18/json -> uploaded 2026-11-17T16:23:45,
+         1031572 bytes, sha256 51eb269daad9b05b03ec76256fc229fe0db3daeb64f276a8268a918a1b9779d2
+       local dist/pyqcu-0.1.18.tar.gz -> the SAME sha256
+     So the tarball sitting in dist/ was the published artefact, not a build of HEAD,
+     and two separate problems followed from that:
+       (a) PyPI refuses a second upload of an existing filename, so the release could
+           not happen at all;
+       (b) HEAD builds DIFFERENT bytes under the same version (it adds
+           cpp/kupl/qcu/include/kupl/mg_arithmetic.hpp), which would violate version
+           immutability for anyone who already has 0.1.18.
+     0.1.19 answers 404, so 0.1.19 is the release.  pyproject.toml and
+     pyqcu/__init__.py carry it; setup.py has no version (PEP 621 single source), so
+     there is nothing else to change.
+     release_check.py gained --check-version-free, to be run BEFORE the build: it
+     fails closed unless PyPI answers a clean 404, and it treats any other status as
+     a refusal rather than assuming the version is free.  check_pypi() already
+     existed but only ran after an archive existed, which is too late - the build
+     itself has to know.
+     Corrected in the same round: the bare-timestamp commits are THREE, not two -
+     349ecc52, 628231ee, fdbbd19c - and 879df465 / 1ec7023d are dangling pre-amend
+     objects with the same trees as 628231ee / fdbbd19c.  The three non-conforming
+     trailers are correct as recorded (7e790289 Claude, aff2eaee and 23d60ad6 wrong
+     domain).
+     Left for the 0.1.20 cycle, not blockers: a library-less wheel from the default
+     backend is tagged cp312-cp312-linux_x86_64 while holding zero binaries (over
+     tagged, never leaky); ctest has a durable record of 38 of 43 cases, not all.

@@ -231,15 +231,40 @@ def check_rtd(ver: str) -> None:
                f"HTTP {status}, version_present={ver in text}")
 
 
+def check_version_free(ver: str) -> int:
+    """Fail closed unless PyPI answers a clean 404 for this version."""
+    import urllib.error
+    import urllib.request
+    try:
+        urllib.request.urlopen(
+            f"https://pypi.org/pypi/pyqcu/{ver}/json", timeout=20)
+    except urllib.error.HTTPError as error:
+        if error.code == 404:
+            print(f"OK: pyqcu {ver} is free on PyPI")
+            return 0
+        print(f"REFUSING: PyPI probe returned HTTP {error.code}, not a clean 404")
+        return 1
+    print(f"REFUSING: pyqcu {ver} already exists on PyPI; bump the version")
+    return 1
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--offline", action="store_true",
                         help="skip PyPI/RTD network probes")
+    parser.add_argument("--check-version-free", action="store_true",
+                        help="exit non-zero if this version is already on PyPI; "
+                             "run this BEFORE building, because PyPI refuses a "
+                             "second upload of an existing filename and a tarball "
+                             "that differs from the published one under the same "
+                             "version silently breaks immutability")
     parser.add_argument("--online", action="store_true",
                         help="include PyPI/RTD probes")
     parser.add_argument("--skip-sphinx", action="store_true")
     args = parser.parse_args(argv)
     ver = version()
+    if args.check_version_free:
+        return check_version_free(ver)
     check_version(ver)
     check_sdist(ver)
     check_bilingual()
