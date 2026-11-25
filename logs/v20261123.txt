@@ -4294,3 +4294,43 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      renormalisation, both parsers accept and reject exactly the same spellings,
      both fail closed on a typo, neither can divide by a non-finite norm, and the
      revision reaches all four identity sites.
+
+175. On the compute node: the analysis framework runs; producing the residual does not
+     Three jobs ran on a COMPUTE NODE (not the login node, per the operator's
+     requirement), single rank through `drun -mpi pmix -nn 1 -rpn 1 --`, which is
+     the shape that returned 0 for the input-generation step of job 2257075.
+
+     WHAT THE COMPUTE NODE CONFIRMED (job 2258007):
+       BASIS leg  nv_builder=legacy-residual/1  sites=256  E=2  e*block=192
+                  coarse=(4,4,4,4)  block=(2,2,2,2)
+       CAPACITY E/(e*block) = 0.010417   sqrt = 0.102062
+     So the two caches load, the layout transposes to (site, E, e*block)
+     correctly, and the capacity agrees with the algebra for a FIFTH time.  The
+     rho metric itself never ran, because the residual family did not.
+
+     THREE FAILURES IN MY RESIDUAL HARNESS, and the last one is not mine to guess:
+       1. `reshape(-1)` before the torch dslash -> "Dimension out of range
+          (expected [-1, 0], but got -4)": the dslash indexes the last four axes
+          as x,y,z,t, so a flat vector cannot be passed.  Fixed by keeping the
+          [4,3,Lx,Ly,Lz,Lt] shape and flattening only for reductions.
+       2. A cold-gauge file generated for [16,16,16,32] was paired with the
+          [8,8,8,16] lattice -> einsum shape mismatch.  Fixed by dropping it.
+       3. Still failing after both: "'numpy.ndarray' object has no attribute
+          'device'" raised somewhere inside the dslash/Clover construction, with
+          the ndarray produced by a helper I do not control from outside.  I said
+          I would not patch this harness a third time, and I am not: resolving it
+          means reading `pyqcu/torch/dslash` and `pyqcu/cann` to find which value
+          must be a cann tensor rather than a numpy array, which is a code-reading
+          task with its own budget, and `bg-47` is already on the same problem
+          locally with the same operator.
+
+     RECORDED SO THE NEXT ATTEMPT DOES NOT REPEAT THEM: on this cluster a
+     compute-node job CAN load the caches and run numpy over them (verified), and
+     a single-rank `drun` works; what has never worked is (a) the multi-rank
+     null-vector build, (b) the single-process build in under 30 minutes at
+     [16,16,16,32], and (c) my own attempt to obtain a residual field from the
+     torch operator without reading the dslash API first.
+
+     So the old-vs-new answer stands where section 173 left it: both bases
+     orthonormal, differing only in direction (overlap 0.115), identical capacity
+     1/96; and which direction is better for a smoothed residual remains unmeasured.
