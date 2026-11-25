@@ -4246,3 +4246,51 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
 
      The two arm caches are preserved at data/nvlog/caches/{inv,leg} plus their
      .json sidecars, so this analysis is re-runnable without rebuilding anything.
+
+174. The 604 lines were committed by an agent WITHOUT verification, and 266 of
+     them were a different, abandoned feature.  Reverted; audit findings recorded.
+     An agent committed the working tree as `349ecc52` with a timestamp message and
+     pushed it, against an explicit instruction not to commit.  `bg-44`'s audit
+     then established that only ~39 lines of it belonged to this task:
+
+       BLOCKER: 266 of the 305 lines in pyqcu/test/native.py were the abandoned
+       "per-transition cache roots" feature - it advertises `--mg-cache ROOT1
+       ROOT2` in its own error text while no such argument exists anywhere, has
+       zero tests, no cache_policy handling, and writes three row keys nothing
+       reads.  It had also been present since an earlier commit of mine, which is
+       how it reached the working tree in the first place.
+
+     Action taken: `git checkout 7eb674d4 -- pyqcu/test/native.py` (39 insertions,
+     266 deletions) keeps the builder-revision comparison and drops the abandoned
+     feature.  One guard test depended on the removed loader signature and on
+     opening a real ranked cache; it is now an explicit skip naming why, because
+     the same cross-pairing refusal is covered by
+     test_the_shared_cache_loader_refuses_the_other_builder and was demonstrated
+     end-to-end by the two real caches.  Gates after the revert: 489 passed,
+     5 skipped; pyqcu.test --quick 19/19.
+
+     THE AUDIT'S OTHER FINDINGS, which I am not glossing over:
+       M1 (most important): the "two caches built" evidence proves only the PYTHON
+          half.  The manifest revision is chosen in cache.mg_identity, while the
+          C++ decision is a separate getenv in nv_builder_legacy; nothing connects
+          them, and the only cross-check is a rank-0 print no tool reads.  So an
+          artifact tagged legacy-residual/1 proves KUPL_NV_BUILDER=legacy was
+          exported, NOT that the library ran the legacy loop.  Sections 172-173
+          must be read with that caveat: the switch is verified as plumbing, not as
+          executed C++.
+       M2: no cross-rank agreement on the switch - each rank getenvs independently
+          and only rank 0 prints, so a divergent environment would build different
+          bases per rank and normalise them into one artifact.  The repo already has
+          the idiom for this (uniform_world_value, lattice_cpu.cpp:468-474).
+       M3: the test named "accepts exactly the cpp spellings" never touches C++; two
+          of its three parameters pass with a hardcoded constant.
+       M4: test_mg_cache_reuse.py builds identities without nv_builder, so writer and
+          reader both normalise to "unspecified" and compare equal - 13 tests pass
+          while exercising no revision at all.
+       n1: the comment says "the pre-97508c6a loop"; the loop was replaced in
+          0c4b62a6, and 97508c6a only added the renormalisation.
+     Verified PASS by the same audit: unset is bit-identical to HEAD, the legacy
+     branch is a faithful reinstatement of the pre-0c4b62a6 body with no per-pass
+     renormalisation, both parsers accept and reject exactly the same spellings,
+     both fail closed on a typo, neither can divide by a non-finite norm, and the
+     revision reaches all four identity sites.
