@@ -3631,3 +3631,43 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
 
      Gates after both changes: pytest pyqcu/testing/python 458 passed, 3 skipped;
      pyqcu.test --quick 19/19.  Nothing depended on the stale copy.
+
+160. Review round 5 (failure paths): the verdict fails closed
+     Question: can any failure produce a row that looks like a pass?  Traced the
+     paths that decide PASS, not all 98 broad handlers.
+
+     (a) AGGREGATE STATUS (pyqcu/test/common.py:1579-1588).  ERROR beats FAIL
+         beats TIMEOUT beats SKIP beats PASS, and `total == 0` is SKIP, never
+         PASS.  So one failing case cannot be averaged away.
+
+     (b) THE MG GATE (pyqcu/test/policy.py:328-331) requires `converged == True`
+         AND `relative_residual <= atol`.  The solver's_own report is not enough:
+         `converged` is computed from
+         `value = residual["relative_residual"]` where `residual` comes from
+         `_true_residual` - the independent torch operator (native.py:4361-4375).
+         `iterations_available` is not consulted by this gate, which is why the MG
+         rows legitimately carry iterations 0.
+
+     (c) INDEPENDENT RESIDUAL FAILURE (native.py:4367-4372).  The handler is
+         broad, but it sets `_residual_unavailable`, so `relative_residual` is
+         None, `converged` is False and the gate fails.  Fail-closed, and the
+         reason string says the independent residual failed after the native
+         solve.
+
+     (d) RANK DISAGREEMENT (common.py:761-800).  The row takes the WORST rank
+         status by RANK_STATUS_PRECEDENCE, the worst evidence (largest iteration
+         count and largest independent residual) and `converged` only when EVERY
+         rank converged, so one unconverged rank cannot be outvoted.  An empty
+         record list is ERROR - "no rank reported" is explicitly not a pass.
+
+     (e) SAMPLE/TIMEOUT.  TIMEOUT ranks above SKIP and PASS, so a timed-out row
+         is never PASS.
+
+     SCOPE LIMIT, stated rather than implied: there are 98 `except Exception` /
+     `except BaseException` handlers under pyqcu/test.  Every one on the verdict
+     path above converts to a non-PASS, and the sampled import/skip-token probes
+     (kupl_qcu.py:307,335) return None/False rather than a pass.  The other
+     handlers - teardown, diagnostics, cache probing - were NOT all traced; the
+     claim here is about the gate, not about every handler in the package.
+
+     No change was needed this round.
