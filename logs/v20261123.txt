@@ -3382,3 +3382,45 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      printed, so the per-correction quality is not re-measured here.  The wall
      times and `level0` are the decisive quantities and they are enough - a
      1.71x slowdown cannot be rescued by a better ratio.
+
+153. CORRECTION: sections 147-152 are confounded - the interval IS the fine restart
+     Review round 1 M2 is right and the consequence is worse than "not decoupled".
+     `solve()` chooses the chunk length as
+         chunk = min(remaining, correction_interval - since_correction)
+     (lattice_clover_multigrid.cpp:488-493) and every `bicgstab_chunk` starts a
+     fresh BiCGStab (rhat = r; p = v = 0; rho_old = alpha = omega = 1).  So the
+     correction interval and the fine Krylov restart length are the SAME number,
+     by construction.  Setting KUPL_MG_CORRECTION_INTERVAL=2 does not "keep
+     --restart at 20": it restarts BiCGStab every 2 iterations.
+
+     Two specific claims must be withdrawn:
+       - section 149: "The two are now decoupled and the schedule is measured
+         with --restart fixed at 20" - they are not decoupled; --restart now only
+         sets the DEFAULT interval and the MG enable gate.
+       - section 147's table row "restart | 1/5/10/20/50 | confounded" plus
+         section 150's statement that "every chunk boundary restarts BiCGStab and
+         pays the extra applies" are mutually inconsistent; 150 was right.
+
+     Worse, the A arm is confounded too, and this affects the headline result.
+     `A_nomg` used --mg-levels 1, which sets corrections_enabled = false and
+     therefore chunk = remaining: that arm ran ONE unbroken BiCGStab, with no
+     restart at 20 at all.  B and C ran restarted BiCGStab (every 20 and every 2).
+     So 4.647 s vs 6.504 s vs 7.947 s compares three different KRYLOV STRATEGIES,
+     not "MG off vs MG on":
+       A = unrestarted BiCGStab;
+       B = BiCGStab restarted every 20 + 1 correction;
+       C = BiCGStab restarted every 2  + 8 corrections.
+
+     What still stands: at every restart/interval setting tried, enabling the
+     correction costs more than it saves, and `level0` never falls below the 18
+     iterations the restarted runs need anyway.  What does NOT stand is the
+     specific 1.40x/1.71x attribution to MG - part of that gap is the restart
+     penalty that MG's schedule forces, and a fair comparison needs a plain
+     BiCGStab restarted at the same 20 and at 2, with corrections disabled.
+     That is the measurement to run next, and no performance claim should be
+     quoted until it exists.
+
+     Note the size of the prize: if restarted-every-2 BiCGStab alone is slower
+     than 4.647 s by a similar margin, MG's own contribution is small or
+     negative but the "1.71x" figure is an artefact of the schedule, not of the
+     multigrid.
