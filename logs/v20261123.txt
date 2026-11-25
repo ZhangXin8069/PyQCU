@@ -4709,3 +4709,42 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      E_1 = 12 even those are correct for transition 1.  So the previously listed
      "E_1 must be 12" blocker is not a blocker: it is the configuration that makes
      both hardcodes and the cache helper's fine_dof = 12 simultaneously true.
+
+184. THE THIRD LEVEL RUNS.  First real three-level KUPL Legacy-MG solve, both
+     levels exercised, independent residual verified - and it is 60% slower than
+     two levels, so the third level is functional and counterproductive
+     Job 2259352, one compute node, 8 ranks, grid 2 2 2 1, mass=+0.1, atol 1e-5,
+     --repeat 3 --warmup 1, both arms in the SAME allocation.
+
+       arm   level0  level1  level2  accepted  seconds  rel residual  verified
+       mg-2      39       8       -         8   2.3566      4.28e-06   True
+       mg-3      59      12      12        12   3.7684      3.19e-06   True
+
+     Both rows record cache_reused=True.  `level2=12 ... accepted_corrections=12
+     fallback_fine=0` is the proof that the third level is not decoration: the
+     solver entered it twelve times and accepted every correction it produced.
+     mg-3/mg-2 = 1.599x wall, and a 51% increase in fine iterations (39 -> 59).
+
+     What this establishes:
+       - the recursion op(L) = R_L op(L-1) P_L is implemented end to end in a
+         production solve for the first time: transition 1 from the C++ builder at
+         E=12, transition 2 from the Python stencil probe, both consumed by
+         lattice_clover_multigrid.cpp without any reader change;
+       - the coarse operator is genuinely used, not tolerated: a hierarchy that was
+         merely loaded but never entered would show level2=0;
+       - the quality is fine - 3.19e-06 is better than the two-level 4.28e-06 - so
+         the cost is not a correctness penalty, it is pure overhead.
+
+     What it does NOT establish: any speedup, and it is the third independent
+     measurement agreeing on the same shape of answer (section 179: mg-2 is 1.68x
+     slower than plain; section 182: one correction removes at most 8.5% of the
+     residual for ~2.3 fine applications; here: adding a level costs 60%).  A third
+     level adds a coarser correction that is cheaper per application but removes
+     even less, so the arithmetic of section 182 predicted exactly this.
+
+     Incidental defect found and fixed while getting here: `mg_levels=3` asked for
+     a cache root of "transition 3", because `_mg_transition_roots` looped
+     `range(2, depth+1)`.  A depth-N hierarchy owes N-1 roots.  The test that should
+     have caught it only called `_missing_transition_root` directly, so it passed
+     while the loop demanded a transition that cannot exist; the replacement
+     asserts the COUNT and the mapping.
