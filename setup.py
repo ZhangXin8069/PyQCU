@@ -184,7 +184,18 @@ def _build_gpu() -> bool:
 def _copy_library(source: Path, destination: Path) -> bool:
     source = source.resolve()
     if not source.is_file():
-        _warn(f"native library is missing: {source}")
+        # Do not leave a previous build's library behind.  `pyqcu/kupl/libqcu.so`
+        # is package data, so a stale copy from an earlier session would be
+        # bundled into the wheel while the source tree shows the current code -
+        # a solver binary nothing in this checkout built.  Deleting it makes a
+        # skipped native build visible (the import fails with the "build it with
+        # bash install.sh kupl" message) instead of silently shipping old code.
+        if destination.is_file():
+            _warn(f"native library is missing: {source}; removing stale "
+                  f"{destination} so it cannot be packaged")
+            destination.unlink()
+        else:
+            _warn(f"native library is missing: {source}")
         return False
     destination.parent.mkdir(parents=True, exist_ok=True)
     staged = destination.with_name(destination.name + f".tmp.{os.getpid()}")
