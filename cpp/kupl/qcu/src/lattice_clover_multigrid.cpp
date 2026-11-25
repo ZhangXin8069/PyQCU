@@ -938,13 +938,22 @@ private:
     // the preconditioner off for the rest of the solve so a weak coarse space
     // stops burning cycles.  Z[j] = V[j] is exactly its "no preconditioner"
     // branch.
+    // The window is CUDA's: six samples, and the statistic is the geometric mean of
+    // the FIVE ratios between them, i.e. (r_6/r_1)^(1/6) anchored on the first
+    // sample.  Dividing six ratios by six instead - which this did at first -
+    // measures (r_6/r_0)^(1/6) and, at the same 0.9 threshold, tolerates a per-step
+    // contraction of 0.900 instead of CUDA's 0.9^(6/5) = 0.8812.  Both are
+    // permanent latches that change the whole Krylov basis, so a 2% difference in
+    // where they fire is a real behavioural difference, not a rounding one.
+    // The window state deliberately spans restarts, as CUDA's does.
     const int gate_window = 6;
     const Real gate_threshold = Real(0.9);
     int gate_count = 0;
     int gate_failures = 0;
     Real gate_log_sum = Real(0);
+    Real gate_anchor_log = Real(0);
     bool precondition = num_levels_ > 1;
-    Real previous_estimate = residual;
+    Real previous_estimate = 0;
 
     total_iterations = 0;
     applications = 0;
@@ -1076,13 +1085,20 @@ private:
             cosine[static_cast<std::size_t>(j)] * g1;
         ++total_iterations;
         const Real estimate = std::abs(givens[static_cast<std::size_t>(j + 1)]);
-        if (precondition && estimate > Real(0) &&
-            previous_estimate > Real(0)) {
-          gate_log_sum +=
-              std::log(estimate / previous_estimate);
+        if (precondition && estimate > Real(0)) {
+          if (gate_count == 0) {
+            // first sample of a window: it is the anchor, not a ratio
+            gate_anchor_log = std::log(estimate);
+          } else if (previous_estimate > Real(0)) {
+            gate_log_sum += std::log(estimate / previous_estimate);
+          }
           ++gate_count;
           if (gate_count >= gate_window) {
-            const Real mean = std::exp(gate_log_sum / Real(gate_count));
+            // (r_6/r_1)^(1/6): five ratios, divided by the window length, exactly
+            // as CUDA's gfac at lattice_clover_multigrid.h:5886.
+            const Real mean =
+                std::exp((std::log(estimate) - gate_anchor_log) /
+                         Real(gate_window));
             gate_log_sum = Real(0);
             gate_count = 0;
             if (mean >= gate_threshold) {
@@ -1118,10 +1134,11 @@ private:
           sum -= hessenberg[hindex(i, k)] * y[static_cast<std::size_t>(k)];
         }
         const C diagonal = hessenberg[hindex(i, i)];
+        // 1e-30, not numeric_limits<Real>::min(): the latter is ~2e-308, so a
+        // tiny-but-representable pivot would still divide and y could overflow.
+        // CUDA floors the same quantity at 1e-30 (:5880 for its window factor).
         y[static_cast<std::size_t>(i)] =
-            std::abs(diagonal) > std::numeric_limits<Real>::min()
-                ? sum / diagonal
-                : C(0);
+            std::abs(diagonal) > Real(1e-30) ? sum / diagonal : C(0);
       }
       for (int i = 0; i < used; ++i) {
         const C coefficient = y[static_cast<std::size_t>(i)];

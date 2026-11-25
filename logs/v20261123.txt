@@ -4918,3 +4918,42 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      preconditioner with no fine apply inside it (a cheaper smoother than MR, e.g.
      a diagonal or polynomial one) or fewer applies per iteration; it cannot be
      reached by tuning nu_pre, the coarse tolerance, E, the basis or the restart.
+
+188. Round 4 proved the Givens fix and quantified how wrong the old one was; the gate
+     statistic was also made CUDA's, and validated as inert on this problem
+     Review round 4 verified the new rotation symbolically and numerically:
+       G G^dag = I and det G = 1 for arbitrary complex a, b, with
+       -conj(s) a + c b == 0 identically (it is the computed value now, not a
+       value overwritten by hand);
+       the phase lives inside G, so R and g are produced by the same matrices and no
+       factor can be applied to one side only - the "estimate unchanged, true
+       residual 3x larger" variant is explicitly excluded;
+       both worked 2x2 examples return the exact least-squares optimum, with
+       |g_used| equal to the true residual to the last bit;
+       6000 random Hessenberg problems: |estimate - true| / true <= 3.6e-15.
+       Same harness on the PRE-FIX formula: median relative error 3.78 (full) /
+       0.66 (truncated), max 8.2e3 / 7.4e4.  So section 187's fix was necessary, not
+       cosmetic.
+
+     Its one behaviour-relevant finding: the gate measured (r6/r0)^(1/6) - six ratios
+     divided by six - where CUDA measures (r6/r1)^(1/6), five ratios divided by six.
+     At the same 0.9 threshold the port therefore tolerated a per-step contraction of
+     0.900 against CUDA's 0.9^(6/5) = 0.8812, a 2.1% wider band, and the latch is
+     permanent and swaps the whole Krylov basis, so that difference is real rather
+     than rounding.  The port now anchors on the first sample and divides the five
+     ratios by six, exactly CUDA's gfac.
+     Also fixed from the same round: a dead `previous_estimate = residual;`, and a
+     pivot guard that compared against numeric_limits<Real>::min() (about 2.2e-308)
+     where CUDA floors at 1e-30, so a tiny but representable pivot could divide and
+     overflow y.
+
+     Validation, job 2260906, same allocation and configuration as 2260654:
+       arm     after 2260906            before 2260654          difference
+       base    1.1988 s / 4.41e-06      1.2020 s / 4.41e-06     0.3%
+       mg-2    1.6768 s / 3.10e-06      1.6769 s / 3.10e-06     0.006%
+       mg-3    2.6356 s / 4.33e-06      2.6349 s / 4.33e-06     0.03%
+     All PASS with residual_verified.  The gate is inert here for the reason round 4
+     quantified: this solve contracts at about 0.40 per iteration, far below the
+     0.8812 trip threshold, so neither form can fire.  That is what a faithful change
+     should look like - identical behaviour on this problem, correct behaviour on a
+     problem where the coarse space really is weak.
