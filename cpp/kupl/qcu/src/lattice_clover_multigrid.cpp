@@ -831,6 +831,15 @@ private:
   // (_MG_MU_PRE_, default 4 at lattice_clover_multigrid.h:5293).
   int mu_pre_steps() const {
     const int configured = params_[kMgMuPre];
+    // Negative is the explicit "no smoothing" request: M^-1 is then the coarse
+    // cycle alone, the only configuration in which one preconditioned iteration
+    // can cost LESS than one fine application.  Measured on this backend, nu_pre
+    // 4 / 2 / 1 give 1.7220 / 1.7333 / 1.7777 s - flat - so the per-iteration
+    // cost is dominated by the fine applies INSIDE the smoother, and the only way
+    // left to get below plain's 28 applies is to remove them.
+    if (configured < 0) {
+      return 0;
+    }
     const int steps = configured > 0 ? configured : 4;
     return std::min(steps, 8);
   }
