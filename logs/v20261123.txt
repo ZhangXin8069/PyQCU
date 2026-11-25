@@ -4794,3 +4794,71 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      writer and not the reader: both arms of an A/B would have loaded whichever
      basis the constant named.  Section 173's cross-pairing result stands (both
      directions refuse); what was broken was the LEGITIMATE pairing.
+
+186. WITHDRAWING section 162's "same algorithm": CUDA runs MG as a PRECONDITIONER
+     inside FGMRES/CA-GCR, KUPL runs it as a CORRECTOR inside BiCGStab
+     Section 162 compared the two backends line by line at the fine<->coarse
+     interface and concluded "same algorithm, and it would also lose", with the
+     differences filed under "cost, not algorithm".  Reading the two outer solvers
+     end to end shows that conclusion was too generous.  They are different
+     methods that happen to share the 33-tensor hierarchy.
+
+     CUDA (cpp/cuda/qcu/include/lattice_clover_multigrid.h):
+       apply_mg_prec (5282) = fine pre-smooth (mu_pre=4 steps of CG, MR or
+         Chebyshev, device side, no host sync) -> v_cycle(1) -> prolong -> axpy,
+         and post-smoothing is DELIBERATELY omitted ("nu_post 平滑省略 (v1):
+         外层 FGMRES 承担剩余高频误差").
+       The outer solver is FGMRES / CA-GCR: an Arnoldi loop
+         `for (j = 0; j < m; ++j) { z_j = M^-1 v_j; w = A z_j; ... }`
+         (5795-5825), i.e. the MG is applied as a PRECONDITIONER to a Krylov
+         vector, m times per outer iteration.  Mode bits select FGMRES, MR
+         smoother, Chebyshev, CA-GCR (2819-2840).
+
+     KUPL (cpp/kupl/qcu/src/lattice_clover_multigrid.cpp):
+       outer solver is BiCGStab: `bicgstab_chunk(0, chunk, false)` (592) inside a
+       loop that accumulates `since_correction` and then calls
+       `apply_coarse_correction(0)` (624).  That function restrict()s the RUNNING
+       residual, solves the coarse system, prolongs, applies an analytic optimal
+       damping t = <r,Ac>/||Ac||^2 (1664-1680), adds t*c to x, and predicts
+       residual^2 = ||r||^2 - <r,Ac>^2/||Ac||^2.  If the prediction does not
+       improve, corrections are DISABLED for the rest of the solve
+       (corrections_enabled = false; fallback_to_fine = true).
+       cycle() has the V-cycle body but at 2 levels the entry level IS the
+       coarsest, so pre/post smoothing never runs (section 162 is right about
+       that).  CUDA-only GCR/cycle mode bits are rejected by name (317, 1836).
+
+     WHY they diverged - and each choice is a rational adaptation, which is why
+     the source carries a comment for it:
+       the dominant cost differs by two to three orders of magnitude.
+       CUDA's scalar reductions are _cublasDot on device and grid.sync() inside
+       one cooperative kernel: microseconds.  KUPL's are blocking MPI_Allreduce:
+       measured 0.45-1.02 ms each at 8 ranks (remote-l48-experience).  So:
+         - 4 smoothing steps = >=8 reductions ~= 4-8 ms on KUPL, so KUPL does not
+           smooth; it reuses the outer BiCGStab's own iterations as the
+           "smoothing_prefix" (1613) because those must run anyway;
+         - an Arnoldi basis of m vectors = ~2m reductions per outer iteration,
+           unaffordable, so KUPL has no FGMRES at all;
+         - with exactly ONE unsmoothed correction per interval, t=1 overshoots, so
+           KUPL added the analytic optimal damping that CUDA does not need - the
+           outer FGMRES absorbs a bad t there;
+         - the coarse solve inside cycle() costs 5-6 blocking allreduces per
+           iteration, which is where section 162 located all of KUPL's
+           2.3-fine-apply cost.  mg_dot_pair (lattice_clover_multigrid.cpp:174)
+           already fuses two dots into one 4-double allreduce and is used at :1130
+           under KUPL_FUSED_BICG_DOTS, but the coarse solve path does not fuse.
+
+     Consequences that matter for the speedup goal:
+       a. CUDA's numbers cannot predict KUPL's, and "reference CUDA to make KUPL
+          fast" is capped by the architecture gap, not by tuning.
+       b. The cheap experiment is the in-cycle smoother: replace
+          bicgstab_chunk(level, 2) with 2-4 MR steps (t = <Ar,r>/<Ar,Ar>, two
+          reductions per step, valid for the non-Hermitian coarse operator) and
+          gate it on the residual ROUGHNESS dropping across the smoother.  If
+          roughness does not drop, no MG schedule will help on this backend.
+       c. The expensive path is preconditioned FGMRES, which multiplies KUPL's
+          reduction count by m - likely worse at 8 ranks until reduction latency
+          itself is attacked.
+       d. Neither can be judged without a cross-backend equivalence test: same
+          cache, same lattice, both backends, compare level0/level1 and the
+          residual history.  None exists today, which is why the two drifted apart
+          unnoticed while sharing a cache format.
