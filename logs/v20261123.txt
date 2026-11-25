@@ -4463,3 +4463,45 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      root, two benchmark-audit edits, four `pyqcu.test` functions, a repeatable
      cache-root flag, and flipped tests.  `bg-41` lists all 19 files with one-line
      changes.
+
+178. COMPUTE NODE + NON-SINGULAR OPERATOR: everything works, and the whole
+     "multi-rank build is broken" story is dead
+     Job 2258587, one compute node, 8 ranks, grid 2 2 2 1 (product 8), local
+     8,8,8,32, rankfile + CCS_DRUN_RANK_FILE + `drun -R core=2` matching the dsub
+     cpu=2, OMP/KUPL threads 2, three mandatory binding variables set.
+     The ONLY change from the attempts that failed all day: mass = +0.1 instead of
+     -0.277, i.e. kappa = 0.121951 which is BELOW the free kappa_c = 0.125.
+
+       plain BiCGStab (kupl/native/solve, atol 1e-5):
+         PASS   1.211 s   iterations=28   relative_residual=4.409e-06   verified=True
+       cache build (levels 2, dof 12 2, mg-grid 2 2 2 2, nv-iters 1):
+         CACHE_RC=0, manifest status=PASS, nv_builder=inverse-iteration/2,
+         lattice [16,16,16,32], dof [12,2], mpi_size 8
+         builder_seconds     25.12
+           null_vector_seconds 0.82     <- the collective builder, 8 ranks
+           stencil_seconds    22.22
+         converged=true, final_true_residual 4.45e-05 against acceptance 1e-4,
+         residual_source "independent distributed NumPy full Wilson-Clover
+         reconstruction with MPI halo exchange"
+
+     So, on a compute node and at eight ranks:
+       - the launcher is correct (rankfile, drun, grid product, threads);
+       - the distributed null-vector builder works and takes 0.82 s;
+       - the distributed 33-stencil builder works and takes 22 s;
+       - an independent distributed residual confirms the solve.
+
+     That kills the conclusions of sections 171 and 176 that "the multi-rank build
+     fails" / "the builder is broken".  It never was: every failure traced to
+     mass=-0.277, where kappa = 0.1343 is 7.4% above kappa_c, so the Schur
+     complement is singular and no Krylov method converges at any rank or
+     tolerance.  The operator was the bug; the tooling was not.
+
+     Consequences to carry forward:
+       - any future MG cache build or solve on synthetic input must use a mass whose
+         kappa is below kappa_c, or a thermalised gauge; otherwise the result is
+         meaningless and the failure is indistinguishable from a code defect;
+       - `bg-49` is building the transition-2 root and must use such a mass - the
+         same +0.1 used here, since the root it produces will be consumed next to
+         this transition-1 root;
+       - the earlier basis comparison (section 176) remains void for the same
+         reason, and can now be redone properly on this operator.
