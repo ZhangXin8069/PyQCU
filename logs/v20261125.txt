@@ -46,23 +46,27 @@
    2249495-2249497（§131，只跑到 cache 探测）。判 PASS 只认 rows/*.json 且
    residual_verified=true。
 
-4. MG 在本实现中无法加速（§121、§127、§129 被 §132 撤回、§133）
-   L48 c64 32 rank、restart=20、KUPL_MG_DEBUG=1（2248613、2248967、2249605、
-   2249606）：
-     一次粗修正把残差乘以 0.9964（去掉 0.36%，花 0.065 s），
-     一次细迭代约乘 0.55（每次去掉约 45%）=> 粗修正弱两个数量级，没有
-     restart 能减少迭代数（有无修正都是 18 次）。
-     galerkin_defect 3.7e-07（转移与粗算子到 7 位一致）、coarse_defect 0.055
-     （粗解在 0.1 目标内），但 overlap = cos(r, A P c) 只有 0.011-0.037；
-     最优 damping 0.7498 也只能到 ratio 0.9959。
-     粗化方向相反：mg_grid 2 2 2 2 -> 2 2 2 4 -> 4 4 4 4，
-       capture_bound    0.102  -> 0.0722 -> 0.0255   （下降）
-       reduction_bound  0.9948 -> 0.9974 -> 0.9997   （变差）
-       level0           18     -> 19     -> 19
-     能工作的两级 MG 必须相反。=> 转移对与粗算子的几何不对应（索引/parity
-     映射）；网格大小、层数、restart、粗容差都已扫尽，不得重扫。修法是逐索引
-     对比 cpp/cuda/qcu/src/apply_clover_multigrid.cu。这是本实现的负结果，
-     不是 MG 的普适结论。
+4. KUPL Legacy-MG 无净收益，且归因仍被重启策略混淆（§142、§145、§150、§152、§153）
+   本条的早期版本说"转移对几何不对应、capture_bound 下降证明"——两处都错，已撤回。
+      转移对是对的：逐 dof 审计 mismatches=0、gather_set_equals_scatter_set=1、
+      support == block_sites*E、outside_block=0、roundtrip_err 2.4e-07..8.3e-07。
+      不要去改 restrict()/prolong()。
+      capture_bound/reduction_bound 是代数 sqrt(E/(e*block)) 与 sqrt(1-capture²)，
+      E=2、e=12 时对 block 16/32/256 给出 0.1020621/0.07216878/0.02551552，
+      与"实测"七位吻合；粗化时下降只是 block 变大，与转移无关，不能作证据。
+      真实测量（必须关闭 KUPL_MG_DEBUG，diagnose_correction 记在同一计时器内）：
+      一次修正去掉不到 1% 残差，一次细迭代去掉约 45%；overlap 0.013..0.046；
+      best_ratio 0.991..0.993；最优阻尼只保留约 29% 的修正量。
+      零空间基曾经是错的：旧循环 v -= S⁻¹(S v) = v − v，存的是内层求解器残差
+      （白噪声）。已改真逆迭代并每轮归一化，缓存身份带 nv_builder。用真基重测
+      （§152）结论不变。
+      E 不是杠杆：2→4 让 best_ratio 0.9941→0.9934、level0 18→24（更差）。
+      调度混淆（§153）：修正间隔就是细层 restart 长度
+      （chunk = min(remaining, correction_interval - since_correction)），所以
+      interval=2 同时把 BiCGStab 重启从 20 变成 2；--mg-levels 1 那一臂是不重启的
+      BiCGStab。4.647/6.504/7.947 s 比较的是三种 Krylov 策略，不能把倍数归给 MG。
+      => 本实现两级 MG 没有净收益；在让一个 chunk 跨多次重启之前，任何加速或
+      减速倍数都不得引用。
 
 5. --atol 必须比 dtype 的验收门更紧（§128、§134）
    c128 验收门 1e-08。c128 16 rank 单元（grid 2 2 2 2）用 --atol 1e-5：真残差

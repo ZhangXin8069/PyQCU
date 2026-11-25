@@ -244,23 +244,32 @@ correctness gate。完整矩阵、实际 cycle 计数和证据链接见
 
 ### 2026-11-24 KUPL Legacy-MG 在本实现中无法加速（实测，勿再扫参数）
 
-L48 c64 32 rank、`restart=20`、`KUPL_MG_DEBUG=1` 的实测（`logs/v20261123.txt`
-§121、§127、§129、§132、§133；作业 `2248613`、`2248967`、`2249605`、`2249606`）：
+先读 `logs/v20261123.txt` §142（转移审计通过）、§145（`capture_bound` 是代数）、
+§150/§152（关闭仪表的三路对照）、§153（间隔即细层 restart，对照仍有混淆）。
+以下每条都修正过早期版本的错误结论，不要再引用 §121/§129/§133 的旧措辞。
 
-- 一次粗修正把残差乘以 `0.9964`（只去掉 `0.36%`，花 `0.065 s` 粗网格工作），而一次
-  细迭代约乘 `0.55`（每次去掉约 `45%`）；粗修正比一次细迭代弱两个数量级，任何
-  restart 都不可能降低迭代数（有无修正都是 `18` 次）。
-- 代数与粗解都不是瓶颈：`galerkin_defect 3.7e-07`（转移与粗算子到 7 位一致）、
-  `coarse_defect 0.055`（粗解在 `0.1` 目标内），但 `overlap = cos(r, A P c)` 只有
-  `0.011-0.037`，修正向量与误差几乎正交；最优 damping `0.7498` 也只能到
-  `ratio 0.9959`。
-- 粗化方向相反：`mg_grid` 从 `2 2 2 2` 到 `2 2 2 4` 到 `4 4 4 4`，`capture_bound`
-  **下降** `0.102 -> 0.072 -> 0.026`，`reduction_bound` **变差**
-  `0.9948 -> 0.9974 -> 0.9997`，`level0` 仍是 `18-19`。能工作的两级 MG 必须相反。
-- 结论：转移对与粗算子的几何不对应（索引/parity 映射），不是网格大小、层数、
-  restart 或粗容差问题；这些都已扫尽，不得重扫。修法是逐索引对比
-  `cpp/cuda/qcu/src/apply_clover_multigrid.cu`。这是本实现的负结果，不是 MG 的
-  普适结论。
+- **转移对是对的**：逐 dof 审计给出 `mismatches=0`、`gather_set_equals_scatter_set=1`、
+  `support == block_sites * E`、`outside_block=0`、`roundtrip_err` 2.4e-07–8.3e-07。
+  不存在索引/parity 映射错误——**不要去改 `restrict()`/`prolong()`**。
+- **`capture_bound`/`reduction_bound` 不是测量值**，是代数
+  `sqrt(E/(e*block))` 与 `sqrt(1-capture²)`，`E=2, e=12` 时对 block 16/32/256 分别
+  给出 `0.1020621 / 0.07216878 / 0.02551552`，与"实测"七位吻合。粗化时它下降只是
+  block 变大，**与转移无关**，不能作为证据。
+- **真实测量**（关闭 `KUPL_MG_DEBUG` 才有意义，`diagnose_correction` 计在同一计时器
+  内）：一次修正只去掉不到 1% 的残差，而一次细迭代去掉约 45%；`overlap` 0.013–0.046；
+  `best_ratio` 0.991–0.993；即使最优阻尼也只保留约 29% 的修正量。
+- **零空间基曾经是错的**：旧循环是 `v -= S⁻¹(S v) = v − v`，存的是内层求解器残差
+  （白噪声）。已改为真逆迭代 `v ← S⁻¹v` 并每轮归一化，且缓存身份带
+  `nv_builder="inverse-iteration/2"`。**用真基重测，结论不变**（§152）。
+- **`E` 不是杠杆**：2→4 让 `best_ratio` 从 0.9941 到 0.9934、`level0` 从 18 到 24（更差）。
+- **调度的混淆**（§153）：修正间隔**就是**细层 restart 长度
+  （`chunk = min(remaining, correction_interval - since_correction)`），所以
+  `KUPL_MG_CORRECTION_INTERVAL=2` 同时把 BiCGStab 的重启从 20 变成 2。三路对照里
+  `--mg-levels 1` 那一臂其实是**不重启**的 BiCGStab，因此 4.647 / 6.504 / 7.947 s
+  比较的是三种 Krylov 策略，**不能**把 1.71× 全部归给 MG。要归因必须先让一个 chunk
+  能跨多次重启——这是结构改动，未做。
+- 结论：本实现的两级 Legacy-MG 没有净收益，且**当前代码无法把 MG 的贡献与
+  restart 策略分开**。任何加速/减速倍数在完成上述结构性解耦前都不得引用。
 
 **`--atol` 必须比 dtype 的验收门更紧**：c128 的验收门是 `1e-08`；`--atol 1e-5` 的
 c128 16 rank 单元真残差 `7.17e-07`、`residual_verified=true`，仍被判 FAIL（原因串把
