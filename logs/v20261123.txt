@@ -4607,3 +4607,64 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      scheduler keeps placing a job on a node whose /tmp/.ccscheduler has run out of
      inodes.  Four consecutive submissions landed on the same broken node and each
      died with systemExitCode 12008 before the script's first line.
+
+182. The capture fraction, redone on a non-singular operator: the legacy basis is
+     better by about 1.3x, NOT 6.1x, and even that is not enough to pay for a
+     correction
+     Operator: [8,8,8,16] c64, mass=+0.1 (kappa=0.121951 < kappa_c), csw
+     1.160920226, sigma=0.70 gauge, mg_grid 2 2 2 2, dof (12,2).  Both caches were
+     built on a compute node, one per builder, both status=PASS:
+     sb_inverse (inverse-iteration/2) and sb_legacy (legacy-residual/1).  They are
+     genuinely different fields (relative difference 0.64) that share a norm only
+     because each is orthonormal per coarse site: ||lonv||^2 = E * coarse_sites =
+     2 * 256 = 512.
+
+     Gates before any number was read:
+       single basis vector as r  -> rho = 1.000000 for BOTH bases
+       dense random odd field    -> rho = 107.8% / 106.3% of capacity = 1/96
+     (the few-percent excess is sampling noise on 256 blocks; the earlier run
+     reported 1.3%, hence the gate is 10%, not 5%)
+
+     ---------------------------------------------------------------
+     k    rel residual  roughness  rho_inverse  rho_legacy  leg/inv
+     ---------------------------------------------------------------
+     1     2.377e-01      5.561      0.015051    0.011573     0.769
+     2     1.181e-01      3.625      0.023268    0.031612     1.359
+     3     1.022e-01      3.559      0.022408    0.030924     1.380
+     4     6.189e-02      3.138      0.029329    0.037807     1.289
+     5     3.640e-02      2.460      0.038943    0.051366     1.319
+     6     5.615e-02      2.905      0.030784    0.040638     1.320
+     8     3.143e-01      2.169      0.045781    0.061851     1.351
+     10    7.139e-03      1.538      0.066295    0.070894     1.069
+     12    6.778e-03      1.511      0.067289    0.079321     1.179
+     16    4.128e-03      0.885      0.071656    0.088202     1.231
+     20    2.122e-03      0.428      0.064999    0.085201     1.311
+     ---------------------------------------------------------------
+
+     capacity = E/(e*block^4) = 1/96 = 0.010417, capture bound sqrt = 0.102062.
+     k=0 is undefined, not zero: the point source sits at (0,0,0,0), which is
+     even parity, so the odd-Schur block of the initial residual is identically 0.
+
+     Four answers:
+       a. The legacy basis captures more at every k past the first, by a factor
+          1.07-1.38 with a median near 1.3.  So section 180's void figure of 6.1x
+          is replaced by about 1.3x - the sign was right and the magnitude was
+          wrong by a factor of five.  The ratio is NOT evidence for the legacy
+          builder: it is a property of the residual, not of the coarse space,
+          which is why it drifts with k.
+       b. Both bases stay well inside the projection bound: the largest rho is
+          0.0882 against 0.1021, and both are far below 1.
+       c. rho does not sit at the capacity.  As the residual smooths (roughness
+          5.56 -> 0.43) rho rises from 0.015 to about 0.085, i.e. from 1.4x to 8.2x
+          the capacity.  That growth is the smoothing concentrating the residual
+          where a coarse space can see it - and it is still small.
+       d. One correction is still not worth a fine iteration.  At the smooth end a
+          correction can remove at most 8.5% of the residual, while the measured
+          fine iteration removes about 28% (rel residual falls 2.12e-03 ->
+          6.8e-03 over successive k, i.e. a factor ~0.72 per iteration), and a
+          correction costs about 2.3 fine applications (section 152).  So the
+          economics are 0.085 removed for 2.3 applications against 0.28 removed for
+          1 - which is exactly the measured MG/plain = 1.68x of section 179.
+
+     Both routes (Gram pseudo-inverse and the SVD frame) agreed to machine
+     precision on every block, and no block was rank deficient (rank 2 of 2).
