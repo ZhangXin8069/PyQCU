@@ -36,7 +36,8 @@
    `0.031577 s` **慢 20%**。
 5. **`atol=1e-4` 的“MG”数字 `0.135579 s` 不是真实 MG**：默认
    `coarse_tol_factor=1e4` 使粗层目标 `atol×factor=1.0`，粗层首行即“收敛”、
-   修正恒为零并触发 `fallback_to_fine`，最终走 fine BiCGStab。该组与历史
+   粗层解恒零、粗空间不贡献（当时触发的是 fine BiCGStab 回退，该回退路径已于
+   2026-11-25 随修正器删除，见 `logs/v20261126.txt`）。该组与历史
    “MG 快 26%”结论均**作废**，不得作为 MG 加速证据。
 6. **dslash 已进入带宽受限区**：按解析流量 `1.10 GB / 0.067483 s` 得
    `16.3 GB/s·rank`、聚合 `522 GB/s`，约为节点 STREAM triad 峰值
@@ -457,8 +458,9 @@ argv[ARGV_MG_LEVEL_BASE + level - 1] = atol * coarse_tol_factor * (3 ** (level -
 ```
 
 粗层 BiCGStab 的初始残差等于 `‖rhs‖`，目标 `1.0 × ‖rhs‖`，首行判据立即成立，
-解保持 0；修正恒为 0 → damping 搜索全部回滚 → `fallback_to_fine=true` →
-最终走 fine BiCGStab。因此：
+解保持 0：粗层解恒 0、粗空间不贡献。当时接的是"修正恒 0 → damping 搜索全部回滚 →
+`fallback_to_fine=true` → fine BiCGStab"这条链，**整条链已于 2026-11-25 随修正器
+删除**（现在只是预条件子退化为 4 步 MR 平滑，见 `logs/v20261126.txt`）。因此：
 
 - 这组 `0.135579–0.136258 s` 只能标为“MG 入口 + fine 回退”，**不得**写成
   “MG 比 BiCGStab 快 21.8%”；

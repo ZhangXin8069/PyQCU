@@ -276,14 +276,22 @@ verifier=0、PASS，已撤销。下一步应分析 scalar boundary 的 rank-face
   `coarse_calls=0` followed by `fallback=fine_bicgstab` for the old coarse
   tolerance setting. The corresponding reports must be read as fine-BiCG
   fallback, not multigrid.
-- `KUPL_REQUIRE_MG_CORRECTION=1` is the formal true-MG gate. It rejects
-  `levels<=1`/`restart=0`, fine-BiCG fallback, and a solve that completes
-  without any accepted coarse correction. Every accepted MG result must also
-  show `coarse_calls>0`; iteration count alone is not evidence.
-- Full-step coarse correction can increase the fine true residual. The current
-  implementation builds one coarse correction and searches damping
+- `KUPL_REQUIRE_MG_CORRECTION=1` used to be the formal true-MG gate: it rejected
+  `levels<=1`/`restart=0`, fine-BiCG fallback, and a solve without any accepted
+  coarse correction. After the 2026-11-25 deletion it only rejects a solve with
+  no coarse space (`levels<=1` / `_MG_USE_DEFLATE_==0`), because
+  `accepted_corrections` now counts preconditioner applications rather than
+  accepted damped corrections. Every accepted MG result must still show
+  `coarse_calls>0`; iteration count alone is not evidence.
+- Full-step coarse correction could increase the fine true residual. The
+  pre-2026-11-25 implementation built one coarse correction and searched damping
   `1, 0.5, 0.25, 0.125`, accepting only a step that reduces the true residual.
-  A failed search restores the previous solution and residual before fallback.
+  That corrector, its damping search and the fine-BiCG fallback were **deleted on
+  2026-11-25**: Legacy-MG now runs right-preconditioned FGMRES(m=10) with the
+  V-cycle as the preconditioner, because a CUDA-vs-KUPL comparison could not
+  attribute a difference to the hardware while the two ran different methods
+  (`logs/v20261126.txt`). Everything below in this bullet and the restart
+  screening bullets is **history** and cannot be reproduced from current source.
   L24 one-rank damping gate passed at `7.52818155894056 s`, with
   `fine_calls=49`, `coarse_calls=168`, and `verify_status=0`; the independent
   Python residual did not finish within the 180 s diagnostic timeout.

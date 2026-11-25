@@ -29,9 +29,10 @@
 8. **183 s 不是 16-rank 基线**：共享节点 `cn12038`（历史排除名单）、grid 不同、
    每 site-iteration 25.07 µs vs 32r 0.456 µs（55×）；只能写“病态记录”，不能
    写 scaling，也不能反推 16 rank 太慢。
-9. **标 MG 的结果可能回退到 fine BiCGStab**：`atol=1e-4` × `coarse_tol_factor=1e4`
-   ⇒ `coarse_atol=1.0`，粗修正为 0，`fallback_to_fine=true`。用
-   `KUPL_REQUIRE_MG_CORRECTION=1` 验证；残差逐位相同就是回退信号。
+9. **标 MG 的结果可能根本没用上粗空间**：`atol=1e-4` × `coarse_tol_factor=1e4`
+   ⇒ `coarse_atol=1.0`，粗层解恒 0，预条件子只剩 4 步 MR 平滑。2026-11-25 前的
+   "修正全拒 → 回退 fine BiCGStab" 路径已删除；现在判据是残差与 `levels=1` 是否
+   逐位相同（相同即粗空间没贡献），并把 `atol` 收到 `1e-6` 使 `coarse_atol=1e-2`。
 10. **cache 只认同 identity**：`lattice`、`dtype`、`mass`、`csw`、`mg_grid`、
     `nv_iters`、`dof`、`seed`、`gauge` SHA、`ranks`、`grid`、`verify_status=0`。
     本轮只有 16r cache（1.276 GiB）；32r/两节点没有匹配 cache → **DEFERRED，不重建**。
@@ -298,8 +299,9 @@ export CCS_DRUN_RANK_FILE=$OUT/logs/$JOBTAG-rankfile
   `2.9444 / 102.4651 / 92.8595 s`（`case_seconds=147/342/396 s`），不是 I/O
   计时。C++ `LegacyCloverMultigrid` 已加每层 `bicgstab_chunk` 计数并输出
   `PYQCU::KUPL::MG_LEVEL_ITERS`：32r/64r 都是
-  `level0=18 level1=4 total=18 accepted_corrections=4 fallback_fine=0`，
-  即 **true-MG、无 fine fallback**；层级迭代数相同，不能解释 ~100 s 与 2.9 s，
+  `level0=18 level1=4 total=18 accepted_corrections=4`（2026-11-23 删除前的记录，
+  当时该行还打印 `fallback_fine=`；现在 `accepted_corrections` 计预条件应用次数）；
+  层级迭代数相同，不能解释 ~100 s 与 2.9 s，
   差异在每次 fine/coarse apply 与 coarse correction 的实际成本
   （16r 36 threads，32/64r 18 threads；local t 不同）。16r 旧报告无层级计数，
   新 16r 记录作业未到 MG；不要用 32r/64r `seconds` 做性能/scaling 声明。
@@ -369,11 +371,12 @@ export CCS_DRUN_RANK_FILE=$OUT/logs/$JOBTAG-rankfile
    滤掉——`2245986` 确实打印了 `PYQCU::KUPL::MG_CORRECTION_DEBUG`，日志里 0 行
    （§117）。规则：`> logs/full.out 2>&1` 落到文件，事后读文件再过滤，不在产生
    输出的管道上过滤。
-2. **在 `if (rank == 0)` 里调用含 `MPI_Allreduce` 的函数**：
-   `cpp/kupl/qcu/src/lattice_clover_multigrid.cpp` 的 `diagnose_correction` 在
-   rank 0 独占分支里进入 `MPI_Allreduce(MPI_COMM_WORLD)`，32 rank 只有 1 个参与者，
+2. **在 `if (rank == 0)` 里调用含 `MPI_Allreduce` 的函数**：当时的诊断函数
+   `diagnose_correction`（`cpp/kupl/qcu/src/lattice_clover_multigrid.cpp`，已于
+   2026-11-25 随修正器删除）在 rank 0 独占分支里进入
+   `MPI_Allreduce(MPI_COMM_WORLD)`，32 rank 只有 1 个参与者，
    作业一律 `rc=255`（`2245432`、`2247200`、`2247255`、`2248474`）；同一 mg 作业
-   不设 `KUPL_MG_DEBUG`（`2245127`）则正常。规则：只 gate 打印，不 gate 调用。
+   不设 `KUPL_MG_DEBUG`（`2245127`）则正常。规则仍然成立：只 gate 打印，不 gate 调用。
 3. **`sed` 改了脚本输出目录却漏掉 `#DSUB -oo/-eo` 路径**：日志写到别处，作业表现
    为“立刻失败且没有日志”。`2246030` 用 sed 去掉 grep 改重定向后就是这种状态：
    `SUCCEEDED`，但预期日志里没有 `MG_CORRECTION_DEBUG`/`MG_CHUNK_DEBUG`/
@@ -402,8 +405,8 @@ Wilson）或 `sigma=0.1` 近单位 gauge 上，Wilson-Clover 在
 | 1000 次迭代后相对残差 7–12%，各 rank 逐位相同且有限 | 奇异输入，不是 bug（`logs/v20261123.txt` §176） |
 | `CLOVER_BISTABCG_SCHUR: non-finite or out-of-tolerance true residual` | 同上；不说明求解器或 launcher 有问题 |
 | 8 rank null-vector 构建在两个 builder 上都失败 | 同上；同一集体 builder 已在 32/16/128 rank PASS（§176） |
-| “旧基多抓 6.1x” | **void**：§173 的 overlap `0.115` 与 6.1x 都被 §176 撤销 |
-| 在 `κ < κ_c` 上重测的基捕获率 | legacy 多抓 **1.07–1.38×（中位约 1.3×）**，不是 6.1×；ρ 从 0.015 升到 0.088，容量 0.0104、上界 0.1021。一次修正最多去掉 8.5%，一次细迭代去掉约 28%，而修正要付约 2.3 次细层应用——与同分配实测 MG/plain = 1.68× 一致（`logs/v20261123.txt` §182、§179） |
+| “旧基多抓 6.1x” | **void**：§173 的 `overlap` 0.115 与 6.1x 都被 §176 撤销；该指标由已删除的 `diagnose_correction` 打印（2026-11-25），当前源码不再产生 |
+| 在 `κ < κ_c` 上重测的基捕获率 | legacy 多抓 **1.07–1.38×（中位约 1.3×）**，不是 6.1×；ρ 从 0.015 升到 0.088，容量 0.0104、上界 0.1021。删除前的修正一次最多去掉 8.5%、一次细迭代去掉约 28%，修正要付约 2.3 次细层应用——与同分配实测 MG/plain = 1.68× 一致（`logs/v20261123.txt` §182、§179；该修正器 2026-11-25 已删除） |
 
 规则：先手算 `kappa` 与 `cos p_x`，再排 case；收紧 `--atol`、换 seed 都无效，只能
 换**热化** gauge 重跑（L48 gauge 是）。同一陷阱的求解器侧判据见

@@ -6,7 +6,9 @@
 
 PyQCU 现在把 multigrid 明确分成两条互不替代的层级路线：
 
-- **LegacyMultigrid**：保留历史 33-stencil、细层 BiCGStab 与周期 coarse correction 语义。
+- **LegacyMultigrid**：保留历史 33-stencil、细层 BiCGStab 与周期 coarse correction 语义
+  （**2026-11-25 起不再成立**：KUPL 侧的细层 BiCGStab 外层与周期粗修正已整段删除，
+  改为与 CUDA 同构的右预条件 FGMRES(m=10) + V-cycle 预条件；原因见 `logs/v20261126.txt`）。
 - **StrictMultigrid**：保留 full coarse lattice、逐层 MATPC、`X/Y/Yhat` 与递归 V-cycle/FGMRES 语义。
 - 上层 `Multigrid` 只负责按 `variant` 和 `backend` 选择实现；算法、容差、资产格式和生命周期边界仍由下级决定。
 - Torch、CUDA、KUPL 都使用同名 `LegacyMultigrid` / `StrictMultigrid`，统一生命周期为 `setup()` → `solve()` → `close()`。
@@ -38,7 +40,7 @@ Legacy-MultiGrid 是 QCU 默认 multigrid 求解器，也是开发、调试与�
 | 传输 | near-null/blocking `P/R`，资产按 Legacy 槽序绑定 | spin `4→2` 的 aggregate transfer，`R=P†` |
 | 奇偶边界 | Legacy/CUDA 可采用 compact odd-Schur setup；不等于 Strict | 只有 fine MATPC、prepare、R/P 消费 compact parity；粗层不得 checkerboard |
 | 粗算子资产 | CUDA/KUPL 使用 `V/hop_nn/hop_diag/sit` | `V/Yhat/(X,X^-1)`；raw `Y` 只是诊断资产 |
-| 外层迭代 | 细层 BiCGStab，按 restart 周期触发 coarse correction；KUPL 另有真残差验收与撤销 | 右预条件 FGMRES；递归 MATPC V-cycle，MR 前后平滑 |
+| 外层迭代 | 细层 BiCGStab，按 restart 周期触发 coarse correction；KUPL 另有真残差验收与撤销（**2026-11-25 删除**：KUPL 改为右预条件 FGMRES(m=10)，restart 不再是修正间隔） | 右预条件 FGMRES；递归 MATPC V-cycle，MR 前后平滑 |
 | 容差 | 历史路径通常使用绝对容差；求解器入口需逐后端核对 | 当前生产语义以相对真残差门为主 |
 | 生命周期 | 传统 `init/end` 包装为 `setup/close` | `setup` 构造层级；`close` 释放层级/运行期资产 |
 

@@ -24,7 +24,7 @@
 | 停机 | 双容差 + 循环后**强制真残差** | 递推残差；每 2 迭代检查；真残差由外层 | 在 CPU 上照搬会放宽精度；在 GPU 上照搬会多一次全算 |
 | 初值 | 冷启动置零 | 冷启动随机（seed 23333） | 跨后端比较迭代数时口径不一致 |
 | CG | 正规方程 `A A†`，相对 `0.01*atol` | 直接 Schur CG，绝对 `atol²` | 迭代数不可直接比较 |
-| Legacy MG 菜单 | 只有两层 V-cycle；平滑 = 整 2 次 BiCGStab；阻尼搜索 {1,.5,.25,.125}；拒绝 GCR/CA-GCR/W-F-K/mixed | 全套（GCR、CA-GCR、BiCGStabL、W/F/K、mixed、deflate） | 在 CPU 上开额外 Krylov 通常是净负收益 |
+| Legacy MG 菜单 | 外层与 CUDA 同构：右预条件 FGMRES(m=10)，V-cycle 只做预条件（平滑 = 整 2 次 BiCGStab，仅两级以上运行）；阻尼搜索与周期粗修正已于 2026-11-25 删除；拒绝 GCR/CA-GCR/W-F-K/mixed | 全套（GCR、CA-GCR、BiCGStabL、W/F/K、mixed、deflate） | 在 CPU 上开额外 Krylov 通常是净负收益 |
 | Strict halo | 阻塞 `MPI_Sendrecv` | 非阻塞 + event 解耦 | 在 CPU 上用 event 模型没有对应物；在 GPU 上改阻塞会丢重叠 |
 | Gauss gauge | 确定性**正态**（mix64+Box-Muller） | `curand_uniform` **均匀** | 同 seed 不同场；跨后端先统一生成方式 |
 

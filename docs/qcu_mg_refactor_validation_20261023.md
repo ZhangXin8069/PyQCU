@@ -16,7 +16,8 @@
   层均在 full residual `2.45e-7` 到 `2.61e-7` 范围内通过。
 - KUPL Legacy 已修复 NaNs、递归 V-cycle 的粗层尺寸错误、odd-Schur RHS 构造错误和
   correction 失败后的状态污染。correction 变差时回滚并显式 fallback 到已验证的
-  parity-Schur BiCGStab。
+  parity-Schur BiCGStab。（2026-11-25 注：这条 correction 回滚/fallback 机制已随
+  修正器删除，此处记录的是 2026-10-23 的状态；见 `logs/v20261126.txt`。）
 - `32^3x64` 的 Torch/CUDA/KUPL Legacy 单 rank 与适用 2-rank 行均通过独立 full
   residual 门；CUDA/Torch 使用同一 odd-Schur cache，解向量相对 Torch 均为约
   `1e-6`。大格 Strict 继续跳过；QUDA MG 因内核不兼容与 `1000 s` 组预算未形成

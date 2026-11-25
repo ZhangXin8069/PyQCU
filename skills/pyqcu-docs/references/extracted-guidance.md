@@ -108,10 +108,13 @@ PyTorch CUDA 与 native QCU 库初始化前完成。rank 数超过设备数只�
 
 - **QCU legacy** 指 `applyCloverMultigridQcu`，fine 系统为 odd-site Schur，粗层直接
   保存 33-tensor `A_c`，默认外层是 BiCGStab + 周期 additive coarse correction。
+  **KUPL 侧同一 ABI 自 2026-11-25 起不同**：外层是右预条件 FGMRES(m=10)，周期
+  additive coarse correction 已删除（原因与清单见 `logs/v20261126.txt`）。
 - **KUPL BiStabCG** 是独立原生求解器，不是 MG 的占位别名：
   `lattice_solver.cpp::solve_compact_bistabcg()`/`solve_clover()` 由 OpenMP+MPI 实现，
-  `applyCloverBistabCgQcu` 直接调用 `clover_bistabcg()`；共享 MG ABI 在
-  `restart=0` 时只转发到同一核心。当前缺独立多 rank CLI，不缺算法实现。
+  `applyCloverBistabCgQcu` 直接调用 `clover_bistabcg()`；共享 MG ABI 在没有粗空间
+  （`_MG_USE_DEFLATE_==0` 或一层）时只转发到同一核心。当前缺独立多 rank CLI，
+  不缺算法实现。
 - **QCU Strict** 指 `applyMultigridStrictFgmresQcu`，使用 full-coarse、MATPC、
   `X/Y/Yhat` 持久层级和 fused right-FGMRES。
 - **QUDA/PyQUDA** simple 默认使用 even-even MATPC、外层 GCR(8)、MG 右预条件、
@@ -157,7 +160,8 @@ cycle 位时才进入 MG 右预条件路径。`_MG_MU_PRE_=0` 在预条件路径
 只有以下条件一致时才能比较 MG 迭代数或倍率：
 
 - fine system（Schur vs MATPC）一致；
-- 外层 Krylov 与 MG 是 additive correction 还是 right preconditioner 一致；
+- 外层 Krylov 与 MG 是 additive correction 还是 right preconditioner 一致
+  （2026-11-25 起 KUPL Legacy 也是 right preconditioner，与 CUDA 同构）；
 - smoother、cycle、terminal solver 一致；
 - coarse space、block、null-vector 数和容差一致；
 - 计时边界和冷/热启动一致。

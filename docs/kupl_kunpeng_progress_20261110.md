@@ -6,6 +6,11 @@
 > 文档状态：**C 级时点证据，未打 tag**。本文所有耗时、倍率与迭代数均为特定
 > 窗口、特定作业号的实测值，不是永久性能承诺，也不得跨窗口拼接为新基线。
 > 证据实体未全部入库，见第 7 节。
+>
+> **2026-11-25 补充**：本文出现的"阻尼（线搜索）"、"修正被接受/回滚"、
+> "fine-BiCG fallback"、"`restart` = MG 粗修正间隔"都属于**已于 2026-11-25 整段
+> 删除**的修正器路径（KUPL 现为右预条件 FGMRES(m=10)，原因见 `logs/v20261126.txt`）。
+> 本文按 2026-11-05–11-10 的状态保留，相关数字不可从当前源码复现。
 
 ## 0. 记号与参数速查
 
@@ -20,7 +25,7 @@
 | `屏` | screen hardcopy | GNU `screen` 终端快照文件 `logs/screen-*.txt` | 文件名模式 |
 | `yNN` | 远端结果目录 | `data/kupl_hbm_opt_20261106/yNN/`，**不是作业号** | 屏记录 `job_y76.sh` 内 `WORK_DIR` |
 | `2049xxx` | dsub 作业号 | 六位数字，来自 `djob -ll` | 屏记录 `Submit job <NNNNNNN>` |
-| `r10`/`r20`/`r50` | `restart=` | MG 粗修正间隔；仅此语境 | CLI `--restart` |
+| `r10`/`r20`/`r50` | `restart=` | MG 粗修正间隔；仅此语境（**2026-11-25 前的语义**，该修正器已删除） | CLI `--restart` |
 | `r1`/`r2`（`dev99`） | MPI ranks | 1/2 ranks；与 `restart` 无关 | `profiler_solver_performance_history.md` §5.1 |
 | `t24`/`t36`/`t576` | 线程数 | 单域 24/36 线程、全节点 576 线程 | STREAM 报告 |
 | `n` | 样本数 | `n=1` 为单样本，不是中位数 | — |
@@ -50,7 +55,9 @@
 - `--skip-independent-residual` 时报告写入的 `acceptance` 就是 `args.atol`
   本身（`kupl_multigrid.py:885-890`），不是计算值。
 
-**`restart` 是什么**：不是"重启次数"，而是 **MG 粗修正的检查间隔**。
+**`restart` 是什么**（2026-11-06 当时；这条修正器路径已于 2026-11-25 整段删除，
+现在外层是 FGMRES(m=10)，见 `logs/v20261126.txt`）：不是"重启次数"，而是
+**MG 粗修正的检查间隔**。
 `restart=N` 表示每 N 次细层 BiCGStab 迭代插一次粗修正
 （`lattice_clover_multigrid.cpp:220-223`）；`restart=0` 或 `levels=1` 都表示
 **不走 MG**，直接调用 parity-Schur BiCGStab（`:1115-1124`）。名称沿用 QUDA 的
@@ -588,6 +595,12 @@ L16 上 4 rank 时 MG 约快 `4.15×`；32 rank 时 MG 与 BiCGStab 基本持平
 修复 `UnboundLocalError` 与布局错误。
 
 #### 7.2.4 true-MG fail-closed 与阻尼修正（`a51d32a0`）
+
+> **2026-11-25 注**：本节是 `a51d32a0`（2026-11-06）的提交记录。阻尼线搜索、
+> "接受/回滚修正"与 fine-BiCG 回退已在 2026-11-25 **整段删除**——KUPL Legacy-MG
+> 改为与 CUDA 同构的右预条件 FGMRES(m=10)，因为两后端跑不同方法时差异无法归因到
+> 硬件（`logs/v20261126.txt`）。`KUPL_REQUIRE_MG_CORRECTION` 仍在，但
+> `accepted_corrections` 现在计预条件应用次数。
 
 `cpp/kupl/qcu/src/lattice_clover_multigrid.cpp`（+167 行）：
 

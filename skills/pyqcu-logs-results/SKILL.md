@@ -46,9 +46,10 @@ When a bug-fixing session completes, the final summary report is written here. T
 - 已作废：`atol=1e-4` 下的 `0.128289 s`（`restart=1,cmax=200,tol=1e5`）与
   `0.135579–0.136258 s` 曾被写成"MG 比 BiCGStab 快 26%/21.8%"。机制是
   `coarse_atol = atol × coarse_tol_factor × 3^(levels−1)`，`1e-4 × 1e4 = 1.0`
-  让粗层首行即"收敛"、修正恒零并 `fallback_to_fine=true`——实际是 fine
-  BiCGStab。替代口径：真实 MG 必须 `atol=1e-6`，且同格点对照下 MG 与 BiCGStab
-  在 ±2% 内、端到端因 cache 载入慢 `10–19×`。
+  让粗层首行即"收敛"，粗层解恒 0、粗空间不贡献（当时走的是 fine BiCGStab 回退；
+  该回退路径已于 2026-11-25 随修正器删除，见 `logs/v20261126.txt`）。替代口径：
+  真实 MG 必须 `atol=1e-6`，且同格点对照下 MG 与 BiCGStab 在 ±2% 内、端到端因
+  cache 载入慢 `10–19×`。
 - 已作废："多 rank Legacy-MG 无法运行"。机制是 patch gauge 取自 rank 局部 slab
   （4-rank 有 75% 站点错误），修成全局 patch 后 32 rank 可构建
   （L24 `24.476 s`/L32 `53.023 s`）。替代边界：仍须预置全局 `--coarse-cache`。

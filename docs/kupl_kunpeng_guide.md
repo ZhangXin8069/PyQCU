@@ -359,15 +359,18 @@ KUPL 有两条不能混写的生产路线：
 
 | 路线 | 参数/状态 | 算法边界 |
 |---|---|---|
-| Legacy-MG | `levels=2`、`restart>0`、身份匹配 cache、`verify_status=0` | 真正构建/加载粗层并执行周期 coarse correction |
-| BiStabCG | `levels=1`、`restart=0`、`coarse_source=unused: restart=0` | optimized parity-Schur BiStabCG，不执行粗层 correction |
+| Legacy-MG | `levels>=2`、身份匹配 cache、`verify_status=0` | 真正构建/加载粗层，并把它作为右预条件 FGMRES(m=10) 的预条件子（2026-11-25 起；periodic coarse correction 已删除） |
+| BiStabCG | `levels=1`（无粗空间）、`coarse_source=unused` | optimized parity-Schur BiStabCG，不执行粗层 correction |
 
-这里 `simple/mpi/solve_case.py --backend kupl` 的 MG 路线是 Legacy additive
-correction，不是 Strict-MG 持久 V-cycle/FGMRES。Strict 路径必须显式使用
+`restart` 已不是"修正间隔"（删除前的语义），外层固定 FGMRES(m=10)；但
+`simple/mpi` launcher 仍用 `levels>1 且 restart≠0` 判断是否启用粗空间。
+这里 `simple/mpi/solve_case.py --backend kupl` 的 MG 路线是"FGMRES + V-cycle 预条件"，
+不再是与 Strict 不同的 additive correction 方案；Strict 路径仍必须显式使用
 `pyqcu.kupl.multigrid.StrictMultigrid` 及其专用资产/benchmark 编排。
 BiStabCG 则有独立原生核心 `solve_compact_bistabcg()` 和直接 ABI
-`applyCloverBistabCgQcu`；共享 `applyCloverMultigridQcu` 在 `restart=0` 时只做
-dispatch 并调用同一个 `clover_bistabcg()`。当前缺的是独立多 rank CLI，不是算法实现。
+`applyCloverBistabCgQcu`；共享 `applyCloverMultigridQcu` 在没有粗空间
+（`_MG_USE_DEFLATE_==0` 或 `--mg-levels 1`）时只做 dispatch 并调用同一个
+`clover_bistabcg()`。当前缺的是独立多 rank CLI，不是算法实现。
 
 生产入口使用 `pyqcu/testing/simple/mpi/solve_case.py`；它自动创建或校验全局 coarse
 cache、启动一次 MPI solve、记录每 rank affinity/memory 环境并计算独立真残差。
@@ -375,9 +378,9 @@ cache、启动一次 MPI solve、记录每 rank affinity/memory 环境并计算�
 [`kupl_only_deployment.md`](kupl_only_deployment.md) 的第 7.5 节。
 
 “真实 MG”不等于“MG 必然更快”。只有同 gauge/RHS、dtype、atol、rank/grid/threads
-和 cache 状态下的稳态 A/B 才能决定生产路线；若 correction 增加墙钟，应保留
-BiStabCG 并记录 MG 负收益。不得把 `restart=0` 改名为 MG，也不得把 cache setup
-时间混入 BiStabCG solver-only 比较。
+和 cache 状态下的稳态 A/B 才能决定生产路线；若 MG 预条件增加墙钟，应保留
+BiStabCG 并记录 MG 负收益。不得把 `levels=1`（无粗空间）改名为 MG，也不得把 cache
+setup 时间混入 BiStabCG solver-only 比较。
 
 短算子 A/B：
 

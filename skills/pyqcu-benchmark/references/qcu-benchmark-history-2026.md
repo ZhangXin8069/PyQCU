@@ -318,16 +318,19 @@ split one axis while keeping all trailing axes complete. A regression must compa
 `logical_dataset_sha256` with `logical_array_sha256` on the blocked shape, not only
 on a small contiguous fixture.
 
-Formal KUPL MG runs must set `KUPL_REQUIRE_MG_CORRECTION=1`. A `levels=2` report
-with `fallback=fine_bicgstab`, `coarse_calls=0`, or no accepted correction is a
-BiCGStab result and must not enter a MG speedup table. The same gate must be
-disabled only for the explicit `levels=1,restart=0` BiCGStab control.
+Formal KUPL MG runs used to require `KUPL_REQUIRE_MG_CORRECTION=1`, and a
+`levels=2` report with `fallback=fine_bicgstab`, `coarse_calls=0`, or no accepted
+correction was a BiCGStab result that must not enter a MG speedup table. That
+fallback wording is **history**: the correction-acceptance machinery was deleted
+on 2026-11-25 and Legacy-MG now runs right-preconditioned FGMRES(m=10) with the
+V-cycle as the preconditioner, because a CUDA-vs-KUPL comparison could not
+attribute a difference to the hardware while the two ran different methods
+(`logs/v20261126.txt`). Read every `fallback`/`accepted correction` statement in
+this file as describing the deleted path.
 
-Coarse correction needs a damping line search because a full additive correction
-can increase the fine true residual even when the coarse solve itself converges.
-Build the coarse correction once, try dampings `1, 0.5, 0.25, 0.125`, and accept
-only a decrease. A failed search restores the previous fine solution and residual
-before declaring fallback.
+The damping line search described below (build the coarse correction once, try
+`1, 0.5, 0.25, 0.125`, accept only a decrease, restore on failure, then fall
+back) was part of that deleted corrector and no longer exists in any code path.
 
 Current 2026-11-06 L24 c64 result, 16 ranks x 8 threads and `grid=1 1 1 16`:
 BiCGStab median `1.2545952125 s` (16 iterations), true-MG median

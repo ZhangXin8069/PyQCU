@@ -40,7 +40,8 @@ than two is not a supported performance path.
 >   单向量门禁 ρ=1.000000、稠密随机向量达容量 `1/96`；结论是 legacy 基在
 >   k≥2 上多抓 **1.07–1.38×（中位约 1.3×）**，不是 6.1×——符号对、量级错五倍。
 >   ρ 随残差变光滑从 0.015 升到 0.088（容量 0.0104，上界 0.1021），仍远小于 1。
->   完整表见 `logs/v20261123.txt` §182；6.1× 与 overlap `0.115` 仍然不得引用。
+>   完整表见 `logs/v20261123.txt` §182；6.1× 与 overlap `0.115` 仍然不得引用
+>   （`overlap` 这个打印已随 2026-11-25 删除的修正诊断一起消失）。
 >   **按迭代数复核（§185，比 ρ 更硬）**：同一分配、`E=2`、两套基各由自己 builder 建，
 >   `MG_LEVEL_ITERS` 给出 legacy `level0=37 level1=21`、inverse `level0=38 level1=8`，
 >   两者都接受 8 次修正；墙钟 2.0372/2.0753 vs 2.0095 s。所以旧基**确实**省下
@@ -248,8 +249,11 @@ Legacy 多级结果的正确性门是求解返回后独立重建 full Wilson/Clo
 3L/4L 均通过，独立残差分别约为 `2.60e-7`（单 rank 3L/4L）和 `2.45e-7`
 （2-rank 3L/4L）。
 
-Legacy correction 现采用确定性 fail-safe：post residual 未改善则回滚并关闭本
-solve 的后续 correction，不再依赖浮点斜率临界门。验证深度仍为 Legacy 两层、
+Legacy 当时的确定性 fail-safe（post residual 未改善则回滚并关闭本 solve 的后续
+correction）**已于 2026-11-25 随修正器一起删除**：KUPL Legacy-MG 现在只有右预条件
+FGMRES(m = 10) 一条外层路径，粗层只是预条件子的一部分，不存在"接受/回滚/关闭"
+的修正决策（见下文"2026-11-25 KUPL Legacy-MG 只有一条外层"）。删除原因：CUDA 与
+KUPL 跑不同方法时，差异无法归因到硬件。验证深度仍为 Legacy 两层、
 Strict 三层；3L/4L 只作为显式实验路径，depth warning 说明几何/深度风险，不能代替
 correctness gate。完整矩阵、实际 cycle 计数和证据链接见
 [`pyqcu-benchmark/references/qcu-multigrid-20261023.md`](../pyqcu-benchmark/references/qcu-multigrid-20261023.md)。
@@ -288,9 +292,12 @@ correctness gate。完整矩阵、实际 cycle 计数和证据链接见
   | mg-2 | 39 | 8 | — | 8 | 2.3566 | 4.28e-06 |
   | mg-3 | 59 | 12 | **12** | 12 | 3.7684 | 3.19e-06 |
 
-  `level2=12 / accepted_corrections=12 / fallback_fine=0` 证明第三层被真正进入并
-  采用，不是只加载。三层精度更好但墙钟多 **60%**、细层迭代多 **51%**——与 §182
-  的算术一致（更粗的修正每次更便宜但去掉得更少）。
+  `level2=12 / accepted_corrections=12` 证明第三层被真正进入并采用，不是只加载。
+  该行是 2026-11-25 删除前的记录：当时 `MG_LEVEL_ITERS` 还打印 `fallback_fine=`，
+  且 `accepted_corrections` 计"被接受的阻尼修正"；现在该行只打印
+  `level0/level1/...`、`total=` 与 `accepted_corrections=`（**计预条件应用次数**）。
+  三层精度更好但墙钟多 **60%**、细层迭代多 **51%**——与 §182 的算术一致（更粗的
+  修正每次更便宜但去掉得更少）。
 - 接受不等于已验证：Legacy 现在的**已跑通**深度是 2 和 3（都在非奇异算符上、
   都有独立残差），4/5 层仍须逐层过独立全算子残差门后才能引用。
 
@@ -312,42 +319,61 @@ correctness gate。完整矩阵、实际 cycle 计数和证据链接见
 - legacy 与 Strict/QUDA 粗层表示的正式对照见
   [`docs/qcu_quda_multigrid_coarse_operator.md`](../../docs/qcu_quda_multigrid_coarse_operator.md)。
 
-### 2026-11-24 KUPL Legacy-MG 在本实现中无法加速（实测，勿再扫参数）
+### 2026-11-25 KUPL Legacy-MG 只有一条外层：右预条件 FGMRES(m = 10)
 
-先读 `logs/v20261123.txt` §142（转移审计通过）、§145（`capture_bound` 是代数）、
-§150/§152（关闭仪表的三路对照）、§153（间隔即细层 restart，对照仍有混淆）。
-以下每条都修正过早期版本的错误结论，不要再引用 §121/§129/§133 的旧措辞。
+2026-11-25 **整段删除**了 Legacy-MG 的 BiCGStab 修正器，换成 CUDA 的结构。原因是
+CUDA-vs-KUPL 对比在两边跑不同方法时，任何差异都无法归因到硬件：
 
-- **转移对是对的**：逐 dof 审计给出 `mismatches=0`、`gather_set_equals_scatter_set=1`、
-  `support == block_sites * E`、`outside_block=0`、`roundtrip_err` 2.4e-07–8.3e-07。
-  不存在索引/parity 映射错误——**不要去改 `restrict()`/`prolong()`**。
-- **`capture_bound`/`reduction_bound` 不是测量值**，是代数
-  `sqrt(E/(e*block))` 与 `sqrt(1-capture²)`，`E=2, e=12` 时对 block 16/32/256 分别
-  给出 `0.1020621 / 0.07216878 / 0.02551552`，与"实测"七位吻合。粗化时它下降只是
-  block 变大，**与转移无关**，不能作为证据。
-- **真实测量**（关闭 `KUPL_MG_DEBUG` 才有意义，`diagnose_correction` 计在同一计时器
-  内）：一次修正只去掉不到 1% 的残差，而一次细迭代去掉约 45%；`overlap` 0.013–0.046；
-  `best_ratio` 0.991–0.993；即使最优阻尼也只保留约 29% 的修正量。
-- **零空间基曾经是错的**：旧循环是 `v -= S⁻¹(S v) = v − v`，存的是内层求解器残差
-  （白噪声）。已改为真逆迭代 `v ← S⁻¹v` 并每轮归一化，且缓存身份带
-  `nv_builder="inverse-iteration/2"`。**用真基重测，结论不变**（§152）。
-- **`E` 不是杠杆**：2→4 让 `best_ratio` 从 0.9941 到 0.9934、`level0` 从 18 到 24（更差）。
-- **调度的混淆**（§153）：修正间隔**就是**细层 restart 长度
-  （`chunk = min(remaining, correction_interval - since_correction)`），所以
-  `KUPL_MG_CORRECTION_INTERVAL=2` 同时把 BiCGStab 的重启从 20 变成 2。三路对照里
-  `--mg-levels 1` 那一臂其实是**不重启**的 BiCGStab，因此 4.647 / 6.504 / 7.947 s
-  比较的是三种 Krylov 策略，**不能**把 1.71× 全部归给 MG。要归因必须先让一个 chunk
-  能跨多次重启——这是结构改动，未做。
-- 结论：本实现的两级 Legacy-MG 没有净收益。倍数本身在 2026-11-25 的一次同分配、
-  同 `restart`、真复用缓存的四臂对照中已测得（下一节，**MG/plain = 1.68×–1.72×**）；
-  在那之前的一切倍数仍然不得引用。
+- **外层**：右预条件 FGMRES(m = 10)。`z_j = M⁻¹v_j`、`w = A z_j`、Arnoldi、
+  `x += Z y`；restart 时按**真残差**重算。
+- **`M⁻¹`**：`nu_pre = 4` 步 MR 平滑（作用在进来的向量上）→ restrict → 一次
+  coarse cycle → prolong → 权重 1 加回；**没有 post-smoothing**（CUDA 也不用，
+  剩余部分由外层 Krylov 吸收）。
+- **粗层**：`cycle()` 就是 CUDA 的 V-cycle 体（2 步 BiCGStab 前平滑、restrict、
+  递归、prolong、2 步后平滑）；**两级时入口层就是最粗层，该体不运行**——这是深度
+  的属性，两后端相同。
+- **门**：6 步窗口的残差比几何平均；连续两个窗口 ≥ 0.9 就把预条件子关到本次 solve
+  结束，复现 CUDA 的 adaptive preconditioner gate。
+- `_MG_USE_DEFLATE_ == 0` 或 `--mg-levels 1` 表示**没有粗空间**，直接走
+  `set_.clover_bistabcg`；`restart` 已不是"修正间隔"，只剩 `simple/mpi` launcher
+  用它（`levels>1 and restart!=0`）决定是否启用粗空间。
 
-### 2026-11-25 KUPL Legacy-MG 的**合法**减速倍数：MG/plain = 1.68×–1.72×
+删除项（再当成现行机制写、照它复跑都是错的）：BiCGStab 修正器循环、修正间隔调度与
+`KUPL_MG_CORRECTION_INTERVAL`、平滑前缀与 `KUPL_MG_NU_PRE`、解析最优阻尼
+`t = <r,Ac>/‖Ac‖²` 作为活机制、`diagnose_correction` 与其 `MG_CORRECTION_DIAG` 行
+（`best_damping`/`best_ratio`/`overlap`/`capture_bound` 等打印）、"无改善就关掉修正
+回落细层 BiCGStab"、`KUPL_MG_OUTER`，以及 `MG_LEVEL_ITERS` 的 `fallback_fine=`
+token。`MG_LEVEL_ITERS` 仍打印 `level0/level1/...`、`total=` 与
+`accepted_corrections=`，后者现在计**预条件应用次数**。
 
-上一节最后一句（"倍数不得引用"）已被一次**条件完备**的测量取代。作业 `2258877`，
-一个 dsub 分配、单节点 `cn12139`、8 rank、`grid 2 2 2 1`、`mass=+0.1`（`κ=0.121951
-< κ_c=0.125`，算符非奇异）、`atol=1e-5`、`--repeat 3 --warmup 1`，四臂**串行跑在同一
-分配内**：
+代价只有删除：`cpp/kupl/qcu/src/lattice_clover_multigrid.cpp` 由 **2313 行降到
+1698 行**；库已在计算节点重编译通过、符号中含 `fgmres`。**首批 FGMRES 数字仍在测
+（measured next）**，本节不写任何新倍数；旧路径的 A/B 按设计不再存在。完整记录见
+`logs/v20261126.txt`。
+
+### 历史：删除前的修正器路径（勿再扫参数）
+
+> 下面每条只对 2026-11-25 删除的路径成立，当前源码无法复现。表、四臂对照与逐条
+> 可比性论证见 [`references/legacy-mg-corrector-history.md`](references/legacy-mg-corrector-history.md)；
+> 原始推理见 `logs/v20261123.txt` §142/§145/§150/§152/§153/§182。
+
+- **转移对是对的**（逐 dof `mismatches=0`、`gather_set_equals_scatter_set=1`、
+  `outside_block=0`）：不要去改 `restrict()`/`prolong()`。
+- **`capture_bound`/`reduction_bound` 不是测量值**，是代数 `sqrt(E/(e*block))` 与
+  `sqrt(1-capture²)`；这两个打印随诊断函数一起消失。
+- **修正的经济学**：一次修正去掉不到 1% 的残差，一次细迭代去掉约 45%，而修正要付
+  约 2.3 次细层应用——旧路径 MG/plain = 1.68×–1.72× 就是这么来的。
+- **`E` 不是杠杆**：2→4 让捕获率从 0.9941 到 0.9934 变差、`level0` 从 18 到 24。
+- **间隔即细层 restart** 的混淆（§153）是那条路径的结构问题，随修正器一起消失。
+- 旧路径的倍数只在 2026-11-25 同分配四臂对照（job `2258877`，1.680×/1.722×）中
+  合法；在那之前的一切倍数仍不得引用。
+
+### 2026-11-25（删除前最后测量）MG/plain = 1.68×–1.72×
+
+这一节跑的是**2026-11-25 删除前的修正器路径**，所以它是旧路径的最后一次合法测量，
+不是当前 FGMRES 路径的数字。作业 `2258877`，一个 dsub 分配、单节点 `cn12139`、8 rank、
+`grid 2 2 2 1`、`mass=+0.1`（`κ=0.121951 < κ_c=0.125`，算符非奇异）、`atol=1e-5`、
+`--repeat 3 --warmup 1`，四臂**串行跑在同一分配内**：
 
 | 臂 | ABI 符号 | 秒（3 次中位） | 迭代 | 残差 | 缓存 |
 |---|---|---:|---:|---:|---|
@@ -359,24 +385,12 @@ correctness gate。完整矩阵、实际 cycle 计数和证据链接见
 MG/plain = 1.680×（legacy 基）   1.722×（inverse 基）
 ```
 
-**这次为什么可以引用**（逐条对照 §153 的混淆项）：
-
-- **同分配**：四行同一个 dsub、同一节点、同一库 md5 `305a152cdc68`。§114 禁止的跨
-  分配比较完全没有出现。
-- **`restart` 相同**：四行的 `metrics.restart` **全部为 5**，所以 §153 的"修正间隔即
-  restart 长度"混淆没有被引入——两臂的细层 Krylov 重启长度一致。
-- **缓存是真复用**：两臂都记录 `cache_reused=True`、`asset_source=cache`、
-  `cache_seconds=null`，用的是 `2258741` 产出并按 `--nv-iters 2` 建的产物。
-- **差异远超噪声**：同作业内基准漂移 +0.39%（1.1856 → 1.1903），单臂样本离散
-  0.13–0.36%，而 68–72% 的 MG 惩罚约为漂移的 **170×**。
-- **跨分配一致性佐证**：纯求解残差与另一分配的纯求解**逐位相同**
-  （`4.408633403218057e-06`）而墙钟不同——这正是 §114 要防的情形，反过来说明
-  残差可比、墙钟不可跨分配比。
-
-**两套基仍然互相不可区分**（1.9922 vs 2.0421，2.5%；另一作业 `2258741` 为 0.25%），
-即 **null-vector 构建器的选择不改变代价**。所以"换基能否加速"是否定答案，"MG 是否
-值得"也是否定答案——与本节的机制解释一致：一次修正去掉不到 1%，一次细迭代去掉约
-45%，一次修正却要付约 2.3 次细层应用的代价。
+四行同一个 dsub、同一节点、同一库 md5 `305a152cdc68`；`metrics.restart` 全部为 5；
+两臂都记录 `cache_reused=True`、`asset_source=cache`、`cache_seconds=null`（`2258741`
+产出、`--nv-iters 2`）；同作业漂移 +0.39%，单臂离散 0.13–0.36%，而 68–72% 的 MG
+惩罚约为漂移的 **170×**。两套基互相不可区分（2.5%；另一作业 `2258741` 为 0.25%），
+即"换基"与"MG 是否值得"对旧路径都是否定答案。逐条可比性论证见
+[`references/legacy-mg-corrector-history.md`](references/legacy-mg-corrector-history.md)。
 
 **`--atol` 必须比 dtype 的验收门更紧**：c128 的验收门是 `1e-08`；`--atol 1e-5` 的
 c128 16 rank 单元真残差 `7.17e-07`、`residual_verified=true`，仍被判 FAIL（原因串把

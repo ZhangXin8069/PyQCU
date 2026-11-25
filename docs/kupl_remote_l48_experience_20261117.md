@@ -348,11 +348,14 @@ python3 pyqcu/testing/simple/kupl_multigrid.py ... \
 （`7.125789483932747e-05`）。原因：
 
 - `atol=1e-4` × `coarse_tol_factor=1e4` ⇒ `coarse_atol = 1.0`；
-- 粗层第一次残差检验就通过（`iterations=0`），修正恒为 0；
-- `fallback_to_fine=true`，实际走 fine parity-Schur BiCGStab。
+- 粗层第一次残差检验就通过（`iterations=0`），粗层解恒 0、粗空间不贡献；
+- 当时 `fallback_to_fine=true`、实际走 fine parity-Schur BiCGStab——该回退路径已于
+  2026-11-25 随修正器删除（见 `logs/v20261126.txt`）。
 
 诊断作业 `2152601` 用 `KUPL_REQUIRE_MG_CORRECTION=1` 复现并硬失败：
-`rejected fine BiCGStab fallback`，`MPI_ABORT`。所以：
+`rejected fine BiCGStab fallback`，`MPI_ABORT`。该门现在只拒绝没有粗空间的配置
+（`levels<=1` / `_MG_USE_DEFLATE_==0`），因为 `accepted_corrections` 改计预条件应用
+次数，它不再能区分"粗层是否真的贡献"。所以：
 
 | 说法 | 判定 |
 |---|---|
@@ -361,10 +364,12 @@ python3 pyqcu/testing/simple/kupl_multigrid.py ... \
 | “L48 已有有效 MG 性能点” | **UNVERIFIED / 目前不存在** |
 | “Legacy-MG 的 cache/export 路径可跑” | **VERIFIED**；cache 有效（`patch_galerkin_error 3.59e-07`、`verify_status=0`） |
 
-> 有效 MG 的复跑条件（未执行）：`atol=1e-6`（`coarse_atol=1e-2`）+ 复用现有 cache
-> + `KUPL_REQUIRE_MG_CORRECTION=1` 退出 0。见
-> [`kupl_mpi_scaling_20261114.md`](kupl_mpi_scaling_20261114.md) 的 coarse tolerance
-> 机制说明。
+> 有效 MG 的复跑条件（未执行）：`atol=1e-6`（`coarse_atol=1e-2`）+ 复用现有 cache，
+> 并与 `levels=1` 的独立真残差/迭代数对照。2026-11-25 起外层是 FGMRES(m=10)，
+> `KUPL_REQUIRE_MG_CORRECTION=1` 不再能证明粗层真的贡献。**删除前那套按
+> `restart`/修正间隔复跑的做法已不存在**：历史数字在 `logs/v20261123.txt` §153/§182，
+> 无法从当前源码复现。coarse tolerance 机制见
+> [`kupl_mpi_scaling_20261114.md`](kupl_mpi_scaling_20261114.md) §9.5。
 
 ### 5.5 32r 数值的可信度与不可声称项
 

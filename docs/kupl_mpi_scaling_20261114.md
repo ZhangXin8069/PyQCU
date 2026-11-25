@@ -624,8 +624,10 @@ patch 在 x/y 轴因 `grid=1` 必然退化为**整轴**（24），t 轴也退化
 `coarse_atol = atol × coarse_tol_factor × 3^(levels−1)`，是**乘**不是除。
 
 - `atol=1e-4`、默认 `factor=1e4` → `coarse_atol=1.0`；粗层 BiCGStab 首行
-  残差判据立即成立，解保持 0 → 修正恒为 0 → damping 搜索全部回滚 →
-  `fallback_to_fine=true`，最终走纯 BiCGStab。
+  残差判据立即成立，解保持 0 → 粗层解恒 0、粗空间不贡献。当时接的是"修正恒 0 →
+  damping 搜索全部回滚 → `fallback_to_fine=true` → 纯 BiCGStab"这条链，**整条链已于
+  2026-11-25 随修正器删除**（现在只是预条件子退化为 4 步 MR 平滑，见
+  `logs/v20261126.txt`）。
 - 因此历史 `0.128289 s`（`restart=1, cmax=200, tol=1e5`）是 **BiCGStab 回退**，
   不是 MG；`MG 比 BiCGStab 快 26.0%` 的结论作废。
 - `atol=1e-6`、默认 `factor=1e4` → `coarse_atol=1e-2`，MG 真正运行。

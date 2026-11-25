@@ -8,6 +8,11 @@
 > 文档状态：**C 级时点证据汇总，未打 tag**。本文不产生新测量，只对既有
 > `docs/**` 与 `logs/**` 记录做分层归档。任何单值都必须在同一表格行内连同后端、
 > 硬件、精度、路径与统计口径一起引用，禁止跨行取最小值作为"PyQCU 的 L24 性能"。
+>
+> **2026-11-25 补充**：本文出现的"阻尼（线搜索）"、"修正被接受/回滚"、
+> "fine-BiCG fallback"、"`restart` = MG 粗修正间隔"都属于**已于 2026-11-25 整段
+> 删除**的修正器路径（KUPL 现为右预条件 FGMRES(m=10)，原因见 `logs/v20261126.txt`）。
+> 本文按 2026-11-11 的状态保留，这些数字不可从当前源码复现。
 
 ## 0. 记号、精度与参数约定
 
@@ -30,7 +35,7 @@
 | `C1`–`C3` | 本文行号 | §9 DCU 行索引 | — |
 | `D1`–`D13` | 本文行号 | §6 `dev99` 期行索引 | — |
 | `w1`–`w6` | 窗口编号 | §3.1 的 6 个同窗 A/B 窗口 | 本文 §3.1 |
-| `r*`（`r10`/`r20`/`r50`） | `restart=` 参数值 | **仅在此语境**表示 MG 粗修正间隔 | CLI `--restart` |
+| `r*`（`r10`/`r20`/`r50`） | `restart=` 参数值 | **仅在此语境**表示 MG 粗修正间隔（**2026-11-25 前的语义**，该修正器已删除） | CLI `--restart` |
 | `r1`/`r2`（`dev99` 表） | MPI ranks 数 | **仅此类**表示 1/2 个 MPI rank，与 `restart` 无关 | `docs/profiler_solver_performance_history.md` §5.1 原注 |
 | `E1`–`E7` | 环境代号 | §2–§8 的 7 个计算环境 | `qcu_l24_environment_bandwidth_20261111.md` §1 |
 | `4r×32t` / `16r×8t` | ranks × threads | 4 ranks × 32 threads / 16 ranks × 8 threads。**旧写法 `E4x32`/`E16x8` 已废弃**，因与 `E1–E7` 环境代号撞字母 | — |
@@ -198,7 +203,13 @@ coarse_atol(k) = atol × coarse_tol_factor × 3^(k-1)
 
 ### 0.6 MG 粗修正的阻尼线搜索
 
-`cpp/kupl/qcu/src/lattice_clover_multigrid.cpp:984-985`：
+> **2026-11-25 注（先读）**：本节与 §0.6.1 描述的是 2026-11-11 当时的实现。阻尼线
+> 搜索、修正间隔调度、`KUPL_MG_NU_PRE` 前缀与 fine-BiCG 回退已随修正器**整段删除**
+> ——因为 CUDA 与 KUPL 跑不同方法时，任何差异都无法归因到硬件。当前源码只有右预条件
+> FGMRES(m=10)。下列代码片段与字段不能再用来复跑或解释当前结果，历史数字见
+> `logs/v20261123.txt`，删除记录见 `logs/v20261126.txt`。
+>
+> `cpp/kupl/qcu/src/lattice_clover_multigrid.cpp:984-985`：
 
 ```cpp
 static constexpr Real damping_steps[] = {1, 0.5, 0.25, 0.125};
@@ -227,6 +238,10 @@ levels_[0].correction_interval = params_[kMgLevel1NumRestart] > 0
 
 - `restart=0` → 不进入 MG 路径，直接走 optimized parity-Schur BiCGStab；
 - `restart=N>0` → 每 N 次细层迭代检查一次是否做粗修正。
+
+（以上是**删除前**的语义，见 §0.6 的 2026-11-25 注：`correction_interval` 字段与
+"N 次迭代一次修正"的调度已整段删除；现在 `restart` 只是 `simple/mpi` launcher 的
+"是否启用粗空间"开关。）
 
 **② `fine_calls` 是细层算子调用总数，不是迭代次数**
 （`lattice_clover_multigrid.cpp:1039`）。BiCGStab 每迭代固定调用 2 次
@@ -466,8 +481,14 @@ HDF5 元数据里写死了来源声明（`prepare_case.py:101-105`）：
 
 ### 0.10 `restart` 到底是什么
 
+> **2026-11-25 注**：本节的 `restart = 修正间隔` 语义属于**已删除**的修正器路径。
+> 现在 `restart` 既不是修正间隔、也不是外层重启长度（外层固定 FGMRES(m=10)），只在
+> `simple/mpi` launcher 里作为"是否启用粗空间"的开关（`levels>1 and restart!=0`）。
+> 本节的数字与复跑方式不可从当前源码复现。
+
 `restart` 是我见过最容易被误读的参数名。它**不是**"求解器重启次数"，也
-**不是**"重启迭代"，而是 **MG 粗修正的检查间隔（coarse-correction interval）**。
+**不是**"重启迭代"，而是 **MG 粗修正的检查间隔（coarse-correction interval）**
+——**这是 2026-11-11 当时的语义，该路径已删除**。
 
 #### 0.10.1 定义
 
@@ -482,6 +503,8 @@ levels_[0].correction_interval =
 
 即 `restart = N` 的语义是：**每跑 N 次细层 BiCGStab 迭代，就检查一次是否
 插入粗层修正**。它不是"重启"，而是"分段（chunk）"。
+（这是 2026-11-11 的语义：上面的 `correction_interval` 赋值与整条 chunk/修正逻辑
+已随修正器在 2026-11-25 删除。）
 
 #### 0.10.2 为什么叫 restart
 
@@ -648,7 +671,8 @@ cc = 29   粗层算子调用 29 次（levels=2，所以等于 restrict_calls=29�
 correction_calls 未记录在该行
 ```
 
-29 次粗调用对应"每 5 次细层迭代做一次修正"（`restart=5`）+ 阻尼搜索的重复尝试。
+29 次粗调用对应"每 5 次细层迭代做一次修正"（`restart=5`）+ 阻尼搜索的重复尝试
+（删除前的机制，2026-11-25 起不再存在）。
 `fc ≈ 2×迭代` 的关系在 §0.6.1 已给；`cc` 与迭代数没有简单线性关系。
 
 #### 0.11.6 引用 `cc` 时必须同时给出的字段

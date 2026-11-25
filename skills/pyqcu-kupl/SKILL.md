@@ -184,7 +184,8 @@ identity 不一致时才重建。
   阻塞 MPI 会多付约 0.6 ms/次 wait。
 - 求解器是双容差 + 强制真残差；冷启动置零。CUDA 冷启动随机、递推残差停机，
   迭代数口径不可直接比较。
-- Legacy MG 只保留两层 V-cycle 与 BiCGStab 平滑，显式拒绝 GCR/CA-GCR/W-F-K/
+- Legacy MG 的外层与 CUDA 同构（右预条件 FGMRES(m=10)，V-cycle 只做预条件）；
+  2026-11-25 删除了细层 BiCGStab 外层与周期粗修正。仍显式拒绝 GCR/CA-GCR/W-F-K/
   混合精度；不要因为 CUDA 有就默认在 CPU 上开。
 - `half_sites` 跌破 65536 时 block SIMD 自动关闭；固定全局格点增加 rank 会触发，
   是多 rank 性能断崖的候选机制之一。调参必须同时记录
@@ -236,17 +237,18 @@ ASAN 与 OpenMPI 的 signal handler 可能递归输出 `DEADLYSIGNAL`；先以
 
 ### 生产算法选路
 
-- 真正 Legacy-MG：`levels=2`、`restart>0`、身份匹配的全局 coarse cache、
-  `coarse_source!=unused: restart=0`、`verify_status=0`。推荐入口
-  `pyqcu/testing/simple/mpi/solve_case.py`，它自动构建/校验 cache 并计算独立真残差。
-- 高效 BiStabCG：`levels=1`、`restart=0`、无 coarse hierarchy/cache；多 rank 生产
+- 真正 Legacy-MG：`levels>=2`（有粗空间）、身份匹配的全局 coarse cache、
+  `verify_status=0`。推荐入口 `pyqcu/testing/simple/mpi/solve_case.py`（自动构建/
+  校验 cache 并算独立真残差）；`restart` 不再是修正间隔，外层固定 FGMRES(m=10)。
+- 高效 BiStabCG：`levels=1`（无粗空间）、无 coarse hierarchy/cache；多 rank 生产
   也走 `simple/mpi/solve_case.py`，`kupl_bistabcg.py` 只作单 rank ABI/数值示例。
 - BiStabCG 原生核心是 `lattice_solver.cpp::solve_compact_bistabcg()`；Clover
   `solve_clover()` 完成 Schur prepare/solve/reconstruct/full residual。
-  `applyCloverBistabCgQcu` 是直接 ABI；`applyCloverMultigridQcu` 在
-  `restart=0` 时转发到同一个 `clover_bistabcg()`。当前缺独立多 rank CLI，不缺算法。
+  `applyCloverBistabCgQcu` 是直接 ABI；`applyCloverMultigridQcu` 在没有粗空间
+  （`_MG_USE_DEFLATE_==0` 或 `--mg-levels 1`）时转发到同一个 `clover_bistabcg()`。
+  当前缺独立多 rank CLI，不缺算法。
 - MG 稳态必须复用同一 cache，并与同 gauge/RHS、dtype、atol、rank/grid/thread 的
-  BiStabCG A/B；MG 负收益时保留 BiStabCG，不得把 `restart=0` 写成 MG。
+  BiStabCG A/B；MG 负收益时保留 BiStabCG，不得把 `levels=1` 写成 MG。
 - `simple/solve_case.py` 和 `simple/mpi/solve_case.py` 都在内部启动 `mpirun`；
   外层再次运行 `mpirun` 会形成递归 MPI，直接失败。
 
@@ -381,12 +383,12 @@ per-probe 全量 fill、第一步 dslash 稀疏到 `block+1-hop`、时间窗口
 目标慢约 `16.5×`。
 
 **容差语义**：`coarse_atol = atol × coarse_tol_factor × 3^(levels−1)`；`atol=1e-4`
-× 默认 `1e4` = `1.0` → 粗层首行即“收敛”、修正全拒、`fallback_to_fine=true`。
-因此 `atol=1e-4` 的 `0.135579–0.136258 s` 与历史“MG 快 21.8%/26%”**一律作废**
-（实为 fine BiCGStab）。真实 MG 必须 `atol=1e-6`：32 秩 t-only `0.252589` 对
-BiCGStab `0.247571 s`（±2%），`restart=5→20` 省 `1.8–2.4×`；`builder_seconds`
-（cache 载入 `4.4–6.1 s`）不在 `wall_seconds` 内，MG 的 `iterations` 为 `None`，
-不得按迭代数比较 MG 与 BiCGStab。第二批 `atol=1e-6` 扫描与全矩阵见
+× 默认 `1e4` = `1.0` → 粗层首行即“收敛”、粗层解恒 0，粗空间不贡献。因此
+`atol=1e-4` 的 `0.135579–0.136258 s` 与历史“MG 快 21.8%/26%”**一律作废**
+（当时是 fine BiCGStab 回退；该"修正全拒→回退"路径已于 2026-11-25 删除，
+见 `logs/v20261126.txt`）。真实 MG 必须 `atol=1e-6`：32 秩 t-only `0.252589` 对
+BiCGStab `0.247571 s`（±2%）；`builder_seconds`（cache 载入 `4.4–6.1 s`）不在
+`wall_seconds` 内，MG 的 `iterations` 为 `None`，不得按迭代数比较。全矩阵见
 [`references/kupl-kunpeng-matrix-20261115.md`](references/kupl-kunpeng-matrix-20261115.md)。
 
 ### 多 rank Legacy-MG patch 构建（2026-11-14）
@@ -416,13 +418,11 @@ patch；4-rank `8³×16` 实测 **75%（6144/8192）站点 gauge 错误**，导�
 **t-only 禁用**：`grid 1 1 1 32` 时 x/y patch 退化为整轴，每 rank 建全格
 （≈493 s），32 rank 仍 `rc=124`；多 rank MG 一律均衡 4D 分解。
 
-**MG 容差语义**：`coarse_atol = atol × coarse_tol_factor × 3^(levels−1)`。
-`atol=1e-4` + 默认 `factor=1e4` → `coarse_atol=1.0` → 粗层解恒 0 → 修正全拒 →
-回退纯 BiCGStab；**历史 `1e-4` 的 `0.128 s` 不是 MG**。同网格 1e-6 对照：
-BiCGStab `0.0316 s` vs MG `0.0379 s`（MG 慢 20%，非 2.93×）。
-32-rank MG 1e-6 回读：L24 `0.519831 s`（`2×2×2×4`）、L32 `1.175139 s`
-（`2×2×2×4`）、`32³×12` `0.266999 s`（`4×2×2×2`），均 `verify_status=0`、
-真残差约 `4.5e-07`。
+**MG 容差语义**同 §容差语义：`atol=1e-4` → `coarse_atol=1.0`、粗空间不贡献，
+**历史 `1e-4` 的 `0.128 s` 不是 MG**。同网格 1e-6 对照：BiCGStab `0.0316 s` vs
+MG `0.0379 s`（MG 慢 20%，非 2.93×）；32-rank 1e-6 回读 L24 `0.519831 s`、
+L32 `1.175139 s`（`2×2×2×4`）、`32³×12` `0.266999 s`（`4×2×2×2`），均
+`verify_status=0`、真残差约 `4.5e-07`。
 
 **旧分布式路径**：`StencilFrame` 的 push/pull slot 混叠、pull cell 索引、
 压缩时间 hop `±1`、3 维 corner 缺失均未修；生产禁用
@@ -452,14 +452,13 @@ MPI 使用 `--map-by ppr:P:numa` 与 `--bind-to none`；`dsub` 资源参数写�
 
 已实现 Wilson/Clover dslash、Wilson BiStabCG/CG、Clover 构造/逆、
 supplied Clover dslash、Clover Schur prepare/reconstruct、Clover BiStabCG、
-3D Laplacian、Gaussian gauge、legacy 递归 Clover-MG/verify、strict
-coarse/MATPC/R-P、持久 V-cycle 与右预条件 FGMRES。当前限制为同精度
-c64/c128；CUDA 专用 mixed-precision、GCR/CA-GCR/BiCGStabL 模式必须显式
-拒绝，不得静默降级。LIME/HDF5 I/O 与 GPU 执行仍不属于 KUPL。
+3D Laplacian、Gaussian gauge、legacy 递归 Clover-MG/verify（2026-11-25 起外层为
+右预条件 FGMRES(m=10)）、strict coarse/MATPC/R-P、持久 V-cycle 与右预条件 FGMRES。
+当前限制为同精度 c64/c128；CUDA 专用 mixed-precision、GCR/CA-GCR/BiCGStabL 模式
+必须显式拒绝，不得静默降级。LIME/HDF5 I/O 与 GPU 执行仍不属于 KUPL。
 
-`restart=0` 是全格点 parity-Schur BiCGStab，不调用 coarse hierarchy。
-当前 c128 全格点 `24^3x64` 的 `10.282 s / 21 it` 就是该路径，不能写成
-c128 coarse V-cycle 性能；同规模 c128 coarse 性能仍未验证。
+`levels=1`（无粗空间）走全格点 parity-Schur BiCGStab，不调用 coarse hierarchy；
+c128 全格点 `24^3x64` 的 `10.282 s / 21 it` 就是该路径，不能写成 c128 coarse 性能。
 
 ## 反模式
 

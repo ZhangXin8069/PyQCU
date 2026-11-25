@@ -148,3 +148,64 @@ docs/qcu_quda_multigrid_coarse_operator.md、logs/v20261126.txt。
    `[12,2]` 的缓存只能配 `--mg-dof 12 2`，`[12,12]` 的只能配 `--mg-dof 12 12`；
    E 是 artifact 的属性（`lonv` 轴 0 → `params[19]`），加载时改不了，请求不一致会被
    拒绝并要求重建——这是正确行为，别绕过它。
+
+10. KUPL Legacy-MG 端口到 CUDA 结构（代码 2026-11-25，文档 2026-11-26 同步）
+    代码侧只读、本轮未改一行。`cpp/kupl/qcu/src/lattice_clover_multigrid.cpp` 删除了
+    细层 BiCGStab 外层与周期粗修正，**只剩一条外层 = 右预条件 FGMRES(m = 10)**：
+      外层      z_j = M^-1 v_j; w = A z_j; Arnoldi; x += Z y; restart 按真残差
+      M^-1      nu_pre = 4 步 MR 平滑（作用在进来的向量上）-> restrict -> 一次
+                coarse cycle -> prolong -> 权重 1 加回；**无 post-smoothing**
+      粗层      cycle() = CUDA 的 V-cycle 体（2 步 BiCGStab 前平滑、restrict、递归、
+                prolong、2 步后平滑）；**两级时入口层即最粗层，该体不运行**
+      门        6 步窗口残差比的几何平均；连续两个窗口 >= 0.9 就把预条件子关到本次
+                solve 结束，复现 CUDA 的 adaptive preconditioner gate
+      dispatch  `_MG_USE_DEFLATE_ == 0` 或 `--mg-levels 1` = 没有粗空间，直接
+                `set_.clover_bistabcg`
+    被替换掉的东西（任何文档再把它写成现行机制都是错的）：
+      - BiCGStab 修正器循环、`correction_interval` 调度、`KUPL_MG_CORRECTION_INTERVAL`
+      - `smoothing_prefix` / `KUPL_MG_NU_PRE` 前缀
+      - 解析最优阻尼 `t = <r,Ac>/||Ac||^2`（作为活机制）
+      - `diagnose_correction` 与 `MG_CORRECTION_DIAG` 行（`best_damping` /
+        `best_ratio` / `overlap` / `cos_overlap` / `capture_bound` /
+        `reduction_bound` 的打印）
+      - "无改善就关掉修正、回落 fine BiCGStab"
+      - `KUPL_MG_OUTER` 开关；`MG_LEVEL_ITERS` 的 `fallback_fine=` token
+      - `MG_LEVEL_ITERS` 仍打印 `level0/level1/...`、`total=` 与
+        `accepted_corrections=`，后者现在计**预条件应用次数**，不再计"被接受的
+        阻尼修正"
+    为什么删而不是加开关：CUDA 与 KUPL 当时跑的是两种不同方法（CUDA 右预条件
+    FGMRES + V-cycle 预条件子，KUPL 细层 BiCGStab + 周期粗修正），任何性能或收敛
+    差异都无法归因到硬件。端口后两后端结构一致，差异才有归属。
+    代价（本轮唯一可引用的新事实，全部实测）：
+      - `lattice_clover_multigrid.cpp` 由 2313 行降到 1698 行（纯删除）
+      - 库已在计算节点重编译通过，符号中含 `fgmres`
+      - **首批 FGMRES 数字仍在测（measured next）**；本文件不写任何新倍数
+    A/B 说明：与旧路径的 A/B **按设计不再存在**——旧代码没有留在树里，也没有开关能
+    切回去。旧路径的数字（MG/plain 1.68x-1.72x、`best_ratio` 0.99x、阻尼搜索点击率
+    等）只能作为历史引用：`logs/v20261123.txt` §153/§182 与
+    `skills/pyqcu-solver/references/legacy-mg-corrector-history.md`。
+    本轮改的文档（只改文档，未动 .py/.cpp/.h/.pyx/.sh，未提交、未推送、未跑集群）：
+      skills/pyqcu-solver/SKILL.md
+      skills/pyqcu-solver/references/legacy-mg-corrector-history.md（新增）
+      skills/pyqcu-solver/references/AGENTS.md
+      skills/pyqcu-solver/references/mg-cache-comparison.md
+      skills/pyqcu-testing/references/remote-l48-experience.md
+      skills/pyqcu-kupl/SKILL.md
+      skills/pyqcu-kupl/references/kupl-vs-cuda-algorithms.md
+      skills/pyqcu-kupl/references/kupl-history-2026.md
+      skills/pyqcu-benchmark/references/qcu-benchmark-history-2026.md
+      skills/pyqcu-logs-results/SKILL.md
+      skills/pyqcu-docs/references/extracted-guidance.md
+      docs/kupl_vs_cuda_algorithms_20261114.md
+      docs/kupl_performance_20261115.md
+      docs/kupl_mpi_scaling_20261114.md
+      docs/kupl_remote_l48_experience_20261117.md
+      docs/kupl_kunpeng_guide.md
+      docs/kupl_only_deployment.md
+      docs/kupl_l48_mg_cliff_20261123.md
+      docs/kupl_kunpeng_progress_20261110.md
+      docs/qcu_l24_solver_timing_20261111.md
+      docs/multigrid_legacy_strict_comparison_20261022.md
+      docs/qcu_mg_refactor_validation_20261023.md
+      docs/qcu_mg_mpi_cache_builder_20261029.md
+      logs/v20261126.txt

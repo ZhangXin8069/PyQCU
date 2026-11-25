@@ -8,12 +8,16 @@
 | 配置 | ranks / grid | threads/rank | fine local | solve (`row.seconds`) | case | 层级迭代 |
 |---|---:|---:|---|---:|---:|---|
 | 16r | 16 / `2 2 2 2` | 36 | `24×24×24×48` | **2.9444 s** | 147.46 s | 无（旧构建） |
-| 32r | 32 / `2 2 2 4` | 18 | `24×24×24×24` | **102.4651 s** | 342.07 s | `level0=18 level1=4 total=18 accepted=4 fallback=0` |
+| 32r | 32 / `2 2 2 4` | 18 | `24×24×24×24` | **102.4651 s** | 342.07 s | `level0=18 level1=4 total=18 accepted=4 fallback=0`（删除前的行格式，见下注） |
 | 64r | 64 / `2 2 4 4` | 18 | `24×24×12×24` | **92.8595 s** | 396.17 s | 同上 |
 
 - 三个配置的 `case`（含输入读取/构建）差异远小于 solve 差异，说明断崖在 **solve 内部**。
 - 32r/64r 的层级迭代与 coarse correction 接受数**完全相同**（18/4/4，无 fallback）；
   因此断崖**不是**迭代数增加，也**不是** fine-BiCG 回退。
+- **注（2026-11-25）**：`MG_LEVEL_ITERS` 的 `fallback_fine=` token 与"被接受的阻尼
+  修正"计数已随修正器一起删除；现在的 `accepted_corrections=` 计**预条件应用次数**，
+  与上表 `accepted=4` 不同义。上表数值是删除前的历史记录，机制见
+  `logs/v20261126.txt`。
 - 32r 与 16r 使用了**相同节点数**与**相同总核数**（每节点 8×36 = 16×18 = 288 核），
   所以差异来自 **rank 数**，不是核数或节点数。
 - `MG_LEVEL_ITERS` 由 `cpp/kupl/qcu/src/lattice_clover_multigrid.cpp` 的

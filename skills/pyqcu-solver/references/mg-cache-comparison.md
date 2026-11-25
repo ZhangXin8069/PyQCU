@@ -139,8 +139,11 @@ python -B -m pyqcu.test --mode solve --native mg --only kupl/native/mg \
 
 判读：只有 `PASS` + `residual_verified: true` 才算数；`MG_LEVEL_ITERS` 的
 `level2` 必须 `> 0`，这是"第三层被真正进入"的唯一证据。实测三层
-`level0=59 level1=12 level2=12 accepted_corrections=12 fallback_fine=0`，
+`level0=59 level1=12 level2=12 accepted_corrections=12`，
 2.3566 s→3.7684 s（mg-2→mg-3），残差 4.28e-06→3.19e-06（`logs/v20261123.txt` §184）。
+该行是 2026-11-25 删除前的记录：当时还打印 `fallback_fine=`，且
+`accepted_corrections` 计被接受的阻尼修正；现在 `MG_LEVEL_ITERS` 只打印
+`level0/level1/...`、`total=` 与 `accepted_corrections=`，后者计**预条件应用次数**。
 
 两个必须同时成立的条件，别当成两个限制：
 

@@ -168,7 +168,8 @@ KUPL 直接加载 1-rank canonical E2 cache：
 - independent NumPy true residual：`2.877276e-7`
 - `verify_status=0`
 - coarse correction 最终由 fine parity-Schur fallback 完成，不能写成 coarse-only
-  收敛。
+  收敛。（2026-11-25 注：该 fallback 路径已随修正器删除，此条只描述 2026-10-29
+  的结果。）
 
 同格点 E12 独立构建的 Gram 误差为 `1.549721e-6`，Galerkin 误差为
 `5.804606e-7`，setup `73.796 s`，独立真残差同为 `2.877276e-7`。
