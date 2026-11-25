@@ -179,12 +179,31 @@ legacy QCU 与 QUDA/Strict 的核心目标相同，都是避免每次粗层 matv
 两种 cache、slot 顺序、几何和 C++ kernel 不兼容，不能仅因都叫“粗层算子”
 就互换或在同名槽位间重排。
 
+### 5.1 层级是递归定义的，三层以上同样没有 coarse gauge
+
+33-tensor 路径的层级由一条与 gauge 无关的递归给出，`op(0)` 为细层 odd-Schur
+Clover 算子：
+
+```text
+op(L) = R_L · op(L-1) · P_L
+```
+
+`op(L-1)` 本身可以已经是 33 点 stencil，因此 level 2 的算子是 level 1 stencil 的
+Galerkin 投影；链路里没有“coarse gauge / coarse Clover”这一步。全树搜索
+`coarse_gauge`/`block_average`/`coarsen_gauge`/`coarse_clover` 只命中 QUDA 侧
+命名，没有实现，也不需要实现（`logs/v20261123.txt` §177）。为什么不能改走
+coarse gauge + coarse Clover、以及可复用的 Python 探针原语，见
+[`../skills/pyqcu-solver/references/mg-cache-comparison.md`](../skills/pyqcu-solver/references/mg-cache-comparison.md#深层-transition递归而非-coarse-gauge)
+的“深层 transition”一节。
+
 ## 6. 一句话判据
 
 - 问“有没有粗层有效 dslash”：legacy QCU、Strict QCU 与 QUDA 都有。
 - 问“是否显式使用 coarse link 与 coarse clover 命名”：Strict QCU 与 QUDA 有，
   legacy QCU 没有。
 - 问“是否直接粗化原始物理 gauge 与 clover”：三者都不是。
+- 问“三层以上是否要造 coarse gauge/coarse Clover”：不要，粗算子逐层递归投影
+  （§5.1）。
 
 ## 7. 调查边界
 
@@ -192,7 +211,11 @@ legacy QCU 与 QUDA/Strict 的核心目标相同，都是避免每次粗层 matv
 
 - legacy CUDA `applyCloverMultigridQcu`；
 - CUDA Strict `applyMultigridStrictFgmresQcu` 的层次资产；
-- 本地 QUDA 1.1.0-sm70 `DiracCoarse` 的接口定义。
+- 本地 QUDA 1.1.0-sm70 `DiracCoarse` 的接口定义；
+- §5.1 的递归链：`pyqcu/cuda/_multi_gpu.py` 的逐层构建（`:229` 的
+  `apply_stencil` 即层间交接）。该节的数值验证（合成父 stencil 上 `4.89e-16`
+  与 33 个 offset）与探针原语锚点引自 `logs/v20261123.txt` §177 和
+  `skills/pyqcu-solver/references/mg-cache-comparison.md`，本文未重跑。
 
 本文不评价三条路径的求解性能、cache 命中选择或数值收敛优劣。相关算法组成、
 子算法和 benchmark 分别见

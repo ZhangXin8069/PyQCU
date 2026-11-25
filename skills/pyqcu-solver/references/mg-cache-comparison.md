@@ -1,7 +1,8 @@
 # 33-tensor cache 与 Strict cache 对比
 
 本文记录 PyQCU 两条 MultiGrid 粗化路径的 cache 语义。用户询问 cache 内容、选择依据、
-HDF5 布局、`set_ptrs` 槽序、加载边界或性能计时口径时读取本文。
+HDF5 布局、`set_ptrs` 槽序、加载边界或性能计时口径时读取本文。深层 transition 的
+构造（递归、无 coarse gauge）、多 MPI 构建的耗时陷阱与两个已知构建缺陷也在本文。
 
 ## 结论
 
@@ -55,6 +56,50 @@ gauge SHA256 和物理参数，调用方必须按身份隔离路径。
 - `cpp/cuda/qcu/src/multigrid.cu:858`：wide-stencil CUDA kernel。
 - `pyqcu/testing/simple/kupl_multigrid.py:172`：`lonv/hnn/hdg/sit` 读取。
 - `pyqcu/testing/simple/kupl_multigrid.py:211`：四 dataset 写入。
+
+## 深层 transition：递归，而非 coarse gauge
+
+33-tensor 层级是纯代数递归，与 gauge 无关（`logs/v20261123.txt` §177）：
+
+```text
+op(0) = fine odd-Schur Clover operator
+op(L) = R_L · op(L-1) · P_L
+```
+
+`op(L-1)` 本身可以是一个 33 点 stencil，因此 level 2 的算子是 level 1 stencil 的
+Galerkin 投影。全树搜索 `coarse_gauge` / `block_average` / `coarsen_gauge` /
+`coarse_clover` 只命中 QUDA 散文，没有实现、也不需要实现。torch/CUDA 链就是这么
+写的：`pyqcu/cuda/_multi_gpu.py:84-160` 逐层构建，`:229`
+`S = lambda v: apply_stencil(hnn, hdg, sit, v)` 就是全部交接。
+
+### 探针在原 stencil 父算子上有效，且已数值验证
+
+两个构建原语对 `(E, e, dims)` 通用，父算子只需是一个 matvec：
+
+| 原语 | 位置 | 作用 |
+|---|---|---|
+| `give_null_vecs` | `pyqcu/torch/tools/_multigrid.py:105-166` | 逆迭代产生候选零空间 |
+| `local_orthogonalize` | `:168-241` | 分块正交化 |
+| `build_stencil` | `:873-953`（`_probe_point` `:873-918`、`build_stencil` `:920`） | 探 33 个 offset 得到 `P†(parent)P` |
+| `apply_stencil` | `:1018-1060` | 下一代父 matvec |
+
+2026-11-23 在合成父 stencil 上验证（§177）：
+
+```text
+isotropic block 2, E=(2,2)      : max ||A2 v - R A1 P v||/||.|| = 4.89e-16
+A2·delta 的支撑                  : 恰好 33 个 offset
+anisotropic (2,2,2,1), E=(3,3)  : 4.26e-16，同为 33 个 offset
+```
+
+33 点父算子只能产生 `{0, ±e_mu, ±e_mu±e_nu}` 的耦合，所以该构造归纳到任意深度都
+成立，不需要新的物理输入。多层所需的“每条 transition 一套资产”已在上一节说明。
+
+不可做的一件事：把 coarse gauge + coarse Clover 交给
+`applyMultigridBuildNullVectorsQcu` / `applyMultigridBuildStencilLocalQcu`——两者
+的入口都只收细层 gauge 与 Clover（`cpp/kupl/qcu/src/apply_multigrid.cpp:232,281`）。
+Wilson-Clover 是 onsite + 1 hop，33 点 stencil 有 2 hop 耦合，没有任何 gauge 能
+复现它，两个 builder 会静默构建**另一个**算子的层级（§177）。level 2 的构建因此
+必须留在 Python/torch，那里 matvec 是参数。
 
 ## Strict cache
 
@@ -184,6 +229,30 @@ Clover/coarse halo 使用 `set_ptr->comm`，因此多 rank patch stencil 在各�
 其中 `lonv` MPI-IO `0.354144 s`、GPU stencil `0.137035 s`、其余三张量
 MPI-IO `0.884016 s`，4/4 slab 验签通过；同一 cache
 由 KUPL 直接加载得到 `verify_status=0`、独立真残差 `4.110297e-7`。
+
+构建耗时先看线程，再怀疑算法：`OMP_NUM_THREADS` 被承认，`KUPL_OMP_THREADS` 覆盖
+它，未设时钳到 affinity 集（`cpp/kupl/qcu/src/lattice_cpu.cpp:419-431`
+`configured_threads`）。同一 `[16,16,16,32]` 单进程构建，单线程跑满 `29:33`
+（91% CPU、0 个 slab 发布），16-32 线程把 null-vector 阶段压到 30-60 s
+（`logs/v20261123.txt` §176）。
+
+`--max-iter` 会漏进分布式 null-vector 求解：`kupl_multigrid.py:558-561` 的
+`applyMultigridBuildNullVectorsQcu` 复用 driver 的 `params`（`params[13]` 就是
+`--max-iter`），而串行路径 `:1002` 硬编码 `params[13] = 1000`。因此 L48 配方里的
+`--max-iter 50` 给多 rank builder 少 20 倍 Krylov 预算；修好只是把失败变成慢 20 倍
+的失败，不是让它通过（§176）。
+
+### 两个已知缺陷（2026-11-23 记录，勿再撞）
+
+两个都不是新改动引入，各自值得单独开工单（`logs/v20261123.txt` §171）：
+
+1. `--lat 4 4 4 4 --mg-grid 2 2 2 2`（粗格 `[4,4,4,4]`）在
+   `applyMultigridBuildStencilLocalQcu` 内以 glibc `corrupted size vs. prev_size`
+   直接 abort——是堆损坏，不是可捕获错误。最小可建格点是 `[8,8,8,16]`；geometry
+   闸门应拒绝 `[4,4,4,4]`，而不是让它踩坏堆。
+2. cache 文件 `X.h5` 的 sidecar manifest 是 `X.json`，与 `--report X.json` 撞名：
+   一次探针里运行报告静默覆盖了 cache manifest。报告路径不得允许等于 cache
+   manifest 路径。
 
 ## 生命周期与 ABI
 

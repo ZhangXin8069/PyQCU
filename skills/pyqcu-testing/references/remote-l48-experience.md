@@ -386,6 +386,32 @@ export CCS_DRUN_RANK_FILE=$OUT/logs/$JOBTAG-rankfile
 `capture_bound` 也无 row（§131）。判 PASS 只认 `rows/*.json` 且
 `residual_verified=true`。
 
+### 8.7 输入先验算 κ：奇异算子让所有收敛/基比较结论作废（2026-11-23/26）
+
+> **警告：不要把这类失败归因到求解器、builder、launcher 或通信。** 先做下面
+> 这一步算术，再排 case。
+
+`mass=-0.277` ⇒ `kappa = 1/(2*(-0.277)+8) = 0.1343003`，比自由
+`kappa_c = 1/8` 高 **7.4%**。单位 gauge（clover 项恒为零，算子就是自由
+Wilson）或 `sigma=0.1` 近单位 gauge 上，Wilson-Clover 在
+`cos p_x = 1/(2*kappa) - 3 = 0.723` 处有精确/近零模，Schur 补奇异：**任何 rank
+数、任何容差都不会收敛**。
+
+| 观察 | 判读 |
+|---|---|
+| 1000 次迭代后相对残差 7–12%，各 rank 逐位相同且有限 | 奇异输入，不是 bug（`logs/v20261123.txt` §176） |
+| `CLOVER_BISTABCG_SCHUR: non-finite or out-of-tolerance true residual` | 同上；不说明求解器或 launcher 有问题 |
+| 8 rank null-vector 构建在两个 builder 上都失败 | 同上；同一集体 builder 已在 32/16/128 rank PASS（§176） |
+| “旧基多抓 6.1x” | **void**：§173 的 overlap `0.115` 与 6.1x 都被 §176 撤销 |
+
+规则：先手算 `kappa` 与 `cos p_x`，再排 case；收紧 `--atol`、换 seed 都无效，只能
+换**热化** gauge 重跑（L48 gauge 是）。同一陷阱的求解器侧判据见
+[`../../pyqcu-solver/SKILL.md`](../../pyqcu-solver/SKILL.md) 的“先验算 κ”警告框。
+
+同批发现的两个构建缺陷（粗格 `[4,4,4,4]` 在 `applyMultigridBuildStencilLocalQcu`
+内堆损坏；`--report X.json` 覆盖 `X.h5` 的 `X.json` manifest）见
+[`../../pyqcu-solver/references/mg-cache-comparison.md`](../../pyqcu-solver/references/mg-cache-comparison.md#两个已知缺陷2026-11-23-记录勿再撞)。
+
 ## 9. 发布与证据纪律
 
 - 已发布 `0.1.17` / `test37`，**不得覆盖**；下一版 `0.1.18` / `test38` 只在十轮

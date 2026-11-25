@@ -1,0 +1,106 @@
+2026-11-26  Legacy-MG 层级递归 / 奇异输入 / 三层 plumbing 交接
+================================================================
+
+来源：logs/v20261123.txt（章节号即该文件节号）与工作树源码。本文件只给出该
+日志之后的结论、判据，以及下一位会重复踩的操作坑；不重复设计正文。
+本轮只改文档：skills/pyqcu-solver/SKILL.md、
+skills/pyqcu-solver/references/mg-cache-comparison.md、
+skills/pyqcu-testing/references/remote-l48-experience.md、
+docs/qcu_quda_multigrid_coarse_operator.md、logs/v20261126.txt。
+
+1. 树状态（2026-11-26，写入本文件时的快照）
+   main，HEAD 2a09a6ce（提交信息：compute node with a non-singular operator -
+   launch, builder and residual all pass），未提交、未推送。工作树里已有的改动
+   不是本轮的（并发 agent 还在持续改，以 git status 为准）：
+   cpp/kupl/qcu/src/lattice_solver.cpp、pyqcu/test/cache.py、
+   pyqcu/testing/python/test_mg_cache_reuse.py、
+   pyqcu/testing/python/test_pyqcu_test_mg_guards.py、
+   pyqcu/testing/simple/kupl_multigrid.py、
+   pyqcu/testing/simple/mpi/solve_case.py、pyqcu/tools/_legacy_mg_cache.py，
+   以及未跟踪的
+   pyqcu/testing/simple/mg_transition.py 与
+   pyqcu/testing/simple/test_mg_transition.py（并发 agent 在写，正是 §177 说的
+   那个 Python transition builder）。pyqcu/test/** 由另外两个 agent 编辑，本轮
+   一行未碰；这些文件的行号会漂，引用时认函数名。
+   文档门：python3 -B skills/pyqcu-docs/scripts/audit-docs-skills.py 为
+   PASS docs=61 skills=36；git diff --check 干净。
+
+2. 已核实：Legacy-MG 层级是递归，不是 gauge（§177）
+   op(0) = 细层 odd-Schur Clover 算子；op(L) = R_L · op(L-1) · P_L。
+   level 2 的算子是 level 1 33-stencil 的 Galerkin 投影。全树搜索
+   coarse_gauge/block_average/coarsen_gauge/coarse_clover 只命中 QUDA 散文，
+   没有实现，也不需要实现。Wilson-Clover 是 onsite + 1 hop，表达不了 33 点的
+   2-hop 耦合 => 把 gauge + Clover 交给 applyMultigridBuildNullVectorsQcu /
+   applyMultigridBuildStencilLocalQcu 必然失败，或者静默构建另一个算子。
+   => level 2 的构建只能在 Python/torch（matvec 是参数）。读者入口：
+   skills/pyqcu-solver/SKILL.md 的 2026-11-26 小节与
+   skills/pyqcu-solver/references/mg-cache-comparison.md 的“深层 transition”。
+
+3. 已核实：探针在原 stencil 父算子上有效（§177）
+   合成父 stencil：max ||A2 v - R A1 P v||/||.|| = 4.89e-16（isotropic block 2,
+   E=(2,2)）、4.26e-16（anisotropic (2,2,2,1), E=(3,3)）；A2·delta 的支撑恰好
+   33 个 offset。原语：pyqcu/torch/tools/_multigrid.py:105-166
+   （give_null_vecs）、:168-241（local_orthogonalize）、:873-953
+   （_probe_point + build_stencil）、:1018（apply_stencil）；参考链
+   pyqcu/cuda/_multi_gpu.py:84-160，:229 就是全部交接
+   （S = lambda v: apply_stencil(hnn, hdg, sit, v)）。
+   结论：归纳到任意深度成立，不需要新的物理输入。
+
+4. 作废（void）：奇异输入上的所有收敛与基比较（§176）
+   mass=-0.277 => kappa = 1/(2*(-0.277)+8) = 0.1343003，比自由 kappa_c = 1/8
+   高 7.4%。单位 gauge（clover 项恒零）或 sigma=0.1 近单位 gauge 上，
+   Wilson-Clover 在 cos p_x = 1/(2*kappa) - 3 = 0.723 处有精确/近零模，Schur
+   补奇异：1000 次迭代后相对残差停在 7-12%，各 rank 逐位相同且有限。
+   => 该输入上 BiCGStab 失败不说明求解器；null-vector 构建失败不说明 builder
+   （同一个集体 builder 已在 32/16/128 rank PASS）；§173 的 overlap 0.115 与
+   “legacy 多抓 6.1x”一并作废。收紧 --atol、换 seed 都无效，只能换热化 gauge。
+
+5. 三层 KUPL 今天卡在哪：四处 plumbing，不是物理（§171、§177）
+   a. pyqcu/test/native.py:4117-4129 的 if depth > 2: raise refusal（唯一 CLI 门）
+   b. 唯一的 builder 只建 transition 1；_configure_legacy_mg 本身已是 N 层
+      （native.py:4271 的 for level in range(1, depth)），
+      pyqcu/testing/simple/mpi/worker.py:207-221 也已按层各取一个 cache root
+   c. pyqcu/tools/_legacy_mg_cache.py:132-136 的 fine_dof = 12（transition 2 的
+      fine dof 是 level 1 的 E，实测 4）
+   d. cpp/kupl/qcu/src/apply_multigrid.cpp:149,167 传 e = kVectorSize
+   求解器侧不用动：lattice_clover_multigrid.cpp:312 收 1..5 层，:975-978 的宽
+   粗 dslash 不带任何 gauge 参数，:986-1001 把 c.E/p.E 与两侧 dims 直接传给
+   通用 restrict/prolong。第一条 3 层实验取 E_1 = 12 可绕开宽 ABI 变体。
+   §171 的“mg-3 需要物理改动”已由 §177 撤回；docs/skills 里没有残留该说法，
+   本轮只把旧锚点 lattice_clover_multigrid.cpp:195 改成 :312。
+
+6. 两个既有缺陷，别撞（§171）
+   a. --lat 4 4 4 4 --mg-grid 2 2 2 2：粗格 [4,4,4,4] 在
+      applyMultigridBuildStencilLocalQcu 内以 glibc "corrupted size vs.
+      prev_size" abort（堆损坏，不是可捕获错误）；最小可建格点 [8,8,8,16]。
+   b. cache 文件 X.h5 的 sidecar manifest 是 X.json，--report X.json 会静默
+      覆盖 cache manifest。
+   细节在 skills/pyqcu-solver/references/mg-cache-comparison.md。
+
+7. 最花时间的操作规则（每条都真实踩过）
+   - ssh 登录名是 nsls_yangyb，不是 nls_；拼错表现为认证失败，别去
+     ssh-copy-id，端口和 key 都是好的（§172）。
+   - OMP_NUM_THREADS / KUPL_OMP_THREADS 是被承认的
+     （cpp/kupl/qcu/src/lattice_cpu.cpp:419-431 configured_threads）：
+     [16,16,16,32] 单进程构建单线程 29:33（91% CPU）没跑完，16-32 线程把
+     null-vector 阶段压到 30-60 s（§176）。构建慢先查这两个变量。
+   - --max-iter 漏进分布式 null-vector 求解：kupl_multigrid.py:558-561 复用
+     driver 的 params（params[13]），而串行路径 :1002 硬编码 1000。L48 配方的
+     --max-iter 50 给多 rank builder 少 20 倍 Krylov 预算（§176）。
+   - drun 要 rankfile：python -m pyqcu.test.launch rankfile 生成，
+     CCS_DRUN_RANK_FILE 指向它；设了以后 placement 由 rankfile 决定
+     （-nn/-rpn/-R 只告警），但仍必须过资源校验：drun -R 的 cpu 值要与 dsub -R
+     授予的每节点核数对得上（rpn × core ≤ 授予核数），否则 drun 直接拒绝，
+     症状只是普通 rc=255（144 vs 72 那次见 remote-l48-experience §8.4）。
+     只看报告 mpi_size/grid/local_lattice，不根据告警推断 rank 数。
+   - prod(lattice_grid) == ranks：--grid 的乘积必须等于 comm 的 rank 数，否则
+     parser 直接报错（kupl_multigrid.py:1330）。
+   - drun 只在计算节点存在；单 rank 也用 drun -mpi pmix -nn 1 -rpn 1 --（§175）。
+   - 不要给 launcher 接管道：> logs/full.out 2>&1 落文件，事后读文件再过滤
+     （remote-l48-experience §8.6）。
+
+8. 下一会话的顺序
+   a. 3 层：先改 c/d（cache shape 与 ABI 宽变体），再拆 a；b 用 mg_transition.py
+      顶上。第一个目标取 E_1 = 12。
+   b. 任何基比较或收敛实验：先手算 kappa 与 cos p_x，只用热化 gauge（L48 是）。
+   c. 不要重跑 [4,4,4,4] 探针；不要再找 coarse gauge / coarse Clover。
