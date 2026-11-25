@@ -4748,3 +4748,49 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      have caught it only called `_missing_transition_root` directly, so it passed
      while the loop demanded a transition that cannot exist; the replacement
      asserts the COUNT and the mapping.
+
+185. Old vs new basis, measured by ITERATIONS instead of a capture proxy: legacy
+     saves exactly one fine iteration and spends 2.6x more coarse ones, so it is
+     slightly slower - and it is reproducible
+     Job 2259472, one compute node, 8 ranks, grid 2 2 2 1, mass=+0.1, atol 1e-5,
+     --repeat 3 --warmup 1, all three arms in the SAME allocation.  Caches are the
+     E=2 pair built in job 2258741, each by its own builder, each status=PASS:
+     nvab12/caches/legacy (legacy-residual/1) and .../inverse
+     (inverse-iteration/2).  `MG_LEVEL_ITERS` prints the per-level counts, and
+     those are machine independent, so this is the decisive number rather than rho.
+
+       basis    level0  level1  accepted  seconds  rel residual  verified
+       legacy       37      21         8   2.0372      4.85e-06   True
+       inverse      38       8         8   2.0095      4.63e-06   True
+       legacy(2)    37      21         8   2.0753      4.85e-06   True
+
+     Three things follow, and they answer the question rho could only hint at:
+
+     1. The legacy basis DOES help the fine level: 37 iterations against 38, and
+        the repeat run gives 37 again.  So section 182's 1.07-1.38x capture
+        advantage is not decorative - it is worth exactly ONE fine iteration out of
+        thirty-eight, i.e. 2.6%.
+     2. It costs far more than that at the coarse level: 21 coarse iterations
+        against 8, a factor of 2.6.  Both arms accept the same 8 corrections, so
+        the extra work is the coarse KRYLOV solve needing more iterations to
+        produce each correction.  Mechanism: the legacy basis is smoother, which
+        captures smooth residuals better (rho) but yields a WORSE-CONDITIONED
+        coarse operator - the two effects are the same property seen twice.
+     3. Net effect is negative: 2.0372 and 2.0753 s against 2.0095 s, so legacy is
+        1.4-3.3% SLOWER.  Within the repeat spread for wall clock, but the
+        iteration counts are not noise: 37/37 against 38, and 21/21 against 8.
+
+     So the honest answer to "is the old basis better?" is: better at capture, and
+     measurably better by one fine iteration, but it buys that with 2.6x the coarse
+     work and ends up slower.  Neither basis makes Legacy-MG worth using on this
+     problem, which is consistent with MG/plain = 1.68x (section 179) and with the
+     correction economics of section 182.
+
+     Incidental defect that had to be fixed to run this at all, and it is the kind
+     that silently destroys an A/B: `_load_ranked_mg_assets` compared `nv_builder`
+     against the `NULL_VECTOR_BUILDER` CONSTANT instead of
+     `cache.null_vector_builder()`, so with KUPL_NV_BUILDER=legacy it refused an
+     artifact that correctly recorded legacy-residual/1.  The switch moved the
+     writer and not the reader: both arms of an A/B would have loaded whichever
+     basis the constant named.  Section 173's cross-pairing result stands (both
+     directions refuse); what was broken was the LEGITIMATE pairing.
