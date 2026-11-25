@@ -4960,3 +4960,42 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      0.8812 trip threshold, so neither form can fire.  That is what a faithful change
      should look like - identical behaviour on this problem, correct behaviour on a
      problem where the coarse space really is weak.
+
+189. Round 8 (the ABI contract) found six zero-value traps and confirmed the 5-level
+     limit is real; four guards added and validated
+     The audit established the layout arithmetic: kParamsSize is 58 (0..57),
+     kMgLevel1E is 19 with stride 8, and the loop runs level = 1..num_levels-1, so a
+     FIVE-level hierarchy uses exactly 19..26, 27..34, 35..42, 43..50 and stops at 50,
+     one below kVerbose = 51.  Five is real with zero slack; the block people worry
+     about (51..58) is what a SIXTH level would need, and it would alias
+     kVerbose/kSeed/_TEST_IN_CPU_/kMgUseGcr/kMgUseDeflate/kMgMuPre/kUseInitialGuess
+     and read one slot past the array.  CUDA derives the same cap arithmetically,
+     1 + (58-19)/8 = 5.
+
+     Six traps were listed where a zero does not fail loudly.  Fixed here:
+       (a) params[kMgLevel1NumRestart] == 0 with levels > 1 used to silently run a
+           plain parity-Schur solve - and `--restart 0` is accepted by the CLI
+           (minimum=0), so that silent downgrade was ONE FLAG AWAY.  It now throws
+           and names the flag; KUPL_ALLOW_SILENT_MG_DISABLE=1 keeps the old
+           behaviour for anyone who really wants it.
+       (b) the level-tolerance index argv[3+(level-1)] had no upper guard.  With the
+           cap raised to 6 it would read argv[7], which is csw, and silently use 1.0
+           as a tolerance.  Now bounded, as CUDA does (:2983).
+       (c) clover_multigrid_verify accepted levels=1, ran zero transitions, and
+           returned true - a pass that says nothing, after allocating nine
+           fine-level vectors.  It now refuses with "nothing to verify".
+     Not fixed, recorded so they are not rediscovered: set_ptrs[99] == 0 silently
+     switches odd-Schur to full-site and reads 2x the caller's buffer (no shipped path
+     leaves it unset); params[kMgUseDeflate] == 0 downgrades AFTER the hierarchy is
+     built; params[kNodeSize] == 0 would make MG reductions rank-local while
+     everything else stays distributed; argv[3..6] == 0 silently replaces the
+     caller's coarse_tol_factor with 1e-5/1e-11.
+
+     Validation, job 2260994, same configuration as 2260906:
+       arm     with guards            before guards          difference
+       base    1.2126 s / 4.41e-06    1.1988 s / 4.41e-06    +1.2%
+       mg-2    1.6834 s / 3.10e-06    1.6768 s / 3.10e-06    +0.4%
+       mg-3    2.6514 s / 4.33e-06    2.6356 s / 4.33e-06    +0.6%
+     All PASS with residual_verified, inside the documented +-8% noise, residuals
+     identical: the guards fire only on the new conditions and change nothing on the
+     normal path.

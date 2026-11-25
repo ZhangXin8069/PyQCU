@@ -345,6 +345,15 @@ public:
       levels_[level].max_iter =
           params_[base + 5] > 0 ? params_[base + 5] : 50;
       const int arg_index = kMgLevel1Atol + level - 1;
+      // CUDA guards the same index (lattice_clover_multigrid.h:2983).  Without it a
+      // sixth level would read argv[7], which is csw, and silently use 1.0 as a
+      // tolerance.  The 1..5 check above is currently the only thing preventing it.
+      if (arg_index >= kArgvSize) {
+        throw std::runtime_error(
+            "legacy Clover-MG level tolerance index " +
+            std::to_string(arg_index) + " is outside argv (size " +
+            std::to_string(static_cast<int>(kArgvSize)) + ")");
+      }
       const double level_tolerance = set_.real_parameter(arg_index);
       levels_[level].tolerance = static_cast<Real>(
           level_tolerance > 0
@@ -1730,6 +1739,20 @@ void clover_multigrid_solve(
     throw std::runtime_error(
         "KUPL_REQUIRE_MG_CORRECTION=1 requires levels>1 and restart>0");
   }
+  // restart == 0 with more than one level is a contradiction: the FGMRES outer
+  // solver needs no restart length, but this slot is the only "hierarchy on/off"
+  // bit the entry point has, so leaving it 0 would silently turn a requested
+  // hierarchy into a plain parity-Schur solve with no diagnostics at all.  Refuse
+  // and name the flag; "I want no hierarchy" is expressed by levels = 1.
+  if (params[kMgNumLevel] > 1 && params[kMgLevel1NumRestart] == 0 &&
+      !mg_env_enabled("KUPL_ALLOW_SILENT_MG_DISABLE")) {
+    throw std::runtime_error(
+        "legacy Clover-MG: levels=" + std::to_string(params[kMgNumLevel]) +
+        " with restart=0 would silently disable the coarse space "
+        "(slot 26 is the hierarchy on/off bit).  Pass restart > 0, or levels=1 "
+        "if a plain parity-Schur solve is what you want, or set "
+        "KUPL_ALLOW_SILENT_MG_DISABLE=1 to keep the old silent behaviour.");
+  }
   // A disabled hierarchy must use the optimized parity-Schur solver rather
   // than the much slower unpreconditioned full-site Krylov loop.
   if (params[kMgNumLevel] <= 1 || params[kMgLevel1NumRestart] == 0) {
@@ -1757,6 +1780,17 @@ int clover_multigrid_verify(
   (void)fermion_out;
   (void)fermion_in;
   if (set_ptrs == nullptr || params == nullptr) {
+    return 2;
+  }
+  // A one-level "hierarchy" has no transition to verify, so verify() would loop
+  // zero times and return true after allocating nine fine-level vectors - a pass
+  // that says nothing.  Say so instead of passing.
+  if (params[kMgNumLevel] < 2) {
+    std::fprintf(stderr,
+                 "PYQCU::KUPL::CLOVER_MULTIGRID_VERIFY:\n "
+                 "levels=%d: nothing to verify (a hierarchy needs at least two "
+                 "levels; this is not a pass)\n",
+                 params[kMgNumLevel]);
     return 2;
   }
   auto *table = static_cast<long long *>(set_ptrs);
