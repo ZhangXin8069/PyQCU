@@ -19,7 +19,8 @@ KUPL environment variables:
   CMAKE_BUILD_TYPE      CMake build type (default: Release)
   KUPL_ENABLE_NATIVE    ON/OFF local ISA tuning (default: OFF)
   KUPL_ENABLE_LTO       ON/OFF link-time optimization (default: OFF)
-  KUPL_BUILD_TESTS      ON/OFF build CTest executables (default: ON)
+  KUPL_BUILD_TESTS      ON/OFF build CTest executables (default: ON when
+                        cpp/kupl/qcu/tests exists, otherwise OFF)
 
 DCU environment variables:
   QCU_DCU_CUDA_COMPILER  DTK nvcc-compatible compiler path override
@@ -38,7 +39,25 @@ case "$MODE" in
         build_type=${CMAKE_BUILD_TYPE:-Release}
         native=${KUPL_ENABLE_NATIVE:-OFF}
         lto=${KUPL_ENABLE_LTO:-OFF}
-        build_tests=${KUPL_BUILD_TESTS:-ON}
+        # MANIFEST.in prunes cpp/kupl/qcu/tests from the sdist, while
+        # CMakeLists.txt adds tests/test_kupl.cpp unconditionally whenever
+        # KUPL_BUILD_TESTS is ON.  The default therefore has to follow the
+        # tree: an sdist has no tests, and configure would die on the missing
+        # source file.  setup.py already forces OFF for the same reason.
+        kupl_tests_dir="$ROOT/cpp/kupl/qcu/tests"
+        if [[ -d "$kupl_tests_dir" ]]; then
+            build_tests=${KUPL_BUILD_TESTS:-ON}
+        else
+            build_tests=${KUPL_BUILD_TESTS:-OFF}
+            case "${build_tests^^}" in
+                ON|TRUE|YES|1)
+                    printf 'error: KUPL_BUILD_TESTS=%s but %s is absent ' \
+                        "$build_tests" "$kupl_tests_dir" >&2
+                    printf '(the sdist prunes the test sources)\n' >&2
+                    exit 1
+                    ;;
+            esac
+        fi
         PYQCU_KUPL_BUILD_DIR="$build_dir" \
         CMAKE_BUILD_TYPE="$build_type" \
         KUPL_ENABLE_NATIVE="$native" \
