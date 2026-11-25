@@ -152,10 +152,12 @@ _SCALAR_INT_IDENTITY_FIELDS = frozenset({"nv_iters", "seed", "mpi_size"})
 NULL_VECTOR_BUILDER = "inverse-iteration/2"
 #: Revision recorded when the *old* loop ran: ``v -= S^-1(S v)``, i.e.
 #: ``v - v``, which stores the inner solver's residual (white noise) instead of a
-#: near-null vector.  Kept as a first-class revision so the old basis stays
-#: measurable: ``KUPL_NV_BUILDER=legacy`` makes the C++ builder run that loop
-#: again (cpp/kupl/qcu/src/lattice_solver.cpp), and this is what the artifact it
-#: writes must record.
+#: near-null vector.  History: that loop was replaced by the inverse iteration in
+#: 0c4b62a6; 97508c6a only added the per-pass renormalisation, so the old loop is
+#: "pre-0c4b62a6", not "pre-97508c6a".  Kept as a first-class revision so the old
+#: basis stays measurable: ``KUPL_NV_BUILDER=legacy`` makes the C++ builder run
+#: that loop again (cpp/kupl/qcu/src/lattice_solver.cpp), and this is what the
+#: artifact it writes must record.
 LEGACY_NULL_VECTOR_BUILDER = "legacy-residual/1"
 #: Environment switch that selects the loop.  It is *not* a cache setting: it is
 #: read by the C++ builder and by the Python identity code, so the revision an
@@ -199,7 +201,7 @@ def null_vector_builder(environ: Mapping[str, str] | None = None) -> str:
     source = os.environ if environ is None else environ
     raw = source.get(NULL_VECTOR_BUILDER_ENVIRONMENT) or ""
     # Exact spellings only, because the C++ parser is exact too
-    # (lattice_solver.cpp nv_builder_legacy): a value Python accepted but C++
+    # (lattice_solver.cpp nv_builder_code): a value Python accepted but C++
     # rejected (or vice versa) would make the manifest and the run disagree.
     if raw == "" or raw == "inverse":
         return NULL_VECTOR_BUILDER

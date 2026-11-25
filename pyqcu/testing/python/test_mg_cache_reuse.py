@@ -7,6 +7,7 @@ import pytest
 
 from pyqcu.tools._legacy_mg_cache import (
     LEGACY_MG_ASSET_NAMES,
+    NULL_VECTOR_BUILDER,
     build_legacy_mg_cache_manifest,
     legacy_mg_cache_identity,
     legacy_mg_cache_shapes,
@@ -41,6 +42,11 @@ def _legacy_fixture(lattice=(4, 4, 4, 4), mg_grid=(2, 2, 2, 2)):
         mg_grid=mg_grid,
         nv_iters=1,
         seed=42,
+        # Without this the writer and the reader both normalise to the
+        # "unspecified" sentinel, so every reuse assertion below would hold for
+        # an artifact written by any loop and the revision would never be
+        # exercised.  A KUPL case asks for the revision of the loop KUPL runs.
+        nv_builder=NULL_VECTOR_BUILDER,
     )
     return assets, identity
 

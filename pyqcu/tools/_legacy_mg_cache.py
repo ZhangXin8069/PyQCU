@@ -40,8 +40,9 @@ LEGACY_MG_ASSET_COARSE_AXES = {
 #: Revision of the null-vector builder that produced an artifact.  It is part of
 #: the identity because the algorithm, not its inputs, decides what the coarse
 #: basis contains.  Only the backends that HAVE been changed may claim it:
-#: KUPL's builder is a real inverse iteration since 97508c6a, while CUDA's is
-#: still `v -= S^-1(S v)`, so a CUDA artifact must keep the sentinel.
+#: KUPL's builder has been a real inverse iteration since 0c4b62a6 (97508c6a
+#: only added the per-pass renormalisation), while CUDA's is still
+#: `v -= S^-1(S v)`, so a CUDA artifact must keep the sentinel.
 NULL_VECTOR_BUILDER = "inverse-iteration/2"
 #: Revision of the historical ``v -= S^-1(S v)`` loop, which stores the inner
 #: solver's residual instead of a near-null vector.  Selected with
@@ -374,7 +375,7 @@ def null_vector_builder(environ: Mapping[str, str] | None = None) -> str:
     source = os.environ if environ is None else environ
     raw = source.get(NULL_VECTOR_BUILDER_ENVIRONMENT) or ""
     # Exact spellings only: the C++ parser (lattice_solver.cpp
-    # nv_builder_legacy) is exact, so anything more permissive here could make
+    # nv_builder_code) is exact, so anything more permissive here could make
     # the manifest claim a builder the library then refuses to run.
     if raw == "" or raw == "inverse":
         return NULL_VECTOR_BUILDER
@@ -1312,6 +1313,16 @@ def _check_identity(
             raise ValueError(
                 f"Legacy MG cache {key} {actual[key]!r} != expected "
                 f"{expected[key]!r}")
+    # ``nv_builder`` is deliberately not in LEGACY_MG_IDENTITY_FIELDS - that
+    # tuple is also read off the flat legacy manifests of backends that never
+    # wrote a revision - but it still has to be compared: an artifact that
+    # declares no builder normalises to UNSPECIFIED_NULL_VECTOR_BUILDER, and
+    # without this comparison it would validate against a case that asks for a
+    # claimed revision, which is exactly the reuse the field exists to stop.
+    if actual["nv_builder"] != expected["nv_builder"]:
+        raise ValueError(
+            f"Legacy MG cache nv_builder {actual['nv_builder']!r} != expected "
+            f"{expected['nv_builder']!r}")
     return expected
 
 

@@ -92,29 +92,80 @@ bool env_enabled(const char *name) {
 // The revision string is what the cache identity records, from the SAME
 // environment variable on the Python side (pyqcu/test/cache.py
 // null_vector_builder(), pyqcu/tools/_legacy_mg_cache.py), so an artifact built
-// by one loop cannot satisfy a case that asks for the other.  Under
-// KUPL_MG_DEBUG=1 rank 0 prints the effective choice and its revision, so a run
-// proves which loop produced the basis it used instead of trusting the flag.
+// by one loop cannot satisfy a case that asks for the other.  The value must be
+// identical on every rank: nv_builder_legacy() reduces it over MPI_COMM_WORLD
+// and refuses to build rather than normalise two different bases into one
+// artifact.  Under KUPL_MG_DEBUG=1 rank 0 prints the effective choice and its
+// revision, so a run proves which loop produced the basis it used instead of
+// trusting the flag.
 constexpr const char *kNvBuilderEnv = "KUPL_NV_BUILDER";
 constexpr const char *kNvBuilderInverse = "inverse";
 constexpr const char *kNvBuilderLegacy = "legacy";
 constexpr const char *kNvBuilderRevisionInverse = "inverse-iteration/2";
 constexpr const char *kNvBuilderRevisionLegacy = "legacy-residual/1";
 
-bool nv_builder_legacy() {
+// The switch as this rank read it, with no MPI: 0 is the inverse iteration
+// (unset/empty or "inverse", the HEAD behaviour), 1 is "legacy".  The parse is
+// separated from the reduction below so the collectives stay in one place.
+constexpr int kNvBuilderInverseCode = 0;
+constexpr int kNvBuilderLegacyCode = 1;
+
+const char *nv_builder_spelling(int code) {
+  return code == kNvBuilderLegacyCode ? kNvBuilderLegacy : kNvBuilderInverse;
+}
+
+int nv_builder_code() {
   const char *value = std::getenv(kNvBuilderEnv);
   if (value == nullptr || *value == '\0') {
-    return false;
+    return kNvBuilderInverseCode;
   }
   if (std::strcmp(value, kNvBuilderLegacy) == 0) {
-    return true;
+    return kNvBuilderLegacyCode;
   }
   if (std::strcmp(value, kNvBuilderInverse) == 0) {
-    return false;
+    return kNvBuilderInverseCode;
   }
   throw std::runtime_error(
       "KUPL_NV_BUILDER must be \"legacy\" or \"inverse\" (unset means "
       "\"inverse\"); refusing to guess which basis to build");
+}
+
+// A rank that reads a different switch than its peers builds a different basis,
+// and both get normalised into the same artifact, so the choice has to be
+// world-uniform: one int, one MPI_Allreduce of the bit naming this rank's loop,
+// entered by every rank.  More than one bit set means the ranks disagreed.
+// Nothing is reduced when no peer could disagree: a single-rank world, or a
+// private one-rank communicator (an overlap patch built as a serial LatticeSet
+// while MPI_COMM_WORLD is bigger), where entering MPI_COMM_WORLD would be a
+// collective no other rank joins.
+bool nv_builder_legacy(int lattice_size) {
+  const int local = nv_builder_code();
+  int world_size = 1;
+  MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+  if (world_size > 1 && lattice_size > 1) {
+    const int mine = 1 << local;
+    int seen = mine;
+    MPI_Allreduce(&mine, &seen, 1, MPI_INT, MPI_BOR, MPI_COMM_WORLD);
+    if (seen != mine) {
+      std::string witnessed;
+      for (int code = kNvBuilderInverseCode; code <= kNvBuilderLegacyCode;
+           ++code) {
+        if ((seen & (1 << code)) == 0) {
+          continue;
+        }
+        if (!witnessed.empty()) {
+          witnessed += ", ";
+        }
+        witnessed += nv_builder_spelling(code);
+      }
+      throw std::runtime_error(
+          "KUPL_NV_BUILDER must be identical on every MPI rank; the ranks read "
+          "different values (" + witnessed +
+          ") and would normalise two different null-vector bases into one "
+          "artifact");
+    }
+  }
+  return local == kNvBuilderLegacyCode;
 }
 
 template <typename Real>
@@ -934,11 +985,11 @@ void LatticeSet<Real>::multigrid_build_null_vectors(
   const bool progress =
       std::getenv("PYQCU_MG_BUILD_PROGRESS") != nullptr;
   const auto progress_start = std::chrono::steady_clock::now();
-  // Decided once, before the first column, and deliberately outside any
-  // collective: no MPI call is added here, so every rank reaches the same loop
-  // (the switch is in the environment every rank already shares).  Only the
-  // print below is rank-gated.
-  const bool legacy_builder = nv_builder_legacy();
+  // Decided once, before the first column, and agreed across the ranks that
+  // build this basis: nv_builder_legacy() reduces the switch and throws when the
+  // ranks disagree, so a half-set environment cannot mix two bases into one
+  // artifact.  Only the print below is rank-gated.
+  const bool legacy_builder = nv_builder_legacy(geometry_.size);
   if (geometry_.rank == 0 && env_enabled("KUPL_MG_DEBUG")) {
     const char *raw = std::getenv(kNvBuilderEnv);
     std::fprintf(
@@ -1001,12 +1052,15 @@ void LatticeSet<Real>::multigrid_build_null_vectors(
       try {
         for (int iteration = 0; iteration < nv_iters; ++iteration) {
           if (legacy_builder) {
-            // The pre-97508c6a loop, verbatim: rhs = S v, u = S^-1 rhs,
-            // v -= u.  Since S^-1(S v) == v exactly, this stores v - v, i.e. the
-            // inner solver's residual, and it does NOT renormalise per pass -
-            // both are what KUPL_NV_BUILDER=legacy reproduces and what the
-            // cache revision "legacy-residual/1" records.  No line below changes
-            // in the default branch, so an unset switch stays bit-identical.
+            // The historical loop, verbatim: rhs = S v, u = S^-1 rhs, v -= u.
+            // Since S^-1(S v) == v exactly, this stores v - v, i.e. the inner
+            // solver's residual, and it does NOT renormalise per pass - both are
+            // what KUPL_NV_BUILDER=legacy reproduces and what the cache revision
+            // "legacy-residual/1" records.  History: this loop was replaced by
+            // the inverse iteration in 0c4b62a6; 97508c6a only added the
+            // per-pass renormalisation below, so "pre-97508c6a" is the wrong
+            // boundary for it.  No line below changes in the default branch, so
+            // an unset switch stays bit-identical.
             application(vector.data(), rhs.data());
             std::fill(correction.begin(), correction.end(), C(0));
             solve_compact_bistabcg(

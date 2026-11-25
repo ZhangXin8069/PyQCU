@@ -1501,7 +1501,8 @@ def main(argv=None) -> int:
             nv_iters=args.nv_iters,
             seed=args.seed,
             # This builder uses the KUPL null-vector loop, which has been a real
-            # inverse iteration since commit 97508c6a.  Declaring the revision
+            # inverse iteration since commit 0c4b62a6 (97508c6a only added the
+            # per-pass renormalisation).  Declaring the revision
             # makes the artifact refuse a case that asks for a different builder;
             # an artifact that does not declare one cannot be told apart from the
             # old `v -= S^-1(S v)` (solver-noise) basis and is rejected by

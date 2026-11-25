@@ -10,6 +10,8 @@ cluster:
   - the ranked-cache identity really carries the null-vector builder revision,
     so an artefact from the old ``v -= S^-1(S v)`` loop cannot satisfy a case
     that asks for the current builder;
+  - the C++ and the Python ``KUPL_NV_BUILDER`` parsers accept exactly the same
+    spellings, each side read from its own source;
   - ``dof_declared`` really distinguishes "asked for the default E" from "asked
     for nothing", which is what makes the declared-E guard meaningful.
 
@@ -20,10 +22,24 @@ no cluster allocation.
 from __future__ import annotations
 
 import os
+import re
+from pathlib import Path
 
 import pytest
 
 from pyqcu.test import cache, native
+
+#: The C++ side of the builder switch.  It is read as source, not imported: the
+#: property under test is that two parsers in two languages accept the same
+#: spellings, so the test has to look at the C++ text itself.
+LATTICE_SOLVER_SOURCE = (
+    Path(__file__).resolve().parents[3]
+    / "cpp" / "kupl" / "qcu" / "src" / "lattice_solver.cpp")
+#: The two Python parsers, read the same way, so neither side can silently widen
+#: its own accepted set.
+PYTHON_BUILDER_PARSER_SOURCES = (
+    Path(__file__).resolve().parents[2] / "test" / "cache.py",
+    Path(__file__).resolve().parents[2] / "tools" / "_legacy_mg_cache.py")
 
 BINDING_VARIABLES = (
     "KUPL_NUMA_BIND",
@@ -264,20 +280,114 @@ def test_the_builder_switch_selects_the_legacy_revision(monkeypatch):
     assert cache.identity_sha256(legacy) != cache.identity_sha256(inverse)
 
 
+def _cpp_builder_parser() -> str:
+    """Return the body of the C++ switch parser, so only its comparisons count.
+
+    Read from ``lattice_solver.cpp`` rather than trusted: a still-truthful test
+    has to fail when the C++ parser moves or is renamed, not skip itself.
+    """
+    text = LATTICE_SOLVER_SOURCE.read_text(encoding="utf-8")
+    start = text.find("int nv_builder_code() {")
+    assert start >= 0, (
+        f"{LATTICE_SOLVER_SOURCE} no longer defines nv_builder_code(); the "
+        "cross-language spelling check below is stale")
+    end = text.find("\n}\n", start)
+    assert end > start, f"cannot delimit nv_builder_code() in {LATTICE_SOLVER_SOURCE}"
+    return text[start:end]
+
+
+def _cpp_accepted_builder_spellings() -> set[str]:
+    """The spellings the C++ parser accepts, read out of ``lattice_solver.cpp``.
+
+    ``std::strcmp(value, NAME) == 0`` accepts NAME, resolved from its
+    ``constexpr const char *`` definition in the same file; the empty spelling is
+    accepted through the explicit ``*value == '\\0'`` (unset/empty) guard.  A
+    ``strncmp`` prefix test or a negated comparison cannot be read as an accept
+    set, so both make this helper fail instead of quietly agreeing.
+    """
+    constants = dict(re.findall(
+        r'constexpr const char \*(\w+)\s*=\s*"([^"]*)";',
+        LATTICE_SOLVER_SOURCE.read_text(encoding="utf-8")))
+    body = _cpp_builder_parser()
+    accepted: set[str] = set()
+    for operand, sense in re.findall(
+            r'std::strn?cmp\(\s*value\s*,\s*(\w+|"[^"]*")\s*\)\s*(==|!=)\s*0',
+            body):
+        assert sense == "==", (
+            f"the C++ parser compares with {sense!r}, which this check cannot "
+            "read as an accept set")
+        if operand.startswith('"'):
+            accepted.add(operand.strip('"'))
+        else:
+            assert operand in constants, (
+                f"{operand} is compared against but never defined as a string "
+                f"constant in {LATTICE_SOLVER_SOURCE}")
+            accepted.add(constants[operand])
+    assert "*value == '\\0'" in body, (
+        "the C++ parser no longer accepts the unset/empty spelling explicitly")
+    return accepted | {""}
+
+
+def _python_accepted_builder_spellings() -> set[str]:
+    """The literals both Python parsers compare the switch against.
+
+    Read from source as well, so a Python-only widening is caught here and not
+    only by the sample of refused values below.
+    """
+    accepted: set[str] = set()
+    for source in PYTHON_BUILDER_PARSER_SOURCES:
+        text = source.read_text(encoding="utf-8")
+        start = text.find("def null_vector_builder(")
+        assert start >= 0, f"{source} no longer defines null_vector_builder()"
+        end = text.find("\ndef ", start + 1)
+        assert end > start, f"cannot delimit null_vector_builder() in {source}"
+        found = set(re.findall(r'raw == "([^"]*)"', text[start:end]))
+        assert found, f"{source} no longer compares the switch against literals"
+        accepted |= found
+    return accepted
+
+
 @pytest.mark.parametrize("value", ("legacy", "inverse", ""))
 def test_the_builder_switch_accepts_exactly_the_cpp_spellings(monkeypatch, value):
     """Python and C++ must accept the same set, or manifest and run disagree.
 
-    The C++ parser is an exact ``strcmp`` (``nv_builder_legacy`` in
-    lattice_solver.cpp), so nothing more permissive may be accepted here.
+    The C++ parser is an exact ``strcmp`` (``nv_builder_code`` in
+    lattice_solver.cpp), so nothing more permissive may be accepted here.  The
+    spelling is looked up in that source before Python is asked about it, so
+    changing either parser alone fails this case.
     """
     from pyqcu.tools import _legacy_mg_cache
 
+    assert value in _cpp_accepted_builder_spellings()
     monkeypatch.setenv(cache.NULL_VECTOR_BUILDER_ENVIRONMENT, value)
     expected = (cache.LEGACY_NULL_VECTOR_BUILDER if value == "legacy"
                 else cache.NULL_VECTOR_BUILDER)
     assert cache.null_vector_builder() == expected
     assert _legacy_mg_cache.null_vector_builder() == expected
+
+
+def test_the_cpp_and_python_parsers_accept_the_same_builder_spellings():
+    """Set equality, which is what "exactly the C++ spellings" claims.
+
+    The parametrised case above proves the three known spellings are accepted
+    and which revision each maps to; this one proves nothing else is accepted, on
+    either side, and that the two languages agree with each other rather than
+    with a literal in this file.  Read together with
+    ``test_an_unknown_builder_switch_is_refused`` (the Python rejections) an
+    extra accepted spelling anywhere fails here.
+    """
+    from pyqcu.tools import _legacy_mg_cache
+
+    accepted = {"", "inverse", "legacy"}
+    assert (_cpp_accepted_builder_spellings()
+            == _python_accepted_builder_spellings()
+            == accepted)
+    for spelling in sorted(accepted):
+        environ = {cache.NULL_VECTOR_BUILDER_ENVIRONMENT: spelling}
+        assert cache.null_vector_builder(environ) in (
+            cache.NULL_VECTOR_BUILDER, cache.LEGACY_NULL_VECTOR_BUILDER)
+        assert (cache.null_vector_builder(environ)
+                == _legacy_mg_cache.null_vector_builder(environ))
 
 
 @pytest.mark.parametrize("value", ("legacy ", " LEGACY", "Legacy", "old",
