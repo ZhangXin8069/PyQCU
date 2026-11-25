@@ -41,6 +41,12 @@ than two is not a supported performance path.
 >   k≥2 上多抓 **1.07–1.38×（中位约 1.3×）**，不是 6.1×——符号对、量级错五倍。
 >   ρ 随残差变光滑从 0.015 升到 0.088（容量 0.0104，上界 0.1021），仍远小于 1。
 >   完整表见 `logs/v20261123.txt` §182；6.1× 与 overlap `0.115` 仍然不得引用。
+>   **按迭代数复核（§185，比 ρ 更硬）**：同一分配、`E=2`、两套基各由自己 builder 建，
+>   `MG_LEVEL_ITERS` 给出 legacy `level0=37 level1=21`、inverse `level0=38 level1=8`，
+>   两者都接受 8 次修正；墙钟 2.0372/2.0753 vs 2.0095 s。所以旧基**确实**省下
+>   **1 次细迭代**（38→37，重复运行仍是 37），却在粗层多花 **2.6 倍**迭代——
+>   更光滑的基抓得多，但粗算子条件数更差。净结果是 legacy **慢 1.4–3.3%**。
+>   结论：**"旧基更好"只在捕获率与那 1 次迭代上成立，兑换不成收益**。
 >
 > 收紧 `--atol` 无效，换 seed 无效；只能换**热化** gauge 重跑。远端判读表见
 > [`pyqcu-testing/references/remote-l48-experience.md`](../pyqcu-testing/references/remote-l48-experience.md)。
