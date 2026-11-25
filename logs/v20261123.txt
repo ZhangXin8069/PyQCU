@@ -4541,3 +4541,31 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      and still no answer for quality, which needs rho on these two caches.  bg-52 is
      running exactly that on this non-singular pair; its result, not section 176's
      void 6.1x, is what counts.
+
+180. The 6.1x basis claim is void ON ITS OWN LATTICE too, measured, not inferred
+     Section 176 derived the singular-operator trap on a UNIT gauge and I had
+     qualified the [8,8,8,16] capture-fraction run only by analogy: that gauge is
+     strongly disordered (mean|U-1| = 0.7021), and disorder raises kappa_c, so the
+     run might have been legal.  It was not.  A plain BiCGStab on the full
+     Wilson-Clover operator, same point-like source, same csw, reaching the c64
+     floor at the good mass:
+
+       mass -0.277  kappa 0.1343003  residual grows to 1.2934, then NaN at
+                                    iteration 229 -> breakdown, singular operator
+       mass +0.100  kappa 0.1219512  converges, true relative residual 5.96e-07
+                                    after 262 iterations
+
+     So on the very lattice the capture measurement used, the operator at
+     mass=-0.277 does not admit a solution.  `S^-1 v` in section 176's language is
+     then not a null vector of anything, which makes bg-45's "the legacy basis
+     captures 6.1x more" void on its own terms - not by analogy with a unit gauge,
+     but because the linear system it was measured on has no solution.
+
+     What this does NOT establish: that the inverse-iteration basis is better.  The
+     comparison still has to be redone at a mass below kappa_c.  A pair of caches at
+     [8,8,8,16], mass=+0.1, one per builder, is being built for exactly that.
+
+     Method note for the next person: "the run produced numbers" is not evidence
+     that the system was solvable.  A breakdown signature is a residual that stops
+     decreasing and then goes non-finite, and it must be looked for explicitly -
+     here it took 229 iterations and a NaN to show up.
