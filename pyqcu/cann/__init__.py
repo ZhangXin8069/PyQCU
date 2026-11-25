@@ -72,10 +72,17 @@ def abs(input: torch.Tensor) -> torch.Tensor:
 
 
 def vdot(input: torch.Tensor, other: torch.Tensor) -> torch.Tensor:
-    if (input.device.type == 'npu' or force_use_npu) and torch.is_complex(input):
+    # Complex input MUST take the explicit sum: torch.vdot returns a silent 0 for
+    # complex tensors on torch 1.12.1 (measured: [1+2j, 3-1j] . [2, 1+1j] = 0
+    # instead of 4), and this layer is the single choke point every torch solver
+    # reaches through pyqcu.tools.vdot.  A zero inner product does not raise - it
+    # makes BiCGStab report "rho = 0, r_tilde orthogonal to r" at iteration 0, so
+    # the failure surfaces as a false breakdown in the caller, arbitrarily far from
+    # the cause.  Observed as the "inner BiCGStab does not converge" gate refusing
+    # a perfectly good Legacy-MG parent on a compute node.
+    if torch.is_complex(input):
         return torch.sum(torch.conj(input.flatten()) * other.flatten())
-    else:
-        return torch.vdot(input.flatten(), other.flatten())
+    return torch.vdot(input.flatten(), other.flatten())
 
 
 def norm(input: torch.Tensor, p='fro', dim=None, keepdim=False, out=None, dtype=None) -> torch.Tensor:
