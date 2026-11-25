@@ -205,3 +205,39 @@ def test_min_nu_pre_defaults_to_zero_and_forwards(clean_binding_environment):
 def test_a_negative_nu_pre_is_refused():
     with pytest.raises(ValueError):
         _case(mg_nu_pre=-1)
+
+
+def test_both_cache_implementations_agree_on_the_builder_revision():
+    """Two modules build identities; they must not drift.
+
+    ``pyqcu.test.cache`` serves the harness and ``pyqcu.tools._legacy_mg_cache``
+    serves the informal builder and the C++ side.  The loader compares the
+    manifest written by the second against the constant of the first, so the two
+    literals have to stay equal - a silent divergence here would either accept a
+    stale basis or reject a fresh one.
+    """
+    from pyqcu.tools import _legacy_mg_cache
+
+    assert cache.NULL_VECTOR_BUILDER == _legacy_mg_cache.NULL_VECTOR_BUILDER
+    assert (cache.UNSPECIFIED_NULL_VECTOR_BUILDER
+            == _legacy_mg_cache.UNSPECIFIED_NULL_VECTOR_BUILDER)
+
+
+def test_the_shared_identity_records_the_revision_only_when_claimed():
+    """KUPL claims the revision; an undeclared artifact keeps the sentinel.
+
+    CUDA's builder is still ``v -= S^-1(S v)``, so the two backends must not be
+    labelled with the same revision.
+    """
+    from pyqcu.tools import _legacy_mg_cache
+
+    common = dict(lattice=(8, 8, 8, 16), dtype="c64", mass=-0.277, csw=1.0,
+                  dof=(12, 4), mg_grid=(2, 2, 2, 2), nv_iters=2, seed=1,
+                  gauge_sha256="a" * 64)
+    undeclared = _legacy_mg_cache.legacy_mg_cache_identity(**common)
+    declared = _legacy_mg_cache.legacy_mg_cache_identity(
+        **common, nv_builder=_legacy_mg_cache.NULL_VECTOR_BUILDER)
+    assert undeclared["nv_builder"] == _legacy_mg_cache.UNSPECIFIED_NULL_VECTOR_BUILDER
+    assert declared["nv_builder"] == _legacy_mg_cache.NULL_VECTOR_BUILDER
+    assert (_legacy_mg_cache.identity_sha256(undeclared)
+            != _legacy_mg_cache.identity_sha256(declared))

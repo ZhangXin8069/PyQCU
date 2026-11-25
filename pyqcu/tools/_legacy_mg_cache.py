@@ -37,6 +37,16 @@ LEGACY_MG_ASSET_COARSE_AXES = {
     "hdg": (5, 6, 7, 8),
     "sit": (2, 3, 4, 5),
 }
+#: Revision of the null-vector builder that produced an artifact.  It is part of
+#: the identity because the algorithm, not its inputs, decides what the coarse
+#: basis contains.  Only the backends that HAVE been changed may claim it:
+#: KUPL's builder is a real inverse iteration since 97508c6a, while CUDA's is
+#: still `v -= S^-1(S v)`, so a CUDA artifact must keep the sentinel.
+NULL_VECTOR_BUILDER = "inverse-iteration/2"
+#: What an artifact that records no revision normalises to.  Must differ from
+#: every real revision, otherwise an old artifact would be silently trusted.
+UNSPECIFIED_NULL_VECTOR_BUILDER = "unspecified"
+
 LEGACY_MG_IDENTITY_FIELDS = (
     "lattice",
     "dtype",
@@ -325,6 +335,8 @@ def _normalize_identity(identity: Mapping[str, Any]) -> dict[str, Any]:
         "mg_grid": list(mg_grid),
         "nv_iters": int(identity["nv_iters"]),
         "seed": int(identity["seed"]),
+        "nv_builder": str(identity.get("nv_builder")
+                          or UNSPECIFIED_NULL_VECTOR_BUILDER),
     }
     if int(result["nv_iters"]) <= 0:
         raise ValueError("Legacy MG cache nv_iters must be positive")

@@ -3962,6 +3962,13 @@ def _load_ranked_mg_assets(
 
     manifest = read_legacy_mg_ranked_manifest(path)
     identity = manifest["identity"]
+    # Compared fields.  `nv_builder` and `nv_iters` belong here as much as mass
+    # and csw do: they decide what the stored basis IS.  Without `nv_builder` an
+    # artifact written by the old `v -= S^-1(S v)` loop - which stored the inner
+    # solver's residual, i.e. noise - was accepted for a case asking for the
+    # current inverse iteration, because the comparison never looked.  A manifest
+    # that records no revision normalises to the "unspecified" sentinel and is
+    # therefore refused rather than trusted.
     expected = {
         "lattice": list(option.lattice),
         "dtype": str(canonical_dtype(option.dtype)),
@@ -3969,6 +3976,8 @@ def _load_ranked_mg_assets(
         "csw": float(option.csw),
         "mg_grid": list(option.mg_grid),
         "seed": int(option.seed),
+        "nv_iters": int(option.nv_iters),
+        "nv_builder": str(cache_module.NULL_VECTOR_BUILDER),
     }
     actual = {
         "lattice": list(identity.get("lattice", [])),
@@ -3977,6 +3986,9 @@ def _load_ranked_mg_assets(
         "csw": float(identity.get("csw", 0.0)),
         "mg_grid": list(identity.get("mg_grid", [])),
         "seed": int(identity.get("seed", -1)),
+        "nv_iters": int(identity.get("nv_iters", -1)),
+        "nv_builder": str(identity.get("nv_builder")
+                          or cache_module.UNSPECIFIED_NULL_VECTOR_BUILDER),
     }
     if actual != expected:
         raise ValueError(

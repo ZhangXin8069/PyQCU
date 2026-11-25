@@ -3941,3 +3941,39 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      stands.  What this fixes is the guard that would have let a FUTURE run
      silently reuse the pre-fix basis, and the fact that I had certified it with a
      test that could not fail.
+
+167. The invalidation was inert for a SECOND reason: the loader never compared it
+     Continuing from section 166, and this is the part that matters: `nv_builder`
+     was not merely defeated by normalisation, it was never consulted at all.
+     `_load_ranked_assets` compares a hardcoded SIX-field subset
+     (lattice, dtype, mass, csw, mg_grid, seed; native.py:3965-3984).  Neither the
+     identity hash nor `nv_builder` nor `nv_iters` entered that comparison, so:
+       - the old builder's artifact was accepted for a case asking for the new one;
+       - a cache built with nv_iters=2 was accepted for a case asking nv_iters=5.
+     My section-166 "fix" therefore changed a hash that nothing reads.  Both
+     halves are now closed:
+
+       - the compared dicts gained `nv_builder` and `nv_iters`.  A manifest that
+         records no revision falls back to the "unspecified" sentinel, which never
+         equals the current revision, so such an artifact is refused rather than
+         trusted.
+       - `pyqcu/tools/_legacy_mg_cache.py`, which writes the manifests the loader
+         reads, now carries the field too: absent -> "unspecified", present ->
+         the claimed revision.  KUPL's builder (pyqcu/testing/simple/
+         kupl_multigrid.py) claims `inverse-iteration/2`; CUDA's does NOT, because
+         its builder is still `v -= S^-1(S v)` and labelling it with KUPL's
+         revision would be a false claim.
+       - the two modules' constants are pinned equal by a test, so the loader's
+         expectation cannot drift from what the builder writes.
+
+     CONSEQUENCE, stated because it is a real cost: every cache whose manifest
+     predates this change - including data/l48_nv2_20261125/caches/l48_mg_2224_nv2,
+     the one behind section 152's corrected-basis measurement - will now be
+     REFUSED and must be rebuilt once.  That is the fail-closed trade: a cache
+     that cannot say which builder produced it cannot be trusted to hold the basis
+     this code intends to use.  The past measurement stands; it is the artifact's
+     reusability that ends.
+
+     Verified: 476 passed, 3 skipped.  The change is NOT deployed to the cluster
+     tree yet, deliberately, because bg-33 is still running there and deploying
+     would make its cache lookups fail mid-experiment.

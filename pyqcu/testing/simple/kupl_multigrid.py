@@ -16,6 +16,7 @@ import numpy as np
 from pyqcu.tools._legacy_mg_cache import (
     LEGACY_MG_ASSET_COARSE_AXES,
     LEGACY_MG_ASSET_NAMES,
+    NULL_VECTOR_BUILDER,
     build_legacy_mg_ranked_cache_manifest,
     file_sha256,
     is_legacy_mg_ranked_cache,
@@ -1499,6 +1500,13 @@ def main(argv=None) -> int:
             mg_grid=args.mg_grid,
             nv_iters=args.nv_iters,
             seed=args.seed,
+            # This builder uses the KUPL null-vector loop, which has been a real
+            # inverse iteration since commit 97508c6a.  Declaring the revision
+            # makes the artifact refuse a case that asks for a different builder;
+            # an artifact that does not declare one cannot be told apart from the
+            # old `v -= S^-1(S v)` (solver-noise) basis and is rejected by
+            # pyqcu.test.  The CUDA builder deliberately does NOT declare it.
+            nv_builder=NULL_VECTOR_BUILDER,
         )
         if args.coarse_cache is not None:
             cache_path = resolve_path(
