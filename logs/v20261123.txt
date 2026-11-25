@@ -4399,3 +4399,67 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      gauge (the L48 gauge is one) with the verified 32-rank / `2 2 2 4` shape, and
      only then read rho.  Until that exists, no statement about the two builders is
      supported - including the 6.1x, which must not be quoted.
+
+177. CORRECTION of section 171/176's mg-3 conclusion: 3 levels need PLUMBING, not
+     physics, and no coarse gauge is involved anywhere
+     I told the operator that mg-3 "cannot be built" and "needs physics code -
+     a coarse gauge and coarse Clover construction".  Both parts were wrong, and
+     `bg-41` disproved them with code and a numerical check.
+
+     WHAT I GOT WRONG AND WHY: I read the two C++ builders' signatures
+     (`applyMultigridBuildNullVectorsQcu` / `applyMultigridBuildStencilLocalQcu`
+     take gauge + Clover) and inferred that a level-2 operator must therefore be
+     produced from a coarse gauge.  I never read the torch/CUDA chain's recursion,
+     which defines the hierarchy completely differently.
+
+     THE ACTUAL RECURSION (no gauge anywhere):
+         op(0) = fine odd-Schur Clover operator
+         op(L) = R_L · op(L-1) · P_L
+     i.e. each coarse operator is the Galerkin projection of the PREVIOUS
+     operator, where the previous operator may itself be a 33-tensor stencil.
+     `pyqcu/cuda/_multi_gpu.py:229` says it in one line - `S = lambda v:
+     apply_stencil(hnn, hdg, sit, v)` - and that is the whole handoff.  A
+     tree-wide search for `coarse_gauge`/`block_average`/`coarsen_gauge`/
+     `coarse_clover` finds NO implementation: the construction I said was missing
+     does not exist because it is not needed.
+
+     THE STENCIL IS BUILT BY PROBING, AND PROBING WORKS ON A STENCIL PARENT:
+       - null vectors: `give_null_vecs(matvec=apply_stencil(parent_stencil))`
+       - projection:   `build_stencil(parent_matvec, ...)` - takes ANY matvec
+     Both primitives are generic in `(E, e, dims)` and already used by the torch
+     chain (`pyqcu/torch/tools/_multigrid.py:105-166`, `:168-241`, `:873-953`).
+     Verified numerically this session on synthetic parent stencils:
+         isotropic block 2, E=(2,2): max ||A2 v - R A1 P v||/||.|| = 4.89e-16
+         support of A2·delta        : exactly 33 offsets (the 33-point gallery)
+         anisotropic (2,2,2,1), E=(3,3): 4.26e-16, 33 offsets
+     so a 33-tensor parent can only produce couplings at {0, ±e_mu, ±e_mu±e_nu},
+     i.e. the construction is inductively valid to any depth.
+
+     WHAT IS GENUINELY IMPOSSIBLE (and must not be attempted): handing a coarse
+     gauge + coarse Clover to the two C++ builders.  Wilson-Clover is onsite plus
+     1-hop; a 33-point stencil carries 2-hop couplings, so NO gauge reproduces it
+     and the builders would silently build the hierarchy of a different operator.
+     That is the real constraint - it says the level-2 build must happen in
+     PYTHON/torch, where a matvec is an argument, not that mg-3 is impossible.
+
+     WHY THE SOLVER IS NOT THE PROBLEM EITHER: `lattice_clover_multigrid.cpp:312`
+     accepts 1..5 levels, `:392-435` reads the per-level E/dims/pointer quartet,
+     `:975-978` applies `multigrid_coarse_dslash_wide` with no gauge parameter at
+     all, and `:986-1001` pass `c.E, p.E` and both dims into generic restrict/
+     prolong.  `pyqcu/test/native.py::_configure_legacy_mg` is already N-level
+     (`for level in range(1, depth)`), and `worker.py:203-259` already loads one
+     root per level.  `--mg-levels 3` is refused by ONE gate
+     (`native.py:4121-4136`) and the builder is the only 2-level component.
+
+     THE ONE IRREDUCIBLE CONSTRAINT for the first 3-level experiment: `E_1 = 12`,
+     because `_legacy_mg_cache.py:131-137` hardcodes `fine_dof = 12` and the ABI
+     wrappers `apply_multigrid.cpp:149,167` hardcode `e = kVectorSize`.  That is a
+     3-line helper fix plus optional wide ABI variants - still mechanical, not
+     physics.
+
+     So section 171's "mg-3 is not buildable here" stands only in the narrow sense
+     that no builder exists today; its "and it needs a physics change" is
+     withdrawn.  The work is: a new `mg_transition.py` that probes the parent
+     root, two benchmark-audit edits, four `pyqcu.test` functions, a repeatable
+     cache-root flag, and flipped tests.  `bg-41` lists all 19 files with one-line
+     changes.
