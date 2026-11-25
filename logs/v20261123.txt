@@ -3473,3 +3473,42 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      Verified at the runner: _options(..., mg_nu_pre=7).mg_nu_pre == 7 and an
      unset call gives 0.  Gates: pyqcu.test --quick 19/19; 203 focused tests.
      This closes MINOR 7 of the round-1 review.
+
+156. Review round 1 CLOSED: 10 of 10 findings addressed
+     Final tally of the adversarial review of test40..ec9499da:
+
+       BLOCKER  null-vector builder was v -= S^-1(S v) = v - v (solver noise),
+                with no cache invalidation ....................... FIXED 97508c6a
+       MAJOR 1  cache-E guard could not see "dof not given" ..... FIXED ec9499da
+       MAJOR 2  "decoupled from restart" was false; arm A
+                was an unrestarted BiCGStab ..................... FIXED 288db110
+       MAJOR 3  default schedule moved while the header said
+                it had not (smoothing prefix) ................... FIXED 44a3c7f6
+       MAJOR 4  shipped skills/log guidance restated withdrawn
+                conclusions ..................................... FIXED 8321f8e5
+       MAJOR 5  Kunpeng guard enforced 1 of 3 variables ....... FIXED 6c37490e
+       MINOR 2  inverse iteration not renormalised per pass .... FIXED 97508c6a
+       MINOR 6  audit ran once per PROCESS, not per level ...... FIXED 44a3c7f6
+       MINOR 7  --mg-nu-pre parsed, recorded, dropped ......... FIXED e9721387
+       MINOR 3  a predicted residual could reach the exit check
+                and turn "needs more iterations" into a hard
+                throw .......................................  FIXED 2253800 build
+                (analysis-predicted candidate is now loop-only; one true_residual
+                 re-evaluates before the exit test, gated by residual_verified)
+       MINOR 5  the audit cannot detect a CONSISTENT component
+                permutation (both sides permuted together) ...... RECORDED, not
+                fixed: catching it needs an element-wise comparison against the
+                cached lonv, which is a different piece of work.  The audit's
+                claim is narrowed to one-sided errors rather than left as it was.
+
+     Build identity for the last two C++ fixes: job 2253800 SUCCEEDED,
+     library md5 6297bf23a4 -> 22707f8c48, build log timestamp 09:04:17 ->
+     09:34:39.  (Three earlier submissions of that build were rejected by the
+     scheduler with `job build failed` in under a second - the same flake seen
+     all session - which is why the monitor now reads the log timestamp too:
+     "SUCCEEDED" with an unmoved log is a void run.)
+
+     Not done, and deliberately: the row and CSV still report the REQUESTED dof
+     rather than the artifact's E (section 154).  It hides nothing now that the
+     guard keys on declared-ness, and half-wiring it would be worse than
+     recording it.

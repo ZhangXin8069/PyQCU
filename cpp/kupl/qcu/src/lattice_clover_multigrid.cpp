@@ -470,6 +470,11 @@ public:
     bool fallback_to_fine = false;
     int accepted_corrections = 0;
     int since_correction = 0;
+    // Whether `residual` is a recomputed true residual.  A coarse correction
+    // leaves the analytic PREDICTION in `residual`; it must never reach the
+    // exit check, where an optimistic prediction would throw "did not reach the
+    // full true residual" instead of simply iterating more.
+    bool residual_verified = true;
     // A V-cycle buys nothing on an UNSMOOTHED residual, and that is what this
     // loop starts from: residual(0) = b, a dense source.  The coarse basis is
     // child.E vectors per block of parent.E*bx*by*bz*bt fine components - on
@@ -543,8 +548,18 @@ public:
           fallback_to_fine = true;
           break;
         } else {
+          // `candidate` is the analytic prediction from the damping step, not a
+          // recomputed residual: apply_coarse_correction returns
+          // sqrt(before^2 - <r,Ac>^2/||Ac||^2) and does not re-evaluate A x.
+          // Using it only as the loop CONDITION is safe, because the next
+          // iteration recomputes true_residual(0) before anything can terminate;
+          // what was not safe is letting a predicted value survive to the exit
+          // check, where an optimistic prediction turned "needs more iterations"
+          // into the hard throw at the end of this function.  So record it for
+          // the loop, and force one real evaluation before the exit test.
           residual = candidate;
           ++accepted_corrections;
+          residual_verified = false;
         }
         if (params_[kVerbose] != 0) {
           std::fprintf(stdout,
@@ -588,6 +603,9 @@ public:
           total_iterations, static_cast<double>(residual),
           static_cast<double>(target),
           static_cast<double>(residual / rhs_norm));
+    }
+    if (!residual_verified) {
+      residual = true_residual(0);
     }
     if (!std::isfinite(static_cast<double>(residual)) ||
         residual > target) {
