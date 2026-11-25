@@ -4334,3 +4334,68 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      So the old-vs-new answer stands where section 173 left it: both bases
      orthonormal, differing only in direction (overlap 0.115), identical capacity
      1/96; and which direction is better for a smoothed residual remains unmeasured.
+
+176. ROOT CAUSE of every failure in sections 172-175: the test input is at a
+     singular operator, and it invalidates the basis comparison
+     `bg-46` diagnosed it and `bg-45`'s own numbers corroborate it.
+
+     mass = -0.277 gives kappa = 1/(2*(-0.277) + 8) = 0.1343003, which is 7.4%
+     ABOVE the free-theory critical kappa_c = 1/8. On the gauges used here the
+     Wilson-Clover operator therefore has an exact or near-zero mode:
+       - `gauge_cold_...h5` is exactly unit (max|U-1| = 0), so the clover term is
+         identically zero and the operator IS the free Wilson operator;
+       - `gauge_16x16x16x32_c64.h5` is sigma=0.1 near-identity (mean|U-1| = 0.115).
+     The free eigenvalue 1 - 2*kappa*sum cos p_mu vanishes at p=(0.7627,0,0,0)
+     (cos p_x = 1/(2*kappa) - 3 = 0.723, inside [-1,1]), so the Schur complement
+     is singular. NOTHING converges there, at 1, 8 or 32 ranks.
+
+     Measured proof (8 ranks, grid 2 2 2 1, `--verbose`, inverse builder, library
+     305a152cdc68d520): all 8 ranks identical,
+       iterations=1000 residual=145.51 acceptance_tolerance=12.5435 relative=0.116004
+       iterations=1000 residual=89.85 acceptance_tolerance=12.5385 relative=0.071656
+     i.e. finite, the full 1000 iterations used, and a plateau at 7-12% against a
+     demanded 1%. Not NaN, not a factor error, not a local-vs-global reduction bug
+     (`global_norm2` already Allreduces over `geometry_.comm`,
+     lattice_solver.cpp:188-216, and the tolerance uses it at :298-304).
+
+     THIS RETROACTIVELY EXPLAINS EVERY BLOCKER I RECORDED:
+       - plain BiCGStab failing at [8,8,8,16] ("non-finite or out-of-tolerance true
+         residual") - same singular Schur complement, any tolerance;
+       - the 8-rank null-vector build failing on all ranks for BOTH branches;
+       - the single-process [16,16,16,32] build burning 29:33 at 91% CPU (2 columns
+         x 5 retries x 1000 stagnating iterations);
+       - and most importantly bg-45's "legacy basis captures 6.1x more": in a
+         singular system the inverse iteration's S^-1 v is garbage, which is why the
+         inv cache measured as white noise (intra-block variance 0.87, ||Sv||/||v||
+         = 79% of ||S||) while the v - S^-1(Sv) artefact happened to carry the
+         amplified low modes.  Both bases are ARTEFACTS OF A SINGULAR SOLVE, so that
+         6.1x says nothing about the two builders.
+
+     What is NOT broken: the multi-rank builder.  Verified PASS multi-rank caches
+     already exist and were built by this same collective path
+     (`lonv_source = distributed-null-vector`): 32 ranks grid 2 2 2 4 local 24^3x24
+     (null-vector phase 4.25 s), 16 ranks, and 128 ranks (8.4 s).  The required
+     shape is `--grid 2 2 2 4` at 32 ranks with a THERMALISED gauge - exactly
+     `sh/l48_cb_nv2.sh`.  My 8-rank `2 2 2 1` was legal (the guard at
+     lattice_solver.cpp:897-911 wants LOCAL extents and Tf = local_t/2, which the
+     driver supplies); it failed on the input, not the decomposition.
+
+     Two real secondary defects found on the way:
+       - `--max-iter` leaks into the distributed null-vector solve
+         (kupl_multigrid.py:558-561 reuses the driver's params) whereas the serial
+         path hard-codes 1000 (:1002) - so the L48 recipes' `--max-iter 50` gives
+         the multi-rank builder 20x less Krylov budget.  Fixing it turns the
+         failure into a 20x slower failure, not a pass.
+       - `PYQCU_MG_BUILD_PROGRESS` prints from every rank (:958-967), 8 duplicate
+         lines per event.
+
+     Thread control, for the record: `OMP_NUM_THREADS` is honoured
+     (lattice_cpu.cpp:423), `KUPL_OMP_THREADS` overrides it, and when unset the
+     count is clamped to the affinity set (:429-433).  So the 29:33 single-thread
+     run was launched without either variable.  16-32 threads puts the null-vector
+     phase at ~30-60 s.
+
+     NEXT, if this is pursued: rerun the old-vs-new comparison on a THERMALISED
+     gauge (the L48 gauge is one) with the verified 32-rank / `2 2 2 4` shape, and
+     only then read rho.  Until that exists, no statement about the two builders is
+     supported - including the 6.1x, which must not be quoted.
