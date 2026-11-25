@@ -258,23 +258,35 @@ correctness gate。完整矩阵、实际 cycle 计数和证据链接见
   `19 + 8*(level-1)` 开始（`E,X,Y,Z,T,max_iter,dtype,restart`），`set_ptrs`
   四元组从 `30 + 4*(level-1)` 开始（`lonv,hnn,hdg,sit`），`argv` 容差在
   `3 + (level-1)`。这些槽位已预留，所以 3/4/5 层是现成的求解器配置。
-- `pyqcu.test` 的 port 只接一条粗化 transition（一套 coarse 资产），所以今天
-  `--mg-levels 3` 跑不起来。**这是 plumbing，不是物理，也不是求解器上限**；
-  四处闸门逐条可改（`logs/v20261123.txt` §171、§177）：
-  1. `pyqcu/test/native.py:4117-4129` 的 `if depth > 2: raise refusal`——唯一的
-     CLI 门，删掉它只是把失败搬到 builder；
-  2. 唯一的 builder 只建 transition 1，而 `_configure_legacy_mg` 本身已是 N 层
-     （`native.py:4271` 的 `for level in range(1, depth)`），
-     `pyqcu/testing/simple/mpi/worker.py:207-221` 也已按层各取一个 cache root；
-  3. `pyqcu/tools/_legacy_mg_cache.py:132-136`（`legacy_mg_cache_shapes`）
-     硬编码 `fine_dof = 12`，而 transition 2 的 fine dof 是 level 1 的
-     `E`（实测 `4`）；
-  4. ABI 包装 `cpp/kupl/qcu/src/apply_multigrid.cpp:149,167` 在 restrict/prolong
-     里传 `e = kVectorSize`（=12）。第一条 3 层实验取 `E_1 = 12` 可绕开宽变体。
-  求解器侧不用动：`:975-978` 的 `multigrid_coarse_dslash_wide` 不带 gauge 参数，
-  `:986-1001` 把 `c.E, p.E` 与两侧 dims 直接交给通用 restrict/prolong。
-- 接受不等于已验证：Legacy 的正式验证深度仍是两层、Strict 是三层，3–5 层必须
-  逐层过独立全算子残差门后才能引用。
+- **三层已建成并已跑通（2026-11-25，`logs/v20261123.txt` §183-§184）**。上面
+  那四处闸门已按 plumbing 方式处理完，不再是阻塞项：
+  1. `native.py` 的 `if depth > 2` 拒绝已删除，改为**逐转移解析**：
+     `_mg_transition_roots` 按序取 transition 1..depth-1（`--cache-dir` 给
+     transition 1，每个 `--coarse-cache-level` 给下一个），缺少时由
+     `_missing_transition_root` **点名**缺哪条转移和该用哪个 flag，绝不回退到更粗的根。
+     注意 depth 层只有 **depth-1** 条转移——`range(2, depth+1)` 是 off-by-one。
+  2. 深层 builder 由 `pyqcu/testing/simple/mg_transition.py` 提供（checkout-only
+     开发工具，随包发行的 `pyqcu/test` 不建、只消费已有根）。
+  3. `e` 不是阻塞：求解器 `restrict(parent)` 传 `p.E` 作 `e`、`c.E` 作 `E`
+     （`:986-1001`），所以 transition 2 的 `e` 就是 level 1 的 `E`。ABI 的
+     `e = kVectorSize`（`apply_multigrid.cpp:149,167`）只影响**独立** restrict/prolong
+     入口；取 `E_1 = 12` 时连它也对。同理 `_legacy_mg_cache` 的 `fine_dof = 12`
+     在 `E_1 = 12` 下自洽——**`E_1 = 12` 是让两个硬编码同时成立的条件，不是限制**。
+  4. `nv_iters` 只对 transition 1 比较：深层根的 `nv_iters` 记录的是 Python 探测
+     每向量一次 pass，与用例的 `--nv-iters`（管 C++ builder）无关。比较它是把
+     正确 artifact 拒掉的真因。`nv_builder` 仍逐层比较。
+- **实测结果**（同分配、8 rank、`mass=+0.1`、`atol 1e-5`）：
+
+  | 臂 | level0 | level1 | level2 | accepted | 秒 | 相对残差 |
+  |---|---:|---:|---:|---:|---:|---:|
+  | mg-2 | 39 | 8 | — | 8 | 2.3566 | 4.28e-06 |
+  | mg-3 | 59 | 12 | **12** | 12 | 3.7684 | 3.19e-06 |
+
+  `level2=12 / accepted_corrections=12 / fallback_fine=0` 证明第三层被真正进入并
+  采用，不是只加载。三层精度更好但墙钟多 **60%**、细层迭代多 **51%**——与 §182
+  的算术一致（更粗的修正每次更便宜但去掉得更少）。
+- 接受不等于已验证：Legacy 现在的**已跑通**深度是 2 和 3（都在非奇异算符上、
+  都有独立残差），4/5 层仍须逐层过独立全算子残差门后才能引用。
 
 ### 2026-11-26 Legacy-MG 的层级是递归的：没有 coarse gauge，也不要造一个
 
