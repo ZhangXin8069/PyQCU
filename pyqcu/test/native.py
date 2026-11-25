@@ -2742,6 +2742,12 @@ class NativeCase:
     mg_grid: tuple[int, int, int, int] = DEFAULT_MG_GRID
     mg_levels: int = 2
     dof: tuple[int, ...] = DEFAULT_DOF
+    #: Whether the caller actually supplied ``dof``.  ``dof`` alone cannot say:
+    #: it defaults to :data:`DEFAULT_DOF`, so "declared the default" and
+    #: "declared nothing" are the same tuple, and the ranked-cache guard has to
+    #: tell them apart to enforce the requested E (see the guard in
+    #: ``_load_ranked_assets``).
+    dof_declared: bool = False
     nv_iters: int = DEFAULT_NV_ITERS
     restart: int = 5
     coarse_max_iter: int = 200
@@ -3083,6 +3089,13 @@ def _options(case: Any = None, *, kind: str = "solve", **explicit: Any
             f"{mg_levels}")
     dof_value = _get("dof", DEFAULT_DOF)
     dof = tuple(_resolve_int(value, "dof", minimum=1) for value in dof_value)
+    # ``_get`` folds an absent ``dof`` into DEFAULT_DOF, so record the supply
+    # separately: the cache guard must reject a declared E that the artifact
+    # cannot provide, and must NOT reject a case that never asked.
+    dof_declared = (
+        explicit.get("dof") is not None
+        or (container is not None and getattr(container, "dof", None) is not None)
+    )
     if len(dof) < 2 or dof[0] != 12:
         raise ValueError(
             f"dof must start with the 12-component fine field and list at "
@@ -3149,6 +3162,7 @@ def _options(case: Any = None, *, kind: str = "solve", **explicit: Any
         mg_grid=mg_grid,
         mg_levels=mg_levels,
         dof=dof,
+        dof_declared=dof_declared,
         nv_iters=nv_iters,
         restart=restart,
         coarse_max_iter=coarse_max_iter,
@@ -3963,7 +3977,10 @@ def _load_ranked_mg_assets(
             f"{list(cached_dof)}")
     cached_e = int(cached_dof[1])
     requested_dof = tuple(int(value) for value in option.dof)
-    if requested_dof[1] != DEFAULT_DOF[1] and requested_dof[1] != cached_e:
+    # Only a DECLARED E is enforced: ``dof`` defaults to DEFAULT_DOF, so testing
+    # the value would let `--mg-dof 12 12` slip past while the row records
+    # dof=[12,12] and the run actually used the artifact's E.
+    if option.dof_declared and requested_dof[1] != cached_e:
         raise ValueError(
             f"ranked Legacy-MG cache E={cached_e} (dof={list(cached_dof)}) "
             f"does not match the requested dof={list(requested_dof)}.  E is a "

@@ -3424,3 +3424,32 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      than 4.647 s by a similar margin, MG's own contribution is small or
      negative but the "1.71x" figure is an artefact of the schedule, not of the
      multigrid.
+
+154. Review fixes M1 and M5 applied; one reporting gap left open
+     M5 (fixed): `_require_kunpeng_binding` returned as soon as KUPL_NUMA_BIND was
+     truthy while its own message and docs/env.md attributed the 95x to all three
+     variables.  It now requires KUPL_NUMA_BIND (truthy) plus non-empty
+     KUPL_MEMORY_NODE and KUPL_HUGEPAGE and names whichever is missing.  Verified
+     directly: none-set, BIND-only, BIND+MEMORY, MEMORY+HUGEPAGE and BIND=0 are
+     all refused; all three pass; PYQCU_ALLOW_UNBOUND_KUPL=1 still bypasses.
+
+     M1 (fixed): the ranked-cache guard tested the VALUE of dof[1] against
+     DEFAULT_DOF[1], so `--mg-dof 12 12` - the default, declared explicitly - was
+     skipped entirely and the run silently used the artifact's E while the row
+     recorded dof=[12,12].  `NativeCase.dof_declared` now carries whether the
+     caller supplied dof at all, and the guard enforces `dof_declared and
+     requested[1] != cached_e`.  Proven at the resolver:
+         absent     -> dof=(12,12) declared=False
+         dof=12,12  -> dof=(12,12) declared=True
+         dof=12,4   -> dof=(12,4)  declared=True
+     Gates: 137 focused tests pass.
+
+     STILL OPEN (not fixed, deliberately): the row and the CSV ledger record
+     `dof` = what the case ASKED for, not the E the artifact provided.  `mg_e`
+     is in the row but has no ledger column (pyqcu/test/ledger_csv.py:145), so a
+     case that declares nothing still reports the default 12 while running on the
+     cache's E.  With the guard now keyed on declared-ness this no longer hides a
+     mismatch - an undeclared case is allowed to use the artifact's E - but the
+     reported number is still the request, not the truth.  Fixing it means
+     feeding the cache identity's E back into the observations; it is a reporting
+     change, not a correctness one, and it is recorded here rather than half-done.
