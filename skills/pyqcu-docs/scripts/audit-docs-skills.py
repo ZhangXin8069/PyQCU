@@ -156,8 +156,13 @@ def check_docs(errors: list[str]) -> int:
     covered = set(re.findall(r"docs/([A-Za-z0-9_.-]+\.md)", guidance_text))
     actual = {path.name for path in docs}
     for name in sorted(actual):
-        if not re.fullmatch(r"(?:AGENTS|ORGANIZATION|[a-z0-9_]+)\.md", name):
-            fail(errors, "DOCS-NAME", DOCS / name, "文件名应为小写下划线、AGENTS.md 或 ORGANIZATION.md")
+        # `-csv.md` is the one allowed hyphenated suffix: machine-readable
+        # tables are stored as pure CSV under a .md name so the docs tree keeps a
+        # single extension and the CSV payload is not rendered as prose.
+        if not re.fullmatch(
+                r"(?:AGENTS|ORGANIZATION|[a-z0-9_]+)(?:-csv)?\.md", name):
+            fail(errors, "DOCS-NAME", DOCS / name,
+                 "文件名应为小写下划线、AGENTS.md、ORGANIZATION.md 或 <name>-csv.md")
 
     docs_count_match = re.search(r"当前 `docs/` 顶层共有 \*\*(\d+) 份", docs_index_text)
     if not docs_count_match:
