@@ -3898,3 +3898,46 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      removes 1.05% at E=4/block16, so ~43 corrections equal one fine iteration)
      explains the shape of the table.  Whether the exact multiplier is 6.5x or
      39% (7.646/5.519), MG does not win.
+
+166. The nv_builder invalidation was BROKEN, and my own test could not see it
+     Found while explaining the field, not by any review: `normalize_identity`
+     hardcoded `"nv_builder": NULL_VECTOR_BUILDER`, substituting the CURRENT
+     constant for a manifest that had no such key.  So an artifact written by the
+     old `v -= S^-1(S v)` loop normalised to exactly the same identity as one
+     asking for the current builder:
+
+         normalize(new)  -> inverse-iteration/2
+         normalize(old)  -> inverse-iteration/2      <-- substituted
+         identity_sha256 equal                        <-- invalidation useless
+
+     The whole point of commit 97508c6a's cache bump was that case.  It did not
+     work, and the reason it looked verified is the same trap as section 141:
+
+       the test compared the identity MAPPINGS, not their hashes:
+           assert legacy != current
+       That passes whether or not the hash differs, and `_load_ranked_assets`
+       compares hashes.
+
+     Fixed in two places:
+       - `_builder_revision()` in pyqcu/test/cache.py: a missing or empty value
+         normalises to UNSPECIFIED_NULL_VECTOR_BUILDER ("unspecified"), never to
+         the current constant, so an old artifact hashes differently.
+       - `mg_identity()` now passes `"nv_builder": NULL_VECTOR_BUILDER`
+         explicitly, because normalisation no longer substitutes it.
+
+     Verified:
+         new 696099befbb06f1d  nv_builder=inverse-iteration/2
+         old 84257a6a6083809e  nv_builder=unspecified
+         hashes differ -> an artifact from the old builder is rejected
+     And the test now asserts on `identity_sha256`, plus a second test asserting
+     that normalisation does not substitute the constant.  Both were proven to
+     fail: reinstating the hardcoded constant makes exactly those two fail;
+     restoring makes all 16 pass.  Gates: 474 passed, 3 skipped.
+
+     Consequence for the record: section 152's "corrected basis" measurement used
+     cache data/l48_nv2_20261125/caches/l48_mg_2224_nv2, built AFTER the builder
+     change and therefore with the new basis (its identity carries dof [12,4] and
+     the run reported cache_reused=True against that path).  So that measurement
+     stands.  What this fixes is the guard that would have let a FUTURE run
+     silently reuse the pre-fix basis, and the fact that I had certified it with a
+     test that could not fail.

@@ -132,13 +132,31 @@ def test_the_cache_identity_carries_the_builder_revision():
 def test_an_artefact_without_the_revision_does_not_match():
     """An old manifest has no ``nv_builder`` key at all.
 
-    That absence is what makes a cache built by the ``v -= S^-1(S v)`` loop
-    fail to match instead of silently satisfying the current case.
+    The assertion is on the HASH, not on the dicts: this test used to compare the
+    mappings, which passed while the mechanism was broken, because
+    ``normalize_identity`` substituted the current constant for the missing key
+    and both sides hashed the same.  Comparing hashes is the only form that tests
+    what the cache actually compares.
     """
     current = _identity()
     legacy = {k: v for k, v in current.items() if k != "nv_builder"}
     assert "nv_builder" not in legacy
-    assert legacy != current
+    assert cache.identity_sha256(legacy) != cache.identity_sha256(current)
+
+
+def test_normalisation_does_not_substitute_the_current_revision():
+    """The regression that made the invalidation silently useless.
+
+    A missing revision must normalise to the sentinel, never to
+    ``NULL_VECTOR_BUILDER``; otherwise an artifact built by the old loop hashes
+    to the identity of a case asking for the new builder.
+    """
+    current = _identity()
+    legacy = {k: v for k, v in current.items() if k != "nv_builder"}
+    assert cache.normalize_identity(current)["nv_builder"] == cache.NULL_VECTOR_BUILDER
+    assert (cache.normalize_identity(legacy)["nv_builder"]
+            == cache.UNSPECIFIED_NULL_VECTOR_BUILDER)
+    assert cache.UNSPECIFIED_NULL_VECTOR_BUILDER != cache.NULL_VECTOR_BUILDER
 
 
 def test_the_identity_still_separates_the_parameters_that_matter():

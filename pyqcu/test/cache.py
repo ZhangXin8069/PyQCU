@@ -145,6 +145,26 @@ _SCALAR_INT_IDENTITY_FIELDS = frozenset({"nv_iters", "seed", "mpi_size"})
 #: identity because the builder's algorithm, not its inputs, decides what the
 #: coarse basis is.
 NULL_VECTOR_BUILDER = "inverse-iteration/2"
+#: What an identity with no recorded builder normalizes to.  It must differ from
+#: every real revision, otherwise normalisation would silently upgrade an old
+#: artifact to the current builder and defeat the invalidation.
+UNSPECIFIED_NULL_VECTOR_BUILDER = "unspecified"
+
+
+def _builder_revision(value: Any) -> str:
+    """Return the recorded builder revision, or the "unspecified" sentinel.
+
+    Normalisation must not substitute the current constant for a missing field:
+    that is exactly how an artifact written by the old ``v -= S^-1(S v)`` loop
+    would end up hashing to the identity of a case that asks for the current
+    builder.  An absent revision stays absent-in-effect so the hash differs.
+    """
+    if value is None:
+        return UNSPECIFIED_NULL_VECTOR_BUILDER
+    text = str(value).strip()
+    if not text:
+        return UNSPECIFIED_NULL_VECTOR_BUILDER
+    return text
 #: Environment variable that overrides :func:`default_cache_dir`.
 CACHE_ENVIRONMENT = "PYQCU_TEST_MG_CACHE"
 #: dtype spellings mapped to the two cache dtypes.
@@ -310,7 +330,7 @@ def normalize_identity(values: Mapping[str, Any]) -> dict[str, Any]:
         # built by the old loop would satisfy the identity of a case that asks
         # for the new one, and `cache_policy=auto` would silently measure the
         # old basis.  Bump the string whenever the algorithm changes again.
-        "nv_builder": NULL_VECTOR_BUILDER,
+        "nv_builder": _builder_revision(values.get("nv_builder")),
     }
     gauge = values.get("gauge_sha256")
     if gauge is not None:
@@ -431,6 +451,11 @@ def mg_identity(*, lattice: Sequence[int], mg_grid: Sequence[int],
         "lattice_grid": lattice_grid,
         "mpi_size": mpi_size,
         "platform": platform_identity() if platform is None else platform,
+        # The builder revision this code writes.  Passed explicitly because
+        # normalize_identity deliberately does NOT substitute it for a missing
+        # value: an artifact that records no revision must hash differently from
+        # one written by the current builder.
+        "nv_builder": NULL_VECTOR_BUILDER,
     })
 
 
