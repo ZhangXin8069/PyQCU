@@ -1410,6 +1410,12 @@ def _mpi_comm() -> Any:
     collective open while another reads independently would hang, so every rank
     must agree before any of them opens the file.  ``None`` means "read
     independently", never "skip the read".
+
+    Nothing on this path returns ``None`` because of a local failure: only
+    ``ImportError`` (no mpi4py at all, which is uniform across ranks) and a world
+    size of one do.  An MPI that imported but cannot be sized raises, because
+    that condition is process-local and silently choosing the serial path is how
+    one rank ends up outside a collective the others are already inside.
     """
     try:
         from mpi4py import MPI
@@ -1419,8 +1425,18 @@ def _mpi_comm() -> Any:
     try:
         comm = MPI.COMM_WORLD
         size = int(comm.Get_size())
-    except Exception:  # noqa: BLE001 - MPI present but unusable in this process
-        return None
+    except Exception as error:  # noqa: BLE001 - see below
+        # Do NOT return None here.  This decision is process-local, so a rank
+        # whose Get_size() raised would take the serial path while the others
+        # entered the allgather below and the collective HDF5 open after it -
+        # a hang with no message.  MPI that imported but cannot be sized is
+        # broken in this process, so failing loudly is the only outcome that
+        # cannot be mistaken for "read it independently".
+        raise RuntimeError(
+            "mpi4py imported but MPI_COMM_WORLD could not be sized "
+            f"({type(error).__name__}: {error}); refusing to guess whether to "
+            "use a collective HDF5 read, because other ranks may already be in "
+            "one") from error
     if size <= 1:
         return None
     votes = comm.allgather(1 if HAS_MPI_SUPPORT else 0)

@@ -3671,3 +3671,38 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      claim here is about the gate, not about every handler in the package.
 
      No change was needed this round.
+
+161. Review round 6 (MPI correctness): one silent-hang path closed
+     (a) C++ collectives.  Two rank-0 guards exist across the KUPL sources
+         (lattice_clover_multigrid.cpp, lattice_cpu.cpp, lattice_solver.cpp,
+         lattice_strict.cpp) and neither encloses a collective: the only one in
+         lattice_solver.cpp:770 guards two fprintf calls.  The seven
+         MPI_Allreduce sites in lattice_clover_multigrid.cpp are at lines
+         146/181/201/219 (helpers) and 1159/1174/1230 (diagnose_correction), and
+         diagnose_correction is entered under `if (debug_)`, which is uniform
+         across ranks because it comes from one environment variable - this is
+         the exact shape that was broken earlier and fixed, and it is still
+         correct.
+
+     (b) PYTHON, `_mpi_comm` (pyqcu/test/native.py:1393).  Found and fixed a real
+         hang: the world-size probe sat in `except Exception: return None`, so a
+         rank whose `MPI.COMM_WORLD.Get_size()` raised would take the serial read
+         while the other ranks entered `comm.allgather(...)` and then the
+         collective `driver='mpio'` open - a hang with no message.  That branch
+         now raises, naming the problem and saying why it refuses to guess.
+         Only two conditions still return None, and both are uniform across
+         ranks: `ImportError` (no mpi4py at all) and a world size of one.
+
+     Verified directly with stubbed modules:
+         mpi4py present, Get_size() raises -> RAISED "mpi4py imported but
+           MPI_COMM_WORLD could not be sized (...); refusing to guess whether to
+           use a collective HDF5 read, because other ranks may already be in one"
+         no mpi4py                          -> None
+     (The first attempt at this test returned None and looked like a failure;
+     the cause was the harness - a SimpleNamespace is not a module, so
+     `from mpi4py import MPI` raised ImportError and took the legitimate
+     branch.  Stubbing both mpi4py and pyqcu.tools as real modules showed the
+     raise.  Recording it because a test that cannot reach the branch under test
+     is the same trap as section 141.)
+
+     Gates: 140 read/port/MPI tests pass, 3 skipped.
