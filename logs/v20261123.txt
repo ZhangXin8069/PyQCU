@@ -3977,3 +3977,51 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      Verified: 476 passed, 3 skipped.  The change is NOT deployed to the cluster
      tree yet, deliberately, because bg-33 is still running there and deploying
      would make its cache lookups fail mid-experiment.
+
+168. The decoupling is correct - section 165's caveat is LIFTED, and MG loses fairly
+     Verified by reading the implementation rather than trusting the comment.
+     Local and remote sources are byte-identical
+     (md5 4ae839b621d5f7d458752eac91f5126d), so the code below is what produced
+     the five arms:
+
+       - `bicgstab_chunk()` now loops in SEGMENTS of
+         `min(remaining, restart - state.since_restart)` (MG.cpp:1045-1049) and
+         re-initialises the recurrence (`rhat = r; p = v = 0; rho_old = alpha =
+         omega = 1`, :1052-1061) at EVERY segment start.  With `--restart 20` the
+         segments are 20 long, so BiCGStab restarts every 20 iterations of
+         ABSOLUTE count - including inside a chunk longer than 20.
+       - `state.since_restart` therefore carries across chunks (:1172-1180), so one
+         chunk can span several restarts and one restart can span several
+         corrections.
+       - a correction does NOT disturb the restart phase, except the FIRST one,
+         which anchors it (`restart_anchor_pending`, :644-651).  That is the detail
+         that stops `interval < restart` from degenerating back into "restart every
+         interval" - the very defect the change removes.
+       - with the knob unset, interval == restart, so every chunk is exactly one
+         segment and the historical behaviour is reproduced.
+
+     WHAT THAT MEANS FOR ARM A.  `A_off` runs with `corrections_enabled` false, so
+     `chunk = remaining` - one long chunk.  The segment loop inside turns that into
+     20-iteration segments, i.e. **A_off also restarts BiCGStab every 20**.  The
+     confound section 153 named is gone, and section 165's "provisional" caveat is
+     withdrawn.
+
+     THE FAIR RESULT, one library (md5 fca4b6085c), one allocation, debug off:
+
+       arm         interval  level0  level1  accepted  wall s
+       A_off            0       17       0        0      5.519
+       B_r20           20       19       1        1      6.350
+       C_r10           10       23       3        3      8.270
+       D_r5             5       18       4        4      6.998
+       E_r2             2       16       8        8      7.646
+
+     With the restart strategy equal across all five, MG saves at most ONE fine
+     iteration (17 -> 16, at interval 2) and costs 2.127 s more, i.e. 39% SLOWER.
+     One fine iteration is 0.325 s here, so the eight corrections cost 2.45 s and
+     return 0.33 s.  That is ~7.4x loss, which is the shape the algebra of section
+     162 predicts (43 corrections per fine iteration at E=4/block16) and the
+     opposite of a speedup.
+
+     So the requirement is now answered with the confound removed, not merely
+     bounded: KUPL Legacy-MG does not accelerate L48x96 c64 even when its
+     correction schedule is given every advantage the code can give it.

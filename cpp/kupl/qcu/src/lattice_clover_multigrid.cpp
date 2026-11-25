@@ -53,21 +53,39 @@ bool mg_env_enabled(const char *name) {
 // option layers, which is where this repository has silently dropped four
 // knobs already.
 //
-// What this knob does NOT do, stated because an earlier version of this comment
-// claimed the opposite: it does not decouple the coarse correction from the fine
-// restart.  `solve()` sizes each chunk as
+// What this knob does, and what an earlier version of this comment got wrong.
+// Until this revision the coarse correction and the fine BiCGStab restart were
+// the same number: `solve()` sizes each chunk as
 //     chunk = min(remaining, correction_interval - since_correction)
-// and every bicgstab_chunk starts a fresh BiCGStab (rhat = r; p = v = 0;
-// rho_old = alpha = omega = 1), so the correction interval IS the fine restart
-// length.  Setting it to 2 restarts BiCGStab every 2 iterations; with it unset
-// the interval equals --restart, which is the historical coupling.  Separating
-// the two needs a chunk that can span several restarts, which this loop cannot
-// do - so no measurement here can attribute a timing difference to MG alone.
+// and every bicgstab_chunk started a fresh BiCGStab (rhat = r; p = v = 0;
+// rho_old = alpha = omega = 1), so the correction interval WAS the restart
+// length.  KUPL_MG_CORRECTION_INTERVAL=2 therefore restarted BiCGStab every 2
+// iterations, and the `--mg-levels 1` arm (which runs set_.clover_bistabcg and
+// never enters this loop at all) ran one unbroken BiCGStab - three arms of a
+// three-way comparison measuring three Krylov strategies, with no way to
+// attribute the difference to multigrid.
+//
+// The two are now independent:
+//   * `solve()` still sizes a chunk as above, so a coarse correction lands on
+//     schedule (`correction_interval - since_correction` fine iterations after
+//     the previous one);
+//   * `bicgstab_chunk()` restarts BiCGStab every `restart` fine iterations
+//     *inside* the chunk (see the comment there), counted in absolute
+//     iterations through `LegacyMgLevel::since_restart`, so one chunk can span
+//     several restarts and one restart can span several corrections.
+// `--restart` keeps its meaning (the BiCGStab restart length, level 0 only);
+// this knob only decides when the coarse correction is applied.
 //
 // Name and default, explicitly:
 //   KUPL_MG_CORRECTION_INTERVAL   unset/empty -> the historical VALUE
 //                                                (restart>0 ? restart : 3)
+//                                 0           -> corrections disabled
 //                                 positive int -> the interval, [1, 100000]
+// With the knob unset the effective interval equals the restart length AND the
+// restart schedule is anchored so that a chunk of that length contains exactly
+// one restart boundary, at its end (see the anchor in solve()), so the run is
+// bit-for-bit the pre-decoupling one: same level0, same MG_PROFILE call counts.
+//
 // "Historical value", not "historical behaviour": the first correction is now
 // scheduled after `smoothing_prefix` fine iterations instead of against
 // residual(0) = b, because an unsmoothed dense residual makes the first V-cycle
@@ -91,9 +109,14 @@ int mg_correction_interval(int restart, bool *from_env) {
   }
   char *end = nullptr;
   const long parsed = std::strtol(value, &end, 10);
-  if (end == value || *end != '\0' || parsed < 1 || parsed > 100000) {
+  // 0 is accepted and means "no coarse corrections at all": it is the fair
+  // "corrections OFF, restart still 20" arm, and it is the only way to get that
+  // arm through this code path (--mg-levels 1 leaves the Legacy-MG loop
+  // entirely and runs set_.clover_bistabcg, which does not restart at all).
+  if (end == value || *end != '\0' || parsed < 0 || parsed > 100000) {
     throw std::runtime_error(
-        "KUPL_MG_CORRECTION_INTERVAL must be an integer in [1, 100000]");
+        "KUPL_MG_CORRECTION_INTERVAL must be an integer in [0, 100000] "
+        "(0 disables corrections)");
   }
   if (from_env != nullptr) {
     *from_env = true;
@@ -229,6 +252,16 @@ template <typename Real> struct LegacyMgLevel {
   std::array<int, kDim> dims{};
   int max_iter = 100;
   int correction_interval = 5;
+  // BiCGStab restart length for this level, in fine iterations.  `<= 0` means
+  // "one unbroken BiCGStab per chunk", which is the pre-decoupling behaviour and
+  // is what the coarse levels below the finest one keep using (their solves are
+  // 2-iteration smoothers and one coarsest-level solve; changing them would
+  // change level1 counts for no measurement in hand).
+  int restart = 0;
+  // Fine iterations since this level's last BiCGStab restart.  It lives in the
+  // level, not in the chunk, so the restart schedule is a property of the solve:
+  // a chunk boundary is not a restart boundary unless the counter says so.
+  int since_restart = 0;
   Real tolerance = Real(0);
   Real target = Real(0);
   const Complex<Real> *null_vectors = nullptr;
@@ -304,6 +337,12 @@ public:
     bool interval_from_env = false;
     levels_[0].correction_interval = mg_correction_interval(
         params_[kMgLevel1NumRestart], &interval_from_env);
+    // The independent half of the pair: the BiCGStab restart length.  It is
+    // --restart (params_[kMgLevel1NumRestart]) and nothing else; restart > 0 is
+    // guaranteed here because clover_multigrid_solve() routes restart == 0 to
+    // the parity-Schur solver, but clamp anyway - a 0 would mean "never
+    // restart" and silently undo the decoupling.
+    levels_[0].restart = std::max(1, params_[kMgLevel1NumRestart]);
     // The knob has to be provable, not assumed: four separate "dropped at some
     // layer" defects were found in this repository, so rank 0 prints the
     // interval it will actually use, where the value came from, the raw
@@ -313,6 +352,8 @@ public:
     // proof that the two knobs are decoupled.
     if (params_[kNodeRank] == 0 && mg_env_enabled("KUPL_MG_DEBUG")) {
       const char *raw = std::getenv(kMgCorrectionIntervalEnv);
+      const bool corrections_on =
+          num_levels_ > 1 && levels_[0].correction_interval > 0;
       std::fprintf(
           stdout,
           "PYQCU::KUPL::MG_INTERVAL_DEBUG:\n"
@@ -322,6 +363,23 @@ public:
           interval_from_env ? "env" : "legacy-restart",
           raw == nullptr ? "(unset)" : raw, params_[kMgLevel1NumRestart],
           smoothing_prefix(levels_[0].correction_interval), num_levels_);
+      // Two different numbers, two different names, on purpose.  The defect this
+      // line exists to make impossible to repeat is a reader seeing
+      // `restart=20, interval=2` and concluding "the restart stays at 20": it
+      // did not, the interval WAS the restart length.  Now:
+      //   restart_length      fine iterations per BiCGStab restart (`--restart`)
+      //   correction_interval fine iterations between coarse corrections
+      // and they are printed from the two separate members that the loop reads.
+      std::fprintf(
+          stdout,
+          "PYQCU::KUPL::MG_RESTART_DEBUG:\n"
+          " restart_length=%d restart_source=--restart/params_[%d] "
+          "correction_interval=%d interval_source=%s corrections_enabled=%d "
+          "interval_zero_means=disabled levels=%d\n",
+          levels_[0].restart, kMgLevel1NumRestart,
+          levels_[0].correction_interval,
+          interval_from_env ? "env" : "legacy-restart",
+          corrections_on ? 1 : 0, num_levels_);
       std::fflush(stdout);
     }
     const double fine_tolerance = set_.real_parameter(kAtol);
@@ -470,6 +528,10 @@ public:
     bool fallback_to_fine = false;
     int accepted_corrections = 0;
     int since_correction = 0;
+    // The restart phase belongs to the solve, not to the solver object
+    // (pyqcu.test runs repeat+warmup solves in one process, each with its own
+    // Krylov history).
+    levels_[0].since_restart = 0;
     // Whether `residual` is a recomputed true residual.  A coarse correction
     // leaves the analytic PREDICTION in `residual`; it must never reach the
     // exit check, where an optimistic prediction would throw "did not reach the
@@ -489,10 +551,27 @@ public:
     // fine apply once the residual has been smoothed, which is where every
     // multigrid schedule puts its first cycle.  So: smooth first (the prefix
     // below), then correct.  The correction itself is unchanged.
+    //
+    // `restart_anchor_pending`: the smoothing prefix is the one Krylov segment
+    // whose length is not tied to the restart length (prefix = interval/4 by
+    // default), so the BiCGStab restart schedule is anchored at the END of it -
+    // i.e. at the first coarse correction - instead of at iteration 0.  Two
+    // things follow, and both are wanted:
+    //   * interval == restart (the unset default) reproduces the historical
+    //     chunk-aligned restarts exactly: the prefix chunk runs to the first
+    //     correction, the anchor restarts BiCGStab there, every later chunk is
+    //     `restart` long and ends exactly on the next restart boundary, so
+    //     level0 and the MG_PROFILE counts are unchanged by the decoupling;
+    //   * interval < restart leaves the phase alone at later corrections, so the
+    //     restart really does happen every `restart` iterations and spans as
+    //     many correction intervals as fit - which is the measurement that could
+    //     not be made while the interval WAS the restart length.
+    bool restart_anchor_pending = false;
     if (corrections_enabled && deflate_ && residual > target) {
       const int prefix = smoothing_prefix(levels_[0].correction_interval);
       since_correction =
           std::max(0, levels_[0].correction_interval - prefix);
+      restart_anchor_pending = true;
       if (params_[kVerbose] != 0) {
         std::fprintf(
             stdout,
@@ -519,11 +598,13 @@ public:
         std::fprintf(stdout,
                      "PYQCU::KUPL::MG_CHUNK_DEBUG:\n "
                      "chunk=%d completed=%d total=%d residual=%g "
-                     "relative=%g since_correction=%d\n",
+                     "relative=%g since_correction=%d restart_length=%d "
+                     "since_restart=%d\n",
                      chunk, completed, total_iterations,
                      static_cast<double>(residual),
                      static_cast<double>(residual / rhs_norm),
-                     since_correction);
+                     since_correction, levels_[0].restart,
+                     levels_[0].since_restart);
       }
       if (params_[kVerbose] != 0 &&
           (total_iterations < 20 || total_iterations % 50 == 0)) {
@@ -560,6 +641,14 @@ public:
           residual = candidate;
           ++accepted_corrections;
           residual_verified = false;
+          // First correction of the solve: the BiCGStab restart schedule starts
+          // here (see restart_anchor_pending above).  A later correction must
+          // NOT touch the phase, or `interval < restart` would degenerate back
+          // into "restart every interval" - the defect this change removes.
+          if (restart_anchor_pending) {
+            levels_[0].since_restart = 0;
+            restart_anchor_pending = false;
+          }
         }
         if (params_[kVerbose] != 0) {
           std::fprintf(stdout,
@@ -912,6 +1001,20 @@ private:
         c.dims[3]);
   }
 
+  // One Krylov chunk: up to `iterations` BiCGStab iterations on `level`.
+  //
+  // A chunk is NOT a BiCGStab run.  `state.restart` (> 0 on level 0, the
+  // --restart value) is the restart length: the recurrence restarts every
+  // `restart` fine iterations, counted in absolute iterations through
+  // `state.since_restart`, so one chunk can span several restarts and one
+  // restart can span several coarse corrections.  A restart re-initialises
+  // rhat = r, p = v = 0, rho_old = alpha = omega = 1 and touches nothing else:
+  // x and the true residual r are continuous across it.
+  //
+  // `state.restart <= 0` keeps the pre-decoupling behaviour (one unbroken
+  // BiCGStab for the whole chunk).  The coarse levels use it: their solves are
+  // 2-iteration smoothers plus one coarsest-level solve, and changing them would
+  // move level1 counts for no measurement in hand.
   bool bicgstab_chunk(int level, int iterations, bool force_convergence) {
     using C = Complex<Real>;
     LegacyMgLevel<Real> &state = levels_[level];
@@ -930,126 +1033,151 @@ private:
     const int64_t count = static_cast<int64_t>(state.x.size());
     const int64_t chunk = omp_chunk<Real>(count);
     const C zero(0);
-#pragma omp parallel for schedule(static, chunk)
-    for (int64_t i = 0; i < count; ++i) {
-      state.rhat[static_cast<std::size_t>(i)] =
-          state.r[static_cast<std::size_t>(i)];
-      state.p[static_cast<std::size_t>(i)] = zero;
-      state.v[static_cast<std::size_t>(i)] = zero;
-    }
-    C rho_old(1);
-    C alpha(1);
-    C omega(1);
     const Real target = state.target;
-    for (int iteration = 0; iteration < iterations; ++iteration) {
-      if (std::sqrt(mg_norm2(state.r, distributed_)) <= target) {
-        last_chunk_iterations_ = iteration;
-        last_chunk_converged_ = true;
-        return true;
-      }
-      const C rho = mg_dot(state.rhat, state.r, distributed_);
-      if (std::abs(rho) <= std::numeric_limits<Real>::min() ||
-          std::abs(omega) <= std::numeric_limits<Real>::min()) {
-        if (params_[kVerbose] != 0) {
-          std::fprintf(stderr,
-                       "PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:\n "
-                       "level=%d iteration=%d rho-breakdown rho=(%g,%g) "
-                       "omega=(%g,%g)\n",
-                       level, iteration,
-                       static_cast<double>(rho.real()),
-                       static_cast<double>(rho.imag()),
-                       static_cast<double>(omega.real()),
-                       static_cast<double>(omega.imag()));
-        }
-        last_chunk_iterations_ = iteration;
-        return false;
-      }
-      const C beta = (rho / rho_old) * (alpha / omega);
+    const int restart = state.restart;
+    int performed = 0;
+    while (performed < iterations) {
+      // Length of this Krylov segment: to the chunk end, or to the next restart
+      // boundary, whichever comes first.  `state.since_restart` is carried
+      // across chunks, so a segment boundary falls inside a chunk when the
+      // correction interval is shorter than the restart length - which is the
+      // case the decoupling exists for.
+      const int segment =
+          restart > 0
+              ? std::min(iterations - performed,
+                         std::max(1, restart - state.since_restart))
+              : iterations - performed;
+      // The restart: rhat = r, p = v = 0, rho_old = alpha = omega = 1.  x and r
+      // are deliberately untouched.
 #pragma omp parallel for schedule(static, chunk)
       for (int64_t i = 0; i < count; ++i) {
-        state.p[static_cast<std::size_t>(i)] =
-            state.r[static_cast<std::size_t>(i)] +
-            multiply_complex(
-                beta, state.p[static_cast<std::size_t>(i)] -
-                          multiply_complex(
-                              omega, state.v[static_cast<std::size_t>(i)]));
+        state.rhat[static_cast<std::size_t>(i)] =
+            state.r[static_cast<std::size_t>(i)];
+        state.p[static_cast<std::size_t>(i)] = zero;
+        state.v[static_cast<std::size_t>(i)] = zero;
       }
-      apply_level(level, state.v, state.p);
-      const C denominator = mg_dot(state.rhat, state.v, distributed_);
-      if (std::abs(denominator) <= std::numeric_limits<Real>::min()) {
-        if (params_[kVerbose] != 0) {
-          std::fprintf(stderr,
-                       "PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:\n "
-                       "level=%d iteration=%d alpha-breakdown\n",
-                       level, iteration);
+      C rho_old(1);
+      C alpha(1);
+      C omega(1);
+      for (int iteration = 0; iteration < segment; ++iteration) {
+        if (std::sqrt(mg_norm2(state.r, distributed_)) <= target) {
+          last_chunk_iterations_ = performed + iteration;
+          last_chunk_converged_ = true;
+          return true;
         }
-        last_chunk_iterations_ = iteration;
-        return false;
-      }
-      alpha = rho / denominator;
+        const C rho = mg_dot(state.rhat, state.r, distributed_);
+        if (std::abs(rho) <= std::numeric_limits<Real>::min() ||
+            std::abs(omega) <= std::numeric_limits<Real>::min()) {
+          if (params_[kVerbose] != 0) {
+            std::fprintf(stderr,
+                         "PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:\n "
+                         "level=%d iteration=%d rho-breakdown rho=(%g,%g) "
+                         "omega=(%g,%g)\n",
+                         level, iteration,
+                         static_cast<double>(rho.real()),
+                         static_cast<double>(rho.imag()),
+                         static_cast<double>(omega.real()),
+                         static_cast<double>(omega.imag()));
+          }
+          last_chunk_iterations_ = performed + iteration;
+          return false;
+        }
+        const C beta = (rho / rho_old) * (alpha / omega);
 #pragma omp parallel for schedule(static, chunk)
-      for (int64_t i = 0; i < count; ++i) {
-        state.s[static_cast<std::size_t>(i)] =
-            state.r[static_cast<std::size_t>(i)] -
-            multiply_complex(
-                alpha, state.v[static_cast<std::size_t>(i)]);
-      }
-      if (std::sqrt(mg_norm2(state.s, distributed_)) <= target) {
+        for (int64_t i = 0; i < count; ++i) {
+          state.p[static_cast<std::size_t>(i)] =
+              state.r[static_cast<std::size_t>(i)] +
+              multiply_complex(
+                  beta, state.p[static_cast<std::size_t>(i)] -
+                            multiply_complex(
+                                omega, state.v[static_cast<std::size_t>(i)]));
+        }
+        apply_level(level, state.v, state.p);
+        const C denominator = mg_dot(state.rhat, state.v, distributed_);
+        if (std::abs(denominator) <= std::numeric_limits<Real>::min()) {
+          if (params_[kVerbose] != 0) {
+            std::fprintf(stderr,
+                         "PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:\n "
+                         "level=%d iteration=%d alpha-breakdown\n",
+                         level, iteration);
+          }
+          last_chunk_iterations_ = performed + iteration;
+          return false;
+        }
+        alpha = rho / denominator;
+#pragma omp parallel for schedule(static, chunk)
+        for (int64_t i = 0; i < count; ++i) {
+          state.s[static_cast<std::size_t>(i)] =
+              state.r[static_cast<std::size_t>(i)] -
+              multiply_complex(
+                  alpha, state.v[static_cast<std::size_t>(i)]);
+        }
+        if (std::sqrt(mg_norm2(state.s, distributed_)) <= target) {
+#pragma omp parallel for schedule(static, chunk)
+          for (int64_t i = 0; i < count; ++i) {
+            state.x[static_cast<std::size_t>(i)] +=
+                multiply_complex(alpha, state.p[static_cast<std::size_t>(i)]);
+            state.r[static_cast<std::size_t>(i)] =
+                state.s[static_cast<std::size_t>(i)];
+          }
+          last_chunk_iterations_ = performed + iteration + 1;
+          last_chunk_converged_ = true;
+          return true;
+        }
+        apply_level(level, state.v, state.s);
+        C tt(0);
+        C v_s(0);
+        if (fused_bicg_dots_enabled()) {
+          const auto pair = mg_dot_pair(state.v, state.s, distributed_);
+          tt = pair[0];
+          v_s = pair[1];
+        } else {
+          tt = mg_dot(state.v, state.v, distributed_);
+          v_s = mg_dot(state.v, state.s, distributed_);
+        }
+        if (std::abs(tt) <= std::numeric_limits<Real>::min()) {
+          if (params_[kVerbose] != 0) {
+            std::fprintf(stderr,
+                         "PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:\n "
+                         "level=%d iteration=%d tt-breakdown\n",
+                         level, iteration);
+          }
+          last_chunk_iterations_ = performed + iteration;
+          return false;
+        }
+        omega = v_s / tt;
+        if (std::abs(omega) <= std::numeric_limits<Real>::min()) {
+          if (params_[kVerbose] != 0) {
+            std::fprintf(stderr,
+                         "PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:\n "
+                         "level=%d iteration=%d omega-breakdown\n",
+                         level, iteration);
+          }
+          last_chunk_iterations_ = performed + iteration;
+          return false;
+        }
 #pragma omp parallel for schedule(static, chunk)
         for (int64_t i = 0; i < count; ++i) {
           state.x[static_cast<std::size_t>(i)] +=
-              multiply_complex(alpha, state.p[static_cast<std::size_t>(i)]);
+              multiply_complex(alpha, state.p[static_cast<std::size_t>(i)]) +
+              multiply_complex(omega,
+                               state.s[static_cast<std::size_t>(i)]);
           state.r[static_cast<std::size_t>(i)] =
-              state.s[static_cast<std::size_t>(i)];
+              state.s[static_cast<std::size_t>(i)] -
+              multiply_complex(omega,
+                               state.v[static_cast<std::size_t>(i)]);
         }
-        last_chunk_iterations_ = iteration + 1;
-        last_chunk_converged_ = true;
-        return true;
+        rho_old = rho;
       }
-      apply_level(level, state.v, state.s);
-      C tt(0);
-      C v_s(0);
-      if (fused_bicg_dots_enabled()) {
-        const auto pair = mg_dot_pair(state.v, state.s, distributed_);
-        tt = pair[0];
-        v_s = pair[1];
-      } else {
-        tt = mg_dot(state.v, state.v, distributed_);
-        v_s = mg_dot(state.v, state.s, distributed_);
-      }
-      if (std::abs(tt) <= std::numeric_limits<Real>::min()) {
-        if (params_[kVerbose] != 0) {
-          std::fprintf(stderr,
-                       "PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:\n "
-                       "level=%d iteration=%d tt-breakdown\n",
-                       level, iteration);
+      performed += segment;
+      if (restart > 0) {
+        state.since_restart += segment;
+        if (state.since_restart >= restart) {
+          // A restart is due at the next segment start; keep the counter in
+          // [0, restart) and let the loop re-initialise the recurrence.
+          state.since_restart = 0;
         }
-        last_chunk_iterations_ = iteration;
-        return false;
       }
-      omega = v_s / tt;
-      if (std::abs(omega) <= std::numeric_limits<Real>::min()) {
-        if (params_[kVerbose] != 0) {
-          std::fprintf(stderr,
-                       "PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:\n "
-                       "level=%d iteration=%d omega-breakdown\n",
-                       level, iteration);
-        }
-        last_chunk_iterations_ = iteration;
-        return false;
-      }
-#pragma omp parallel for schedule(static, chunk)
-      for (int64_t i = 0; i < count; ++i) {
-        state.x[static_cast<std::size_t>(i)] +=
-            multiply_complex(alpha, state.p[static_cast<std::size_t>(i)]) +
-            multiply_complex(omega,
-                             state.s[static_cast<std::size_t>(i)]);
-        state.r[static_cast<std::size_t>(i)] =
-            state.s[static_cast<std::size_t>(i)] -
-            multiply_complex(omega,
-                             state.v[static_cast<std::size_t>(i)]);
-      }
-      rho_old = rho;
     }
     const bool converged = std::sqrt(mg_norm2(state.r, distributed_)) <= target;
     last_chunk_iterations_ = iterations;
