@@ -876,6 +876,15 @@ private:
     MgProfileTimer timer(profile_, prof_coarse_correction_seconds_);
     ++prof_coarse_correction_calls_;
     LegacyMgLevel<Real> &fine = levels_[0];
+    // levels_[0].x IS the FGMRES solution vector.  The preconditioner needs a
+    // zeroed buffer of its own, so save and restore instead of borrowing it:
+    // zeroing it here silently discarded every update FGMRES had accumulated,
+    // which is exactly why the true residual grew across restarts (0.497 ->
+    // 5.74) while the Givens estimate kept falling to 1e-3.  The basis probe
+    // excluded the other explanations first: z_j were not parallel (overlap with
+    // z_0 was 0.14-0.17), h_{j+1,j} was not degenerate (0.09-0.41) and h_jj was
+    // ~1.0, i.e. M^-1 ~ A^-1, so one iteration should almost solve it.
+    const std::vector<C> saved_solution = fine.x;
     std::fill(fine.x.begin(), fine.x.end(), C(0));
     fine.r = in;
     mr_smooth(0, mu_pre_steps());
@@ -894,6 +903,7 @@ private:
       }
     }
     out = fine.x;
+    fine.x = saved_solution;
   }
 
   // Right-preconditioned FGMRES(m), structured after
@@ -979,6 +989,40 @@ private:
         }
         const Real next = std::sqrt(mg_norm2(image, distributed_));
         hessenberg[hindex(j + 1, j)] = C(next, 0);
+        // First-restart probe: if the preconditioned directions are nearly
+        // parallel the Hessenberg collapses, y explodes and x walks away from the
+        // solution while the Givens estimate still looks converged.  Print the
+        // norm of z_j, the new Arnoldi length and the overlap with z_0 so that
+        // "degenerate basis" can be confirmed or excluded from the data.
+        if (restart == 0 && j < 3) {
+          // The three reductions run on EVERY rank and only the print is guarded:
+          // mg_norm2/mg_dot are MPI_Allreduce, so a rank-subset guard on the call
+          // deadlocks every multi-rank run.  That is the same defect this file
+          // already records for the old diagnose_correction (jobs 2247200 and
+          // 2247255 hung right after the banner); it hung this probe too.
+          const Real z_norm = std::sqrt(mg_norm2(Z[static_cast<std::size_t>(j)],
+                                                 distributed_));
+          const C z0_dot =
+              mg_dot(Z[0], Z[static_cast<std::size_t>(j)], distributed_);
+          const Real z0_norm = std::sqrt(mg_norm2(Z[0], distributed_));
+          if (params_[kNodeRank] == 0) {
+            std::fprintf(stderr,
+                         "PYQCU::KUPL::MG_FGMRES_BASIS:\n "
+                         "j=%d z_norm=%g next=%g h_diag=(%g,%g) "
+                         "overlap_z0=%g\n",
+                         j, static_cast<double>(z_norm),
+                         static_cast<double>(next),
+                         static_cast<double>(
+                             hessenberg[hindex(j, j)].real()),
+                         static_cast<double>(
+                             hessenberg[hindex(j, j)].imag()),
+                         static_cast<double>(z0_norm > Real(0)
+                                                 ? std::abs(z0_dot) /
+                                                       (z0_norm * z_norm)
+                                                 : Real(0)));
+            std::fflush(stderr);
+          }
+        }
         used = j + 1;
         if (next > Real(0)) {
           const Real inverse = Real(1) / next;
@@ -1075,17 +1119,20 @@ private:
           fine.x[k] += coefficient * Z[static_cast<std::size_t>(i)][k];
         }
       }
-      if (params_[kVerbose] != 0) {
-        std::fprintf(stdout,
-                     "PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:\n "
-                     "fgmres restart=%d iterations=%d estimate=%g relative=%g "
+      // Unconditional, rank 0 only: when FGMRES misses its target the sequence of
+      // restart residuals is the only thing that separates "stagnating", "slowly
+      // converging" and "diverging", and a diagnostic behind kVerbose is exactly
+      // the kind that is absent when it is needed.
+      if (params_[kNodeRank] == 0) {
+        std::fprintf(stderr,
+                     "PYQCU::KUPL::MG_FGMRES_TRACE:\n "
+                     "restart=%d iterations=%d before=%g estimate=%g "
                      "applications=%d preconditioner=%d\n",
-                     restart, total_iterations,
+                     restart, total_iterations, static_cast<double>(beta),
                      static_cast<double>(std::abs(
                          givens[static_cast<std::size_t>(used)])),
-                     static_cast<double>(std::abs(givens[static_cast<std::size_t>(
-                         used)]) / std::max(residual, Real(1))),
                      applications, precondition ? 1 : 0);
+        std::fflush(stderr);
       }
     }
     residual = true_residual(0);
