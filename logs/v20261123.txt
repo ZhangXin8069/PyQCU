@@ -3345,3 +3345,40 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
          path does not expose an iteration count through the ABI.  Worth knowing
          for release notes: MG timings cannot be normalised by iterations, so
          they must not be compared with the BiCGStab columns as a rate.
+
+152. The negative result survives a CORRECT basis - now it has a legal premise
+     Section 150's numbers were measured with a null-vector basis that could not
+     work: the builder did `application(v) -> rhs; solve S u = rhs; v -= u`,
+     which is `v - S^-1 S v = v - v`, so it stored the inner solver's residual -
+     white noise - and `pyqcu/test/cache.py` had no way to tell those artifacts
+     from new ones.  Job 2252956 rebuilt with the real inverse iteration
+     (`v <- S^-1 v`, renormalised every pass) and job 2252964 rebuilt the cache
+     (`l48_mg_2224_nv2`, status PASS, 32 rank files, identity carries
+     nv_builder = inverse-iteration/2).  Job 2253109 then repeated the three-arm
+     comparison on that basis, one allocation, debug OFF:
+
+                     corrected basis        noise basis (section 150)
+       A_nomg        4.647 s                4.534 s
+       B_one         6.504 s  (l0 19)       6.717 s  (l0 19)
+       C_i2          7.947 s  (l0 16)       8.040 s  (l0 16)
+
+     Same conclusion, now on a valid basis: MG costs 1.40x at one correction and
+     1.71x at eight, and its only benefit is three fine iterations (19 -> 16),
+     which is 0.22 s against 1.40 s of coarse work.
+
+     This is the point of the exercise: before this the negative result was
+     worth very little, because a white-noise coarse space cannot demonstrate
+     anything about multigrid.  It is now measured against a basis that actually
+     spans the near-null modes, and it is unchanged.
+
+     Consequence for the builder change: it is correct and it must stay (the old
+     loop provably stored solver noise, and the per-pass renormalisation is
+     needed because S^-1 amplifies 1/lambda_min each pass and overflows c64).
+     But it does NOT rescue MG, so it is committed as a correctness fix with the
+     cache-identity bump that keeps old artifacts from being reused, not as a
+     performance claim.
+
+     Note on what is NOT available: with debug off no `best_ratio`/`overlap` is
+     printed, so the per-correction quality is not re-measured here.  The wall
+     times and `level0` are the decisive quantities and they are enough - a
+     1.71x slowdown cannot be rescued by a better ratio.
