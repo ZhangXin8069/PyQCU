@@ -925,16 +925,15 @@ void LatticeSet<Real>::multigrid_build_null_vectors(
         for (int iteration = 0; iteration < nv_iters; ++iteration) {
           // Genuine inverse iteration: v <- S^{-1} v, so the right-hand side
           // is v itself.  It used to be S v followed by `vector -= correction`:
-          // S^{-1}(S v) == v exactly, so that loop was the identity minus the
-          // inner solver's error, and the "null vector" it stored was the 1e-2
-          // BiCGStab residual - white noise with no near-null content.  The
-          // measured consequence (48^3x96 c64 cache l48_mg_2224): capture of
-          // white noise, Laplacian-smoothed noise, a constant spinor and a
-          // k=1 plane wave is 0.0718..0.0726, i.e. sqrt(E/block_dof)=0.07217
-          // for every probe, and the vectors' within-block variation is
-          // 0.98416 against 0.98421 for white noise.  Applying S^{-1} to v
-          // amplifies the low eigenmodes, which is what a coarse basis must
-          // span.  See logs/v20261123.txt section 143.
+          // S^{-1}(S v) == v exactly, so that loop stored v - v, i.e. only the
+          // inner solver's residual - white noise with no near-null content.
+          // Applying S^{-1} to v amplifies the low eigenmodes, which is what a
+          // coarse basis must span.
+          //
+          // This changes what the artifact contains, so the cache identity
+          // carries the builder revision (pyqcu/test/cache.py
+          // NULL_VECTOR_BUILDER): an artifact written by the old loop must not
+          // satisfy the identity of a case that asks for this one.
           std::copy(vector.begin(), vector.end(), rhs.begin());
           std::fill(correction.begin(), correction.end(), C(0));
           solve_compact_bistabcg(
@@ -944,6 +943,22 @@ void LatticeSet<Real>::multigrid_build_null_vectors(
           for (int64_t index = 0; index < count; ++index) {
             vector[static_cast<std::size_t>(index)] =
                 correction[static_cast<std::size_t>(index)];
+          }
+          // Renormalise inside the loop: S^-1 amplifies the smallest eigenvalue
+          // by 1/lambda_min each pass, so with several iterations in c64 the
+          // vector overflows and every later norm is non-finite, which the retry
+          // path reports as a builder failure rather than as the overflow it is.
+          // The CUDA builder normalises per iteration for the same reason.
+          const Real pass_norm2 = global_norm2(vector.data(), count);
+          if (!std::isfinite(pass_norm2) ||
+              pass_norm2 <= std::numeric_limits<Real>::min()) {
+            throw std::runtime_error(
+                "null-vector inverse iteration lost its norm");
+          }
+          const Real pass_inverse = Real(1) / std::sqrt(pass_norm2);
+#pragma omp parallel for schedule(static)
+          for (int64_t index = 0; index < count; ++index) {
+            vector[static_cast<std::size_t>(index)] *= pass_inverse;
           }
         }
         const Real norm2 = global_norm2(vector.data(), count);

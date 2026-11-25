@@ -136,11 +136,15 @@ REQUIRED_IDENTITY_FIELDS: tuple[str, ...] = (
 #: Every field bound into the identity hash, in report order.
 IDENTITY_FIELDS: tuple[str, ...] = (
     "lattice", "dtype", "dof", "mg_grid", "nv_iters", "seed", "mass", "csw",
-    "lattice_grid", "mpi_size", "gauge_sha256", "platform")
+    "lattice_grid", "mpi_size", "gauge_sha256", "platform", "nv_builder")
 #: Identity fields whose value is a four-extent integer tuple.
 _EXTENT_IDENTITY_FIELDS = frozenset({"lattice", "mg_grid", "lattice_grid"})
 #: Identity fields whose value is a single integer.
 _SCALAR_INT_IDENTITY_FIELDS = frozenset({"nv_iters", "seed", "mpi_size"})
+#: Revision of the null-vector builder that produced an artifact.  Part of the
+#: identity because the builder's algorithm, not its inputs, decides what the
+#: coarse basis is.
+NULL_VECTOR_BUILDER = "inverse-iteration/2"
 #: Environment variable that overrides :func:`default_cache_dir`.
 CACHE_ENVIRONMENT = "PYQCU_TEST_MG_CACHE"
 #: dtype spellings mapped to the two cache dtypes.
@@ -298,6 +302,15 @@ def normalize_identity(values: Mapping[str, Any]) -> dict[str, Any]:
         "lattice_grid": list(lattice_grid),
         "mpi_size": mpi_size,
         "platform": _normalize_platform(values.get("platform")),
+        # The builder revision, not the parameters.  KUPL's null-vector loop was
+        # `v -= S^-1 (S v)`, which is v - v and therefore stored the inner
+        # solver's residual instead of a near-null vector; it is now a real
+        # inverse iteration, so artifacts from the two builders describe
+        # different bases under identical inputs.  Without this field a cache
+        # built by the old loop would satisfy the identity of a case that asks
+        # for the new one, and `cache_policy=auto` would silently measure the
+        # old basis.  Bump the string whenever the algorithm changes again.
+        "nv_builder": NULL_VECTOR_BUILDER,
     }
     gauge = values.get("gauge_sha256")
     if gauge is not None:
