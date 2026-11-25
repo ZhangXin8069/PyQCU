@@ -214,6 +214,10 @@ class _Config:
     #: (``None`` when the flag was not given: ``PYQCU_TEST_LEDGER_EXPORT`` then
     #: decides, and unset means "no export").
     ledger_export: str | None = None
+    #: ``--coarse-cache-level`` roots in the order given: the first one is
+    #: Legacy-MG transition 2 (``--cache-dir`` names transition 1).  One root
+    #: publishes one transition, so ``--mg-levels N`` consumes ``N - 1`` roots.
+    coarse_cache_level: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -480,6 +484,14 @@ def build_parser() -> argparse.ArgumentParser:
              "<outdir>/caches); an existing artifact is probed with "
              "pyqcu.test.cache, never rebuilt here")
     parser.add_argument(
+        "--coarse-cache-level", action="append", default=[], metavar="PATH",
+        help="Legacy-MG cache root of the next coarse transition: repeatable "
+             "and in order, the first one is transition 2 (one root publishes "
+             "one transition, so --mg-levels N consumes N-1 roots and "
+             "--cache-dir names transition 1).  A deeper root is never built "
+             "and a missing one is an error naming its transition, never a "
+             "fallback to a coarser root")
+    parser.add_argument(
         "--ledger-export", default=None,
         choices=ledger_export.EXPORT_SELECTIONS,
         metavar="{none,csv,excel,both}",
@@ -545,12 +557,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                 or args.outdir is not None or args.mode is not None \
                 or args.rows is not None or args.reports is not None \
                 or args.solutions is not None or args.cache_dir is not None \
+                or args.coarse_cache_level \
                 or args.resume or args.skip_failed or args.validate \
                 or args.native or args.l48_two_node \
                 or args.ledger_export is not None:
             print("pyqcu.test: error: --check runs no numerics and cannot be "
                   "combined with --list/--sweep/--profile/--mode/--native/"
                   "--l48-two-node/--rows/--reports/--solutions/--cache-dir/"
+                  "--coarse-cache-level/"
                   "--resume/--skip-failed/--validate/--junit/--csv/--markdown/"
                   "--ledger-export/--outdir", file=sys.stderr)
             return policy.EXIT_CODES["usage"]
@@ -620,6 +634,52 @@ def _int_flag(value: int | None, flag: str, *, minimum: int = 1) -> int | None:
     if value < minimum:
         raise UsageError(f"{flag} must be >= {minimum}, got {value}")
     return int(value)
+
+
+def _check_coarse_cache_levels(level_roots: Sequence[str],
+                               mg_levels: int | None,
+                               mode: str | None, native: Sequence[str] = ()
+                               ) -> None:
+    """Refuse a ``--coarse-cache-level`` list that cannot describe the chain.
+
+    ``--cache-dir`` names Legacy-MG transition 1 and every repeated
+    ``--coarse-cache-level`` names the next one, in order, so ``--mg-levels N``
+    has exactly ``N - 1`` coarse transitions.  A surplus root would be silently
+    ignored, and a missing one would leave the runner resolving fewer levels
+    than the invocation claims - both are usage errors that name the transition
+    and the flag that supplies it.  This is the early answer for a plan that
+    cannot run; the runner refuses the same gap itself
+    (``native._mg_transition_roots``), so a library caller gets the same
+    message.
+
+    The count is only required from an invocation that will actually execute
+    native MG rows (``--native mg`` in a full solve/run mode): a plain
+    ``--mg-levels 3`` for the torch hierarchy has no cache roots at all.
+    """
+    if mg_levels is None:
+        return
+    allowed = max(0, int(mg_levels) - 2)
+    if len(level_roots) > allowed:
+        raise UsageError(
+            f"--mg-levels {mg_levels} has {max(0, mg_levels - 1)} coarse "
+            f"transition(s), but {len(level_roots)} --coarse-cache-level "
+            f"root(s) were given: entry {allowed + 1} would name transition "
+            f"{allowed + 2}, which this hierarchy does not have")
+    runs_native_mg = (mode in ("solve", "run")
+                      and any(str(item).strip().lower() in ("mg", "all")
+                              for item in native))
+    if runs_native_mg and len(level_roots) < allowed:
+        first = 2 + len(level_roots)
+        raise UsageError(
+            f"multigrid transition {first} has no cache root: --mg-levels "
+            f"{mg_levels} needs {mg_levels - 1} per-transition roots and "
+            f"{1 + len(level_roots)} were supplied.  A level-N hierarchy "
+            f"consumes N-1 roots in order - --cache-dir names transition 1 and "
+            f"each --coarse-cache-level names the next one, so the first "
+            f"--coarse-cache-level is transition 2.  pyqcu.test cannot build a "
+            f"deeper transition: build it with "
+            f"pyqcu.testing.simple.mg_transition and pass it with "
+            f"--coarse-cache-level")
 
 
 def _dof_flag(value: Any, flag: str) -> tuple[int, ...] | None:
@@ -982,6 +1042,17 @@ def _resolve_config(args: argparse.Namespace) -> _Config:
     # mapping driver.run_row reads) and to the Test (so --list --json and the
     # report show the budget a row was planned against).
     reference_budget = _budget_flag(args.reference_budget, "--reference-budget")
+    # One cache root per Legacy-MG transition: ``--cache-dir`` names transition
+    # 1 and every repeated ``--coarse-cache-level`` names the next one, in
+    # order.  The count is checked against ``--mg-levels`` here so a run that
+    # cannot resolve its hierarchy is a usage error naming the transition
+    # instead of one ERROR row per rank - the same message shape
+    # ``pyqcu.testing.simple.mpi.solve_case`` uses.
+    coarse_cache_level = tuple(
+        str(value) for value in (args.coarse_cache_level or ()))
+    requested_levels = _int_flag(args.mg_levels, "--mg-levels")
+    _check_coarse_cache_levels(coarse_cache_level, requested_levels, mode,
+                               native_kinds)
     try:
         full = FullModeOptions(
             mode=mode,
@@ -1007,9 +1078,10 @@ def _resolve_config(args: argparse.Namespace) -> _Config:
             lattice_grid=lattice_grid,
             # Run-level solver knobs, so a full-mode row can vary them.
             restart=_int_flag(args.restart, "--restart"),
-            mg_levels=_int_flag(args.mg_levels, "--mg-levels"),
+            mg_levels=requested_levels,
             mg_grid=mg_grid,
             mg_dof=_dof_flag(args.mg_dof, "--mg-dof"),
+            coarse_cache_level=coarse_cache_level,
             coarse_tol_factor=_float_flag(args.coarse_tol_factor,
                                           "--coarse-tol-factor",
                                           exclusive=True),
@@ -1083,6 +1155,7 @@ def _resolve_config(args: argparse.Namespace) -> _Config:
         mode=mode,
         full=full,
         ledger_export=ledger_export_choice,
+        coarse_cache_level=coarse_cache_level,
     )
 
 
@@ -1100,6 +1173,10 @@ def _native_mg_overrides(config: _Config) -> dict[str, Any]:
     # own name.
     if config.mg_dof is not None:
         overrides["dof"] = tuple(int(value) for value in config.mg_dof)
+    # One cache root per transition, in order; the case carries them so the
+    # runner can name the transition a missing root leaves out.
+    if config.coarse_cache_level:
+        overrides["coarse_cache_level"] = tuple(config.coarse_cache_level)
     return overrides
 
 
@@ -1185,6 +1262,11 @@ def _build_test(config: _Config) -> Test:
         threads=config.threads,
         device_id=config.device_id,
     )
+    if config.coarse_cache_level:
+        # Same hop as coarse_tol_factor: ``select()`` is where the run
+        # configuration is applied, so a value it does not copy would never
+        # reach ``Options.as_kwargs()`` and the runner would see no roots.
+        test = replace(test, coarse_cache_level=config.coarse_cache_level)
     if config.atol is not None:
         test = replace(test, atol=config.atol)
     if config.coarse_tol_factor is not None:

@@ -758,6 +758,15 @@ def _native_failure(observations: dict[str, Any], started: float, *,
             kwargs["cache"] = str(candidate)
         else:
             kwargs["cache_directory"] = str(candidate)
+    if kind == "mg":
+        # One cache root per Galerkin transition: ``--cache-dir`` names
+        # transition 1, which this runner can also build, and every repeated
+        # ``--coarse-cache-level`` names the next one, in order (the first is
+        # transition 2).  An omitted deeper root is refused by the runner with
+        # the transition it leaves out - never replaced by a coarser root.
+        levels = settings.get("coarse_cache_level") or ()
+        if levels:
+            kwargs["coarse_cache_level"] = [str(value) for value in levels]
     try:
         result = native.run_case(kind, **kwargs)
     except Skip as error:

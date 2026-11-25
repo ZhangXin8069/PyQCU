@@ -1118,6 +1118,7 @@ CONFIG_FIELDS: tuple[str, ...] = (
     "gauge_sigma", "mass", "kappa", "csw", "solver", "dslash", "device",
     "max_iter", "restart", "mg_levels", "mg_nu_pre", "mg_nu_post", "threads",
     "device_id", "atol", "coarse_tol_factor", "reference_budget",
+    "coarse_cache_level",
 )
 
 
@@ -1148,6 +1149,24 @@ def _optional_float(name: str, value: Any, *, minimum: float | None = None,
             raise ValueError(
                 f"{name} must be {comparison} {minimum:g}, got {value!r}")
     return number
+
+
+def _normalize_cache_levels(value: Any) -> tuple[str, ...]:
+    """Normalise the ``--coarse-cache-level`` roots (order is the level order).
+
+    The position is the identity: entry ``k`` is transition ``k + 2``, so an
+    empty entry is kept as an empty string rather than dropped - dropping it
+    would silently promote the next root one level and hand transition 2 the
+    operator of transition 3.
+    """
+    if value is None:
+        return ()
+    if isinstance(value, (str, bytes, os.PathLike)):
+        value = (value,)
+    if not isinstance(value, Sequence):
+        raise ValueError(
+            f"coarse_cache_level must be a list of cache roots, got {value!r}")
+    return tuple("" if item is None else str(item) for item in value)
 
 
 def _optional_dof(value: Any) -> tuple[int, ...] | None:
@@ -1334,11 +1353,18 @@ class Options:
     # default must be able to declare it or the row can only SKIP with
     # ``reference_workspace`` (2026-11-24, L64 16-rank cells: 7.50 GiB).
     reference_budget: int | None = None
+    #: ``--coarse-cache-level`` roots, in the order given: the first one is
+    #: multigrid transition 2 (transition 1 is the case's ``cache``).  A level-N
+    #: Legacy-MG hierarchy needs N-1 per-transition roots, so a missing one is a
+    #: runner error naming the transition, never a fallback to a coarser root.
+    coarse_cache_level: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         _normalize_run_fields(self)
         object.__setattr__(self, "device",
                            policy.device_for_runner(self.device))
+        object.__setattr__(self, "coarse_cache_level",
+                           _normalize_cache_levels(self.coarse_cache_level))
         if int(self.repeat) < 1:
             raise ValueError(f"repeat must be >= 1, got {self.repeat!r}")
         if int(self.warmup) < 1:
@@ -1396,6 +1422,7 @@ class Options:
             "device_id": self.device_id,
             "coarse_tol_factor": self.coarse_tol_factor,
             "reference_budget": self.reference_budget,
+            "coarse_cache_level": self.coarse_cache_level or None,
         }
         for key, value in optional.items():
             if value is not None:
@@ -1704,10 +1731,16 @@ class Test:
     #: the budget a row was planned against, and ``run()`` forwards it into
     #: every :class:`Options` the way it does for the other shared fields.
     reference_budget: int | None = None
+    #: ``--coarse-cache-level`` roots, in order (the first is transition 2).  One
+    #: root publishes one transition, so a level-N Legacy-MG run needs N-1 of
+    #: them and a missing one is refused by the runner by name.
+    coarse_cache_level: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "cases", tuple(self.cases))
         _normalize_run_fields(self)
+        object.__setattr__(self, "coarse_cache_level",
+                           _normalize_cache_levels(self.coarse_cache_level))
         object.__setattr__(self, "device", _validate_device(self.device))
         if isinstance(self.seed, bool) or not isinstance(self.seed, int) \
                 or self.seed < 0:
@@ -1761,7 +1794,8 @@ class Test:
                threads: int | None = None,
                device_id: int | None = None,
                coarse_tol_factor: float | None = None,
-               reference_budget: int | None = None) -> "Test":
+               reference_budget: int | None = None,
+               coarse_cache_level: Sequence[str] | None = None) -> "Test":
         """Return a filtered, re-configured ``Test`` (never mutates ``self``).
 
         ``backends`` accepts a name or a sequence (``"all"`` clears the
@@ -1883,6 +1917,9 @@ class Test:
             reference_budget=(self.reference_budget
                               if reference_budget is None
                               else reference_budget),
+            coarse_cache_level=(self.coarse_cache_level
+                                if coarse_cache_level is None
+                                else coarse_cache_level),
         )
 
     @staticmethod
@@ -1973,6 +2010,7 @@ class Test:
                 device_id=self.device_id,
                 coarse_tol_factor=self.coarse_tol_factor,
                 reference_budget=self.reference_budget,
+                coarse_cache_level=self.coarse_cache_level,
             )
             result = run_case(case, options, mpi_size=mpi_size)
             results.append(result)
@@ -2217,6 +2255,13 @@ class FullModeOptions:
     #: mismatch).  ``None`` means the flag was not given.
     mg_dof: tuple[int, ...] | None = None
     coarse_tol_factor: float | None = None
+    #: ``--coarse-cache-level`` roots, in the order given: the first one is
+    #: multigrid transition 2, the second transition 3, and so on.  One cache
+    #: root publishes one transition, so a level-N MG row consumes N-1 roots -
+    #: transition 1 is ``--cache-dir`` and every deeper one is supplied here.
+    #: ``native.run_mg`` refuses a missing root by naming the transition; it
+    #: never falls back to a coarser root.
+    coarse_cache_level: tuple[str, ...] = ()
     #: Solver tolerance (relative residual).  ``None`` means the flag was not
     #: given, so the native runner keeps its own default
     #: (``native.DEFAULT_ATOL_C64`` / ``native.DEFAULT_MG_ATOL_C64``); a value
@@ -2276,6 +2321,8 @@ class FullModeOptions:
                            None if self.lattice_grid is None
                            else policy.validate_lattice_grid(self.lattice_grid))
         object.__setattr__(self, "mg_dof", _optional_dof(self.mg_dof))
+        object.__setattr__(self, "coarse_cache_level", tuple(
+            str(absolute_path(value)) for value in (self.coarse_cache_level or ())))
 
     def as_dict(self) -> dict[str, Any]:
         """The effective full-mode configuration (``--list --json``/report)."""
@@ -2306,6 +2353,7 @@ class FullModeOptions:
                         else [int(v) for v in self.mg_grid]),
             "mg_dof": (None if self.mg_dof is None
                        else [int(v) for v in self.mg_dof]),
+            "coarse_cache_level": list(self.coarse_cache_level),
             "coarse_tol_factor": self.coarse_tol_factor,
             "atol": self.atol,
             "reference_budget": self.reference_budget,
