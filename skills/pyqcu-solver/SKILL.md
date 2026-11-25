@@ -23,6 +23,23 @@ fallback or a correctness claim. Experimental depths must pass both native and
 independent full-operator residual gates, and distributed Legacy depth greater
 than two is not a supported performance path.
 
+> **警告：先验算 κ，再解释任何失败（`logs/v20261123.txt` §176）。**
+> `mass=-0.277` 给出 `kappa = 1/(2*(-0.277)+8) = 0.1343003`，比自由
+> `kappa_c = 1/8` 高 **7.4%**。单位 gauge（clover 项恒为零）或 `sigma=0.1`
+> 近单位 gauge 上，Wilson-Clover 在 `cos p_x = 1/(2*kappa) - 3 = 0.723` 处有
+> 精确/近零模，Schur 补奇异。实测（8 rank、grid `2 2 2 1`、跑满 1000 次迭代）：
+> 相对残差停在 **7–12%**，各 rank 逐位相同且有限，不是 NaN、不是归约错。
+>
+> 由此三条判据，缺一条就会误判：
+> - 这种输入上普通 BiCGStab 失败**不说明**求解器有问题；
+> - null-vector 构建失败**不说明** builder 有问题——同一个集体 builder 已在
+>   32/16/128 rank 上 PASS（§176）；
+> - 在该输入上做的基比较**作废**：§176 把 §173 的 overlap `0.115` 与
+>   “legacy 多抓 6.1x”一并撤销，两者都不得再引用。
+>
+> 收紧 `--atol` 无效，换 seed 无效；只能换**热化** gauge 重跑。远端判读表见
+> [`pyqcu-testing/references/remote-l48-experience.md`](../pyqcu-testing/references/remote-l48-experience.md)。
+
 ## MultiGrid cache 路线选择
 
 比较、选择、加载或排障 `33-tensor cache` 与 `Strict cache` 时，先读取
@@ -228,7 +245,7 @@ correctness gate。完整矩阵、实际 cycle 计数和证据链接见
 
 ### 2026-11-24 QCU-MG 层数上限是 ABI 布局，不是算法
 
-- KUPL Legacy-MG：`cpp/kupl/qcu/src/lattice_clover_multigrid.cpp:195` 接受
+- KUPL Legacy-MG：`cpp/kupl/qcu/src/lattice_clover_multigrid.cpp:312` 接受
   `num_levels_` **1..5**，层级由 `for (level = 1; level < num_levels_; ...)` 循环
   建立；CUDA Strict-MG：`cpp/cuda/qcu/src/apply_multigrid_strict.cu:3182` 接受
   **2..5**，并要求有效的 coarse start。
@@ -236,11 +253,41 @@ correctness gate。完整矩阵、实际 cycle 计数和证据链接见
   `19 + 8*(level-1)` 开始（`E,X,Y,Z,T,max_iter,dtype,restart`），`set_ptrs`
   四元组从 `30 + 4*(level-1)` 开始（`lonv,hnn,hdg,sit`），`argv` 容差在
   `3 + (level-1)`。这些槽位已预留，所以 3/4/5 层是现成的求解器配置。
-- `pyqcu.test` 的 port 目前只接一条粗化 transition（一套 coarse 资产），因此
-  拒绝 `mg_levels > 2`；这是 **port 缺口**，错误信息已明说，不是求解器上限。
-  多层需要逐层资产和能存下整条链的 cache。
+- `pyqcu.test` 的 port 只接一条粗化 transition（一套 coarse 资产），所以今天
+  `--mg-levels 3` 跑不起来。**这是 plumbing，不是物理，也不是求解器上限**；
+  四处闸门逐条可改（`logs/v20261123.txt` §171、§177）：
+  1. `pyqcu/test/native.py:4117-4129` 的 `if depth > 2: raise refusal`——唯一的
+     CLI 门，删掉它只是把失败搬到 builder；
+  2. 唯一的 builder 只建 transition 1，而 `_configure_legacy_mg` 本身已是 N 层
+     （`native.py:4271` 的 `for level in range(1, depth)`），
+     `pyqcu/testing/simple/mpi/worker.py:207-221` 也已按层各取一个 cache root；
+  3. `pyqcu/tools/_legacy_mg_cache.py:132-136`（`legacy_mg_cache_shapes`）
+     硬编码 `fine_dof = 12`，而 transition 2 的 fine dof 是 level 1 的
+     `E`（实测 `4`）；
+  4. ABI 包装 `cpp/kupl/qcu/src/apply_multigrid.cpp:149,167` 在 restrict/prolong
+     里传 `e = kVectorSize`（=12）。第一条 3 层实验取 `E_1 = 12` 可绕开宽变体。
+  求解器侧不用动：`:975-978` 的 `multigrid_coarse_dslash_wide` 不带 gauge 参数，
+  `:986-1001` 把 `c.E, p.E` 与两侧 dims 直接交给通用 restrict/prolong。
 - 接受不等于已验证：Legacy 的正式验证深度仍是两层、Strict 是三层，3–5 层必须
   逐层过独立全算子残差门后才能引用。
+
+### 2026-11-26 Legacy-MG 的层级是递归的：没有 coarse gauge，也不要造一个
+
+`op(0)` 是细层 odd-Schur Clover 算子，`op(L) = R_L · op(L-1) · P_L`：每层粗算子
+是**上一层算子**的 Galerkin 投影，上一层可以已经是 33 点 stencil（§177）。全树
+搜索 `coarse_gauge`/`block_average`/`coarsen_gauge`/`coarse_clover` 只命中 QUDA
+散文，没有任何实现——因为不需要。
+
+- **不要**把 coarse gauge + coarse Clover 交给
+  `applyMultigridBuildNullVectorsQcu` / `applyMultigridBuildStencilLocalQcu`：
+  Wilson-Clover 是 onsite + 1 hop，33 点 stencil 含 2 hop 耦合，任何 gauge 都
+  复现不出来，两个 builder 会静默构建**另一个**算子的层级。
+- 第 2 条 transition 的构建必须发生在 Python/torch，那里 matvec 是参数。已验证
+  的原语、数值证据与锚点见
+  [`references/mg-cache-comparison.md`](references/mg-cache-comparison.md#深层-transition递归而非-coarse-gauge)
+  的“深层 transition”一节。
+- legacy 与 Strict/QUDA 粗层表示的正式对照见
+  [`docs/qcu_quda_multigrid_coarse_operator.md`](../../docs/qcu_quda_multigrid_coarse_operator.md)。
 
 ### 2026-11-24 KUPL Legacy-MG 在本实现中无法加速（实测，勿再扫参数）
 
@@ -268,8 +315,45 @@ correctness gate。完整矩阵、实际 cycle 计数和证据链接见
   `--mg-levels 1` 那一臂其实是**不重启**的 BiCGStab，因此 4.647 / 6.504 / 7.947 s
   比较的是三种 Krylov 策略，**不能**把 1.71× 全部归给 MG。要归因必须先让一个 chunk
   能跨多次重启——这是结构改动，未做。
-- 结论：本实现的两级 Legacy-MG 没有净收益，且**当前代码无法把 MG 的贡献与
-  restart 策略分开**。任何加速/减速倍数在完成上述结构性解耦前都不得引用。
+- 结论：本实现的两级 Legacy-MG 没有净收益。倍数本身在 2026-11-25 的一次同分配、
+  同 `restart`、真复用缓存的四臂对照中已测得（下一节，**MG/plain = 1.68×–1.72×**）；
+  在那之前的一切倍数仍然不得引用。
+
+### 2026-11-25 KUPL Legacy-MG 的**合法**减速倍数：MG/plain = 1.68×–1.72×
+
+上一节最后一句（"倍数不得引用"）已被一次**条件完备**的测量取代。作业 `2258877`，
+一个 dsub 分配、单节点 `cn12139`、8 rank、`grid 2 2 2 1`、`mass=+0.1`（`κ=0.121951
+< κ_c=0.125`，算符非奇异）、`atol=1e-5`、`--repeat 3 --warmup 1`，四臂**串行跑在同一
+分配内**：
+
+| 臂 | ABI 符号 | 秒（3 次中位） | 迭代 | 残差 | 缓存 |
+|---|---|---:|---:|---:|---|
+| plain BiCGStab | `applyCloverBistabCgQcu` | **1.1856** | 28 | 4.4086e-06 | 未请求 |
+| mg-2 + legacy 基 | `applyCloverMultigridQcu` | **1.9922** | `n/a` | 4.8466e-06 | `cache_reused=True` |
+| mg-2 + inverse 基 | `applyCloverMultigridQcu` | **2.0421** | `n/a` | 4.6316e-06 | `cache_reused=True` |
+
+```
+MG/plain = 1.680×（legacy 基）   1.722×（inverse 基）
+```
+
+**这次为什么可以引用**（逐条对照 §153 的混淆项）：
+
+- **同分配**：四行同一个 dsub、同一节点、同一库 md5 `305a152cdc68`。§114 禁止的跨
+  分配比较完全没有出现。
+- **`restart` 相同**：四行的 `metrics.restart` **全部为 5**，所以 §153 的"修正间隔即
+  restart 长度"混淆没有被引入——两臂的细层 Krylov 重启长度一致。
+- **缓存是真复用**：两臂都记录 `cache_reused=True`、`asset_source=cache`、
+  `cache_seconds=null`，用的是 `2258741` 产出并按 `--nv-iters 2` 建的产物。
+- **差异远超噪声**：同作业内基准漂移 +0.39%（1.1856 → 1.1903），单臂样本离散
+  0.13–0.36%，而 68–72% 的 MG 惩罚约为漂移的 **170×**。
+- **跨分配一致性佐证**：纯求解残差与另一分配的纯求解**逐位相同**
+  （`4.408633403218057e-06`）而墙钟不同——这正是 §114 要防的情形，反过来说明
+  残差可比、墙钟不可跨分配比。
+
+**两套基仍然互相不可区分**（1.9922 vs 2.0421，2.5%；另一作业 `2258741` 为 0.25%），
+即 **null-vector 构建器的选择不改变代价**。所以"换基能否加速"是否定答案，"MG 是否
+值得"也是否定答案——与本节的机制解释一致：一次修正去掉不到 1%，一次细迭代去掉约
+45%，一次修正却要付约 2.3 次细层应用的代价。
 
 **`--atol` 必须比 dtype 的验收门更紧**：c128 的验收门是 `1e-08`；`--atol 1e-5` 的
 c128 16 rank 单元真残差 `7.17e-07`、`residual_verified=true`，仍被判 FAIL（原因串把
