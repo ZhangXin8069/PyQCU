@@ -2767,8 +2767,9 @@ class NativeCase:
     nv_iters: int = DEFAULT_NV_ITERS
     restart: int = 5
     coarse_max_iter: int = 200
-    #: Fine iterations before the first coarse correction (params[kMgMuPre]);
-    #: 0 keeps the solver default.  Accepted by the CLI and dropped for years.
+    #: ``nu_pre``: MR smoothing steps inside the Legacy-MG's ``M^-1``
+    #: (``params[_MG_MU_PRE_]``); 0 keeps the backend default of 4, and the
+    #: backend clamps the value to 8.  This is not a correction interval.
     mg_nu_pre: int = 0
     coarse_tol_factor: float = 1.0e4
     deflate: bool = True
@@ -4522,10 +4523,11 @@ def _configure_legacy_mg(option: NativeCase, controls: _Controls,
     depth = int(option.mg_levels)
     params[define._MG_NUM_LEVEL_] = depth
     params[define._MG_USE_DEFLATE_] = 1 if option.deflate else 0
-    # ``smoothing_prefix`` in the solver reads params[kMgMuPre] (=56); nothing
-    # in Python wrote it, so --mg-nu-pre was accepted, recorded in the row and
-    # then dropped.  Leave it at 0 unless the case asks, which keeps the
-    # solver-side default (a quarter of the interval).
+    # ``nu_pre``: the MR smoothing steps inside M^-1 of the Legacy-MG's
+    # right-preconditioned FGMRES(m=10), read from params[kMgMuPre] (=56).  0
+    # keeps the backend default (4, the CUDA default too); the backend clamps
+    # the value to 8.  The in-loop corrector that slot's name once referred to
+    # was deleted, so nothing reads a correction interval any more.
     params[define._MG_MU_PRE_] = int(getattr(option, "mg_nu_pre", 0) or 0)
     if len(assets) < depth - 1:
         raise ValueError(
@@ -4834,8 +4836,9 @@ def run_mg(case: Any = None, *, lattice: Any = None, lattice_grid: Any = None,
     the transition.
 
     Required observations for an ``mg`` gate: ``converged``,
-    ``relative_residual``; ``iterations`` is reported for the diagnostic
-    comparison and is not the coarse-correction count.
+    ``relative_residual``; ``iterations`` is the outer Krylov count
+    (FGMRES(10) steps) reported for the diagnostic comparison, not the number
+    of preconditioner applications.
     """
     option = _options(
         case, kind="mg", lattice=lattice, lattice_grid=lattice_grid,

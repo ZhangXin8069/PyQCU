@@ -199,12 +199,15 @@ def configure_mg(params: np.ndarray, argv: np.ndarray, set_ptrs: np.ndarray,
                  coarse_tol_factor: float, deflate: bool,
                  null_vectors: list[Any], hop_nn: list[Any],
                  hop_diag: list[Any], sitting: list[Any]) -> None:
-    # OPEN (2026-11-24): the coarse correction is additive and does not reduce
-    # the fine iteration count.  L48 c64 32 ranks NUMA-bound: plain Clover
-    # BiCGStab 18 iterations / 2.350 s (job 2237987) vs mg-2 18 fine iterations
-    # + 4 accepted corrections / 3.041 s (job 2236599, level0=18 level1=4,
-    # accepted_corrections=4, fallback_fine=0).  A sweep over the knobs below
-    # only means something once they are proven to reach params/argv.
+    # The Legacy-MG has ONE outer solver: right-preconditioned FGMRES(m=10)
+    # whose M^-1 is nu_pre MR steps, one coarse cycle and the prolongation with
+    # weight 1 (no post-smoothing).  There is no additive in-loop corrector and
+    # no correction cadence any more, so `restart` here is only the COARSE
+    # level's BiCGStab restart length - and, because it is the slot the backend
+    # gates on, a non-zero value is what enables the hierarchy at all.
+    # Historical measurements that report `accepted_corrections=N` on the
+    # MG_LEVEL_ITERS line came from a different solver: that token now counts
+    # preconditioner applications.
     params[MG_NUM_LEVEL] = levels
     params[MG_USE_DEFLATE] = int(deflate)
     for level in range(1, levels):
@@ -1267,7 +1270,9 @@ def main(argv=None) -> int:
     parser.add_argument("--mg-grid", nargs=4, type=int, default=DEFAULT_BLOCK)
     parser.add_argument(
         "--restart", type=int, default=5,
-        help="coarse-correction interval; 0 selects optimized parity-Schur BiCGStab")
+        help="coarse-level BiCGStab restart length; a non-zero value is also "
+             "what enables the hierarchy, and 0 selects the optimized "
+             "parity-Schur BiCGStab (no MG preconditioner)")
     parser.add_argument("--coarse-max-iter", type=int, default=200)
     parser.add_argument("--coarse-tol-factor", type=float, default=1.0e4)
     parser.add_argument("--nv-iters", type=int, default=2)

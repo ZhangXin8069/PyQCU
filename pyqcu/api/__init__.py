@@ -14,7 +14,6 @@ from .config import (
     FGMRESControl,
     LegacyMultigridConfig,
     MRConfig,
-    PeriodicCorrectionConfig,
     SolverControl,
     StrictMultigridConfig,
 )
@@ -57,7 +56,6 @@ __all__ = [
     "MultigridHierarchy",
     "NativeSolve",
     "NormalOperator",
-    "PeriodicCorrectionConfig",
     "PyQCUBackend",
     "ResidualScope",
     "Smoother",

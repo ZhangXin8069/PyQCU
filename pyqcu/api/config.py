@@ -165,21 +165,6 @@ class CycleConfig:
 
 
 @dataclass(frozen=True)
-class PeriodicCorrectionConfig:
-    """Legacy periodic additive coarse-correction policy."""
-
-    interval: int = 5
-    gate: bool = True
-    true_residual_rollback: bool = True
-
-    def __post_init__(self) -> None:
-        interval = int(self.interval)
-        if interval <= 0:
-            raise ValueError("interval must be positive")
-        object.__setattr__(self, "interval", interval)
-
-
-@dataclass(frozen=True)
 class StrictMultigridConfig:
     """Configuration for explicit Strict-MultiGrid reference/fallback use."""
 
@@ -189,11 +174,29 @@ class StrictMultigridConfig:
     outer: FGMRESControl = field(default_factory=FGMRESControl)
 
 
+def _legacy_outer_control() -> FGMRESControl:
+    """Default outer solver of the Legacy-MultiGrid: FGMRES(m=10).
+
+    The backend hardcodes ``m = 10`` (``cpp/kupl/qcu/src/
+    lattice_clover_multigrid.cpp``, ``fgmres_solve``) and turns the
+    preconditioner off after two 6-step windows whose geometric-mean residual
+    ratio is at least 0.9.  There is no periodic correction any more: the old
+    ``PeriodicCorrectionConfig`` described an in-loop BiCGStab corrector that
+    was deleted together with every knob that fed it, so declaring one here
+    would advertise a policy no backend reads.
+    """
+    return FGMRESControl(restart=10)
+
+
 @dataclass(frozen=True)
 class LegacyMultigridConfig:
-    """Default QCU configuration for Legacy-MultiGrid development and use."""
+    """Default QCU configuration for Legacy-MultiGrid development and use.
+
+    ``coarsen`` describes the block hierarchy, ``outer`` the single Krylov
+    solver the Legacy-MG now is: right-preconditioned FGMRES(m=10) whose
+    ``M^-1`` is one hierarchy application (``nu_pre`` MR smoothing steps, one
+    coarse cycle, prolongation with weight 1, no post-smoothing).
+    """
 
     coarsen: CoarsenConfig
-    corrector: PeriodicCorrectionConfig = field(
-        default_factory=PeriodicCorrectionConfig)
-    outer: SolverControl = field(default_factory=BiCGStabControl)
+    outer: SolverControl = field(default_factory=_legacy_outer_control)

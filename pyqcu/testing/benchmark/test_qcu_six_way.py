@@ -39,6 +39,26 @@ def test_parse_kupl_legacy_distinguishes_attempt_from_effective_mode():
     assert parsed["median"] == 48.0
 
 
+def test_parse_kupl_legacy_reads_the_fgmres_tokens():
+    """A current run prints FGMRES lines, not the deleted corrector's."""
+    text = (
+        "PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:\n "
+        "fgmres final iterations=24 residual=1.5e-7 target=1.0e-6 "
+        "applications=24 preconditioner=1\n"
+        "PYQCU::KUPL::MG_LEVEL_ITERS:\n level0=24 level1=6 total=24 "
+        "accepted_corrections=24\n"
+        "fgmres final iterations=18 residual=2.0e-7 target=1.0e-6 "
+        "applications=6 preconditioner=0\n"
+    )
+    parsed = bench._parse_kupl_legacy(text)
+    assert parsed["attempted_vcycles"] == 30          # 24 + 6 applications
+    assert parsed["executed"] is True
+    assert parsed["preconditioner"] is True           # one solve kept it on
+    assert parsed["effective_mode"] == "periodic_coarse_correction"
+    assert parsed["iterations"] == [24, 18]
+    assert parsed["median"] == 21.0
+
+
 def test_summary_rows_keep_fine_only_and_missing_residual_explicit():
     sides = {
         "cuda-legacy-fine-only": {

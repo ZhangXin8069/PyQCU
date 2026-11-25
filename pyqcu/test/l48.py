@@ -132,10 +132,15 @@ LOCAL_LATTICE: tuple[int, int, int, int] = tuple(
 #: These cases are tier 1: ``--quick`` (tier 0) never selects them.
 TIER = 1
 
-#: Parity-Schur BiCGStab: one level and no periodic coarse correction.
+#: Parity-Schur BiCGStab: one level, so there is no coarse space at all and the
+#: KUPL backend forwards to ``set_.clover_bistabcg``; ``restart=0`` says the
+#: same thing a second way (it is the hierarchy gate on the level-1 slot).
 BICGSTAB: Mapping[str, Any] = MappingProxyType(
     {"solver": "bistabcg", "mg_levels": 1, "restart": 0})
-#: Legacy-MultiGrid: two levels with a coarse correction every 5 iterations.
+#: Legacy-MultiGrid: two levels, i.e. right-preconditioned FGMRES(m=10) with one
+#: hierarchy application per step.  ``restart`` is the COARSE level's BiCGStab
+#: restart length (and a non-zero value is also what enables the hierarchy); it
+#: is not a cadence for adding coarse corrections to the fine Krylov.
 LEGACY_MG: Mapping[str, Any] = MappingProxyType(
     {"solver": "mg", "mg_levels": 2, "restart": 5})
 

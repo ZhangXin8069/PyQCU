@@ -326,12 +326,43 @@ def _parse_cuda_trace(path: Path) -> dict[str, Any]:
 
 
 def _parse_kupl_legacy(text: str) -> dict[str, Any]:
+    """Interpret the KUPL Legacy-MG's debug stdout.
+
+    Two vocabularies live here on purpose.  ``deflation residual=...`` and
+    ``coarse-correction iterations=...`` came from the in-loop BiCGStab
+    corrector that was deleted from the backend; the patterns stay so archived
+    logs still parse.  A current run prints, with ``--verbose``,
+
+        fgmres final iterations=N residual=R target=T applications=A preconditioner=0|1
+
+    where ``applications`` is the number of ``M^-1`` applications - the direct
+    successor of "attempted V-cycles" - and ``preconditioner=0`` means the
+    contraction gate switched the hierarchy off.  Without this branch every
+    current KUPL run was reported as ``fine_only`` even when it was fully
+    preconditioned.
+    """
     iterations = [int(value) for value in re.findall(
         r"final iterations=(\d+)", text)]
     deflation = re.findall(
         r"deflation residual=.*?corrections=(\d+)", text, re.S)
     periodic = re.findall(
         r"coarse-correction iterations=.*?corrections=(\d+)", text, re.S)
+    fgmres = re.findall(
+        r"fgmres final iterations=(\d+) residual=\S+ target=\S+ "
+        r"applications=(\d+) preconditioner=(\d)", text)
+    if fgmres:
+        applications = sum(int(item[1]) for item in fgmres)
+        return {
+            "iterations": iterations,
+            "median": _median([float(value) for value in iterations]),
+            "attempted_vcycles": applications,
+            "rejected_attempts": 0,
+            "executed": applications > 0,
+            "preconditioner": any(int(item[2]) for item in fgmres),
+            "effective_mode": ("periodic_coarse_correction"
+                               if applications > 0 else "fine_only"),
+            "source": "fgmres applications=/preconditioner= tokens",
+        }
     states = [int(value) for value in deflation + periodic]
     rejected = sum(1 for value in states if value == 0)
     attempts = len(states)
@@ -341,10 +372,12 @@ def _parse_kupl_legacy(text: str) -> dict[str, Any]:
         "attempted_vcycles": attempts,
         "rejected_attempts": rejected,
         "executed": attempts > 0,
+        "preconditioner": None,
         "effective_mode": (
             "fine_only_after_rejected_correction"
             if attempts > 0 and rejected == attempts else
             "periodic_coarse_correction" if attempts > 0 else "fine_only"),
+        "source": "removed BiCGStab-corrector tokens (archived logs)",
     }
 
 
@@ -816,7 +849,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--nvec", type=int, default=12)
     parser.add_argument("--nu", type=int, default=1)
     parser.add_argument("--restart", type=int, default=20)
-    parser.add_argument("--correction-interval", type=int, default=5)
+    parser.add_argument(
+        "--correction-interval", type=int, default=5,
+        help="forwards to the CUDA harness --coarse-restart and to the worker's "
+             "level-1 BiCGStab restart (0 disables the KUPL hierarchy); it is "
+             "not a fine-level correction cadence")
     parser.add_argument("--warmups", type=int, default=2)
     parser.add_argument("--repeats", type=int, default=5)
     parser.add_argument("--seed", type=int, default=42)
@@ -927,6 +964,8 @@ def main(argv: list[str] | None = None) -> int:
             "nu_pre": args.nu,
             "nu_post": args.nu,
             "restart": args.restart,
+            # Key keeps its schema name; the value is the level-1 BiCGStab
+            # restart the KUPL backend gates its hierarchy on, not a cadence.
             "legacy_correction_interval": args.correction_interval,
             "warmups": args.warmups,
             "steady_repeats": args.repeats,
@@ -938,7 +977,7 @@ def main(argv: list[str] | None = None) -> int:
         "sides": sides,
         "blockers": [
             "QUDA sm_70 installation has QUDA_QIO=OFF, so QUDA generated its own null vectors from the same gauge instead of loading the canonical bundle.",
-            "KUPL Legacy rejects a non-improving coarse correction and falls back to the validated parity-Schur BiCGStab; the report retains the attempted V-cycle and fallback reason.",
+            "KUPL Legacy runs right-preconditioned FGMRES(m=10) with one hierarchy application per Krylov step; the contraction gate turns the preconditioner off after two 6-step windows with a geometric-mean residual ratio >= 0.9, and a solve whose true residual stays above the tolerance raises instead of publishing a solution.",
         ],
     }
     _write_json(out_dir / "summary.json", summary)

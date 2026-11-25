@@ -20,6 +20,12 @@ _LEGACY_LAYOUTS = {
 class LegacyMultigrid:
     """Thin CPU lifecycle wrapper around the KUPL legacy Clover-MG ABI.
 
+    The backend runs one outer solver, right-preconditioned FGMRES(m=10) with a
+    hierarchy application as ``M^-1`` (see :meth:`set_nu_pre`).  ``params`` owns
+    every knob: ``_MG_USE_DEFLATE_ == 0`` or one level means there is no coarse
+    space at all and the call is forwarded to the parity-Schur BiCGStab, and
+    ``_MG_LEVEL1_NUM_RESTART_ == 0`` disables the hierarchy the same way.
+
     Coarse stencils are expected to be present in ``set_ptrs`` according to
     the canonical ``params/argv/set_ptrs`` protocol.  This class standardizes
     setup/solve/close without duplicating the backend's hierarchy builder.
@@ -28,18 +34,26 @@ class LegacyMultigrid:
     variant = "legacy"
     backend = "kupl"
 
-    def set_smoothing_prefix(self, prefix: int) -> "LegacyMultigrid":
-        """Set the number of fine iterations before the first coarse correction.
+    def set_nu_pre(self, steps: int) -> "LegacyMultigrid":
+        """Set ``nu_pre``: the MR smoothing steps inside ``M^-1``.
 
-        ``smoothing_prefix`` in the solver reads ``params[kMgMuPre]`` (=56) before
-        falling back to a quarter of the interval, but nothing in Python ever
-        wrote that slot - so ``--mg-nu-pre`` was accepted by the CLI, recorded in
-        the row, and then silently dropped.  The C++ read path is complete; this
-        is the missing writer.  Zero or negative restores the built-in default.
+        The KUPL Legacy-MG has ONE outer solver, right-preconditioned
+        FGMRES(m=10) with ``M^-1 v`` = ``nu_pre`` steps of MR smoothing on ``v``,
+        then one coarse cycle on the residual that remains, then the
+        prolongation of that correction added with weight 1 (no post-smoothing).
+        ``nu_pre`` is ``params[_MG_MU_PRE_]`` (=56), the same slot and the same
+        default as CUDA: the backend uses 4 when the slot is 0 and clamps the
+        value to 8.
+
+        Zero therefore means "use the backend default (4)", not "no smoothing",
+        and not - as the previous docstring of this method claimed - "the number
+        of fine iterations before the first coarse correction".  That in-loop
+        corrector was deleted with every knob that fed it, so no solve has a
+        correction interval any more.
         """
-        value = int(prefix)
+        value = int(steps)
         if value < 0:
-            raise ValueError(f"smoothing prefix must be >= 0, got {value}")
+            raise ValueError(f"nu_pre must be >= 0, got {value}")
         self.params[define._MG_MU_PRE_] = value
         return self
 

@@ -881,6 +881,12 @@ def _worker_kupl_legacy(args: argparse.Namespace) -> dict[str, Any]:
     runtime.params[define._SET_PLAN_] = define._SET_PLAN1_
     runtime.params[define._PARITY_] = (
         1 if cache_layout == "odd-schur-33-stencil" else 0)
+    # Slot 26 is the level-1 BiCGStab restart length AND the hierarchy gate the
+    # backend checks first (`params[kMgLevel1NumRestart] == 0` -> no coarse
+    # space, forwarded to the parity-Schur BiCGStab).  It is not a fine-level
+    # correction cadence: `--correction-interval` predates the FGMRES rewrite
+    # that deleted the in-loop corrector, and this is the only thing the flag
+    # still sets.
     runtime.params[define._MG_LEVEL1_NUM_RESTART_] = args.correction_interval
     runtime.params[define._MG_USE_DEFLATE_] = int(args.legacy_deflate)
     runtime.params[define._VERBOSE_] = 1
@@ -937,6 +943,10 @@ def _worker_kupl_legacy(args: argparse.Namespace) -> dict[str, Any]:
         "scope": "full",
     }
     payload["coarse_execution"] = {
+        # Historical label kept for the side-JSON schema: the KUPL Legacy-MG is
+        # now right-preconditioned FGMRES(m=10) and applies the hierarchy once
+        # per Krylov step, but consumers of "legacy_periodic_correction" still
+        # mean "the Legacy coarse space ran".
         "kind": "legacy_periodic_correction",
         "executed": None,
         "attempted_vcycles": None,
@@ -1492,7 +1502,11 @@ def _add_common(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--nvec", type=int, default=12)
     parser.add_argument("--nu", type=int, default=1)
     parser.add_argument("--restart", type=int, default=20)
-    parser.add_argument("--correction-interval", type=int, default=5)
+    parser.add_argument(
+        "--correction-interval", type=int, default=5,
+        help="KUPL Legacy: level-1 BiCGStab restart length and the hierarchy "
+             "gate (0 disables the coarse space).  torch-legacy: num_restart. "
+             "There is no fine-level correction cadence any more")
     parser.add_argument("--legacy-deflate", action=argparse.BooleanOptionalAction,
                         default=True)
     parser.add_argument("--legacy-adaptive-correction",

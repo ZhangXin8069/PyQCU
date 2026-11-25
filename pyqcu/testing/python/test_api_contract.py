@@ -16,10 +16,10 @@ from pyqcu.api import (
     CoarsenConfig,
     CycleConfig,
     FGMRESControl,
+    LegacyMultigridConfig,
     LinearOperator,
     LatticeGeometry,
     MRConfig,
-    PeriodicCorrectionConfig,
     ResidualScope,
     SolveResult,
     SolveStatus,
@@ -117,14 +117,21 @@ def test_lattice_geometry_and_config_validate_public_contract():
     )
     assert config.cycle.kind == "V"
 
+    # The Legacy-MultiGrid's single outer solver is right-preconditioned
+    # FGMRES(m=10); a periodic additive corrector used to sit here and no
+    # backend reads one any more.
+    legacy = LegacyMultigridConfig(
+        coarsen=CoarsenConfig(nvec=8, block_size=(2, 2, 2, 2), levels=2))
+    assert isinstance(legacy.outer, FGMRESControl)
+    assert legacy.outer.restart == 10
+    assert not hasattr(legacy, "corrector")
+
     with pytest.raises(ValueError, match="block_size"):
         CoarsenConfig(nvec=8, block_size=(2, 0, 2, 2), levels=2)
     with pytest.raises(ValueError, match="rtol"):
         BiCGStabControl(rtol=math.inf)
     with pytest.raises(ValueError, match="restart"):
         FGMRESControl(restart=101, max_iter=100)
-    with pytest.raises(ValueError, match="interval"):
-        PeriodicCorrectionConfig(interval=0)
 
     capabilities = BackendCapabilities(
         backend="test",
