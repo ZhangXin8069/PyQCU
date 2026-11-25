@@ -4668,3 +4668,44 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
 
      Both routes (Gram pseudo-inverse and the SVD frame) agreed to machine
      precision on every block, and no block was rank deficient (rank 2 of 2).
+
+183. FIRST REAL TRANSITION 2: built on a compute node, all three gates pass, and
+     the cache is exactly the shape the solver wants
+     Job 2259202, node cn12146, 8 ranks, mass=+0.1.  Parent is the level-1 cache
+     that job 2259107 built with the C++ builder at E=12 (status=PASS, dof
+     [12,12], lonv [12,12,8,2,8,2,8,2,8,2], builder 186 s of which stencil 171 s).
+
+       transition 2: data/mg3l2b/caches/l2
+         status      PASS
+         setup_method python-inverse-iteration+33-stencil-probe
+         identity    lattice [8,8,8,16]  mg_grid [2,2,2,2]  dof [12,2]  mass 0.1
+         shapes      lonv [2,12,4,2,4,2,4,2,4,2]
+                     hnn  [2,4,2,2,4,4,4,4]
+                     hdg  [2,2,6,2,2,4,4,4,4]
+                     sit  [2,2,4,4,4,4]
+
+       gate 1 Galerkin  ||A2 v - R op1 P v|| / ||R op1 P v||   3.833e-07  <= 2e-5
+       gate 2 lonv Gram  max |<b_i,b_j> - delta_ij|            1.073e-06  <= 1e-4
+       gate 3 stencil support offsets                          33         == 33
+
+     Why this is the milestone the session was missing: the hierarchy is no longer
+     a two-level artifact.  Level 1 comes from the C++ builder (gauge + Clover),
+     level 2 from the Python probe that treats the parent's 33-tensor as the
+     operator, and the Galerkin identity holds to 4e-7 - two orders inside its own
+     gate.  The identity lattice [8,8,8,16] is the PARENT's coarse box at twice the
+     odd time, which is what makes one cache root per transition sufficient.
+
+     Shape cross-check against the reader, done by hand before running anything:
+     worker.py writes params[19+8(L-1)+0] = lonv.shape[0] and +1..+4 from
+     lonv.shape[2,4,6,8].  For L=2 that is E=2 and dims (4,4,4,4); for L=1 it is
+     E=12 and (8,8,8,8).  Both match what the two caches carry, so no reader change
+     was needed for the geometry.
+
+     The `e` question is settled by the recursion itself: the solver's
+     restrict(parent) passes p.E as `e` and c.E as `E`
+     (lattice_clover_multigrid.cpp:986-1001), so transition 2's e is level 1's E,
+     which is 12 = kVectorSize.  The hardcoded `e` in apply_multigrid.cpp:149,167
+     only affects the STANDALONE restrict/prolong ABI entry points, and with
+     E_1 = 12 even those are correct for transition 1.  So the previously listed
+     "E_1 must be 12" blocker is not a blocker: it is the configuration that makes
+     both hardcodes and the cache helper's fine_dof = 12 simultaneously true.
