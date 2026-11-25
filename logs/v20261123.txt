@@ -4025,3 +4025,63 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      So the requirement is now answered with the confound removed, not merely
      bounded: KUPL Legacy-MG does not accelerate L48x96 c64 even when its
      correction schedule is given every advantage the code can give it.
+
+169. Historical evidence checked: the old builder DID show small-lattice speedups,
+     and the repository's own record already says it degrades as the lattice grows
+     Question: is there historical evidence that CUDA MG - which still runs the
+     old `v -= S^-1(S v)` loop - ever accelerated?  Yes, and it matters, because a
+     strong small-lattice CUDA result would challenge section 162's bound.
+
+     CUDA, from docs/profiler_solver_performance_history.md:76:
+       "Legacy CUDA MG 并非单调优于 BiStabCG: 2026-07/08 多个版本在小格点可超过
+        2x，但随格点增大和中/粗层成本上升，出现 0.2x-1.0x。2026-08-30 的 57 行
+        矩阵明确记录 8^3x16 重复中位 2L-MR 0.952x wall、3L-F 0.869x wall."
+     and the dev103 L24^3x64 c64 main line: BiCGStab 0.147801 s / 18 it against
+     CUDA fine-only MG 0.173372 s / 20 it, i.e. 0.904x and TWO MORE iterations
+     (docs/qcu_l24_solver_timing_20261111.md:985, docs/three_way_benchmark_20261022.md:83).
+
+     KUPL, skills/pyqcu-kupl/references/kupl-history-2026.md:311-325:
+       L24, 16 ranks x 8 threads, grid 1 1 1 16, LOGIN node
+         restart=10  BiCGStab 1.39724 s  vs true-MG 0.78976 s  = 1.7692x
+         restart=20  1.230783 s vs 0.705146 s = 1.7454x
+         restart=50  1.091866 s vs 0.704241 s = 1.5504x
+     The same passage says "still needs compute-node repeats" and, of the
+     restart=50 arm, "only the initial deflation correction was applied, so call
+     it deflation-assisted fine BiCGStab rather than a periodic V-cycle".  Another
+     entry records that compute-node true-MG had no valid numbers at all.
+
+     Why none of this overturns the L48 result:
+       - every one of those numbers was produced with the OLD, solver-noise basis
+         (CUDA still uses it).  A noise basis cannot capture smooth error, so a
+         2x cannot be attributed to coarse-space capture; `capture = E/(e*block)`
+         is a dimension count and does not care which builder ran.
+       - the two arms differed in RESTART LENGTH (10/20/50 against the BiCGStab
+         baseline) - the exact confound section 168 removed.  The restart=50 arm
+         is self-described as one initial correction, i.e. deflation.
+       - the trend in the repository's own history - 2x on small lattices,
+         0.2x-1.0x once the lattice grows - is the same direction as the L48
+         measurement (39% slower).
+       - L24 login node, 8 threads per rank, no NUMA binding is precisely the
+         regime where the fine operator is pathologically slow, so anything that
+         trades coarse work for fine iterations looks better there.
+
+     Honest limit: I did not re-run any of this.  There is no GPU here and bg-32
+     compared the CUDA implementation at source level only.  So "CUDA really does
+     reach >2x on small lattices" is a quotation from the record, not something I
+     reproduced, and a decisive test would need a noise-basis vs new-basis A/B on
+     the same GPU.  That has not been done and is not claimed.
+
+170. Process note: three delegated agents exhausted their budgets without a report
+     bg-31 (verification chain), bg-34 (repo patrol) and bg-33 (chunk/restart
+     decoupling) all hit their turn limits.  For bg-31 and bg-34 nothing was
+     produced and I did those rounds myself (sections 157, 163).  For bg-33 the
+     ARTIFACTS are complete and were verified independently before being trusted:
+     local and remote sources byte-identical (md5 4ae839b6), the library fca4b6085c
+     built from them, all five arms produced logs, and I read the segment/restart
+     implementation myself before lifting the caveat in section 168.
+
+     The rule this reinforces: an agent's completion status is not evidence.  What
+     is evidence is an artifact whose provenance can be chained - source hash,
+     library hash, log timestamps, row contents.  Every number in this log now
+     names those, which is also why the exhausted agents cost only time and not
+     correctness.
