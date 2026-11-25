@@ -4569,3 +4569,41 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      that the system was solvable.  A breakdown signature is a residual that stops
      decreasing and then goes non-finite, and it must be looked for explicitly -
      here it took 229 iterations and a NaN to show up.
+
+181. torch.vdot returns a SILENT ZERO for complex tensors on the cluster's torch
+     1.12.1, and that is why the Legacy-MG inner-convergence gate kept refracting
+     good parents
+     Measured on login09 with the site's torch 1.12.1:
+
+       torch.vdot([1+2j, 3-1j], [2, 1+1j])            -> tensor(0.+0.j)   (wrong)
+       torch.sum(torch.conj(a) * b)                   -> tensor(4.+0.j)   (right)
+
+     `pyqcu.cann.vdot` routed the non-NPU branch straight to `torch.vdot`, and it
+     is the single choke point: `pyqcu.tools.vdot` -> `_linalg._local_vdot_pair`
+     -> `_torch.vdot`.  So on that toolchain every torch solver computing a
+     complex inner product got 0.  Nothing raises: BiCGStab computes
+     rho = <r_tilde, r> = 0 and reports "breakdown at iter 0: r_tilde orthogonal
+     to r", which names the wrong subsystem entirely.
+
+     How it actually showed up: `mg_transition`'s inner gate refused a valid
+     Legacy-MG parent at E = 12 (job 2259107's level-1 cache, itself status=PASS)
+     with that breakdown.  Two submissions and one wrong hypothesis about the
+     parent's conditioning were spent before the inner product itself was
+     printed.  The lesson is the same one the session keeps teaching: print the
+     intermediate quantity, do not reason from the caller's error message.
+
+     Fix: the complex branch now always uses `sum(conj(a) * b)`, which is what the
+     NPU branch already did and which is correct on 1.12.1 and on current torch.
+     After the fix, on the cluster: cann.vdot = 4, and the same inner gate
+     converges at 3.67e-05 against a 5e-05 tolerance on the same parent.
+
+     Pinned by `test_complex_vdot_does_not_inherit_the_platform_vdot`, which
+     stubs `torch.vdot` to 1.12.1's silent zero so the regression is visible on a
+     modern torch too; with the old implementation restored the test fails, with
+     the fix it passes.
+
+     Second lesson, operational: `dsub -nl "!host"` is the node exclusion (found in
+     `dsub --help` under --node-list), and it is the only way out when the
+     scheduler keeps placing a job on a node whose /tmp/.ccscheduler has run out of
+     inodes.  Four consecutive submissions landed on the same broken node and each
+     died with systemExitCode 12008 before the script's first line.
