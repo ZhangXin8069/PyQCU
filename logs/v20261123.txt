@@ -3832,3 +3832,35 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
          far as hand verification goes, and none of them would fail a test if a
          later change broke it.  Recording it as a release caveat rather than
          claiming the tree is fully guarded.
+
+164. Round-7 gap partly closed: the guards now have tests that can fail
+     Section 163 listed five mechanisms whose only evidence was hand
+     verification. pyqcu/testing/python/test_pyqcu_test_mg_guards.py (15 cases,
+     no MPI, no native library, no cluster) now pins:
+
+       - the Kunpeng binding guard: complete binding accepted; BIND+one-other with
+         either KUPL_MEMORY_NODE or KUPL_HUGEPAGE missing REFUSED; BIND=0 refused;
+         nothing set names all three; the escape hatch works; single rank and
+         non-KUPL untouched.  This is the case that used to pass on BIND alone.
+       - the cache identity carries nv_builder, and an identity WITHOUT that key
+         differs from the current one - which is exactly why an artefact from the
+         old `v -= S^-1(S v)` loop cannot satisfy a case asking for the current
+         builder.
+       - the identity still separates dof / mg_grid / dtype / nv_iters / lattice,
+         so widening it did not weaken the existing keys.
+       - dof_declared separates "asked for DEFAULT_DOF" from "asked for nothing"
+         while both resolve to the same tuple - the distinction the declared-E
+         guard depends on.
+       - mg_nu_pre defaults to 0 and forwards a given value.
+
+     PROVEN TO FAIL, not just to pass: reverting the binding guard to
+     "KUPL_NUMA_BIND is enough" and deleting the nv_builder field from the
+     identity makes 4 of the 15 cases fail (the two partial-binding
+     parametrisations and both identity cases).  Restored, all 15 pass.  This is
+     the check section 141 taught: a test that cannot reach the branch under test
+     is worthless, so the sabotage run is part of the evidence.
+
+     STILL UNPINNED, stated rather than glossed: the declared-E cache guard itself
+     (it lives inside _load_ranked_assets and needs a manifest plus rank files to
+     reach) and the MG exit re-verification (C++, needs a solver run).  Three of
+     five are now covered; those two are not.
