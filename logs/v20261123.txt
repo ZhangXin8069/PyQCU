@@ -3706,3 +3706,72 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      is the same trap as section 141.)
 
      Gates: 140 read/port/MPI tests pass, 3 skipped.
+
+162. CUDA reference comparison (bg-32): same algorithm, and it would also lose
+     Compared cpp/cuda/qcu/src/multigrid.cu + include/lattice_clover_multigrid.h
+     (the algorithm; apply_clover_multigrid.cu is only a 165-line shim) against
+     cpp/kupl/qcu/src/lattice_clover_multigrid.cpp, line by line at the
+     fine<->coarse interface.
+
+     SAME ON BOTH SIDES:
+       - One coarse correction from the fine level, then resume fine Krylov; no
+         level-0 post-smoothing. The pre/correct/post V-cycle body is dead code
+         at two levels on BOTH sides (CUDA MG.h:4008-4029 is only reached for
+         lev < num_levels-1; KUPL :1093-1111 likewise).
+       - The same explicit 33-tensor Galerkin stencil, the same four assets, the
+         same BiCGStab coarse solver, the same argv tolerance slot.
+       - The same "accept only if the residual improved, else roll back and
+         disable corrections for the rest of the solve" gate.
+
+     DIVERGENT, and both are COST not ALGORITHM:
+       1. CUDA keeps a separate `count_restart` counter for the correction
+          interval (MG.h:4913/4945/5060/5122) and never chunks the fine loop;
+          KUPL's interval IS the chunk length, hence the restart length. This is
+          the confound of section 153, confirmed at source level.
+       2. CUDA's coarse Krylov runs inside one cooperative kernel with in-kernel
+          grid.sync() reductions (multigrid.cu:1833-2090) or graph-replayed
+          8-iteration segments (MG.h:795-803, GRAPH_SEG=8 at :778); KUPL runs it
+          on the host with 5-6 blocking MPI_Allreduce per iteration, i.e. 150-300
+          per correction. That is where ALL of KUPL's 2.3-fine-apply cost lives
+          (2.3 measured - 1.0 mandatory damping apply = 1.3).
+
+     AND KUPL IS BETTER ON QUALITY: CUDA takes plain t=1 (MG.h:5089-5090) while
+     KUPL takes the exactly optimal analytic damping (:1543-1558). So a CUDA-style
+     correction removes LESS per correction than KUPL's.
+
+     THE ALGEBRA THAT SETTLES IT.  A damped additive correction multiplies the
+     residual by reduction_bound = sqrt(1 - E/(e*block)), so one correction
+     removes 1 - sqrt(1 - E/(e*block)):
+         E=2  block=16   cb 0.1020621  red 0.9947780  removes 0.52%  -> 86 corrections = 1 fine iteration
+         E=4  block=16   cb 0.1443376  red 0.9895285  removes 1.05%  -> 43
+         E=2  block=32   cb 0.0721688  red 0.9973924  removes 0.26%  -> 173
+         E=16 block=16   cb 0.2886751  red 0.9574271  removes 4.26%  -> 11
+         E=32 block=16   cb 0.4082483  red 0.9128709  removes 8.71%  ->  5
+     (these reproduce 0.1020621/0.9947780, 0.1443376/0.9895285 and
+     0.0721688/0.9973924 - the measured values - so the formula is confirmed a
+     third time.)  One fine BiCGStab iteration removes ~45%.  At E=2/block16 a
+     correction must therefore be run 86 times to equal one fine iteration, and
+     each correction costs at least one fine apply, so it loses by ~86x.  Even a
+     FREE correction would only break even at 86 of them.
+
+     To break even in ONE correction the coarse space must capture ~45% of the
+     residual, which needs E/(e*block) ~ 0.7, i.e. E ~ 134 for block=16, e=12 -
+     essentially the whole fine space, i.e. no coarsening.  That is the structural
+     reason no schedule, damping, interval or cost optimisation can make this
+     design win: the bound is about DIMENSION, and it applies to a residual that
+     fills the block.  Real multigrid escapes it only because a SMOOTHED residual
+     lies almost entirely inside a few coarse vectors - and the measured
+     `best_ratio` 0.991-0.993 after the smoothing prefix says our smoothing does
+     not concentrate the residual enough for that to happen.
+
+     HONEST STATUS OF THE ORIGINAL REQUIREMENT ("until kupl-qcu-mg has a
+     significant speedup"): not achieved, and now not merely unachieved but
+     bounded.  Two levers remain, both named by the comparison and neither
+     sufficient:
+       - hoist the per-iteration global reductions out of bicgstab_chunk (the
+         CUDA device-resident coarse solve). Buys at most ~2x; the deficit is 86x.
+       - make the residual actually smooth before correcting (a real V-cycle with
+         post-smoothing sweeps at level 0, which NEITHER implementation does at two
+         levels). This is the only change that attacks the 86x bound rather than
+         the cost, and it is a redesign with no measurement yet - it must not be
+         claimed as a fix.
