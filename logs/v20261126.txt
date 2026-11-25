@@ -209,3 +209,24 @@ docs/qcu_quda_multigrid_coarse_operator.md、logs/v20261126.txt。
       docs/qcu_mg_refactor_validation_20261023.md
       docs/qcu_mg_mpi_cache_builder_20261029.md
       logs/v20261126.txt
+
+11. 第 3 轮复查（仓库卫生）的剩余项与两条**无法修复**的历史瑕疵
+
+已修：`debug_` 只写不读（`KUPL_MG_DEBUG` 空操作）、C++ Givens 非酉——两者都在
+`e3d561f7` 里移除/修正，并由作业 2260654 三臂 PASS 验证（`base 1.2020 / mg-2 1.6769
+/ mg-3 2.6349`，残差 `4.41e-06 / 3.10e-06 / 4.33e-06`）。`fgmres-wip` 已删除——它指向
+已撤回的零平滑特性（该特性导致三个作业 SIGTERM），留着就是"一次 checkout 就能重建"的隐患。
+
+**无法修复，作为已知瑕疵记录**：
+
+1. **三个已发布提交的 co-author trailer 不合规**：`7e790289` 是
+   `Co-Authored-By: Claude <noreply@anthropic.com>`（大小写、姓名、域名三者皆错），
+   `aff2eaee`/`23d60ad6` 是 `noreply@anthropic.com`（域名错）。修正必须改写
+   `main` 的历史，而 GitLab 的 `main` 是**受保护分支，拒绝 force-push**（已实测拒绝）。
+   代价对比：为了三行元数据去解保护再 force-push，比带着它发布更危险。
+2. **两个 `gpush.sh` 自动提交是裸时间戳**：`2026-11-25-20-06-38`、`2026-11-25-20-07-08`
+   （无正文、无 trailer），同样是已发布历史。根因在 `gpush.sh` 会提交脏工作树；本库规则
+   要求"只暂存显式路径"，两者冲突，应在脚本侧修，而不是改写历史。
+
+两条都写在这里而不是悄悄绕过：发布说明里应注明 `git log` 的这三行元数据不合规，与
+代码无关。
