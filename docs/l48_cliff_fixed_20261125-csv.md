@@ -2,8 +2,8 @@ metric,ranks,grid,bound,seconds,seconds_source,iterations,relative_residual,resi
 wall_total,16,2 2 2 2,no,186.084576,script MG_PROFILE total,0,,,2236385,fine_apply=93.463424 fine_calls=48
 wall_total,16,2 2 2 2,no,196.002810,script MG_PROFILE total,0,,,2236451,unmodified control; fine_apply=101.058137
 wall_total,16,2 2 2 2,yes,2.062792,script MG_PROFILE total,0,,,2236485,fine_apply=1.520722 rc=0
-wall_total,32,2 2 2 4,no,102.465100,row seconds,18,6.554010772522588e-07,True,,unbound; case 342.07 s
-wall_total,32,2 2 2 4,yes,3.04056982207112,row seconds,18,6.554010772522588e-07,True,2236599,data/l48_prof32_bound
+wall_total,32,2 2 2 4,no,102.465100,row seconds,18,7.942248513387823e-06,True,,unbound; case 342.07 s
+wall_total,32,2 2 2 4,yes,3.04056982207112,row seconds,18,7.942248513387823e-06,True,2236599,data/l48_prof32_bound
 us_per_site_fine_apply,16,2 2 2 2,no,2.93,derived: 93.463424 s / 48 calls / 663552 sites,,,,,
 us_per_site_fine_apply,32,2 2 2 4,no,3.13,derived: 49.92 s / 48 / 331776,,,,,
 ratio_total,16,2 2 2 2,unbound:bound,90.2,derived: 186.084576 / 2.062792,,,,,95x quoted against the 196.002810 control

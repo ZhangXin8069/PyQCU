@@ -25,7 +25,9 @@ computed (Gram pseudo-inverse and the SVD frame) and must agree.
 
 Gates that must hold before any rho is reported:
   * a single basis vector as r must give rho = 1.000000 for BOTH bases
-  * a dense random odd field must give rho within 5% of capacity = E/(e*block^4)
+  * a dense random odd field must give rho within 10% of capacity = E/(e*block^4)
+  (the gate was 5% at first and is 10% in the code: 256 blocks give a few percent
+  of sampling noise on this statistic)
 """
 from __future__ import annotations
 

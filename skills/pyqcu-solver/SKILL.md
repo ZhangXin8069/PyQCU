@@ -321,35 +321,9 @@ correctness gate。完整矩阵、实际 cycle 计数和证据链接见
 
 ### 2026-11-25 KUPL Legacy-MG 只有一条外层：右预条件 FGMRES(m = 10)
 
-2026-11-25 **整段删除**了 Legacy-MG 的 BiCGStab 修正器，换成 CUDA 的结构。原因是
-CUDA-vs-KUPL 对比在两边跑不同方法时，任何差异都无法归因到硬件：
-
-- **外层**：右预条件 FGMRES(m = 10)。`z_j = M⁻¹v_j`、`w = A z_j`、Arnoldi、
-  `x += Z y`；restart 时按**真残差**重算。
-- **`M⁻¹`**：`nu_pre = 4` 步 MR 平滑（作用在进来的向量上）→ restrict → 一次
-  coarse cycle → prolong → 权重 1 加回；**没有 post-smoothing**（CUDA 也不用，
-  剩余部分由外层 Krylov 吸收）。
-- **粗层**：`cycle()` 就是 CUDA 的 V-cycle 体（2 步 BiCGStab 前平滑、restrict、
-  递归、prolong、2 步后平滑）；**两级时入口层就是最粗层，该体不运行**——这是深度
-  的属性，两后端相同。
-- **门**：6 步窗口的残差比几何平均；连续两个窗口 ≥ 0.9 就把预条件子关到本次 solve
-  结束，复现 CUDA 的 adaptive preconditioner gate。
-- `_MG_USE_DEFLATE_ == 0` 或 `--mg-levels 1` 表示**没有粗空间**，直接走
-  `set_.clover_bistabcg`；`restart` 已不是"修正间隔"，只剩 `simple/mpi` launcher
-  用它（`levels>1 and restart!=0`）决定是否启用粗空间。
-
-删除项（再当成现行机制写、照它复跑都是错的）：BiCGStab 修正器循环、修正间隔调度与
-`KUPL_MG_CORRECTION_INTERVAL`、平滑前缀与 `KUPL_MG_NU_PRE`、解析最优阻尼
-`t = <r,Ac>/‖Ac‖²` 作为活机制、`diagnose_correction` 与其 `MG_CORRECTION_DIAG` 行
-（`best_damping`/`best_ratio`/`overlap`/`capture_bound` 等打印）、"无改善就关掉修正
-回落细层 BiCGStab"、`KUPL_MG_OUTER`，以及 `MG_LEVEL_ITERS` 的 `fallback_fine=`
-token。`MG_LEVEL_ITERS` 仍打印 `level0/level1/...`、`total=` 与
-`accepted_corrections=`，后者现在计**预条件应用次数**。
-
-代价只有删除：`cpp/kupl/qcu/src/lattice_clover_multigrid.cpp` 由 **2313 行降到
-1772 行**（删旧修正器、加 FGMRES 外层，净减 541 行）；库已在计算节点重编译通过、符号中含 `fgmres`。**首批 FGMRES 数字仍在测
-（measured next）**，本节不写任何新倍数；旧路径的 A/B 按设计不再存在。完整记录见
-`logs/v20261126.txt`。
+见 [references/fgmres-port.md](./references/fgmres-port.md)：外层结构、`M⁻¹` 的构造、预条件门控、删除了哪些东西，以及**两次同配置三臂测量**（`2260302` 修正前 /
+`2260654` 修正后）与结论 `MG/plain = 1.41×` **更慢**（每次迭代贵 2.82×，而迭代只
+省 2 倍）。旧路径的 A/B 按设计不再存在。
 
 ### 历史：删除前的修正器路径（勿再扫参数）
 

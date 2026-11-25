@@ -4655,11 +4655,14 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
        b. Both bases stay well inside the projection bound: the largest rho is
           0.0882 against 0.1021, and both are far below 1.
        c. rho does not sit at the capacity.  As the residual smooths (roughness
-          5.56 -> 0.43) rho rises from 0.015 to about 0.085, i.e. from 1.4x to 8.2x
-          the capacity.  That growth is the smoothing concentrating the residual
-          where a coarse space can see it - and it is still small.
+          5.56 -> 0.43) rho rises on each basis separately: inverse 0.0151 -> 0.0650
+          (1.4x -> 6.2x capacity) and legacy 0.0116 -> 0.0882 (1.1x -> 8.5x).  An
+          earlier version of this sentence mixed the two bases' smallest and largest
+          values into one range; per basis is what the table says.  That growth is
+          the smoothing concentrating the residual where a coarse space can see it -
+          and it is still small.
        d. One correction is still not worth a fine iteration.  At the smooth end a
-          correction removes at most 8.5% (rho at k=20), and it costs about 2.3
+          correction removes at most 8.8% (the table's largest rho, legacy at k=16), and it costs about 2.3
           fine applications (section 152), i.e. about 3.7% per equivalent fine
           apply.  The contraction of an actual fine iteration, read off this
           table: k=4 -> k=10 falls 6.189e-02 -> 7.139e-03 over 6 iterations
@@ -4746,7 +4749,7 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
 
      What it does NOT establish: any speedup, and it is the third independent
      measurement agreeing on the same shape of answer (section 179: mg-2 is 1.68x
-     slower than plain; section 182: one correction removes at most 8.5% of the
+     slower than plain; section 182: one correction removes at most 8.8% of the
      residual for ~2.3 fine applications; here: adding a level costs 60%).  A third
      level adds a coarser correction that is cheaper per application but removes
      even less, so the arithmetic of section 182 predicted exactly this.
@@ -4999,3 +5002,23 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      All PASS with residual_verified, inside the documented +-8% noise, residuals
      identical: the guards fire only on the new conditions and change nothing on the
      normal path.
+
+190. PRIMARY RECORD for the old-path four-arm table that until now existed only in the
+     skills: job 2258877, one compute node (cn12139), 8 ranks, grid 2 2 2 1,
+     mass=+0.1, atol 1e-5, --repeat 3 --warmup 1, four arms serial in one allocation
+       arm                  symbol                     seconds  iters  rel residual
+       a1_plain             applyCloverBistabCgQcu      1.1856     28    4.4086e-06
+       a2_mg2_leg (cache)   applyCloverMultigridQcu     1.9922     n/a   4.8466e-06
+       a3_mg2_inv (cache)   applyCloverMultigridQcu     2.0421     n/a   4.6316e-06
+       z0_plain_b (control) applyCloverBistabCgQcu      1.1903     28    4.4086e-06
+     All four PASS with residual_verified=true; both MG arms cache_reused=true;
+     metrics.restart is 5 in all four rows (so section 153's confound is absent).
+       MG/plain = 1.9922/1.1856 = 1.6803 and 2.0421/1.1856 = 1.7224, i.e. 1.68x-1.72x.
+     Two things to state whenever this table is cited, because round 7 found neither
+     recorded:
+       (a) the denominator is the FIRST plain sample (1.1856), not the control
+           (1.1903); against the control the ratios are 1.674 and 1.716;
+       (b) this is an artifact of a run whose rows lived at data/nvab13/ on the
+           cluster and were never copied into the repository, which is why the values
+           appear here and in the two skill files but in no other log section - they
+           were cited to section 153/182 for a while, and neither contains them.

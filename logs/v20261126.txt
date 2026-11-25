@@ -177,13 +177,14 @@ docs/qcu_quda_multigrid_coarse_operator.md、logs/v20261126.txt。
     FGMRES + V-cycle 预条件子，KUPL 细层 BiCGStab + 周期粗修正），任何性能或收敛
     差异都无法归因到硬件。端口后两后端结构一致，差异才有归属。
     代价（本轮唯一可引用的新事实，全部实测）：
-      - `lattice_clover_multigrid.cpp` 由 2313 行降到 1772 行：删掉旧修正器路径、加上 FGMRES 外层,净减 541 行
+      - `lattice_clover_multigrid.cpp` 的**可核实**行数：git 里最大的历史版本是 **1910 行**，删除旧修正器后 **1701 行**（提交 `628231ee`），此后加入 FGMRES 外层与守门，HEAD 为 **1834 行**。工作树里曾有一个 2313 行的未提交版本（删除前的那一刻），但 git 里从没有过 2313 行，因此"2313 → 1772、净减 541"不可核实，已撤回
       - 库已在计算节点重编译通过，符号中含 `fgmres`
       - **首批 FGMRES 数字仍在测（measured next）**；本文件不写任何新倍数
     A/B 说明：与旧路径的 A/B **按设计不再存在**——旧代码没有留在树里，也没有开关能
     切回去。旧路径的数字（MG/plain 1.68x-1.72x、`best_ratio` 0.99x、阻尼搜索点击率
-    等）只能作为历史引用：`logs/v20261123.txt` §153/§182 与
-    `skills/pyqcu-solver/references/legacy-mg-corrector-history.md`。
+    等）只能作为历史引用：`logs/v20261123.txt` §190（四臂原始表）与
+    `skills/pyqcu-solver/references/legacy-mg-corrector-history.md`。§153 是间隔混淆的
+    那次，§182 是 ρ，两者都不含 1.68/1.72——这个指针曾指错，已修。
     本轮改的文档（只改文档，未动 .py/.cpp/.h/.pyx/.sh，未提交、未推送、未跑集群）：
       skills/pyqcu-solver/SKILL.md
       skills/pyqcu-solver/references/legacy-mg-corrector-history.md（新增）

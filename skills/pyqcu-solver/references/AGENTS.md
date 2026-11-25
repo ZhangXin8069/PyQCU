@@ -8,3 +8,4 @@
   （修正间隔、阻尼、`best_ratio`、MG/plain 倍数）；只在问历史时读。
 - 更新 cache 结论时同步代码协议、统一接口说明和实测证据；不得把配置不匹配的 cache
   描述为可复用。
+| `fgmres-port.md` | KUPL Legacy-MG 的唯一外层求解器：FGMRES(10) + MR 预条件、门控、删除清单、两次三臂测量与 1.41× 结论 |
