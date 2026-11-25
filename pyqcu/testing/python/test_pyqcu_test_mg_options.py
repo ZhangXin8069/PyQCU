@@ -77,12 +77,24 @@ def test_mg_3_is_wired_when_the_lattice_holds_the_hierarchy():
     chain = native._mg_level_chain(deep, resolved.mg_grid, 3, resolved.dof)
     assert [tuple(level["dims"]) for level in chain] == [
         (16, 16, 16, 16), (8, 8, 8, 8), (4, 4, 4, 4)]
+    # Wiring is asserted to the end of the chain the run would consume: three
+    # levels means two transitions, and the second one's E is the first one's.
     assert [level["E"] for level in chain] == [12, 12, 12]
-    # Acceptance is not runnability: the gate that stops a placeholder operator
-    # from reaching the ABI must still name the transition it cannot build.
-    refusal = native._mg_unbuilt_error(resolved, ["native", "unbuilt"])
-    assert isinstance(refusal, ValueError)
-    assert "transition(s) [2]" in str(refusal)
+    assert len(chain) == 3
+    identity = native.cache_module.mg_identity(
+        lattice=deep, mg_grid=resolved.mg_grid, dof=resolved.dof,
+        dtype="c64", mass=0.17, csw=0.0, seed=42, nv_iters=2)
+    shapes = native._mg_level_shapes(identity, chain)
+    record = native._mg_chain_record(chain, shapes, ["cache", "cache"])
+    assert [entry["level"] for entry in record] == [1, 2]
+    assert [entry["coarse"] for entry in record] == [
+        [8, 8, 8, 8], [4, 4, 4, 4]]
+    assert record[1]["E_parent"] == 12
+    # A missing root is the only thing that may refuse a depth this lattice can
+    # hold, and it must name the transition rather than the backend.
+    refusal = native._missing_transition_root(resolved, 2, 3)
+    assert "transition 2" in str(refusal)
+    assert "at most" not in str(refusal)
 
 
 def test_the_port_rejects_a_depth_the_lattice_cannot_hold():
