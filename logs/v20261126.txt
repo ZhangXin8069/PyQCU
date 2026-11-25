@@ -230,3 +230,33 @@ docs/qcu_quda_multigrid_coarse_operator.md、logs/v20261126.txt。
 
 两条都写在这里而不是悄悄绕过：发布说明里应注明 `git log` 的这三行元数据不合规，与
 代码无关。
+
+12. 第 6 轮（打包实建）结果：门禁 #2 通过，但 PyPI 上传有一个必须先解决的 tag 问题
+
+实证（隔离副本 `git archive HEAD`，未触碰工作树；Python 3.12.4 / setuptools 84.2.1 /
+cmake 4.4.5 / g++ 12.4.0）：
+
+| 检查 | 结果 |
+|---|---|
+| 跳过构建 + 预置陈旧 `pyqcu/{kupl,cuda}/libqcu.so` | wheel `.so` 成员 **0** 个，种子文件被删除，日志逐条记录 `removed … (sha256 …)` |
+| `PATH=/usr/bin:/bin`（无 cmake，即失败路径） | 同上，`.so` 成员 0，种子被删除，构建 exit 0（非致命降级） |
+| 更强的情形：`build_lib` 里留着上次成功构建的 1.7 MB 库 | 源树副本与 `build_lib` 副本**都被按 sha256 删除**，wheel `.so` 为 0，tag `py3-none-any` |
+| 守卫 fail-closed | 目录只读导致删不掉时，构建 **exit 1** 且不产出 wheel |
+| 成功路径一致性 | `cpp/kupl/qcu/build/libqcu.so` = `pyqcu/kupl/libqcu.so` = wheel 内成员，三者 sha256 全为 `e37ccabc…f8b6` |
+| tag 随内容双向变化 | 有库 → `Root-Is-Purelib: false` / `Tag: cp312-cp312-linux_x86_64`；无库 → `py3-none-any` |
+| 从 sdist 装 | sdist 无 `.so`、无 `tests/`；`bash install.sh kupl` configure+link 成功，`tests=OFF`（由目录缺失推导）；强行 `KUPL_BUILD_TESTS=ON` 则 exit 1 并说明原因 |
+
+**必须先处理的阻断项（PyPI）**：产出的 wheel 平台 tag 是 **`linux_x86_64`**，不是
+`manylinux*`（构建里没有 auditwheel）。**PyPI 会拒绝 `linux_x86_64` 的 wheel**（PEP 599/600）。
+
+因此发布路径改为：
+1. **PyPI 先只传 sdist**（`pyqcu-0.1.18.tar.gz`，1,074,618 B，无 `.so`、无测试源）——
+   原生后端本就要求用户本地构建，这是诚实且可安装的产物；
+2. 纯 Python `py3-none-any` wheel 可选（`PYQCU_SKIP_NATIVE_BUILD=1` 产出），但它不含
+   原生库，只对 torch-only 用户有意义，需在描述里写明；
+3. 若确实要发平台 wheel，必须先接 `auditwheel repair`（多 manylinux 镜像），那是独立的
+   工程任务，不在本次发布范围内。
+
+另外两条已知但不影响结论：`bash install.sh --check` 不是受支持的调用形式（只有
+`--help`/`-h`/`help`）；默认 `cuda` 后端的 wheel 即便不含原生内容也会被标成平台专用
+（`has_ext_modules()` 为真），这属于**过度声明**而非虚假声明——不会有原生内容却标 `any`。
