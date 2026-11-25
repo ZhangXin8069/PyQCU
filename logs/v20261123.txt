@@ -3512,3 +3512,54 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      rather than the artifact's E (section 154).  It hides nothing now that the
      guard keys on declared-ness, and half-wiring it would be worse than
      recording it.
+
+157. Review round 2 (evidence chain): what the artifacts actually support
+     The delegated auditor exhausted its budget without findings, so this round
+     was done directly.  Four checks, three pass, one needs a wording limit.
+
+     (a) "THE CLIFF" - the wording survives.  The log already states the limit
+         itself at §130: "NOT a rank-count effect (16r/32r/64r do identical
+         per-site work)", with 2.93 us/site at 16 ranks against 3.13 at 32.  So
+         "two-node cliff" names the 90x collapse of the unbound run, not a
+         scaling discontinuity, and no reader is being told that adding ranks
+         broke anything.  Keep the term, but a release note must say it that way.
+
+     (b) §151'S "TWELVE-DIGIT AGREEMENT" - the argument is sound, and now for a
+         reason I had not checked.  The three c128 MG rows report
+         `solution_path: None`, so no solution is written and a shared solution
+         FILE cannot explain the agreement; each residual is computed in memory
+         from that run's own output.  Their `residual_source` is an independent
+         implementation - "torch full Wilson-Clover reconstruction of the
+         rank-local blocks (MPI halo from pyqcu.torch.tools._mpi_roll, allreduce
+         of ||Dx-b||^2 and ||b||^2)" - and their decompositions genuinely differ
+         (lattice_grid 2 2 2 2 / 2 2 2 4 / 2 2 2 8, local_lattice t=64/32/16).
+         A wrong solver would fail this: the residual is ||Dx-b||/||b|| from a
+         separate operator, and §151 recorded atol <= gate and residual < gate for
+         all 16 cells.
+
+     (c) CROSS-ALLOCATION NUMBERS - one comparison in §152 is qualitative only.
+         §153 already corrected the load-bearing case (the 1.71x attribution).
+         What remains is §152's side-by-side of two runs of the SAME three-arm
+         test in DIFFERENT allocations:
+             4.534 / 6.717 / 8.040 s   (noise basis, job 2252541)
+             4.647 / 6.504 / 7.947 s   (corrected basis, job 2253109)
+         Those two rows may be quoted only as "the conclusion did not change when
+         the basis was fixed".  They may NOT be read as "the new basis is 1.3%
+         faster at C" - the repository's own rule (§114: a 2.1x swing on an
+         unchanged script) forbids it, and the differences here are under 4%.
+
+     (d) RETRACTED CLAIMS IN SHIPPED TEXT - checked `docs/`, `skills/`, and code
+         comments for the five retractions (capture_bound as evidence,
+         overlap = cos(r,A P c), "transfer geometry does not correspond",
+         "gather set != scatter set", "interval decoupled from restart",
+         "dual cells are single-node").  None survive: §141/§144/§145/§153 were
+         each carried into skills/pyqcu-solver/SKILL.md, logs/v20261125.txt and
+         the lattice_clover_multigrid.cpp header, and the audit predicates say
+         `support == block_sites * p.E` rather than the unsatisfiable form.
+
+     Release-note wording this round establishes:
+       - the 95x/34x are unbound-vs-bound at one allocation, per-site cost was
+         already flat, so this is a configuration defect, not a scaling result;
+       - the 16 matrix cells are 16 independent runs each gated on a residual
+         computed by an independent torch operator;
+       - no two wall times from different jobs may be compared as a ratio.
