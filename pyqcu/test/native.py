@@ -755,14 +755,16 @@ def _environment_enabled(name: str) -> bool:
 
 
 def _require_kunpeng_binding(backend: str, world: int) -> None:
-    """Refuse a multi-rank KUPL run that is not NUMA-bound on Kunpeng.
+    """Refuse a multi-rank KUPL run that is not fully bound on Kunpeng.
 
-    NUMA binding plus hugepages is not an optimisation on the Kunpeng nodes, it
-    is part of the measured configuration: the identical L48 c64 16-rank solve
-    took 196.00 s unbound and 2.06 s bound (2026-11-23, jobs 2236451 vs
-    2236485), i.e. 95x.  A run that silently loses the binding produces a
-    number that cannot be compared with any correctly configured result, so it
-    is refused instead of being recorded.
+    The three variables are not interchangeable and the docstring used to claim
+    all three while checking only the first: every measured Kunpeng number in
+    this repo was taken with ``KUPL_NUMA_BIND=1 KUPL_MEMORY_NODE=local+16
+    KUPL_HUGEPAGE=1`` together, and the identical L48 c64 16-rank solve took
+    196.00 s unbound against 2.06 s fully configured (2026-11-23, jobs 2236451
+    vs 2236485, i.e. 95x).  A run that keeps NUMA_BIND but loses the memory
+    policy or hugepages is a configuration nobody has measured, so it is refused
+    rather than recorded as if it were comparable.
 
     Single-rank runs and non-KUPL backends are untouched: the tier-0 gate runs
     one rank on ordinary hardware.  ``PYQCU_ALLOW_UNBOUND_KUPL=1`` exists only
@@ -770,16 +772,25 @@ def _require_kunpeng_binding(backend: str, world: int) -> None:
     """
     if str(backend) != "kupl" or int(world) <= 1:
         return
-    if _environment_enabled("KUPL_NUMA_BIND"):
-        return
     if _environment_enabled(ALLOW_UNBOUND_VARIABLE):
         return
+    missing = [
+        name for name in ("KUPL_NUMA_BIND", "KUPL_MEMORY_NODE", "KUPL_HUGEPAGE")
+        if not (os.environ.get(name) or "").strip()
+    ]
+    # NUMA_BIND is a flag (truthy spelling), the other two are values.
+    if not _environment_enabled("KUPL_NUMA_BIND") and "KUPL_NUMA_BIND" not in missing:
+        missing.append("KUPL_NUMA_BIND")
+    if not missing:
+        return
     raise RuntimeError(
-        "a multi-rank KUPL run must set KUPL_NUMA_BIND=1 with "
-        "KUPL_MEMORY_NODE=local+16 and KUPL_HUGEPAGE=1 on the Kunpeng nodes: "
-        "the same configuration measured 196.00 s without the binding and "
-        "2.06 s with it (95x, 2026-11-23). Set "
-        f"{ALLOW_UNBOUND_VARIABLE}=1 only for a deliberate unbound control.")
+        "a multi-rank KUPL run must set KUPL_NUMA_BIND=1, "
+        "KUPL_MEMORY_NODE=local+16 and KUPL_HUGEPAGE=1 on the Kunpeng nodes; "
+        f"missing or false: {', '.join(sorted(missing))}.  The same "
+        "configuration measured 196.00 s without the binding and 2.06 s with it "
+        "(95x, 2026-11-23), and a partial binding is a configuration nothing in "
+        f"this repo has measured. Set {ALLOW_UNBOUND_VARIABLE}=1 only for a "
+        "deliberate unbound control.")
 
 
 # ---------------------------------------------------------------------------
