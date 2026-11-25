@@ -238,6 +238,12 @@ cgroup 未完成，且没有 QUDA 同窗。
 
 ## 证据索引
 
+> 下列 `logs/**`、`data/logs/**` 路径按本库归档约定在阶段结果打 tag 后的清理提交中已从
+> 工作区删除，因此这些相对链接在 checkout 里指向不存在的路径——这是有意为之，不是
+> 文档错误。规范归档是 tag：用
+> `git log --all --oneline -- logs/qcu_l32x64_mpi_20261023` 找到提交，再用
+> `git show <commit>:<path>` 读取原文件。
+
 - 决策文档：[`docs/qcu_mg_benchmark_decisions_20261023.md`](../../../docs/qcu_mg_benchmark_decisions_20261023.md)
 - Strict skip：[`strict-skip.json`](../../../logs/qcu_l24x64_mpi_20261023/strict-skip.json)
 - 2-rank 2-level PASS：[`cuda-legacy-2l-deflate.json`](../../../data/logs/qcu_l24x64_mpi_20261023/multi2/cuda-legacy-2l-deflate.json)

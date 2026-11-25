@@ -3775,3 +3775,60 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
          levels). This is the only change that attacks the 86x bound rather than
          the cost, and it is a redesign with no measurement yet - it must not be
          claimed as a fix.
+
+163. Review round 7 (repo patrol) done directly; the two patrol agents ran out of budget
+     Both `bg-31` (evidence chain) and `bg-34` (patrol) hit their turn limits
+     without producing findings, so rounds 2 and 7 were executed here.  Recording
+     that, because an agent that exhausts its budget has NOT audited anything -
+     it must not be counted as a clean round.
+
+     What the patrol found, in the risk order I set:
+
+     (a) BULK-EDIT DAMAGE - none remaining.  The one real instance was my own
+         global `59`->`61` replacement earlier today, which corrupted historical
+         measurement values in project-docs-map.md (1.5979->1.6179 s,
+         2.0595->2.0615 s, 592->612 CPU, 92.8595->92.8615 s).  It was reverted and
+         re-applied as two exact string replacements.  Verified now: those values
+         are intact and the file's only change is the intended wording.
+
+     (b) COUNTS AND INDEXES - consistent.  `pyqcu-docs` audit PASSes with
+         docs=61 skills=36, every docs/*.md appears exactly once in each index.
+
+     (c) BROKEN LINKS - 11, all in one file and all deliberate.
+         skills/pyqcu-benchmark/references/qcu-multigrid-20261023.md links to
+         `logs/**` and `data/logs/**` artefacts from 2026-10-23 that this repo's
+         own convention deletes after the stage result is tagged.  The links were
+         correct when written and now point nowhere with no explanation, so the
+         section got a note naming the canonical archive (find the commit with
+         `git log --all -- <path>`, read with `git show <commit>:<path>`) instead
+         of silently teaching a reader that the evidence never existed.
+
+     (d) RETRACTED CLAIMS - none alive outside logs/.  Grepped docs/, skills/,
+         cpp/, pyqcu/ for `overlap = cos(r, A P c)`, 几何不对应,
+         `gather_set_equals_scatter_set=0`, 已解耦, "decoupled from restart".
+
+     (e) STALE ARTEFACTS - the KUPL shadowing copy is gone.  Two `.so` remain under
+         pyqcu/cuda (`libqcu.so` 28 MB and the Cython `qcu.cpython-312-...so`).
+         Both are untracked build products, and `pyqcu/cuda/libqcu.so` is
+         byte-for-byte the same build as `cpp/cuda/qcu/libqcu.so` (same size, same
+         mtime), so it is not a stale shadow.  `package_data` ships it, and the
+         `_copy_library` change from section 159 now deletes a stale destination
+         whenever the native build did not produce one.
+
+     (f) UNCOMMITTED STATE - only one thing is dirty on purpose:
+         `cpp/kupl/qcu/src/lattice_clover_multigrid.cpp` (+366/-119), which is
+         bg-33's in-flight chunk/restart decoupling.  It was NOT committed here,
+         and it must not be committed until its own measurement exists.
+
+     (g) CLAIMS WITHOUT A TEST.  Of the five mechanisms I could have pinned:
+           - three-variable Kunpeng binding guard: pinned only by the manual
+             six-way matrix in section 154, NOT by an automated test;
+           - cache identity carries nv_builder: no test pins it;
+           - `--mg-nu-pre` reaching params[kMgMuPre]: no test pins it (verified
+             once by hand at the resolver);
+           - declared-E cache guard: no test pins it (verified once by hand);
+           - MG residual re-verified before the exit check: no test pins it.
+         That is the honest gap this round leaves: five mechanisms are correct as
+         far as hand verification goes, and none of them would fail a test if a
+         later change broke it.  Recording it as a release caveat rather than
+         claiming the tree is fully guarded.
