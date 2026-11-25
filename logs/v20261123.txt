@@ -4085,3 +4085,63 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
      library hash, log timestamps, row contents.  Every number in this log now
      names those, which is also why the exhausted agents cost only time and not
      correctness.
+
+171. mg-3 is not buildable and not readable - three independent blockers, verified
+     `bg-39` was told to generalise the cache builder to N <= 5 levels, with an
+     explicit instruction to STOP and report rather than invent a parallel layout
+     if the existing helpers could not express it.  It stopped, with evidence:
+
+     (a) THE SHAPE HELPER CANNOT DESCRIBE TRANSITION 2.
+         `pyqcu/tools/_legacy_mg_cache.py:131-135` hardcodes `fine_dof = 12` and
+         refuses any other value, but transition 2's fine dof is level 1's E (=4).
+         Measured on the requested lattice: native._mg_level_shapes wants
+         t2 lonv (4,4,4,2,4,2,4,2,4,2) while the helper produces
+         (4,12,4,2,4,2,4,2,4,2); passing the real parent components raises
+         "Legacy MG transition cache requires fine dof 12, got 4", and a manifest
+         built with the correct shapes is rejected by the canonical-shape check.
+     (b) THE MANIFEST HAS NO PER-TRANSITION SLOT.  `assets` is the four dataset
+         names of the ONE transition a manifest describes; LEGACY_MG_ASSET_NAMES,
+         LEGACY_MG_ASSET_COARSE_AXES, legacy_mg_cache_shapes, legacy_mg_local_shapes,
+         build_legacy_mg_ranked_cache_manifest, write_legacy_mg_rank_slice and
+         read_legacy_mg_ranked_manifest are all single-transition by construction.
+     (c) NOTHING CAN PRODUCE TRANSITION >= 2's TENSORS - the fatal one.  Both C++
+         builders take the PARENT's gauge + Clover pair and require the fine
+         extents to equal the LatticeSet geometry
+         (`lattice_solver.cpp:898-899`, `lattice_multigrid.cpp:1653-1657`), so
+         "build level 2's null vectors on the parent extents" raises
+         invalid_argument instead of building.  The Legacy-MG stores NO coarse
+         gauge - the solver only ever reads the per-level 33-stencil - so
+         transition 2's operator is the level-1 stencil, and there is no entry
+         point anywhere that builds a null vector or a stencil FROM a stencil.
+         The chain builder that does exist is torch/CUDA only
+         (`pyqcu/cuda/_multi_gpu.py:84-160`) and uses ONE CACHE ROOT PER LEVEL
+         (`--coarse-cache` + `--coarse-cache-level`, solve_case.py:497-507).
+
+     And `pyqcu.test` refuses depth > 2 by design (`native.py:4121-4133`,
+     `_mg_unbuilt_error` :4142-4170), pinned by test_pyqcu_test_mg_options.py:50-85
+     and test_pyqcu_test_mg_levels.py.  Removing the CLI gate at
+     kupl_multigrid.py:1320 would only move the failure.
+
+     The `dof` convention, confirmed: `dof[0]` is the fine 12-component odd-Schur
+     field and `dof[L]` is level L's E, so the existing check
+     `len(args.dof) >= args.levels` is already CORRECT - my earlier spec saying
+     "levels + 1" was wrong.
+
+     WHAT A REAL mg-3 WOULD NEED (physics, not a tool fix):
+       (i) a CPU builder for a transition whose parent operator is the 33-stencil,
+           or a blocked-gauge + coarse-Clover construction; and
+       (ii) N-1 cache roots rather than one file with a per-transition manifest,
+           which is the repo's existing per-level convention.
+     Until both exist, mg-3 cannot be measured, and the old-vs-new basis
+     comparison is limited to mg-2.
+
+     TWO PRE-EXISTING DEFECTS FOUND INCIDENTALLY, both worth their own ticket:
+       1. `[4,4,4,4]` with `--mg-grid 2 2 2 2` ABORTS inside
+          `applyMultigridBuildStencilLocalQcu` with glibc "corrupted size vs.
+          prev_size" - heap corruption, not a caught error.  `[8,8,8,16]` is the
+          smallest lattice that builds.  The geometry gate should refuse [4,4,4,4]
+          instead of letting it corrupt the heap.
+       2. For a cache file `X.h5` the sidecar manifest is `X.json`, which collides
+          with `--report X.json`: the run report silently overwrote the cache
+          manifest in one probe.  A report path must not be allowed to equal a
+          cache manifest path.
