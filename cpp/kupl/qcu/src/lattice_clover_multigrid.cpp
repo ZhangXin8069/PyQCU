@@ -830,16 +830,13 @@ private:
   // nu_pre steps, same parameter and same default as CUDA
   // (_MG_MU_PRE_, default 4 at lattice_clover_multigrid.h:5293).
   int mu_pre_steps() const {
+    // CUDA's parameter semantics: _MG_MU_PRE_ > 0 is the step count and 0 means
+    // the default 4.  A zero-step (coarse-only) preconditioner was tried behind an
+    // environment override and REMOVED: three compute-node jobs died with SIGTERM
+    // ("force to exit immediately") inside that arm while the same batch without
+    // the override completed, so the path is unstable.  A parameter that can kill
+    // a job must not ship.
     const int configured = params_[kMgMuPre];
-    // Negative is the explicit "no smoothing" request: M^-1 is then the coarse
-    // cycle alone, the only configuration in which one preconditioned iteration
-    // can cost LESS than one fine application.  Measured on this backend, nu_pre
-    // 4 / 2 / 1 give 1.7220 / 1.7333 / 1.7777 s - flat - so the per-iteration
-    // cost is dominated by the fine applies INSIDE the smoother, and the only way
-    // left to get below plain's 28 applies is to remove them.
-    if (configured < 0) {
-      return 0;
-    }
     const int steps = configured > 0 ? configured : 4;
     return std::min(steps, 8);
   }

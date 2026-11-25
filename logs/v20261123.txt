@@ -4862,3 +4862,48 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
           cache, same lattice, both backends, compare level0/level1 and the
           residual history.  None exists today, which is why the two drifted apart
           unnoticed while sharing a cache format.
+
+187. FINAL KUPL-MG VERDICT: the ported CUDA algorithm halves the iteration count and
+     is still 1.41x slower, and no parameter changes that
+     Three-arm job 2260302, one compute node, 8 ranks, grid 2 2 2 1, mass=+0.1
+     (kappa=0.121951 < kappa_c), atol 1e-5, --repeat 3 --warmup 1, all PASS with
+     residual_verified:
+
+       arm    level0  level1  level2   seconds   rel residual   per-iteration
+       base      28       -       -    1.2008     4.41e-06      0.0429 s
+       mg-2      14      14       -    1.6921     3.83e-06      0.1209 s  (2.82x)
+       mg-3      13      13      13    2.6399     4.68e-06      0.2031 s  (4.73x)
+
+     So the ported structure - right-preconditioned FGMRES(10) with M^-1 = 4 MR
+     steps + one coarse cycle - finally DOES what multigrid is supposed to do to the
+     iteration count: 28 -> 14, exactly half.  It is still slower, because an
+     iteration costs 2.82x, and 2.82 > 2.  Break-even needs a per-iteration ratio
+     below 2.0, or 10 or fewer iterations.
+
+     Parameter sweep, same allocation, every arm PASS:
+       nu_pre 4, coarse tol 1e4   1.7220 s
+       nu_pre 2, coarse tol 1e4   1.7333 s
+       nu_pre 2, coarse tol 1e2   1.7382 s
+       nu_pre 1, coarse tol 1e2   1.7777 s
+       nu_pre 1, coarse tol 10    1.7862 s
+     Flat to within 4%.  Neither the smoothing count nor the coarse-solve tolerance
+     moves the wall clock, which localises the cost to the fine applications INSIDE
+     the preconditioner (A z plus nu_pre MR steps) plus the restrict/prolong sweep -
+     not to the coarse solve, and not to the number of iterations.
+
+     A zero-step (coarse-only) preconditioner is the only configuration that can
+     cost less than one fine apply per iteration, and it could not be measured: it
+     needs _MG_MU_PRE_ = 0, which pyqcu.test rejects (>= 1) and which the C++ already
+     reads as "use the default 4" for CUDA parity.  An environment override was
+     added, and three separate jobs (2260465, 2260506, 2260528) died with SIGTERM
+     ("force to exit immediately") inside that arm while the same batch without the
+     override completed.  The override has been REMOVED rather than shipped: a
+     parameter that can kill a job is worse than no parameter.
+
+     Conclusion to carry forward: on this operator and lattice, KUPL Legacy-MG does
+     not accelerate, and the reason is structural - every preconditioned iteration
+     contains at least one fine application, and the hierarchy adds a
+     restrict/prolong sweep on top.  Getting below plain therefore needs either a
+     preconditioner with no fine apply inside it (a cheaper smoother than MR, e.g.
+     a diagonal or polynomial one) or fewer applies per iteration; it cannot be
+     reached by tuning nu_pre, the coarse tolerance, E, the basis or the restart.
