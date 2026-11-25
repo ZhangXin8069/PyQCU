@@ -517,3 +517,29 @@ def test_the_shared_identity_records_the_revision_only_when_claimed():
     assert declared["nv_builder"] == _legacy_mg_cache.NULL_VECTOR_BUILDER
     assert (_legacy_mg_cache.identity_sha256(undeclared)
             != _legacy_mg_cache.identity_sha256(declared))
+
+
+def test_the_loader_expects_the_builder_the_switch_selects(monkeypatch):
+    """``KUPL_NV_BUILDER`` must move the expectation, not just the writer.
+
+    The loader compared against the ``NULL_VECTOR_BUILDER`` constant, so a cache
+    that correctly recorded ``legacy-residual/1`` was refused with
+    "... 'nv_builder': 'legacy-residual/1'} != {... 'inverse-iteration/2'}" and the
+    legacy arm of an A/B could not load its own artifact.  Reading the switch is
+    what makes the two arms actually differ.
+    """
+    monkeypatch.delenv(cache.NULL_VECTOR_BUILDER_ENVIRONMENT, raising=False)
+    assert native._expected_nv_builder() == cache.NULL_VECTOR_BUILDER
+
+    monkeypatch.setenv(cache.NULL_VECTOR_BUILDER_ENVIRONMENT, "legacy")
+    assert native._expected_nv_builder() == cache.LEGACY_NULL_VECTOR_BUILDER
+
+    monkeypatch.setenv(cache.NULL_VECTOR_BUILDER_ENVIRONMENT, "inverse")
+    assert native._expected_nv_builder() == cache.NULL_VECTOR_BUILDER
+
+    # A typo must raise rather than silently pick one arm (the C++ parser is exact
+    # too, so accepting a spelling it rejects would let the manifest and the run
+    # disagree).
+    monkeypatch.setenv(cache.NULL_VECTOR_BUILDER_ENVIRONMENT, "legasy")
+    with pytest.raises(cache.CacheError):
+        native._expected_nv_builder()

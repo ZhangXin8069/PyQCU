@@ -4005,6 +4005,19 @@ def _ranked_mg_cache_path(option: NativeCase) -> Path | None:
     return _ranked_mg_root(option.cache)
 
 
+def _expected_nv_builder() -> str:
+    """Revision the configured C++ builder writes, read from the switch.
+
+    This must come from ``cache.null_vector_builder()`` and not from the
+    ``NULL_VECTOR_BUILDER`` constant: with ``KUPL_NV_BUILDER=legacy`` the case asks
+    the C++ builder for the historical ``v -= S^-1(S v)`` loop, so an artifact that
+    correctly records ``legacy-residual/1`` is exactly the one this case wants.
+    Taking the constant made that artifact unloadable and the switch inoperative on
+    this path - the A/B ran both arms on whichever basis the constant named.
+    """
+    return str(cache_module.null_vector_builder())
+
+
 def _load_ranked_mg_assets(
         option: NativeCase, controls: _Controls, torch: Any,
         grid: Sequence[int], path: Path, *,
@@ -4066,7 +4079,7 @@ def _load_ranked_mg_assets(
         "mg_grid": list(option.mg_grid),
         "seed": int(option.seed),
         "nv_iters": int(option.nv_iters),
-        "nv_builder": str(cache_module.NULL_VECTOR_BUILDER),
+        "nv_builder": _expected_nv_builder(),
     }
     actual = {
         "lattice": list(identity.get("lattice", [])),
