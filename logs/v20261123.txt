@@ -4145,3 +4145,53 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
           with `--report X.json`: the run report silently overwrote the cache
           manifest in one probe.  A report path must not be allowed to equal a
           cache manifest path.
+
+172. Old-vs-new basis A/B: mechanism verified, comparison still unobtainable
+     What IS established, with artifacts:
+       - the `KUPL_NV_BUILDER=legacy|inverse` switch works and the cache identity
+         records which builder ran.  At [8,8,8,16] both caches built and their
+         manifests read back status=PASS with nv_builder "legacy-residual/1" and
+         "inverse-iteration/2" respectively, dof [12,2], all four assets present.
+         That is the mechanism this exercise was meant to create, and it works.
+
+     What is NOT established: any new-vs-old comparison number.  The attempts and
+     their exact blockers:
+       - [8,8,8,16], any tolerance down to 1e-3: the plain BiCGStab solve itself
+         fails with "CLOVER_BISTABCG_SCHUR: non-finite or out-of-tolerance true
+         residual", so no arm can be measured there.  This is a property of that
+         tiny lattice with csw 1.160920226 / mass -0.277, not of MG.
+       - [16,16,16,32], single process on the login node: the build ran 30 min at
+         91% CPU and 1 thread and had not finished when a 1800 s timeout killed it.
+         With OMP_NUM_THREADS=16 the same build was relaunched but the run was then
+         superseded by the compute-node attempts.
+       - [16,16,16,32], 8 ranks on a compute node with the proven launcher: the
+         launcher works (`RANKFILE rows=8`, rankfile + CCS_DRUN_RANK_FILE + matched
+         `drun -R core`), and the C++ builder then fails on all 8 ranks with
+         "null-vector legacy residual failed after five deterministic retries:
+         NULL_VECTOR_INVERSE_ITERATION: non-finite or out-of-tolerance true
+         residual" - cold gauge and random gauge alike.  The inverse branch fails
+         the same way in the same job, so the multi-rank build path itself is what
+         breaks, not the basis choice.
+
+     MY OWN ERRORS IN THIS STRETCH, recorded because they cost more than the
+     physics did:
+       - I misspelled the login as `nls_yangyb` instead of `nsls_yangyb`, then
+         reported the resulting auth failure as "the server rejected our key" and
+         asked for `ssh-copy-id`.  The port was open and the key was fine.
+       - I killed a build that was working (etime 29:33, CPU time 26:57, 91% CPU)
+         because my own timeout was shorter than the job needed.
+       - I patched a script with sed twice and both times left an inconsistent
+         state: once the arms were reduced to 2 levels while the cache command still
+         said `--levels 3`, and once the output directory was renamed in the header
+         but not in the payload, so logs landed in one tree and artifacts in
+         another.
+
+     CONCLUSION for the record: the old-vs-new basis performance comparison cannot
+     be produced by this tooling as it stands.  The blocker is the cache builder:
+     it is too slow single-process at [16,16,16,32] and its multi-rank path fails
+     inside the C++ null-vector setup for both builders.  Fixing that is a separate
+     piece of work on `pyqcu/testing/simple/kupl_multigrid.py` and the C++ builder
+     entry points, not another launch retry.  The MG negative result of sections
+     162/168 does not depend on this comparison - it rests on the appendix
+     algebra and on the bound-closed three-arm measurement - so nothing already
+     reported changes.
