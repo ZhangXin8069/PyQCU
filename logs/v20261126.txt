@@ -126,3 +126,25 @@ docs/qcu_quda_multigrid_coarse_operator.md、logs/v20261126.txt。
      三个都必须用 `kappa < kappa_c` 的算符（mass=+0.1），否则 §180 的 NaN 会伪装成代码缺陷。
    b. 任何基比较或收敛实验：先手算 kappa 与 cos p_x，只用非奇异算符。
    c. 不要重跑 [4,4,4,4] 探针；不要再找 coarse gauge / coarse Clover。
+
+9. 稳定成果清单（可追溯；张量不入库，只记身份）
+   本会话所有 PASS 产物的 `identity_sha256` 与库标识，便于日后核对"这份缓存是不是当时那份"。
+   库：`cpp/kupl/qcu/build/libqcu.so.0.1.0` md5 `305a152cdc68d52043253d3016c7c2dc`
+   （构建于 13:37，早于全部下列作业）。
+
+   | 缓存根（远端 data/ 下） | status | dof | identity lattice | builder | identity_sha256(前16) |
+   |---|---|---|---|---|---|
+   | `mg3b/caches/l1` | PASS | [12,12] | [16,16,16,32] | inverse-iteration/2 | ed45eee786c31d86 |
+   | `mg3l2b/caches/l2` | PASS | [12,2] | [8,8,8,16] | inverse-iteration/2 | b09a2feec2e8db74 |
+   | `mg3l2b/caches/sb_inverse` | PASS | [12,2] | [8,8,8,16] | inverse-iteration/2 | 7f728dae1f38f0d8 |
+   | `mg3l2b/caches/sb_legacy` | PASS | [12,2] | [8,8,8,16] | legacy-residual/1 | c763e55627a5694c |
+   | `nvab12/caches/legacy` | PASS | [12,2] | [16,16,16,32] | legacy-residual/1 | d86f9a40597665ce |
+   | `nvab12/caches/inverse` | PASS | [12,2] | [16,16,16,32] | inverse-iteration/2 | 5ec8b58cfd0e68df |
+
+   注意 `l2` 与 `sb_*` 的 `lattice` 都是 [8,8,8,16] 而 `dof` 不同：前者是
+   16^3x32 链的第 2 层（父层粗盒 8^3x8 的两倍奇时间），后者是独立的 8^3x16
+   小格点基对照。**相同 lattice 不代表同一条链**，必须看 dof 与 identity_sha256。
+
+   `[12,2]` 的缓存只能配 `--mg-dof 12 2`，`[12,12]` 的只能配 `--mg-dof 12 12`；
+   E 是 artifact 的属性（`lonv` 轴 0 → `params[19]`），加载时改不了，请求不一致会被
+   拒绝并要求重建——这是正确行为，别绕过它。
