@@ -4673,8 +4673,13 @@ Both are 2 nodes, 4 ranks, legal cpuset, drun-accepted.
           MG/plain = 1.41x SLOWER at the old path's 1.68x; a single "28% per
           iteration" figure does not exist in this table and is withdrawn.
 
-     Artifact: data/rho_20261125/{build_and_measure.py, rho2.json,
-     sb_inverse_lonv.npy, sb_legacy_lonv.npy}.  This was measured in one local
+     Artifact: pyqcu/testing/python/rho_capture_fraction.py (script), the table in
+     this section (values), and the two per-builder caches, which are build products
+     and are not tracked - see data/README.md for how to regenerate them.  The script
+     used to live in data/rho_20261125/, which the repository form gate forbids: data/
+     may track only .gitignore, AGENTS.md and README.md.  The move was verified by
+     re-running it, not by inspection: both gates pass (single vector 1.000000, dense
+     107.8% / 106.3% of capacity) and all eleven rows reproduce bit-for-bit.
      process (no MPI, no scheduler job), which is why it carries no job id; the
      two caches it read were built by compute-node jobs 2259128 and 2259181.
 

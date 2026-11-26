@@ -31,6 +31,7 @@ Gates that must hold before any rho is reported:
 """
 from __future__ import annotations
 
+import argparse
 import json
 import math
 import sys
@@ -40,9 +41,11 @@ import h5py
 import numpy as np
 import torch
 
-HERE = Path(__file__).resolve().parent
-SMALL = HERE / "small"
-CACHES = HERE / "sb"
+# Both input directories are build products and are not in Git, so they come from
+# the command line: SMALL holds the gauge and the point source, CACHES the two
+# per-builder coarse bases.  --json writes the measured table out.
+SMALL: Path | None = None
+CACHES: Path | None = None
 
 LATTICE = (8, 8, 8, 16)
 MASS = 0.1
@@ -165,7 +168,23 @@ def capture(field: np.ndarray, lonv: np.ndarray) -> dict:
             "rank_min": min(ranks), "rank_max": max(ranks)}
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Capture fraction of a coarse basis for a real BiCGStab "
+                    "residual.  Both inputs are build products that are not in "
+                    "Git, so both must be given.")
+    parser.add_argument("--small", required=True, type=Path,
+                        help="directory holding gauge_8x8x8x16_c64.h5 and "
+                             "source_point_8x8x8x16_c64.h5")
+    parser.add_argument("--caches", required=True, type=Path,
+                        help="directory holding sb_inverse_lonv.npy and "
+                             "sb_legacy_lonv.npy, the two per-builder caches")
+    parser.add_argument("--json", type=Path, default=None,
+                        help="write the measured rows here (default: stdout only)")
+    arguments = parser.parse_args(argv)
+    global SMALL, CACHES
+    SMALL, CACHES = arguments.small, arguments.caches
+
     bases = {}
     for name in ("inverse", "legacy"):
         path = CACHES / ("sb_%s_lonv.npy" % name)
@@ -220,9 +239,9 @@ def main() -> int:
               % (k, row["relative"], row["roughness"], row["inverse"],
                  row["legacy"], row["ratio_leg_over_inv"]))
     print("\nBiCGStab reached k=%d" % reached)
-    (HERE / "rho2.json").write_text(json.dumps(
-        {"mass": MASS, "kappa": KAPPA, "capacity": CAPACITY, "rows": rows},
-        indent=2), encoding="utf-8")
+    document = {"mass": MASS, "kappa": KAPPA, "capacity": CAPACITY, "rows": rows}
+    if arguments.json is not None:
+        arguments.json.write_text(json.dumps(document, indent=2), encoding="utf-8")
     return 0
 
 
